@@ -1,8 +1,8 @@
 const services = [
   { num: "01", title: "AI Brand\nCampaigns", desc: "High-fashion, photorealistic campaign imagery produced entirely with AI. Indistinguishable from traditional shoots — at a fraction of the cost and timeline." },
   { num: "02", title: "Editorial\nLifestyle", desc: "Real skin texture. Real light. AI-crafted lifestyle content designed to perform across social, e-commerce, and brand storytelling." },
-  { num: "03", title: "Brand Identity\n& Logos", desc: "Visual identity systems built to last. From wordmarks to full brand guidelines, we create cohesive identities with editorial precision." },
-  { num: "04", title: "Web\nDevelopment", desc: "Conversion-focused websites designed to match your brand's ambition. Custom builds with luxury-grade attention to detail." },
+  { num: "03", title: "Short-Form\nVideo", desc: "Reels, TikToks, and paid social ads built with AI visuals and editorial pacing. Scroll-stopping content that performs on algorithm and stays on brand." },
+  { num: "04", title: "Product\nVisualization", desc: "Your product in any scene, any setting. AI-generated packshots and lifestyle context shots that look like a world-class studio — without the studio." },
 ];
 
 const ServicesSection = () => {

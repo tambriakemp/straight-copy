@@ -224,7 +224,7 @@ const Services = () => {
               Book a Free Consult
             </Link>
             <Link
-              to="/"
+              to="/work"
               className="font-sans text-[11px] tracking-[0.2em] uppercase text-charcoal no-underline flex items-center gap-2.5 hover:gap-4 hover:text-accent transition-all duration-300 after:content-['→']"
             >
               See Our Work
