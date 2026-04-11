@@ -20,7 +20,7 @@ const ContactSection = () => {
       <div className="flex justify-center gap-6 reveal">
         <Link
           to="/contact"
-          className="font-sans text-[11px] tracking-[0.2em] uppercase text-primary-foreground bg-warm-white px-10 py-4 no-underline inline-block hover:bg-accent hover:text-warm-white hover:-translate-y-0.5 transition-all duration-300"
+          className="font-sans text-[11px] tracking-[0.2em] uppercase text-warm-white bg-transparent border border-warm-white/30 px-10 py-4 no-underline inline-block hover:bg-accent hover:border-accent hover:-translate-y-0.5 transition-all duration-300"
         >
           Start a Campaign
         </Link>
