@@ -45,10 +45,10 @@ const PhilosophyPage = () => {
           </Link>
           <ul className="hidden md:flex gap-10 list-none">
             {[
-              { name: "Services", path: "/#services" },
-              { name: "Work", path: "/#work" },
+              { name: "Services", path: "/services" },
+              { name: "Work", path: "/work" },
               { name: "Philosophy", path: "/philosophy" },
-              { name: "Contact", path: "/#contact" },
+              { name: "Contact", path: "/contact" },
             ].map((item) => (
               <li key={item.name}>
                 <Link
@@ -202,14 +202,14 @@ const PhilosophyPage = () => {
             <em className="italic text-stone">Better results.</em>
           </h2>
           <div className="flex justify-center gap-6 items-center relative reveal">
-            <Link
-              to="/#contact"
+             <Link
+              to="/contact"
               className="font-sans text-[11px] tracking-[0.2em] uppercase text-warm-white bg-accent px-10 py-4 no-underline inline-block hover:bg-[#9B8265] hover:-translate-y-0.5 transition-all duration-300"
             >
               Start a Project
             </Link>
             <Link
-              to="/#work"
+              to="/work"
               className="font-sans text-[11px] tracking-[0.2em] uppercase text-stone no-underline flex items-center gap-2.5 hover:gap-4 hover:text-warm-white transition-all duration-300 after:content-['→']"
             >
               See Our Work

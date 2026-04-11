@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import heroCampaign from "@/assets/hero-campaign.jpg";
 import heroEditorial from "@/assets/hero-editorial.jpg";
 import heroLifestyle from "@/assets/hero-lifestyle.jpg";
@@ -18,18 +19,18 @@ const HeroSection = () => {
           Real skin. Real light. Undetectable. We create luxury-grade brand campaigns using AI — faster, more scalable, and indistinguishable from traditional production.
         </p>
         <div className="flex gap-6 items-center animate-fade-up animate-fade-up-delay-4">
-          <a
-            href="#contact"
+          <Link
+            to="/contact"
             className="font-sans text-[11px] tracking-[0.2em] uppercase text-primary-foreground bg-ink px-10 py-4 no-underline inline-block hover:bg-accent hover:-translate-y-0.5 transition-all duration-300"
           >
             Start a Project
-          </a>
-          <a
-            href="#work"
+          </Link>
+          <Link
+            to="/work"
             className="font-sans text-[11px] tracking-[0.2em] uppercase text-charcoal no-underline flex items-center gap-2.5 hover:gap-4 hover:text-accent transition-all duration-300 after:content-['→']"
           >
             See Our Work
-          </a>
+          </Link>
         </div>
       </div>
 

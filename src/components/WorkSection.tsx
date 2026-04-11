@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 const projects = [
   { tag: "Pilates Brand · AI Campaign", name: "Movement Studio", gradient: "from-stone to-accent" },
   { tag: "Wellness · Lifestyle Editorial", name: "Morning Ritual", gradient: "from-taupe to-charcoal" },
@@ -12,9 +14,9 @@ const WorkSection = () => {
         <h2 className="font-serif text-[clamp(44px,5vw,72px)] font-light leading-none text-ink reveal">
           Selected <em className="italic">Work</em>
         </h2>
-        <a href="#" className="font-sans text-[11px] tracking-[0.2em] uppercase text-charcoal no-underline flex items-center gap-2.5 hover:gap-4 hover:text-accent transition-all duration-300 after:content-['→']">
+        <Link to="/work" className="font-sans text-[11px] tracking-[0.2em] uppercase text-charcoal no-underline flex items-center gap-2.5 hover:gap-4 hover:text-accent transition-all duration-300 after:content-['→']">
           View all projects
-        </a>
+        </Link>
       </div>
       <div className="work-scroll flex gap-[2px] overflow-x-auto pb-6">
         {projects.map((p) => (
