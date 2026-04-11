@@ -149,8 +149,8 @@ const Contact = () => {
                     <option value="" disabled>Select a service</option>
                     <option value="campaign">AI Brand Campaign</option>
                     <option value="lifestyle">Editorial Lifestyle Content</option>
-                    <option value="identity">Brand Identity & Logo</option>
-                    <option value="web">Web Development</option>
+                    <option value="video">Short-Form Video</option>
+                    <option value="product">Product Visualization</option>
                     <option value="retainer">Monthly Retainer</option>
                     <option value="unsure">Not Sure Yet</option>
                   </select>
