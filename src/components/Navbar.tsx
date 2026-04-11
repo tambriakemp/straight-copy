@@ -8,7 +8,7 @@ const Navbar = () => {
       </Link>
       <ul className="hidden md:flex gap-10 list-none">
         <li><Link to="/services" className="font-sans text-[11px] font-normal tracking-[0.2em] uppercase text-charcoal no-underline hover:text-accent transition-colors duration-300">Services</Link></li>
-        <li><a href="#work" className="font-sans text-[11px] font-normal tracking-[0.2em] uppercase text-charcoal no-underline hover:text-accent transition-colors duration-300">Work</a></li>
+        <li><Link to="/work" className="font-sans text-[11px] font-normal tracking-[0.2em] uppercase text-charcoal no-underline hover:text-accent transition-colors duration-300">Work</Link></li>
         <li><Link to="/philosophy" className="font-sans text-[11px] font-normal tracking-[0.2em] uppercase text-charcoal no-underline hover:text-accent transition-colors duration-300">Philosophy</Link></li>
         <li><Link to="/contact" className="font-sans text-[11px] font-normal tracking-[0.2em] uppercase text-charcoal no-underline hover:text-accent transition-colors duration-300">Contact</Link></li>
       </ul>
