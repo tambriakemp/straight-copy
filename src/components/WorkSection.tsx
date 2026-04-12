@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
+import morningRitualImage from "@/assets/morning-ritual.jpg";
 
 const projects = [
   { tag: "Pilates Brand · AI Campaign", name: "Movement Studio", gradient: "from-stone to-accent" },
-  { tag: "Wellness · Lifestyle Editorial", name: "Morning Ritual", gradient: "from-taupe to-charcoal" },
+  { tag: "Wellness · Lifestyle Editorial", name: "Morning Ritual", gradient: "from-taupe to-charcoal", image: morningRitualImage },
   { tag: "Apparel · Campaign", name: "Neutral Studio", gradient: "from-sand to-taupe" },
   { tag: "Beauty · Brand Identity", name: "Skin Study", gradient: "from-accent to-stone" },
 ];
@@ -24,7 +25,16 @@ const WorkSection = () => {
             key={p.name}
             className="work-card flex-shrink-0 w-[320px] h-[420px] relative overflow-hidden transition-all duration-500 hover:w-[400px] group"
           >
-            <div className={`absolute inset-0 bg-gradient-to-br ${p.gradient} opacity-70`} />
+            {p.image ? (
+              <img
+                src={p.image}
+                alt={p.name}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <div className={`absolute inset-0 bg-gradient-to-br ${p.gradient} opacity-70`} />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
             <div className="absolute bottom-8 left-8 right-8">
               <div className="text-[10px] tracking-[0.25em] uppercase text-warm-white/60 mb-2">{p.tag}</div>
               <div className="font-serif text-[26px] font-light text-warm-white">{p.name}</div>
