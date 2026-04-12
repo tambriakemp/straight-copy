@@ -66,7 +66,7 @@ const Work = () => {
         </section>
 
         {/* Filter Bar */}
-        <div className="py-8 px-8 md:px-[52px] bg-cream flex flex-wrap gap-2 items-center border-b border-mist sticky top-[81px] z-50">
+        <div className="py-8 px-8 md:px-[52px] bg-cream flex flex-wrap gap-2 items-center border-b border-mist sticky top-0 z-40">
           <span className="text-[10px] tracking-[0.25em] uppercase text-taupe mr-4">Filter:</span>
           {filters.map((f) => (
             <button
