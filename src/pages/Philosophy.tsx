@@ -66,7 +66,7 @@ const PhilosophyPage = () => {
 
         {/* Hero */}
         <section className="pt-[180px] pb-[100px] bg-ink flex flex-col justify-end px-8 md:px-[52px] relative overflow-hidden">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[52%] font-serif text-[clamp(180px,22vw,340px)] font-light italic text-warm-white/[0.04] whitespace-nowrap pointer-events-none leading-none tracking-tight">
+          <div className="absolute -bottom-10 -right-5 font-serif text-[clamp(180px,22vw,340px)] font-light italic text-warm-white/[0.04] whitespace-nowrap pointer-events-none leading-none tracking-tight">
             Believe.
           </div>
           <div className="absolute top-0 bottom-0 left-8 md:left-[52px] w-px bg-gradient-to-b from-transparent via-accent to-transparent opacity-40" />
