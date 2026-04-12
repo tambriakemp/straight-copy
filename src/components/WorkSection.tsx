@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import morningRitualImage from "@/assets/morning-ritual.jpg";
+import movementStudioImage from "@/assets/movement-studio.jpg";
 
 const projects = [
-  { tag: "Pilates Brand · AI Campaign", name: "Movement Studio", gradient: "from-stone to-accent" },
+  { tag: "Pilates Brand · AI Campaign", name: "Movement Studio", gradient: "from-stone to-accent", image: movementStudioImage },
   { tag: "Wellness · Lifestyle Editorial", name: "Morning Ritual", gradient: "from-taupe to-charcoal", image: morningRitualImage },
   { tag: "Apparel · Campaign", name: "Neutral Studio", gradient: "from-sand to-taupe" },
   { tag: "Beauty · Brand Identity", name: "Skin Study", gradient: "from-accent to-stone" },
