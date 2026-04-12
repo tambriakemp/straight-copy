@@ -16,13 +16,15 @@ const filters: { label: string; value: Category }[] = [
 ];
 
 import movementStudioImage from "@/assets/movement-studio.jpg";
+import morningRitualImage from "@/assets/morning-ritual.jpg";
+import skinStudyImage from "@/assets/skin-study.jpg";
 
 const projects = [
   { category: "campaign", tag: "AI Campaign", sub: "Pilates Brand · AI Campaign", name: "Movement Studio", image: movementStudioImage, col: "col-span-7", row: "row-span-6" },
-  { category: "lifestyle", tag: "Lifestyle", sub: "Wellness · Lifestyle Editorial", name: "Morning Ritual", gradient: "linear-gradient(140deg, #A89F94 0%, #2A2825 100%)", col: "col-span-5", row: "row-span-4" },
+  { category: "lifestyle", tag: "Lifestyle", sub: "Wellness · Lifestyle Editorial", name: "Morning Ritual", image: morningRitualImage, col: "col-span-5", row: "row-span-4" },
   { category: "identity", tag: null, sub: "Brand Identity", name: "Neutral Studio", gradient: "linear-gradient(160deg, #D4CCBF 0%, #A89F94 100%)", col: "col-span-3", row: "row-span-3" },
   { category: "campaign", tag: null, sub: "Apparel", name: "Glow Edit", gradient: "linear-gradient(130deg, #8B7355 0%, #C8C0B4 100%)", col: "col-span-2", row: "row-span-3" },
-  { category: "lifestyle", tag: "Editorial", sub: "Beauty · Lifestyle", name: "Skin Study", gradient: "linear-gradient(160deg, #E8E4DF 0%, #C8C0B4 100%)", col: "col-span-4", row: "row-span-5" },
+  { category: "lifestyle", tag: "Editorial", sub: "Beauty · Lifestyle", name: "Skin Study", image: skinStudyImage, col: "col-span-4", row: "row-span-5" },
   { category: "web", tag: null, sub: "Web · E-Commerce", name: "The Still Co.", gradient: "linear-gradient(150deg, #2A2825 0%, #8B7355 100%)", col: "col-span-4", row: "row-span-3" },
   { category: "campaign", tag: null, sub: "Activewear · Campaign", name: "Routine Drop", gradient: "linear-gradient(140deg, #A89F94 0%, #D4CCBF 100%)", col: "col-span-4", row: "row-span-4" },
   { category: "identity", tag: null, sub: "Brand Identity · Logo", name: "Muted Mark", gradient: "linear-gradient(160deg, #1A1916 0%, #A89F94 100%)", col: "col-span-4", row: "row-span-3" },
