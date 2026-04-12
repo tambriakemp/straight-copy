@@ -15,8 +15,10 @@ const filters: { label: string; value: Category }[] = [
   { label: "Web", value: "web" },
 ];
 
+import movementStudioImage from "@/assets/movement-studio.jpg";
+
 const projects = [
-  { category: "campaign", tag: "AI Campaign", sub: "Pilates Brand · AI Campaign", name: "Movement Studio", gradient: "linear-gradient(150deg, #C8C0B4 0%, #8B7355 60%, #2A2825 100%)", col: "col-span-7", row: "row-span-6" },
+  { category: "campaign", tag: "AI Campaign", sub: "Pilates Brand · AI Campaign", name: "Movement Studio", image: movementStudioImage, col: "col-span-7", row: "row-span-6" },
   { category: "lifestyle", tag: "Lifestyle", sub: "Wellness · Lifestyle Editorial", name: "Morning Ritual", gradient: "linear-gradient(140deg, #A89F94 0%, #2A2825 100%)", col: "col-span-5", row: "row-span-4" },
   { category: "identity", tag: null, sub: "Brand Identity", name: "Neutral Studio", gradient: "linear-gradient(160deg, #D4CCBF 0%, #A89F94 100%)", col: "col-span-3", row: "row-span-3" },
   { category: "campaign", tag: null, sub: "Apparel", name: "Glow Edit", gradient: "linear-gradient(130deg, #8B7355 0%, #C8C0B4 100%)", col: "col-span-2", row: "row-span-3" },
@@ -97,16 +99,24 @@ const Work = () => {
                     background: "hsl(var(--sand))",
                   }}
                 >
-                  <div
-                    className="absolute inset-0 transition-transform duration-[600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:scale-105"
-                    style={{ background: p.gradient }}
-                  />
+                  {p.image ? (
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="absolute inset-0 transition-transform duration-[600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:scale-105"
+                      style={{ background: p.gradient }}
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-ink/85 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
                   {p.tag && (
                     <div className="absolute top-6 left-6 text-[10px] tracking-[0.2em] uppercase text-white/50 bg-black/20 px-3 py-1.5 backdrop-blur-[4px] z-10">
                       {p.tag}
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-ink/85 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
                   <div className="absolute bottom-7 left-7 right-7 translate-y-3 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-400">
                     <div className="text-[10px] tracking-[0.25em] uppercase text-white/55 mb-1.5">{p.sub}</div>
                     <div className="font-serif text-2xl font-light text-warm-white mb-3">{p.name}</div>
