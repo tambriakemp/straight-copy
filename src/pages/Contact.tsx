@@ -63,7 +63,7 @@ const Contact = () => {
       <div ref={cursorRef} className="custom-cursor hidden md:block" />
       <div ref={ringRef} className="custom-cursor-ring hidden md:block" />
       <div className="md:cursor-none">
-        <Navbar />
+        <Navbar variant="dark" />
 
         <div className="grid grid-cols-1 md:grid-cols-2 min-h-screen">
           {/* LEFT: Info */}
