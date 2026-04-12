@@ -50,15 +50,17 @@ const Work = () => {
         <Navbar />
 
         {/* Hero */}
-        <section className="pt-[180px] pb-20 px-8 md:px-[52px] bg-ink relative overflow-hidden">
+        <section className="pt-[180px] pb-[100px] px-8 md:px-[52px] bg-ink grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20 items-end relative overflow-hidden">
           <div className="absolute -bottom-[60px] -right-2.5 font-serif text-[260px] font-light text-white/[0.03] pointer-events-none leading-none">
             WORK
           </div>
-          <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-6 animate-fade-up">Selected Projects</p>
-          <h1 className="font-serif text-[clamp(56px,7vw,100px)] font-light leading-[0.9] text-warm-white mb-8 animate-fade-up animate-fade-up-delay-1">
-            Our<br /><em className="italic text-stone">Work</em>
-          </h1>
-          <p className="text-[13px] font-light leading-[1.9] text-taupe max-w-[480px] animate-fade-up animate-fade-up-delay-2">
+          <div>
+            <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-6 animate-fade-up">Selected Projects</p>
+            <h1 className="font-serif text-[clamp(56px,7vw,100px)] font-light leading-[0.9] text-warm-white animate-fade-up animate-fade-up-delay-1">
+              Our<br /><em className="italic text-stone">Work</em>
+            </h1>
+          </div>
+          <p className="text-sm font-light leading-[1.9] text-taupe max-w-[480px] self-end animate-fade-up animate-fade-up-delay-2">
             Every image you see here was produced entirely with AI — no studio, no photographer, no model booking. Just vision, direction, and technology that makes it real.
           </p>
         </section>
