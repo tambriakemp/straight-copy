@@ -117,7 +117,6 @@ const Work = () => {
                       {p.tag}
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-ink/85 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
                   <div className="absolute bottom-7 left-7 right-7 translate-y-3 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-400">
                     <div className="text-[10px] tracking-[0.25em] uppercase text-white/55 mb-1.5">{p.sub}</div>
                     <div className="font-serif text-2xl font-light text-warm-white mb-3">{p.name}</div>
