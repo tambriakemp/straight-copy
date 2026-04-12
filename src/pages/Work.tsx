@@ -15,8 +15,10 @@ const filters: { label: string; value: Category }[] = [
   { label: "Web", value: "web" },
 ];
 
+import movementStudioImage from "@/assets/movement-studio.jpg";
+
 const projects = [
-  { category: "campaign", tag: "AI Campaign", sub: "Pilates Brand · AI Campaign", name: "Movement Studio", gradient: "linear-gradient(150deg, #C8C0B4 0%, #8B7355 60%, #2A2825 100%)", col: "col-span-7", row: "row-span-6" },
+  { category: "campaign", tag: "AI Campaign", sub: "Pilates Brand · AI Campaign", name: "Movement Studio", image: movementStudioImage, col: "col-span-7", row: "row-span-6" },
   { category: "lifestyle", tag: "Lifestyle", sub: "Wellness · Lifestyle Editorial", name: "Morning Ritual", gradient: "linear-gradient(140deg, #A89F94 0%, #2A2825 100%)", col: "col-span-5", row: "row-span-4" },
   { category: "identity", tag: null, sub: "Brand Identity", name: "Neutral Studio", gradient: "linear-gradient(160deg, #D4CCBF 0%, #A89F94 100%)", col: "col-span-3", row: "row-span-3" },
   { category: "campaign", tag: null, sub: "Apparel", name: "Glow Edit", gradient: "linear-gradient(130deg, #8B7355 0%, #C8C0B4 100%)", col: "col-span-2", row: "row-span-3" },
