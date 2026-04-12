@@ -1,11 +1,21 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Menu, X } from "lucide-react";
 
 interface NavbarProps {
   variant?: "light" | "dark";
 }
 
+const navItems = [
+  { name: "Services", path: "/services" },
+  { name: "Work", path: "/work" },
+  { name: "Philosophy", path: "/philosophy" },
+  { name: "Contact", path: "/contact" },
+];
+
 const Navbar = ({ variant = "light" }: NavbarProps) => {
   const isDark = variant === "dark";
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <nav
@@ -21,13 +31,10 @@ const Navbar = ({ variant = "light" }: NavbarProps) => {
       >
         Cre8 Visions
       </Link>
+
+      {/* Desktop nav */}
       <ul className="hidden md:flex gap-10 list-none">
-        {[
-          { name: "Services", path: "/services" },
-          { name: "Work", path: "/work" },
-          { name: "Philosophy", path: "/philosophy" },
-          { name: "Contact", path: "/contact" },
-        ].map((item) => (
+        {navItems.map((item) => (
           <li key={item.name}>
             <Link
               to={item.path}
@@ -40,6 +47,35 @@ const Navbar = ({ variant = "light" }: NavbarProps) => {
           </li>
         ))}
       </ul>
+
+      {/* Mobile hamburger */}
+      <button
+        className={`md:hidden p-1 ${isDark ? "text-warm-white" : "text-ink"}`}
+        onClick={() => setMobileOpen(!mobileOpen)}
+        aria-label="Toggle menu"
+      >
+        {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
+      {/* Mobile menu */}
+      {mobileOpen && (
+        <div className={`absolute top-full left-0 right-0 flex flex-col items-center gap-6 py-8 md:hidden ${
+          isDark ? "bg-ink/95 backdrop-blur-md" : "bg-warm-white/95 backdrop-blur-md"
+        }`}>
+          {navItems.map((item) => (
+            <Link
+              key={item.name}
+              to={item.path}
+              onClick={() => setMobileOpen(false)}
+              className={`font-sans text-[12px] font-normal tracking-[0.2em] uppercase no-underline transition-colors duration-300 ${
+                isDark ? "text-stone hover:text-accent" : "text-charcoal hover:text-accent"
+              }`}
+            >
+              {item.name}
+            </Link>
+          ))}
+        </div>
+      )}
     </nav>
   );
 };
