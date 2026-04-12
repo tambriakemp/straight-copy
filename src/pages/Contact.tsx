@@ -3,10 +3,14 @@ import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useCustomCursor } from "@/hooks/useCustomCursor";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Contact = () => {
   const { cursorRef, ringRef } = useCustomCursor();
+  const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -22,7 +26,7 @@ const Contact = () => {
     setErrors((prev) => ({ ...prev, [field]: false }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const newErrors: Record<string, boolean> = {};
     if (!form.firstName.trim()) newErrors.firstName = true;
     if (!form.email.trim()) newErrors.email = true;
@@ -30,7 +34,28 @@ const Contact = () => {
       setErrors(newErrors);
       return;
     }
-    setSubmitted(true);
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("submit-contact", {
+        body: form,
+      });
+
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || "Submission failed");
+      }
+
+      setSubmitted(true);
+    } catch (err: any) {
+      console.error("Form submission error:", err);
+      toast({
+        title: "Something went wrong",
+        description: err.message || "Please try again or email us directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
