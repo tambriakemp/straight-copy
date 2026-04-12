@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { useCustomCursor } from "@/hooks/useCustomCursor";
 import Footer from "@/components/Footer";
+import Navbar from "@/components/Navbar";
 
 const pillars = [
   { num: "01", title: "<em>Authenticity</em><br/>over polish", body: "Perfect is forgettable. We chase images that feel lived-in — real pores, real light, real moments. Our AI campaigns are designed to look like someone caught something genuine, not staged it. Because that's what stops a scroll." },
@@ -38,31 +39,7 @@ const PhilosophyPage = () => {
       <div ref={cursorRef} className="custom-cursor hidden md:block" />
       <div ref={ringRef} className="custom-cursor-ring hidden md:block" />
       <div className="md:cursor-none">
-        {/* Nav - dark variant */}
-        <nav className="fixed top-0 left-0 right-0 z-50 flex justify-between items-center px-8 md:px-[52px] py-7 bg-ink/[0.92] backdrop-blur-[12px] border-b border-warm-white/5">
-          <Link to="/" className="font-serif text-lg font-light tracking-[0.25em] uppercase text-warm-white no-underline">
-            Cre8 Visions
-          </Link>
-          <ul className="hidden md:flex gap-10 list-none">
-            {[
-              { name: "Services", path: "/services" },
-              { name: "Work", path: "/work" },
-              { name: "Philosophy", path: "/philosophy" },
-              { name: "Contact", path: "/contact" },
-            ].map((item) => (
-              <li key={item.name}>
-                <Link
-                  to={item.path}
-                  className={`font-sans text-[11px] font-normal tracking-[0.2em] uppercase no-underline transition-colors duration-300 ${
-                    item.name === "Philosophy" ? "text-accent" : "text-stone hover:text-accent"
-                  }`}
-                >
-                  {item.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <Navbar variant="dark" />
 
         {/* Hero */}
         <section className="pt-[180px] pb-[100px] bg-ink flex flex-col justify-end px-8 md:px-[52px] relative overflow-hidden">
