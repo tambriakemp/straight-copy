@@ -15,6 +15,7 @@ const filters: { label: string; value: Category }[] = [
   { label: "Web", value: "web" },
 ];
 
+import movementStudioImage from "@/assets/movement-studio.jpg";
 import morningRitualImage from "@/assets/morning-ritual.jpg";
 import skinStudyImage from "@/assets/skin-study.jpg";
 
