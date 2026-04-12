@@ -47,7 +47,7 @@ const Work = () => {
       <div ref={cursorRef} className="custom-cursor hidden md:block" />
       <div ref={ringRef} className="custom-cursor-ring hidden md:block" />
       <div className="md:cursor-none">
-        <Navbar />
+        <Navbar variant="dark" />
 
         {/* Hero */}
         <section className="pt-[180px] pb-[100px] px-8 md:px-[52px] bg-ink grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20 items-end relative overflow-hidden">
