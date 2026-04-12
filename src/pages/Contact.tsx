@@ -194,9 +194,10 @@ const Contact = () => {
                 <div className="flex items-center gap-8 mt-3 animate-fade-up animate-fade-up-delay-4">
                   <button
                     onClick={handleSubmit}
-                    className="font-sans text-[11px] tracking-[0.2em] uppercase text-warm-white bg-ink border-none px-12 py-[18px] whitespace-nowrap flex-shrink-0 hover:bg-accent hover:-translate-y-0.5 transition-all duration-300"
+                    disabled={loading}
+                    className="font-sans text-[11px] tracking-[0.2em] uppercase text-warm-white bg-ink border-none px-12 py-[18px] whitespace-nowrap flex-shrink-0 hover:bg-accent hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Send Inquiry
+                    {loading ? "Sending..." : "Send Inquiry"}
                   </button>
                   <p className="text-[11px] font-light text-taupe leading-[1.6]">
                     We'll follow up within 24 hours with next steps and a free discovery call invite.
