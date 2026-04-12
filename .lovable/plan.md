@@ -1,38 +1,31 @@
 
 
-# Connect Contact Form to SureContact API
+# Improve Service Field Data Sent to SureContact
 
-## Overview
-Create a Supabase Edge Function that receives form data from the Contact page and forwards it to the SureContact API. The API key will be stored securely as a runtime secret.
+## What's Already Working
+The edge function already sends `service_interest` as a custom field to SureContact. SureContact automatically creates custom fields when it receives new field names for the first time.
 
-## Steps
+## What to Improve
+Currently the form sends short value keys like `"campaign"` or `"video"`. It would be better to send the full readable labels like `"AI Brand Campaign"` or `"Short-Form Video"` so the data is immediately useful in SureContact without needing to decode values.
 
-### 1. Enable Lovable Cloud
-Lovable Cloud is needed to deploy Edge Functions. We'll ensure it's set up.
+## Changes
 
-### 2. Store SureContact API key as a secret
-We'll use the secrets tool to prompt you to add your SureContact API key securely (it will only be accessible server-side in the Edge Function).
+### 1. Update the Edge Function to map service values to labels
+In `supabase/functions/submit-contact/index.ts`, add a mapping object:
+```
+campaign → "AI Brand Campaign"
+lifestyle → "Editorial Lifestyle Content"
+video → "Short-Form Video"
+product → "Product Visualization"
+retainer → "Monthly Retainer"
+unsure → "Not Sure Yet"
+```
 
-### 3. Create Edge Function: `submit-contact`
-A new Edge Function at `supabase/functions/submit-contact/index.ts` that:
-- Accepts POST requests with the form fields (firstName, lastName, email, brand, service, message)
-- Validates input with Zod
-- Forwards the data to the SureContact API endpoint
-- Returns success/error response with proper CORS headers
+Use this to send the readable label as `service_interest` instead of the raw value.
 
-You'll need to provide the SureContact API endpoint URL and the expected request format (or we can look it up).
+### 2. Redeploy and test
+Deploy the updated function and test with a sample submission.
 
-### 4. Update Contact page form submission
-Modify `src/pages/Contact.tsx` to:
-- Call the Edge Function via `supabase.functions.invoke('submit-contact', { body: form })`
-- Show loading state during submission
-- Handle success (show confirmation) and error (show toast) responses
-- Set up the Supabase client integration if not already present
-
-### 5. Add Supabase client config
-Create `src/integrations/supabase/client.ts` with the project URL and anon key so the frontend can call the Edge Function.
-
-## What I need from you
-- Your **SureContact API endpoint URL** (e.g., `https://api.surecontact.com/v1/contacts`)
-- The **expected request body format** for SureContact (field names, any required headers beyond the API key)
+## No frontend changes needed
+The Contact page form already sends the `service` field correctly.
 
