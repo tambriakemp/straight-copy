@@ -99,11 +99,19 @@ const Work = () => {
                     background: "hsl(var(--sand))",
                   }}
                 >
-                  <div
-                    className="absolute inset-0 transition-transform duration-[600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:scale-105"
-                    style={{ background: p.gradient }}
-                  />
-                  {p.tag && (
+                  {p.image ? (
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="absolute inset-0 transition-transform duration-[600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:scale-105"
+                      style={{ background: p.gradient }}
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-ink/85 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
                     <div className="absolute top-6 left-6 text-[10px] tracking-[0.2em] uppercase text-white/50 bg-black/20 px-3 py-1.5 backdrop-blur-[4px] z-10">
                       {p.tag}
                     </div>
