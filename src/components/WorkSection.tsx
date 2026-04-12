@@ -2,12 +2,13 @@ import { Link } from "react-router-dom";
 import morningRitualImage from "@/assets/morning-ritual.jpg";
 import movementStudioImage from "@/assets/movement-studio.jpg";
 import neutralStudioImage from "@/assets/neutral-studio.jpg";
+import skinStudyImage from "@/assets/skin-study.jpg";
 
 const projects = [
   { tag: "Pilates Brand · AI Campaign", name: "Movement Studio", gradient: "from-stone to-accent", image: movementStudioImage },
   { tag: "Wellness · Lifestyle Editorial", name: "Morning Ritual", gradient: "from-taupe to-charcoal", image: morningRitualImage },
   { tag: "Apparel · Campaign", name: "Neutral Studio", image: neutralStudioImage },
-  { tag: "Beauty · Brand Identity", name: "Skin Study", gradient: "from-accent to-stone" },
+  { tag: "Beauty · Brand Identity", name: "Skin Study", image: skinStudyImage },
 ];
 
 const WorkSection = () => {
