@@ -89,7 +89,41 @@ const Work = () => {
 
         {/* Portfolio Grid */}
         <section className="py-20 px-8 md:px-[52px]">
-          <div className="grid grid-cols-2 md:grid-cols-12 auto-rows-[80px] gap-[3px]">
+          {/* Mobile: simple stacked layout */}
+          <div className="grid grid-cols-1 gap-[3px] md:hidden">
+            {projects.map((p) => {
+              const dimmed = activeFilter !== "all" && p.category !== activeFilter;
+              return (
+                <div
+                  key={p.name}
+                  className={`relative overflow-hidden group reveal transition-all duration-500 h-[280px] ${dimmed ? "opacity-25 grayscale-[60%]" : "opacity-100 grayscale-0"}`}
+                  style={{ background: "hsl(var(--sand))" }}
+                >
+                  {p.image ? (
+                    <img src={p.image} alt={p.name} className="absolute inset-0 w-full h-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0" style={{ background: p.gradient }} />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-ink/70 to-transparent" />
+                  {p.tag && (
+                    <div className="absolute top-5 left-5 text-[10px] tracking-[0.2em] uppercase text-white/50 bg-black/20 px-3 py-1.5 backdrop-blur-[4px] z-10">
+                      {p.tag}
+                    </div>
+                  )}
+                  <div className="absolute bottom-6 left-6 right-6">
+                    <div className="text-[10px] tracking-[0.25em] uppercase text-white/55 mb-1.5">{p.sub}</div>
+                    <div className="font-serif text-2xl font-light text-warm-white mb-2">{p.name}</div>
+                    <div className="text-[10px] tracking-[0.2em] uppercase text-stone flex items-center gap-2 after:content-['→']">
+                      View project
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop: complex grid */}
+          <div className="hidden md:grid grid-cols-12 auto-rows-[80px] gap-[3px]">
             {projects.map((p, i) => {
               const dimmed = activeFilter !== "all" && p.category !== activeFilter;
               return (
@@ -102,11 +136,7 @@ const Work = () => {
                   }}
                 >
                   {p.image ? (
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
+                    <img src={p.image} alt={p.name} className="absolute inset-0 w-full h-full object-cover" />
                   ) : (
                     <div
                       className="absolute inset-0 transition-transform duration-[600ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:scale-105"
@@ -155,7 +185,7 @@ const Work = () => {
               { gradient: "linear-gradient(160deg, #A89F94, #2A2825)", label: "Lifestyle series" },
               { gradient: "linear-gradient(140deg, #D4CCBF, #C8C0B4)", label: "Still life detail" },
             ].map((panel) => (
-              <div key={panel.label} className="h-[500px] relative overflow-hidden" style={{ background: panel.gradient }}>
+              <div key={panel.label} className="h-[300px] md:h-[500px] relative overflow-hidden" style={{ background: panel.gradient }}>
                 <div className="absolute bottom-6 left-6 font-serif text-[13px] italic text-white/70 tracking-[0.05em]">
                   {panel.label}
                 </div>
