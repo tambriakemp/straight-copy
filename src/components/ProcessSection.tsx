@@ -4,7 +4,7 @@ const steps = [
   { num: "03", title: "AI Production", desc: "Our team generates and curates campaign-ready imagery with meticulous quality control." },
   { num: "04", title: "Delivery & Scale", desc: "Final assets delivered across all formats. Iterate endlessly at minimal cost." },
 ];
-
+import { Link } from "react-router-dom";
 const ProcessSection = () => {
   return (
     <section id="process" className="py-[140px] px-8 md:px-[52px] bg-cream">
@@ -15,9 +15,9 @@ const ProcessSection = () => {
             The <em className="italic">Process</em>
           </h2>
         </div>
-        <a href="#contact" className="font-sans text-[11px] tracking-[0.2em] uppercase text-charcoal no-underline flex items-center gap-2.5 hover:gap-4 hover:text-accent transition-all duration-300 after:content-['→']">
+        <Link to="/contact" className="font-sans text-[11px] tracking-[0.2em] uppercase text-charcoal no-underline flex items-center gap-2.5 hover:gap-4 hover:text-accent transition-all duration-300 after:content-['→']">
           Begin yours
-        </a>
+        </Link>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[2px]">
         {steps.map((step, i) => (
