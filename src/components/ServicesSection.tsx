@@ -31,7 +31,7 @@ const ServicesSection = () => {
               key={s.num}
               className={`service-card bg-cream p-10 md:p-[52px_40px] relative overflow-hidden transition-colors duration-400 group hover:bg-ink reveal ${i > 0 ? `reveal-delay-${i}` : ""}`}
             >
-              <div className="font-serif text-[11px] tracking-[0.2em] text-taupe mb-8 transition-colors duration-400 group-hover:text-stone">
+              <div className="font-serif text-[18px] tracking-[0.2em] text-taupe mb-8 transition-colors duration-400 group-hover:text-stone">
                 {s.num}
               </div>
               <div className="font-serif text-[32px] font-light leading-[1.1] text-ink mb-5 transition-colors duration-400 group-hover:text-warm-white whitespace-pre-line">

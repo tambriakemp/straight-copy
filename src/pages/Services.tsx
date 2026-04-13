@@ -126,7 +126,7 @@ const Services = () => {
               key={s.num}
               className="grid grid-cols-1 md:grid-cols-[80px_1fr_1fr] gap-6 md:gap-0 border-b border-mist py-12 md:py-[72px] items-start service-row-hover reveal transition-colors duration-300 hover:bg-cream md:hover:-mx-[52px] md:hover:px-[52px]"
             >
-              <div className="font-serif text-[13px] tracking-[0.15em] text-taupe pt-1.5">{s.num}</div>
+              <div className="font-serif text-[18px] tracking-[0.15em] text-taupe pt-1.5">{s.num}</div>
               <div>
                 <div className="font-serif text-[clamp(32px,4vw,52px)] font-light leading-[1.05] text-foreground mb-5">
                   {s.title[0]}<br /><em className="italic">{s.title[1]}</em>
