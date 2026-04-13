@@ -6,6 +6,7 @@ const stats = [
 ];
 
 import philosophySkincare from "@/assets/philosophy-skincare.jpg";
+import philosophyBottom from "@/assets/philosophy-bottom.jpg";
 
 const PhilosophySection = () => {
   return (
@@ -14,7 +15,9 @@ const PhilosophySection = () => {
         <div className="absolute w-[70%] h-[80%] top-0 left-0 overflow-hidden">
           <img src={philosophySkincare} alt="Botanical repair serum product shot" className="w-full h-full object-cover" />
         </div>
-        <div className="absolute w-[55%] h-[55%] bottom-0 right-0 bg-gradient-to-br from-accent to-taupe opacity-50" />
+        <div className="absolute w-[55%] h-[55%] bottom-0 right-0 overflow-hidden">
+          <img src={philosophyBottom} alt="Model portrait" className="w-full h-full object-cover" />
+        </div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-serif text-[48px] md:text-[64px] font-light italic text-warm-white whitespace-nowrap drop-shadow-2xl">
           "Real."
         </div>
