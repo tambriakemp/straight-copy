@@ -106,7 +106,7 @@ const Services = () => {
             SERVICES
           </div>
           <div>
-            <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-6 animate-fade-up">What We Offer</p>
+            <p className="text-[11px] tracking-[0.35em] uppercase text-charcoal mb-6 animate-fade-up">What We Offer</p>
             <h1 className="font-serif text-[clamp(56px,7vw,100px)] font-light leading-[0.9] text-foreground animate-fade-up animate-fade-up-delay-1">
               Our<br /><em className="italic text-accent">Services</em>
             </h1>
@@ -133,7 +133,7 @@ const Services = () => {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {s.tags.map((tag) => (
-                    <span key={tag} className="text-[10px] tracking-[0.2em] uppercase text-taupe border border-sand px-3.5 py-1.5">
+                    <span key={tag} className="text-[11px] tracking-[0.2em] uppercase text-charcoal border border-sand px-3.5 py-1.5">
                       {tag}
                     </span>
                   ))}
@@ -165,7 +165,7 @@ const Services = () => {
                   : "bg-charcoal hover:bg-[#221F1C]"
               }`}
             >
-              <div className={`text-[10px] tracking-[0.3em] uppercase mb-8 ${p.featured ? "text-white/70" : "text-stone"}`}>
+              <div className={`text-[11px] tracking-[0.3em] uppercase mb-8 ${p.featured ? "text-white/70" : "text-stone"}`}>
                 {p.label}
               </div>
               <div className="font-serif text-4xl font-light text-warm-white mb-2">{p.tier}</div>
