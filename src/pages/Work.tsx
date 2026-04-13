@@ -59,7 +59,7 @@ const Work = () => {
             WORK
           </div>
           <div>
-            <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-6 animate-fade-up">Selected Projects</p>
+            <p className="text-[11px] tracking-[0.35em] uppercase text-stone mb-6 animate-fade-up">Selected Projects</p>
             <h1 className="font-serif text-[clamp(56px,7vw,100px)] font-light leading-[0.9] text-warm-white animate-fade-up animate-fade-up-delay-1">
               Our<br /><em className="italic text-stone">Work</em>
             </h1>
@@ -71,12 +71,12 @@ const Work = () => {
 
         {/* Filter Bar */}
         <div className="py-8 px-8 md:px-[52px] bg-cream flex flex-wrap gap-2 items-center border-b border-mist sticky top-0 z-40">
-          <span className="text-[10px] tracking-[0.25em] uppercase text-taupe mr-4">Filter:</span>
+          <span className="text-[11px] tracking-[0.25em] uppercase text-charcoal mr-4">Filter:</span>
           {filters.map((f) => (
             <button
               key={f.value}
               onClick={() => setActiveFilter(f.value)}
-              className={`font-sans text-[10px] tracking-[0.2em] uppercase px-[18px] py-2 border transition-all duration-300 ${
+              className={`font-sans text-[11px] tracking-[0.2em] uppercase px-[18px] py-2 border transition-all duration-300 ${
                 activeFilter === f.value
                   ? "bg-ink text-warm-white border-ink"
                   : "bg-transparent text-taupe border-sand hover:bg-ink hover:text-warm-white hover:border-ink"
@@ -166,7 +166,7 @@ const Work = () => {
         <section className="bg-cream py-[120px] px-8 md:px-[52px]">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-[72px] gap-6 reveal">
             <div>
-              <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-4">Featured Case Study</p>
+              <p className="text-[11px] tracking-[0.35em] uppercase text-charcoal mb-4">Featured Case Study</p>
               <h2 className="font-serif text-[clamp(36px,4vw,56px)] font-light text-foreground leading-[1.05]">
                 Movement Studio —<br /><em className="italic">Pilates AI Campaign</em>
               </h2>
@@ -200,7 +200,7 @@ const Work = () => {
               { label: "vs. Traditional Shoot", value: "82% Less Cost" },
             ].map((d) => (
               <div key={d.label} className="bg-mist p-10">
-                <div className="text-[10px] tracking-[0.25em] uppercase text-taupe mb-3">{d.label}</div>
+                <div className="text-[11px] tracking-[0.25em] uppercase text-charcoal mb-3">{d.label}</div>
                 <div className="font-serif text-[28px] font-light text-foreground">{d.value}</div>
               </div>
             ))}

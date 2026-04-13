@@ -10,7 +10,7 @@ const ServicesSection = () => {
     <section id="services" className="py-[140px] px-8 md:px-[52px] grid grid-cols-1 md:grid-cols-[220px_1fr] gap-10 md:gap-20">
       <div className="hidden md:flex flex-col justify-between items-start relative pt-2">
         <div className="absolute top-0 left-0 w-px h-full bg-gradient-to-b from-accent to-transparent" />
-        <p className="text-[10px] tracking-[0.35em] uppercase text-taupe [writing-mode:vertical-rl] h-fit pl-6">
+        <p className="text-[11px] tracking-[0.35em] uppercase text-charcoal [writing-mode:vertical-rl] h-fit pl-6">
           What We Do
         </p>
         <div className="font-serif text-[clamp(80px,10vw,140px)] font-light italic leading-[0.85] text-mist-custom [writing-mode:vertical-rl] rotate-180 tracking-tight pl-6 pointer-events-none select-none">

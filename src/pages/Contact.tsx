@@ -84,7 +84,7 @@ const Contact = () => {
             </div>
 
             <div>
-              <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-6 animate-fade-up">
+              <p className="text-[11px] tracking-[0.35em] uppercase text-stone mb-6 animate-fade-up">
                 Get In Touch
               </p>
               <h1 className="font-serif text-[clamp(48px,5vw,80px)] font-light leading-[0.95] text-warm-white mb-10 animate-fade-up animate-fade-up-delay-1">
@@ -99,24 +99,24 @@ const Contact = () => {
 
             <div className="animate-fade-up animate-fade-up-delay-3">
               <div className="flex flex-col gap-1 py-7 border-t border-white/[0.07]">
-                <span className="text-[10px] tracking-[0.25em] uppercase text-taupe">Email</span>
+                <span className="text-[11px] tracking-[0.25em] uppercase text-stone">Email</span>
                 <a href="mailto:hello@cre8visions.com" className="font-serif text-lg font-light italic text-stone no-underline hover:text-warm-white transition-colors duration-300">
                   hello@cre8visions.com
                 </a>
               </div>
               <div className="flex flex-col gap-1 py-7 border-t border-white/[0.07]">
-                <span className="text-[10px] tracking-[0.25em] uppercase text-taupe">Response Time</span>
+                <span className="text-[11px] tracking-[0.25em] uppercase text-stone">Response Time</span>
                 <span className="font-serif text-lg font-light italic text-stone">Within 24 hours</span>
               </div>
               <div className="flex flex-col gap-1 py-7 border-t border-white/[0.07]">
-                <span className="text-[10px] tracking-[0.25em] uppercase text-taupe">Based In</span>
+                <span className="text-[11px] tracking-[0.25em] uppercase text-stone">Based In</span>
                 <span className="font-serif text-lg font-light italic text-stone">Fort Worth, Texas</span>
               </div>
               <div className="flex gap-6 pt-10 border-t border-white/[0.07]">
-                <a href="https://instagram.com/cre8_visions" target="_blank" rel="noopener noreferrer" className="text-[10px] tracking-[0.25em] uppercase text-taupe no-underline hover:text-accent transition-colors duration-300">
+                <a href="https://instagram.com/cre8_visions" target="_blank" rel="noopener noreferrer" className="text-[11px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
                   Instagram
                 </a>
-                <a href="https://www.linkedin.com/company/cre8visions/" target="_blank" rel="noopener noreferrer" className="text-[10px] tracking-[0.25em] uppercase text-taupe no-underline hover:text-accent transition-colors duration-300">
+                <a href="https://www.linkedin.com/company/cre8visions/" target="_blank" rel="noopener noreferrer" className="text-[11px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
                   LinkedIn
                 </a>
               </div>
@@ -127,13 +127,13 @@ const Contact = () => {
           <div className="bg-cream px-8 md:px-[52px] md:pl-[72px] pt-[160px] pb-20 flex flex-col justify-center">
             {!submitted ? (
               <>
-                <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-12 animate-fade-up">
+                <p className="text-[11px] tracking-[0.35em] uppercase text-charcoal mb-12 animate-fade-up">
                   Start a Project
                 </p>
 
                 <div className="grid grid-cols-2 gap-8 mb-9 animate-fade-up animate-fade-up-delay-1">
                   <div>
-                    <label className="block text-[10px] tracking-[0.25em] uppercase text-taupe mb-2.5">First Name</label>
+                    <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">First Name</label>
                     <input
                       type="text"
                       placeholder="Jane"
@@ -143,7 +143,7 @@ const Contact = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] tracking-[0.25em] uppercase text-taupe mb-2.5">Last Name</label>
+                    <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Last Name</label>
                     <input
                       type="text"
                       placeholder="Smith"
@@ -155,7 +155,7 @@ const Contact = () => {
                 </div>
 
                 <div className="mb-9 animate-fade-up animate-fade-up-delay-2">
-                  <label className="block text-[10px] tracking-[0.25em] uppercase text-taupe mb-2.5">Email Address</label>
+                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Email Address</label>
                   <input
                     type="email"
                     placeholder="jane@yourbrand.com"
@@ -166,7 +166,7 @@ const Contact = () => {
                 </div>
 
                 <div className="mb-9 animate-fade-up animate-fade-up-delay-2">
-                  <label className="block text-[10px] tracking-[0.25em] uppercase text-taupe mb-2.5">Brand / Company</label>
+                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Brand / Company</label>
                   <input
                     type="text"
                     placeholder="Your Brand Name"
@@ -177,7 +177,7 @@ const Contact = () => {
                 </div>
 
                 <div className="mb-9 animate-fade-up animate-fade-up-delay-3">
-                  <label className="block text-[10px] tracking-[0.25em] uppercase text-taupe mb-2.5">Service You're Interested In</label>
+                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Service You're Interested In</label>
                   <select
                     value={form.service}
                     onChange={(e) => handleChange("service", e.target.value)}
@@ -194,7 +194,7 @@ const Contact = () => {
                 </div>
 
                 <div className="mb-9 animate-fade-up animate-fade-up-delay-3">
-                  <label className="block text-[10px] tracking-[0.25em] uppercase text-taupe mb-2.5">Tell Us About Your Project</label>
+                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Tell Us About Your Project</label>
                   <textarea
                     placeholder="Share your vision, goals, timeline, or anything that helps us understand what you need..."
                     value={form.message}

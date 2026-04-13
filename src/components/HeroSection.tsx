@@ -7,7 +7,7 @@ const HeroSection = () => {
   return (
     <section className="min-h-screen grid grid-cols-1 md:grid-cols-2 relative overflow-hidden">
       <div className="bg-cream flex flex-col justify-end px-8 md:px-[52px] pt-[140px] pb-20 relative">
-        <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-8 animate-fade-up animate-fade-up-delay-1">
+        <p className="text-[11px] tracking-[0.35em] uppercase text-charcoal mb-8 animate-fade-up animate-fade-up-delay-1">
           AI-Powered Brand Campaigns
         </p>
         <h1 className="font-serif text-[clamp(64px,8vw,112px)] font-light leading-[0.9] text-ink mb-12 animate-fade-up animate-fade-up-delay-2">

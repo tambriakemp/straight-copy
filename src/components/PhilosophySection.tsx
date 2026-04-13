@@ -16,7 +16,7 @@ const PhilosophySection = () => {
         </div>
       </div>
       <div className="reveal">
-        <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-8">Our Philosophy</p>
+        <p className="text-[11px] tracking-[0.35em] uppercase text-stone mb-8">Our Philosophy</p>
         <div className="w-12 h-px bg-accent mb-8" />
         <h2 className="font-serif text-[clamp(36px,4vw,56px)] font-light leading-[1.15] text-warm-white mb-10">
           The future of<br />brand content<br />is <em className="italic text-stone">already here.</em>
