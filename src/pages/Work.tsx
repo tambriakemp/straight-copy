@@ -185,7 +185,7 @@ const Work = () => {
               { gradient: "linear-gradient(160deg, #A89F94, #2A2825)", label: "Lifestyle series" },
               { gradient: "linear-gradient(140deg, #D4CCBF, #C8C0B4)", label: "Still life detail" },
             ].map((panel) => (
-              <div key={panel.label} className="h-[500px] relative overflow-hidden" style={{ background: panel.gradient }}>
+              <div key={panel.label} className="h-[300px] md:h-[500px] relative overflow-hidden" style={{ background: panel.gradient }}>
                 <div className="absolute bottom-6 left-6 font-serif text-[13px] italic text-white/70 tracking-[0.05em]">
                   {panel.label}
                 </div>
