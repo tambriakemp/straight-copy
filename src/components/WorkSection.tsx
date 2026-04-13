@@ -26,7 +26,7 @@ const WorkSection = () => {
         {projects.map((p) => (
           <div
             key={p.name}
-            className="work-card flex-1 min-w-0 h-[420px] relative overflow-hidden transition-all duration-500 hover:flex-[1.3] group"
+            className="work-card flex-1 min-w-0 h-[520px] relative overflow-hidden transition-all duration-500 hover:flex-[1.3] group"
           >
             {p.image ? (
               <img
