@@ -113,11 +113,12 @@ const Contact = () => {
                 <span className="font-serif text-lg font-light italic text-stone">Fort Worth, Texas</span>
               </div>
               <div className="flex gap-6 pt-10 border-t border-white/[0.07]">
-                {["Instagram", "LinkedIn", "Behance"].map((s) => (
-                  <a key={s} href="#" className="text-[10px] tracking-[0.25em] uppercase text-taupe no-underline hover:text-accent transition-colors duration-300">
-                    {s}
-                  </a>
-                ))}
+                <a href="https://instagram.com/cre8_visions" target="_blank" rel="noopener noreferrer" className="text-[10px] tracking-[0.25em] uppercase text-taupe no-underline hover:text-accent transition-colors duration-300">
+                  Instagram
+                </a>
+                <a href="https://www.linkedin.com/company/cre8visions/" target="_blank" rel="noopener noreferrer" className="text-[10px] tracking-[0.25em] uppercase text-taupe no-underline hover:text-accent transition-colors duration-300">
+                  LinkedIn
+                </a>
               </div>
             </div>
           </div>
