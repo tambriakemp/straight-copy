@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
 
     console.log("Sending contact to SureContact:", email);
 
-    const response = await fetch("https://api.surecontact.com/api/v1/public/contacts", {
+    const response = await fetch("https://api.surecontact.com/api/v1/public/contacts/upsert", {
       method: "POST",
       headers: {
         "X-API-Key": apiKey,
