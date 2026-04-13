@@ -45,6 +45,17 @@ const Contact = () => {
         throw new Error(data?.error || error?.message || "Submission failed");
       }
 
+      // Send confirmation email (fire-and-forget)
+      const emailId = crypto.randomUUID();
+      supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "contact-confirmation",
+          recipientEmail: form.email.trim(),
+          idempotencyKey: `contact-confirm-${emailId}`,
+          templateData: { name: form.firstName.trim() },
+        },
+      }).catch((err) => console.error("Confirmation email error:", err));
+
       setSubmitted(true);
     } catch (err: any) {
       console.error("Form submission error:", err);
