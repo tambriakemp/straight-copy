@@ -15,7 +15,7 @@ const HeroSection = () => {
           <em className="italic text-accent">Imagery</em><br />
           Reimagined.
         </h1>
-        <p className="text-[13px] font-light leading-[1.8] text-taupe max-w-[320px] mb-14 animate-fade-up animate-fade-up-delay-3">
+        <p className="text-[14px] font-light leading-[1.8] text-taupe max-w-[320px] mb-14 animate-fade-up animate-fade-up-delay-3">
           Real skin. Real light. Undetectable. We create luxury-grade brand campaigns using AI — faster, more scalable, and indistinguishable from traditional production.
         </p>
         <div className="flex gap-6 items-center animate-fade-up animate-fade-up-delay-4">
