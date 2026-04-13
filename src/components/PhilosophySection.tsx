@@ -6,6 +6,7 @@ const stats = [
 ];
 
 import philosophySkincare from "@/assets/philosophy-skincare.jpg";
+import philosophyBottom from "@/assets/philosophy-bottom.jpg";
 
 const PhilosophySection = () => {
   return (
