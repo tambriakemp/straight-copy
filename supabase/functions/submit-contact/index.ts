@@ -60,6 +60,8 @@ Deno.serve(async (req) => {
       metadata: {
         form_source: "cre8visions_website",
       },
+      lists: ["Cre8 Visions List"],
+      tags: ["Website Contact Us"],
     };
 
     console.log("Sending contact to SureContact:", email);
