@@ -225,7 +225,7 @@ const Contact = () => {
                 </p>
                 <br /><br />
                 <Link
-                  to="/"
+                  to="/work"
                   className="text-[11px] tracking-[0.2em] uppercase text-accent no-underline hover:text-foreground transition-colors duration-300"
                 >
                   View Our Work →
