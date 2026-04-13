@@ -22,11 +22,11 @@ const WorkSection = () => {
           View all projects
         </Link>
       </div>
-      <div className="work-scroll flex gap-[2px] overflow-x-auto pb-6">
+      <div className="work-scroll flex gap-[2px]">
         {projects.map((p) => (
           <div
             key={p.name}
-            className="work-card flex-shrink-0 w-[320px] h-[420px] relative overflow-hidden transition-all duration-500 hover:w-[400px] group"
+            className="work-card flex-1 min-w-0 h-[420px] relative overflow-hidden transition-all duration-500 hover:flex-[1.3] group"
           >
             {p.image ? (
               <img
