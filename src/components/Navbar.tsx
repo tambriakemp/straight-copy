@@ -19,8 +19,8 @@ const Navbar = ({ variant = "light" }: NavbarProps) => {
 
   return (
     <nav
-      className={`absolute top-0 left-0 right-0 z-50 flex justify-between items-center px-8 md:px-[52px] py-7 ${
-        isDark ? "bg-ink/[0.92] backdrop-blur-[12px] border-b border-warm-white/5" : "mix-blend-multiply"
+      className={`absolute top-0 left-0 right-0 ${isDark ? "" : "md:right-1/2"} z-50 flex justify-between items-center px-8 md:px-[52px] py-7 ${
+        isDark ? "bg-ink/[0.92] backdrop-blur-[12px] border-b border-warm-white/5" : ""
       }`}
     >
       <Link
