@@ -5,11 +5,15 @@ const stats = [
   { num: "100%", label: "Brand-accurate every time" },
 ];
 
+import philosophySkincare from "@/assets/philosophy-skincare.jpg";
+
 const PhilosophySection = () => {
   return (
     <section id="philosophy" className="py-[140px] px-8 md:px-[52px] bg-ink grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-[120px] items-center">
       <div className="relative h-[400px] md:h-[560px]">
-        <div className="absolute w-[70%] h-[80%] top-0 left-0 bg-gradient-to-br from-charcoal to-taupe opacity-60" />
+        <div className="absolute w-[70%] h-[80%] top-0 left-0 overflow-hidden">
+          <img src={philosophySkincare} alt="Botanical repair serum product shot" className="w-full h-full object-cover" />
+        </div>
         <div className="absolute w-[55%] h-[55%] bottom-0 right-0 bg-gradient-to-br from-accent to-taupe opacity-50" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-serif text-[48px] md:text-[64px] font-light italic text-warm-white whitespace-nowrap drop-shadow-2xl">
           "Real."
