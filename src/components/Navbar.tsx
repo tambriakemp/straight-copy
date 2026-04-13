@@ -39,7 +39,7 @@ const Navbar = ({ variant = "light" }: NavbarProps) => {
             <Link
               to={item.path}
               className={`font-sans text-[11px] font-normal tracking-[0.2em] uppercase no-underline transition-colors duration-300 ${
-                isDark ? "text-stone hover:text-accent" : "text-charcoal hover:text-accent"
+                isDark ? "text-stone hover:text-accent" : "text-ink hover:text-accent"
               }`}
             >
               {item.name}
@@ -68,7 +68,7 @@ const Navbar = ({ variant = "light" }: NavbarProps) => {
               to={item.path}
               onClick={() => setMobileOpen(false)}
               className={`font-sans text-[12px] font-normal tracking-[0.2em] uppercase no-underline transition-colors duration-300 ${
-                isDark ? "text-stone hover:text-accent" : "text-charcoal hover:text-accent"
+                isDark ? "text-stone hover:text-accent" : "text-ink hover:text-accent"
               }`}
             >
               {item.name}
