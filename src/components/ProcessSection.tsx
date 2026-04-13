@@ -10,7 +10,7 @@ const ProcessSection = () => {
     <section id="process" className="py-[140px] px-8 md:px-[52px] bg-cream">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-20 gap-6">
         <div>
-          <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-4">How It Works</p>
+          <p className="text-[11px] tracking-[0.35em] uppercase text-charcoal mb-4">How It Works</p>
           <h2 className="font-serif text-[clamp(44px,5vw,72px)] font-light leading-none text-ink">
             The <em className="italic">Process</em>
           </h2>
@@ -24,7 +24,7 @@ const ProcessSection = () => {
           <div key={step.num} className={`p-8 md:p-12 bg-warm-white relative reveal ${i > 0 ? `reveal-delay-${i}` : ""}`}>
             <div className="font-serif text-[80px] font-light text-mist-custom leading-none mb-6">{step.num}</div>
             <div className="font-serif text-[22px] font-normal text-ink mb-4">{step.title}</div>
-            <div className="text-[12px] font-light leading-[1.8] text-taupe">{step.desc}</div>
+            <div className="text-[12px] font-light leading-[1.8] text-charcoal">{step.desc}</div>
           </div>
         ))}
       </div>

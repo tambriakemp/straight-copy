@@ -39,7 +39,7 @@ const WorkSection = () => {
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
             <div className="absolute bottom-8 left-8 right-8">
-              <div className="text-[10px] tracking-[0.25em] uppercase text-warm-white/60 mb-2">{p.tag}</div>
+              <div className="text-[11px] tracking-[0.25em] uppercase text-warm-white/70 mb-2">{p.tag}</div>
               <div className="font-serif text-[26px] font-light text-warm-white">{p.name}</div>
             </div>
           </div>

@@ -6,7 +6,7 @@ const ContactSection = () => {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-serif text-[180px] md:text-[280px] font-light text-warm-white/[0.02] whitespace-nowrap pointer-events-none leading-none">
         CRE8
       </div>
-      <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-8 reveal">Ready When You Are</p>
+      <p className="text-[11px] tracking-[0.35em] uppercase text-taupe mb-8 reveal">Ready When You Are</p>
       <h2 className="font-serif text-[clamp(52px,7vw,100px)] font-light text-warm-white leading-[0.95] mb-14 relative reveal">
         Let's Build<br />
         Something <em className="italic text-stone">Real.</em>

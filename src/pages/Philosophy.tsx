@@ -47,7 +47,7 @@ const PhilosophyPage = () => {
             Believe.
           </div>
           <div className="absolute top-0 bottom-0 left-8 md:left-[52px] w-px bg-gradient-to-b from-transparent via-accent to-transparent opacity-40" />
-          <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-7 pl-6 animate-fade-up animate-fade-up-delay-1">
+          <p className="text-[11px] tracking-[0.35em] uppercase text-taupe mb-7 pl-6 animate-fade-up animate-fade-up-delay-1">
             Our Philosophy
           </p>
           <h1 className="font-serif text-[clamp(60px,9vw,130px)] font-light leading-[0.88] text-warm-white pl-6 animate-fade-up animate-fade-up-delay-2">
@@ -69,7 +69,7 @@ const PhilosophyPage = () => {
             <p className="text-[11px] tracking-[0.2em] uppercase text-taupe mt-8">— Cre8 Visions</p>
           </div>
           <div className="reveal reveal-delay-1">
-            <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-6">Where We Come From</p>
+            <p className="text-[11px] tracking-[0.35em] uppercase text-charcoal mb-6">Where We Come From</p>
             <p className="text-sm font-light leading-[1.95] text-charcoal mb-5">
               We started Cre8 Visions because we watched brands overpay for content that underperformed. Studios. Crews. Travel. Models. Weeks of back-and-forth — all for images that could have been produced better, faster, and for a fraction of the cost.
             </p>
@@ -86,12 +86,12 @@ const PhilosophyPage = () => {
         <section className="bg-ink py-[140px] px-8 md:px-[52px]">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-20 border-b border-warm-white/[0.07] pb-10 reveal">
             <div>
-              <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-4">What We Stand For</p>
+              <p className="text-[11px] tracking-[0.35em] uppercase text-stone mb-4">What We Stand For</p>
               <h2 className="font-serif text-[clamp(40px,5vw,64px)] font-light text-warm-white leading-none">
                 Our <em className="italic">Pillars</em>
               </h2>
             </div>
-            <p className="text-[13px] font-light text-taupe max-w-[380px] leading-[1.8] mt-6 md:mt-0">
+            <p className="text-[14px] font-light text-stone max-w-[380px] leading-[1.8] mt-6 md:mt-0">
               Four principles that shape every project we take on — from a single logo to a full campaign rollout.
             </p>
           </div>
@@ -107,7 +107,7 @@ const PhilosophyPage = () => {
                   className="font-serif text-[36px] font-light text-warm-white mb-5 leading-[1.1] [&>em]:italic"
                   dangerouslySetInnerHTML={{ __html: p.title }}
                 />
-                <p className="text-[13px] font-light leading-[1.85] text-taupe">{p.body}</p>
+                <p className="text-[13px] font-light leading-[1.85] text-stone">{p.body}</p>
               </div>
             ))}
           </div>
@@ -119,7 +119,7 @@ const PhilosophyPage = () => {
             "
           </div>
           <div className="max-w-[900px] mx-auto text-center relative">
-            <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-12 reveal">Our Manifesto</p>
+            <p className="text-[11px] tracking-[0.35em] uppercase text-charcoal mb-12 reveal">Our Manifesto</p>
             <p className="font-serif text-[clamp(28px,3.5vw,48px)] font-light leading-[1.4] text-ink mb-6 reveal">
               The future of brand content is not about <em className="italic text-accent">less human creativity</em> — it's about removing every obstacle that stood between a creative idea and the world seeing it.
             </p>
@@ -128,7 +128,7 @@ const PhilosophyPage = () => {
               We are <em className="italic text-accent">directors, not generators.</em> Every image we create begins with intention — a feeling, a story, a truth about your brand that we translate into visuals the world can feel.
             </p>
             <div className="w-12 h-px bg-accent mx-auto my-12 reveal" />
-            <p className="text-[13px] font-light leading-[1.9] text-taupe max-w-[560px] mx-auto reveal">
+            <p className="text-[13px] font-light leading-[1.9] text-charcoal max-w-[560px] mx-auto reveal">
               AI is our medium, not our message. The message is your brand. And we will make it look exactly as extraordinary as it deserves to.
             </p>
           </div>
@@ -150,7 +150,7 @@ const PhilosophyPage = () => {
         {/* AI Ethics */}
         <section className="bg-background py-[140px] px-8 md:px-[52px] grid grid-cols-1 md:grid-cols-[320px_1fr] gap-16 md:gap-[100px] items-start">
           <div className="reveal">
-            <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-6">Transparency</p>
+            <p className="text-[11px] tracking-[0.35em] uppercase text-charcoal mb-6">Transparency</p>
             <h2 className="font-serif text-[clamp(36px,4vw,52px)] font-light text-ink leading-[1.1] md:sticky md:top-[120px]">
               Our <em className="italic">Approach</em> to AI
             </h2>
@@ -162,7 +162,7 @@ const PhilosophyPage = () => {
                   <span className="text-accent text-xs flex-shrink-0">✦</span>
                   {item.title}
                 </div>
-                <p className="text-[13px] font-light leading-[1.9] text-taupe">{item.body}</p>
+                <p className="text-[13px] font-light leading-[1.9] text-charcoal">{item.body}</p>
               </div>
             ))}
           </div>
@@ -173,7 +173,7 @@ const PhilosophyPage = () => {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-serif text-[200px] md:text-[260px] font-light italic text-warm-white/[0.025] whitespace-nowrap pointer-events-none">
             REAL.
           </div>
-          <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-8 relative reveal">Ready to See It in Action?</p>
+          <p className="text-[11px] tracking-[0.35em] uppercase text-taupe mb-8 relative reveal">Ready to See It in Action?</p>
           <h2 className="font-serif text-[clamp(52px,7vw,96px)] font-light text-warm-white leading-[0.95] mb-14 relative reveal">
             Same vision.<br />
             <em className="italic text-stone">Better results.</em>
