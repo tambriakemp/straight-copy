@@ -49,9 +49,6 @@ const HeroSection = () => {
             <div className="absolute bottom-5 left-5 font-serif text-[11px] tracking-[0.2em] uppercase text-warm-white/70">Lifestyle</div>
           </div>
         </div>
-        <div className="absolute -right-5 top-1/2 -translate-y-1/2 rotate-90 text-[9px] tracking-[0.4em] uppercase text-taupe whitespace-nowrap">
-          Real light · Real texture · AI crafted
-        </div>
       </div>
     </section>
   );

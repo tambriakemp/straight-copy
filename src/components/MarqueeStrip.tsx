@@ -1,6 +1,7 @@
 const items = [
   "AI Brand Campaigns", "Editorial Imagery", "Lifestyle Content",
   "Short-Form Video", "Product Visualization", "Brand Strategy",
+  "Real Light", "Real Texture", "AI Crafted",
 ];
 
 const MarqueeStrip = () => {
