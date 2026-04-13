@@ -16,7 +16,7 @@ const ServicesSection = () => {
         <div className="font-serif text-[clamp(80px,10vw,140px)] font-light italic leading-[0.85] text-mist-custom [writing-mode:vertical-rl] rotate-180 tracking-tight pl-6 pointer-events-none select-none">
           Cre8
         </div>
-        <p className="[writing-mode:vertical-rl] rotate-180 text-[10px] tracking-[0.3em] uppercase text-accent pl-6 whitespace-nowrap">
+        <p className="[writing-mode:vertical-rl] rotate-180 text-[10px] tracking-[0.3em] uppercase text-accent pl-6 ml-5 whitespace-nowrap">
           AI · Brand · Vision
         </p>
       </div>
