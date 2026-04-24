@@ -8,7 +8,7 @@ interface NavbarProps {
 
 const navItems = [
   { name: "Services", path: "/services" },
-  { name: "Work", path: "/work" },
+  { name: "How It Works", path: "/work" },
   { name: "Philosophy", path: "/philosophy" },
   { name: "Contact", path: "/contact" },
 ];
