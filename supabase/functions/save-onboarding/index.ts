@@ -1,5 +1,7 @@
-// Saves a completed onboarding submission and notifies the owner via email.
+// Saves a completed onboarding submission, notifies the owner via email,
+// and kicks off brand-voice generation.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { extractSummaryWithClaude, triggerBrandVoiceGeneration } from "../_shared/onboarding-summary.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,62 +10,6 @@ const corsHeaders = {
 };
 
 const OWNER_EMAIL = "hello@cre8visions.com";
-const CLAUDE_MODEL = "claude-sonnet-4-5";
-
-const SUMMARY_SYSTEM = `You extract a structured summary from a client onboarding conversation for the CRE8 Visions team. Each value should be a concise 1-2 sentence summary based ONLY on what the user said. If a field wasn't covered, write "Not specified".`;
-
-const SUMMARY_TOOL = {
-  name: "extract_summary",
-  description: "Extract a structured onboarding summary.",
-  input_schema: {
-    type: "object",
-    properties: {
-      contact_name: { type: ["string", "null"] },
-      business_name: { type: ["string", "null"] },
-      contact_email: { type: ["string", "null"] },
-      what_they_do: { type: "string" },
-      brand_voice: { type: "string" },
-      ideal_customer: { type: "string" },
-      offerings: { type: "string" },
-      biggest_challenges: { type: "string" },
-      goals_12_months: { type: "string" },
-    },
-    required: [
-      "what_they_do",
-      "brand_voice",
-      "ideal_customer",
-      "offerings",
-      "biggest_challenges",
-      "goals_12_months",
-    ],
-  },
-};
-
-async function extractSummaryWithClaude(transcript: string, apiKey: string): Promise<any> {
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 2048,
-      system: SUMMARY_SYSTEM,
-      tools: [SUMMARY_TOOL],
-      tool_choice: { type: "tool", name: "extract_summary" },
-      messages: [{ role: "user", content: `Conversation:\n\n${transcript}` }],
-    }),
-  });
-  if (!resp.ok) {
-    console.error("Anthropic summary error:", resp.status, await resp.text().catch(() => ""));
-    return {};
-  }
-  const j = await resp.json();
-  const toolUse = (j.content || []).find((c: any) => c.type === "tool_use");
-  return toolUse?.input ?? {};
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -81,20 +27,20 @@ Deno.serve(async (req) => {
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 
-    // 1. Use Claude to extract structured summary
+    // 1. Use Claude to extract structured summary (19-field schema).
     const transcript = conversation
       .map((m: any) => `${m.role === "user" ? "CLIENT" : "AI"}: ${m.content}`)
       .join("\n\n");
 
-    const summary = await extractSummaryWithClaude(transcript, ANTHROPIC_API_KEY);
+    const summary: any = await extractSummaryWithClaude(transcript, ANTHROPIC_API_KEY);
 
-    // 2. Save to DB using service role
+    // 2. Save submission (the create_client_from_onboarding trigger will spawn a clients row).
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: inserted, error: insertErr } = await supabase
       .from("onboarding_submissions")
       .insert({
-        business_name: summary.business_name || null,
-        contact_name: summary.contact_name || null,
+        business_name: summary.business_name || summary.business || null,
+        contact_name: summary.contact_name || summary.name || null,
         contact_email: summary.contact_email || null,
         conversation,
         summary,
@@ -111,7 +57,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3. Notify owner via transactional email (fire-and-forget)
+    // 3. Kick off brand-voice generation against the client row the trigger just created.
+    triggerBrandVoiceGeneration(supabase, inserted.id, summary, SUPABASE_URL, SERVICE_KEY).catch(
+      (e) => console.error("brand-voice trigger failed (non-fatal):", e),
+    );
+
+    // 4. Notify owner via transactional email (fire-and-forget).
     try {
       await supabase.functions.invoke("send-transactional-email", {
         body: {
@@ -120,8 +71,8 @@ Deno.serve(async (req) => {
           idempotencyKey: `onboarding-${inserted.id}`,
           templateData: {
             submissionId: inserted.id,
-            businessName: summary.business_name || "Unknown",
-            contactName: summary.contact_name || "Unknown",
+            businessName: summary.business_name || summary.business || "Unknown",
+            contactName: summary.contact_name || summary.name || "Unknown",
             contactEmail: summary.contact_email || "Not provided",
             summary,
           },
@@ -133,7 +84,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, id: inserted.id, summary }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
     console.error("save-onboarding error:", e);

@@ -1,5 +1,6 @@
 // Public edge function for invite resolution + auto-saving onboarding sessions.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { extractSummaryWithClaude, triggerBrandVoiceGeneration } from "../_shared/onboarding-summary.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,68 +9,6 @@ const corsHeaders = {
 };
 
 const OWNER_EMAIL = "hello@cre8visions.com";
-
-const CLAUDE_MODEL = "claude-sonnet-4-5";
-
-const SUMMARY_SYSTEM = `You extract a structured summary from a client onboarding conversation for the CRE8 Visions team. Each value should be a concise 1-2 sentence summary based ONLY on what the user said. If a field wasn't covered, write "Not specified".`;
-
-const SUMMARY_TOOL = {
-  name: "extract_summary",
-  description: "Extract a structured onboarding summary.",
-  input_schema: {
-    type: "object",
-    properties: {
-      contact_name: { type: ["string", "null"] },
-      business_name: { type: ["string", "null"] },
-      contact_email: { type: ["string", "null"] },
-      what_they_do: { type: "string" },
-      brand_voice: { type: "string" },
-      ideal_customer: { type: "string" },
-      offerings: { type: "string" },
-      biggest_challenges: { type: "string" },
-      goals_12_months: { type: "string" },
-    },
-    required: [
-      "what_they_do",
-      "brand_voice",
-      "ideal_customer",
-      "offerings",
-      "biggest_challenges",
-      "goals_12_months",
-    ],
-  },
-};
-
-async function extractSummaryWithClaude(transcript: string, apiKey: string): Promise<any> {
-  try {
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        max_tokens: 2048,
-        system: SUMMARY_SYSTEM,
-        tools: [SUMMARY_TOOL],
-        tool_choice: { type: "tool", name: "extract_summary" },
-        messages: [{ role: "user", content: `Conversation:\n\n${transcript}` }],
-      }),
-    });
-    if (!resp.ok) {
-      console.error("Anthropic summary error:", resp.status, await resp.text().catch(() => ""));
-      return {};
-    }
-    const j = await resp.json();
-    const toolUse = (j.content || []).find((c: any) => c.type === "tool_use");
-    return toolUse?.input ?? {};
-  } catch (e) {
-    console.error("summary AI failed:", e);
-    return {};
-  }
-}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -93,7 +32,6 @@ Deno.serve(async (req) => {
     if (!action || typeof action !== "string") return json({ error: "action required" }, 400);
     if (!token || typeof token !== "string") return json({ error: "token required" }, 400);
 
-    // Lookup invite
     const { data: invite, error: inviteErr } = await supabase
       .from("onboarding_invites")
       .select("*")
@@ -110,7 +48,6 @@ Deno.serve(async (req) => {
       return json({ error: "invite expired" }, 410);
     }
 
-    // RESOLVE — fetch invite + any in-progress submission
     if (action === "resolve") {
       let conversation: unknown[] = [];
       let stage = 1;
@@ -124,11 +61,9 @@ Deno.serve(async (req) => {
         if (sub) {
           conversation = Array.isArray(sub.conversation) ? sub.conversation : [];
           completed = sub.completed;
-          // crude stage estimate from message count if not stored
           stage = Math.min(7, Math.max(1, Math.ceil(conversation.length / 4)));
         }
       }
-      // Update last_opened_at (best-effort)
       await supabase
         .from("onboarding_invites")
         .update({ last_opened_at: new Date().toISOString() })
@@ -146,7 +81,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // SAVE — upsert in-progress submission
     if (action === "save") {
       const { conversation, stage } = body;
       if (!Array.isArray(conversation)) return json({ error: "conversation array required" }, 400);
@@ -191,21 +125,18 @@ Deno.serve(async (req) => {
       return json({ ok: true, submissionId, stage });
     }
 
-    // COMPLETE — finalize, run summary, notify owner
     if (action === "complete") {
       const { conversation } = body;
       if (!Array.isArray(conversation) || conversation.length === 0) {
         return json({ error: "conversation required" }, 400);
       }
 
-      // Generate summary
       const transcript = conversation
         .map((m: any) => `${m.role === "user" ? "CLIENT" : "AI"}: ${m.content}`)
         .join("\n\n");
 
       const summary: any = await extractSummaryWithClaude(transcript, ANTHROPIC_API_KEY);
 
-      // Upsert + complete the submission
       let submissionId = invite.submission_id as string | null;
       if (!submissionId) {
         const { data: inserted, error: insErr } = await supabase
@@ -215,8 +146,8 @@ Deno.serve(async (req) => {
             completed: true,
             invite_id: invite.id,
             summary,
-            business_name: summary.business_name || invite.business_name,
-            contact_name: summary.contact_name || invite.contact_name,
+            business_name: summary.business_name || summary.business || invite.business_name,
+            contact_name: summary.contact_name || summary.name || invite.contact_name,
             contact_email: summary.contact_email || invite.contact_email,
             last_activity_at: new Date().toISOString(),
           })
@@ -234,8 +165,8 @@ Deno.serve(async (req) => {
             conversation,
             summary,
             completed: true,
-            business_name: summary.business_name || invite.business_name,
-            contact_name: summary.contact_name || invite.contact_name,
+            business_name: summary.business_name || summary.business || invite.business_name,
+            contact_name: summary.contact_name || summary.name || invite.contact_name,
             contact_email: summary.contact_email || invite.contact_email,
             last_activity_at: new Date().toISOString(),
           })
@@ -251,7 +182,11 @@ Deno.serve(async (req) => {
         .update({ submission_id: submissionId, completed_at: new Date().toISOString() })
         .eq("id", invite.id);
 
-      // Notify owner (fire-and-forget)
+      // Kick off brand-voice generation against the client row the create_client_from_onboarding trigger materializes.
+      triggerBrandVoiceGeneration(supabase, submissionId!, summary, SUPABASE_URL, SERVICE_KEY).catch(
+        (e) => console.error("brand-voice trigger failed (non-fatal):", e),
+      );
+
       try {
         await supabase.functions.invoke("send-transactional-email", {
           body: {
@@ -260,8 +195,8 @@ Deno.serve(async (req) => {
             idempotencyKey: `onboarding-${submissionId}`,
             templateData: {
               submissionId,
-              businessName: summary.business_name || invite.business_name || "Unknown",
-              contactName: summary.contact_name || invite.contact_name || "Unknown",
+              businessName: summary.business_name || summary.business || invite.business_name || "Unknown",
+              contactName: summary.contact_name || summary.name || invite.contact_name || "Unknown",
               contactEmail: summary.contact_email || invite.contact_email || "Not provided",
               summary,
             },
