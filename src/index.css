@@ -293,7 +293,7 @@
 .crm-shell .crm-btn--sm { padding: 10px 18px; font-size: 10px; }
 
 /* ---------- Roster ---------- */
-.crm-shell .roster { height: 100%; overflow-y: auto; padding: 72px 52px 120px; position: relative; }
+.crm-shell .roster { flex: 1; min-height: 0; overflow-y: auto; padding: 72px 52px 120px; position: relative; }
 .crm-shell .roster__head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 56px; gap: 32px; flex-wrap: wrap; }
 .crm-shell .roster__title-block { max-width: 700px; }
 .crm-shell .roster__eyebrow { font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--crm-stone); margin-bottom: 20px; }
