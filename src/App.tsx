@@ -8,7 +8,7 @@ import Index from "./pages/Index.tsx";
 import Services from "./pages/Services.tsx";
 import Philosophy from "./pages/Philosophy.tsx";
 import Contact from "./pages/Contact.tsx";
-import Work from "./pages/Work.tsx";
+import HowItWorks from "./pages/HowItWorks.tsx";
 import Privacy from "./pages/Privacy.tsx";
 import Unsubscribe from "./pages/Unsubscribe.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
@@ -28,7 +28,7 @@ const App = () => (
           <Route path="/services" element={<Services />} />
           <Route path="/philosophy" element={<Philosophy />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/work" element={<Work />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/unsubscribe" element={<Unsubscribe />} />
           <Route path="/onboarding" element={<Onboarding />} />
