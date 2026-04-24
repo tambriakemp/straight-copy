@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.crm-api]
 verify_jwt = false
+
+[functions.surecart-webhook]
+verify_jwt = false
