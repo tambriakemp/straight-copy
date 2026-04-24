@@ -734,3 +734,185 @@ function BrandVoicePanel({
   );
 }
 
+// ---------- Brand Kit panel (only shown for the brand_kit journey node) ----------
+function BrandKitPanel({ client }: { client: Client }) {
+  const intake = (client.brand_kit_intake || {}) as Record<string, unknown>;
+  const submitted = !!client.brand_kit_intake_submitted_at;
+
+  const has = (...keys: string[]) =>
+    submitted &&
+    keys.some((k) => {
+      const v = intake[k];
+      if (v == null) return false;
+      if (typeof v === "string") return v.trim().length > 0;
+      if (Array.isArray(v)) return v.length > 0;
+      if (typeof v === "object") return Object.keys(v as object).length > 0;
+      return true;
+    });
+
+  const items = [
+    { label: "Logos", done: has("logos", "logo", "logo_files", "logo_references") },
+    { label: "Color Palette", done: has("colors", "color_palette", "palette") },
+    { label: "Typography", done: has("typography", "fonts", "type") },
+    { label: "Visual References", done: has("visual_references", "moodboard", "references", "inspiration") },
+    { label: "Brand Guidelines", done: has("guidelines", "dos_and_donts", "brand_rules", "deliverable_scope") },
+  ];
+
+  const portalUrl = `${window.location.origin}/portal/${client.id}`;
+
+  const copyPortal = async () => {
+    try {
+      await navigator.clipboard.writeText(portalUrl);
+      toast.success("Portal link copied");
+    } catch {
+      toast.error("Could not copy link");
+    }
+  };
+
+  return (
+    <section>
+      <div className="crm-modal__section-head">
+        <div className="crm-modal__section-title">Brand Kit Intake</div>
+        {submitted && (
+          <span className="crm-pill crm-pill--complete" style={{ fontSize: 10 }}>
+            ● Submitted {format(new Date(client.brand_kit_intake_submitted_at!), "MMM d")}
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+        {items.map((it) => (
+          <label
+            key={it.label}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "10px 14px",
+              border: "1px solid hsl(30 12% 22%)",
+              borderRadius: 6,
+              background: it.done ? "hsl(30 12% 14%)" : "transparent",
+              cursor: "default",
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 16,
+                height: 16,
+                borderRadius: 3,
+                border: "1px solid hsl(30 18% 38%)",
+                background: it.done ? "hsl(36 38% 56%)" : "transparent",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "hsl(30 12% 10%)",
+                fontSize: 11,
+                lineHeight: 1,
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
+            >
+              {it.done ? "✓" : ""}
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--crm-font-sans), sans-serif",
+                fontSize: 12,
+                letterSpacing: "0.04em",
+                color: it.done ? "hsl(40 20% 97%)" : "hsl(30 8% 62%)",
+                textDecoration: it.done ? "none" : "none",
+              }}
+            >
+              {it.label}
+            </span>
+          </label>
+        ))}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          padding: 12,
+          border: "1px dashed hsl(30 12% 22%)",
+          borderRadius: 6,
+          marginBottom: 16,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--crm-font-sans), sans-serif",
+            fontSize: 10,
+            letterSpacing: "0.35em",
+            textTransform: "uppercase",
+            color: "hsl(30 8% 62%)",
+          }}
+        >
+          Client Portal Link
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--crm-font-sans), monospace",
+            fontSize: 11,
+            color: "hsl(40 20% 97%)",
+            wordBreak: "break-all",
+          }}
+        >
+          {portalUrl}
+        </span>
+        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <button className="crm-btn crm-btn--ghost" onClick={copyPortal} style={{ fontSize: 11 }}>
+            Copy link
+          </button>
+          <a
+            className="crm-btn crm-btn--ghost"
+            href={portalUrl}
+            target="_blank"
+            rel="noreferrer"
+            style={{ fontSize: 11, textDecoration: "none" }}
+          >
+            Open ↗
+          </a>
+        </div>
+      </div>
+
+      {submitted && intake && Object.keys(intake).length > 0 && (
+        <details style={{ marginTop: 8 }}>
+          <summary
+            style={{
+              fontFamily: "var(--crm-font-sans), sans-serif",
+              fontSize: 10,
+              letterSpacing: "0.35em",
+              textTransform: "uppercase",
+              color: "hsl(30 8% 62%)",
+              cursor: "pointer",
+              padding: "8px 0",
+            }}
+          >
+            View raw intake
+          </summary>
+          <pre
+            style={{
+              marginTop: 8,
+              padding: 12,
+              background: "hsl(30 12% 10%)",
+              border: "1px solid hsl(30 12% 22%)",
+              borderRadius: 6,
+              maxHeight: 280,
+              overflow: "auto",
+              fontSize: 11,
+              lineHeight: 1.5,
+              color: "hsl(40 20% 92%)",
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {JSON.stringify(intake, null, 2)}
+          </pre>
+        </details>
+      )}
+    </section>
+  );
+}
+
