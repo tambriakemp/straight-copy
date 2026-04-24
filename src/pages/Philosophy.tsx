@@ -186,10 +186,10 @@ const PhilosophyPage = () => {
               Start a Project
             </Link>
             <Link
-              to="/work"
+              to="/how-it-works"
               className="font-sans text-[11px] tracking-[0.2em] uppercase text-stone no-underline flex items-center gap-2.5 hover:gap-4 hover:text-warm-white transition-all duration-300 after:content-['→']"
             >
-              See Our Work
+              See How It Works
             </Link>
           </div>
         </section>
