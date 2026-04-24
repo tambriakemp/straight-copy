@@ -596,11 +596,13 @@
 .crm-shell .crm-modal {
   margin: auto;
   width: min(1280px, calc(100% - 80px));
+  height: calc(100% - 80px);
   max-height: calc(100% - 80px);
   background: var(--crm-charcoal);
   border: 1px solid var(--crm-border-dark);
   display: grid;
   grid-template-columns: 1.1fr 1fr;
+  grid-template-rows: 100%;
   position: relative; overflow: hidden;
   animation: crmSlideUp var(--crm-dur-slow) var(--crm-ease-out);
 }
@@ -741,7 +743,8 @@
 .crm-shell .crm-label { display: block; font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--crm-taupe); margin-bottom: 8px; }
 
 @media (max-width: 980px) {
-  .crm-shell .crm-modal { grid-template-columns: 1fr; }
+  .crm-shell .crm-modal { grid-template-columns: 1fr; grid-template-rows: auto; overflow-y: auto; }
+  .crm-shell .crm-modal__left, .crm-shell .crm-modal__right { overflow-y: visible; }
   .crm-shell .crm-modal__left::before { display: none; }
   .crm-shell .topnav, .crm-shell .roster { padding-left: 24px; padding-right: 24px; }
   .crm-shell .roster__row, .crm-shell .roster__head-row {
