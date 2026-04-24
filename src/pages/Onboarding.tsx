@@ -228,21 +228,40 @@ const Onboarding = () => {
 
     setIsStreaming(false);
 
+    // Persist progress after the assistant turn finishes
+    const turnConvo: Msg[] = [...history, { role: "assistant", content: assistantText }];
+    const stageMatchFinal = assistantText.match(/\[\[STAGE:(\d+)\]\]/);
+    const stageNow = stageMatchFinal ? parseInt(stageMatchFinal[1], 10) : stage;
+    scheduleSave(turnConvo, stageNow);
+
     if (detectedComplete) {
-      // Build full conversation for finalization (use raw assistant text without markers)
-      const finalConvo: Msg[] = [...history, { role: "assistant", content: assistantText }];
-      finalize(finalConvo);
+      finalize(turnConvo);
     }
   };
 
   const finalize = async (convo: Msg[]) => {
     setSavingFinal(true);
+    // Flush any pending save
+    if (saveTimer.current) {
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
     try {
-      const { data, error } = await supabase.functions.invoke("save-onboarding", {
-        body: { conversation: convo },
-      });
+      const fnName = inviteToken ? "onboarding-session" : "save-onboarding";
+      const body = inviteToken
+        ? { action: "complete", token: inviteToken, conversation: convo }
+        : { conversation: convo };
+      const { data, error } = await supabase.functions.invoke(fnName, { body });
       if (error) throw error;
       setSummary(data?.summary || null);
+      if (inviteToken && data?.summary) {
+        try {
+          localStorage.setItem(
+            `cre8-onboarding-summary-${inviteToken}`,
+            JSON.stringify(data.summary)
+          );
+        } catch { /* ignore */ }
+      }
       setStage(7);
       setTimeout(() => setView("summary"), 1200);
     } catch (e) {
@@ -269,6 +288,7 @@ const Onboarding = () => {
     setMessages(newHistory);
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
+    scheduleSave(newHistory, stage);
     streamReply(newHistory);
   };
 
