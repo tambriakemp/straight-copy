@@ -10,7 +10,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const loc = useLocation();
 
   const nav = [
-    { to: "/admin", label: "Pipeline", icon: LayoutGrid, exact: true },
+    { to: "/admin", label: "Clients", icon: LayoutGrid, exact: true },
     { to: "/admin/invites", label: "Invites", icon: Mail },
     { to: "/admin/tokens", label: "API Tokens", icon: Key },
   ];

@@ -9,12 +9,9 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
 };
 
-const STAGES = [
-  "intake_submitted", "brand_voice_generation", "build_in_progress",
-  "ready_for_review", "delivered", "active_client",
-] as const;
 const TIERS = ["launch", "growth"] as const;
 const AUTO_STATUS = ["not_started", "building", "live", "paused"] as const;
+const NODE_STATUS = ["pending", "in_progress", "complete"] as const;
 
 async function sha256(text: string) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -40,25 +37,31 @@ Deno.serve(async (req) => {
   const { data: tokenRow } = await supabase
     .from("api_tokens").select("id,revoked").eq("token_hash", hash).maybeSingle();
   if (!tokenRow || tokenRow.revoked) return json({ error: "Invalid or revoked token" }, 401);
-  // fire-and-forget last_used_at update
   supabase.from("api_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", tokenRow.id).then(() => {});
 
   // ---- Route ----
   const url = new URL(req.url);
-  // Path comes through as /crm-api/<rest>
-  let path = url.pathname.replace(/^\/crm-api\/?/, "/").replace(/\/+$/, "") || "/";
+  const path = url.pathname.replace(/^\/crm-api\/?/, "/").replace(/\/+$/, "") || "/";
   const method = req.method;
   const parts = path.split("/").filter(Boolean);
-  // parts examples: ["clients"], ["clients","<id>"], ["clients","<id>","checklist"], ["checklist","<id>"], ["automations","<id>"]
 
   try {
+    // ============ TEMPLATES ============
+    // GET /templates  or  /templates/:tier
+    if (method === "GET" && parts[0] === "templates") {
+      let q = supabase.from("journey_templates").select("*").order("tier").order("order_index");
+      if (parts[1]) q = q.eq("tier", parts[1]);
+      const { data, error } = await q;
+      if (error) return json({ error: error.message }, 500);
+      return json({ templates: data });
+    }
+
+    // ============ CLIENTS ============
     // GET /clients
     if (method === "GET" && parts[0] === "clients" && parts.length === 1) {
-      const stage = url.searchParams.get("stage");
       const tier = url.searchParams.get("tier");
       const search = url.searchParams.get("search");
       let q = supabase.from("clients").select("*").eq("archived", false).order("created_at", { ascending: false });
-      if (stage) q = q.eq("stage", stage);
       if (tier) q = q.eq("tier", tier);
       if (search) q = q.or(`business_name.ilike.%${search}%,contact_name.ilike.%${search}%,contact_email.ilike.%${search}%`);
       const { data, error } = await q;
@@ -75,29 +78,37 @@ Deno.serve(async (req) => {
         contact_email: z.string().email().max(255).nullish(),
         contact_phone: z.string().max(50).nullish(),
         tier: z.enum(TIERS).optional().default("launch"),
-        stage: z.enum(STAGES).optional().default("intake_submitted"),
         intake_summary: z.string().nullish(),
         brand_voice_url: z.string().url().nullish(),
         notes: z.string().nullish(),
+        purchased_at: z.string().datetime().nullish(),
       });
       const parsed = schema.safeParse(body);
       if (!parsed.success) return json({ error: parsed.error.flatten() }, 400);
       const { data, error } = await supabase.from("clients").insert(parsed.data).select().single();
       if (error) return json({ error: error.message }, 500);
+      // Journey nodes are auto-seeded by trigger
       return json({ client: data }, 201);
     }
 
     // GET /clients/:id  (with relations)
     if (method === "GET" && parts[0] === "clients" && parts.length === 2) {
       const id = parts[1];
-      const [c, ch, au, de] = await Promise.all([
+      const [c, jn, ch, au, de] = await Promise.all([
         supabase.from("clients").select("*").eq("id", id).maybeSingle(),
+        supabase.from("journey_nodes").select("*").eq("client_id", id).order("order_index"),
         supabase.from("client_checklist_items").select("*").eq("client_id", id).order("order_index"),
         supabase.from("client_automations").select("*").eq("client_id", id).order("created_at"),
         supabase.from("client_deliveries").select("*").eq("client_id", id).order("delivery_date", { ascending: false }),
       ]);
       if (!c.data) return json({ error: "Not found" }, 404);
-      return json({ client: c.data, checklist: ch.data || [], automations: au.data || [], deliveries: de.data || [] });
+      return json({
+        client: c.data,
+        journey: jn.data || [],
+        checklist: ch.data || [],
+        automations: au.data || [],
+        deliveries: de.data || [],
+      });
     }
 
     // PATCH /clients/:id
@@ -110,20 +121,94 @@ Deno.serve(async (req) => {
         contact_email: z.string().email().max(255).nullish(),
         contact_phone: z.string().max(50).nullish(),
         tier: z.enum(TIERS).optional(),
-        stage: z.enum(STAGES).optional(),
         intake_summary: z.string().nullish(),
         brand_voice_url: z.string().url().nullish(),
         brand_voice_content: z.string().nullish(),
         notes: z.string().nullish(),
         archived: z.boolean().optional(),
+        purchased_at: z.string().datetime().nullish(),
       }).partial();
       const parsed = schema.safeParse(body);
       if (!parsed.success) return json({ error: parsed.error.flatten() }, 400);
       const { data, error } = await supabase.from("clients").update(parsed.data).eq("id", id).select().single();
-      if (error) return json({ error: error.message }, error.code === "PGRST116" ? 404 : 500);
+      if (error) return json({ error: error.message }, 500);
       return json({ client: data });
     }
 
+    // ============ JOURNEY NODES ============
+    // GET /clients/:id/journey
+    if (method === "GET" && parts[0] === "clients" && parts[2] === "journey" && parts.length === 3) {
+      const { data, error } = await supabase
+        .from("journey_nodes").select("*")
+        .eq("client_id", parts[1]).order("order_index");
+      if (error) return json({ error: error.message }, 500);
+      return json({ journey: data });
+    }
+
+    // PATCH /clients/:id/journey/:key   — update a node by its tier-key (e.g. "automation_01")
+    if (method === "PATCH" && parts[0] === "clients" && parts[2] === "journey" && parts.length === 4) {
+      const client_id = parts[1];
+      const key = parts[3];
+      const body = await req.json().catch(() => ({}));
+      const schema = z.object({
+        status: z.enum(NODE_STATUS).optional(),
+        notes: z.string().nullish(),
+        asset_url: z.string().url().nullish(),
+        asset_label: z.string().max(255).nullish(),
+      }).partial();
+      const parsed = schema.safeParse(body);
+      if (!parsed.success) return json({ error: parsed.error.flatten() }, 400);
+      const { data, error } = await supabase
+        .from("journey_nodes").update(parsed.data)
+        .eq("client_id", client_id).eq("key", key)
+        .select().single();
+      if (error) return json({ error: error.message }, error.code === "PGRST116" ? 404 : 500);
+      return json({ node: data });
+    }
+
+    // PATCH /journey-nodes/:id   — update a node by its UUID
+    if (method === "PATCH" && parts[0] === "journey-nodes" && parts.length === 2) {
+      const id = parts[1];
+      const body = await req.json().catch(() => ({}));
+      const schema = z.object({
+        status: z.enum(NODE_STATUS).optional(),
+        notes: z.string().nullish(),
+        asset_url: z.string().url().nullish(),
+        asset_label: z.string().max(255).nullish(),
+      }).partial();
+      const parsed = schema.safeParse(body);
+      if (!parsed.success) return json({ error: parsed.error.flatten() }, 400);
+      const { data, error } = await supabase.from("journey_nodes").update(parsed.data).eq("id", id).select().single();
+      if (error) return json({ error: error.message }, 500);
+      return json({ node: data });
+    }
+
+    // ============ ASSETS (alias of node asset fields, simpler shape) ============
+    // POST /clients/:id/journey/:key/asset
+    if (method === "POST" && parts[0] === "clients" && parts[2] === "journey" && parts[4] === "asset" && parts.length === 5) {
+      const client_id = parts[1];
+      const key = parts[3];
+      const body = await req.json().catch(() => ({}));
+      const schema = z.object({
+        url: z.string().url(),
+        label: z.string().max(255).optional(),
+        mark_complete: z.boolean().optional(),
+      });
+      const parsed = schema.safeParse(body);
+      if (!parsed.success) return json({ error: parsed.error.flatten() }, 400);
+      const patch: Record<string, unknown> = {
+        asset_url: parsed.data.url,
+        asset_label: parsed.data.label ?? null,
+      };
+      if (parsed.data.mark_complete) patch.status = "complete";
+      const { data, error } = await supabase.from("journey_nodes").update(patch)
+        .eq("client_id", client_id).eq("key", key)
+        .select().single();
+      if (error) return json({ error: error.message }, error.code === "PGRST116" ? 404 : 500);
+      return json({ node: data }, 201);
+    }
+
+    // ============ LEGACY (kept for back-compat) ============
     // POST /clients/:id/checklist
     if (method === "POST" && parts[0] === "clients" && parts[2] === "checklist" && parts.length === 3) {
       const client_id = parts[1];
@@ -139,8 +224,6 @@ Deno.serve(async (req) => {
       if (error) return json({ error: error.message }, 500);
       return json({ item: data }, 201);
     }
-
-    // PATCH /checklist/:id
     if (method === "PATCH" && parts[0] === "checklist" && parts.length === 2) {
       const id = parts[1];
       const body = await req.json().catch(() => ({}));
@@ -155,8 +238,6 @@ Deno.serve(async (req) => {
       if (error) return json({ error: error.message }, 500);
       return json({ item: data });
     }
-
-    // POST /clients/:id/automations
     if (method === "POST" && parts[0] === "clients" && parts[2] === "automations" && parts.length === 3) {
       const client_id = parts[1];
       const body = await req.json().catch(() => ({}));
@@ -171,8 +252,6 @@ Deno.serve(async (req) => {
       if (error) return json({ error: error.message }, 500);
       return json({ automation: data }, 201);
     }
-
-    // PATCH /automations/:id
     if (method === "PATCH" && parts[0] === "automations" && parts.length === 2) {
       const id = parts[1];
       const body = await req.json().catch(() => ({}));
@@ -187,8 +266,6 @@ Deno.serve(async (req) => {
       if (error) return json({ error: error.message }, 500);
       return json({ automation: data });
     }
-
-    // POST /clients/:id/deliveries
     if (method === "POST" && parts[0] === "clients" && parts[2] === "deliveries" && parts.length === 3) {
       const client_id = parts[1];
       const body = await req.json().catch(() => ({}));
@@ -204,8 +281,6 @@ Deno.serve(async (req) => {
       if (error) return json({ error: error.message }, 500);
       return json({ delivery: data }, 201);
     }
-
-    // POST /clients/:id/documents  (save brand voice)
     if (method === "POST" && parts[0] === "clients" && parts[2] === "documents" && parts.length === 3) {
       const id = parts[1];
       const body = await req.json().catch(() => ({}));

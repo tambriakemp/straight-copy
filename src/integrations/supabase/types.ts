@@ -184,8 +184,7 @@ export type Database = {
           intake_summary: string | null
           notes: string | null
           onboarding_submission_id: string | null
-          stage: string
-          stage_order: number
+          purchased_at: string | null
           tier: string
           updated_at: string
         }
@@ -202,8 +201,7 @@ export type Database = {
           intake_summary?: string | null
           notes?: string | null
           onboarding_submission_id?: string | null
-          stage?: string
-          stage_order?: number
+          purchased_at?: string | null
           tier?: string
           updated_at?: string
         }
@@ -220,8 +218,7 @@ export type Database = {
           intake_summary?: string | null
           notes?: string | null
           onboarding_submission_id?: string | null
-          stage?: string
-          stage_order?: number
+          purchased_at?: string | null
           tier?: string
           updated_at?: string
         }
@@ -319,6 +316,102 @@ export type Database = {
           id?: string
           token?: string
           used_at?: string | null
+        }
+        Relationships: []
+      }
+      journey_nodes: {
+        Row: {
+          asset_label: string | null
+          asset_url: string | null
+          client_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          key: string
+          label: string
+          notes: string | null
+          order_index: number
+          started_at: string | null
+          status: string
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          asset_label?: string | null
+          asset_url?: string | null
+          client_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          key: string
+          label: string
+          notes?: string | null
+          order_index: number
+          started_at?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          asset_label?: string | null
+          asset_url?: string | null
+          client_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          key?: string
+          label?: string
+          notes?: string | null
+          order_index?: number
+          started_at?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journey_nodes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journey_nodes_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "journey_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journey_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          key: string
+          label: string
+          order_index: number
+          tier: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          key: string
+          label: string
+          order_index: number
+          tier: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          key?: string
+          label?: string
+          order_index?: number
+          tier?: string
         }
         Relationships: []
       }
