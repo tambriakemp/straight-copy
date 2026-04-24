@@ -625,6 +625,7 @@
   background: var(--crm-ink);
   display: flex; flex-direction: column;
   overflow-y: auto; position: relative;
+  min-height: 0; min-width: 0;
 }
 .crm-shell .crm-modal__left::before {
   content: '';
