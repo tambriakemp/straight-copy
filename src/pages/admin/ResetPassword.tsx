@@ -5,18 +5,22 @@ import { toast } from "sonner";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const [ready, setReady] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    // When user clicks the recovery link, Supabase sets a recovery session
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") setReady(true);
+    // Listen for recovery / sign-in events from the email link
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setHasSession(!!session);
+      setChecking(false);
     });
+    // Also check current session on mount
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
+      setHasSession(!!data.session);
+      setChecking(false);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
