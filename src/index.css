@@ -442,7 +442,7 @@
 .crm-shell .crm-empty__sub { color: var(--crm-taupe); max-width: 440px; font-size: 13px; }
 
 /* ---------- Detail / Journey ---------- */
-.crm-shell .detail { height: 100%; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+.crm-shell .detail { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; overflow: hidden; }
 
 .crm-shell .detail__pill {
   position: absolute; top: 28px; left: 52px; z-index: 15;
