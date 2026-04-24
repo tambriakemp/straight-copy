@@ -99,6 +99,10 @@
   animation: marquee 20s linear infinite;
 }
 
+.animate-marquee-slow {
+  animation: marquee 28s linear infinite;
+}
+
 /* Scroll reveal */
 .reveal {
   opacity: 0;

@@ -17,15 +17,19 @@ const Navbar = ({ variant = "light" }: NavbarProps) => {
   const isDark = variant === "dark";
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Dark variant uses fixed positioning with translucent backdrop blur (matches design system).
+  // Light variant retains the absolute, half-width treatment used by other pages.
   return (
     <nav
-      className={`absolute top-0 left-0 right-0 ${isDark ? "" : "md:right-1/2"} z-50 flex justify-between items-center px-8 md:px-[52px] py-7 ${
-        isDark ? "bg-ink/[0.92] backdrop-blur-[12px] border-b border-warm-white/5" : ""
-      }`}
+      className={`${
+        isDark
+          ? "fixed top-0 left-0 right-0 bg-ink/75 backdrop-blur-[14px] border-b border-warm-white/[0.06]"
+          : "absolute top-0 left-0 right-0 md:right-1/2"
+      } z-50 flex justify-between items-center px-7 md:px-16 py-6`}
     >
       <Link
         to="/"
-        className={`font-serif text-lg font-light tracking-[0.25em] uppercase no-underline ${
+        className={`font-serif text-lg font-light tracking-[0.28em] uppercase no-underline ${
           isDark ? "text-warm-white" : "text-ink"
         }`}
       >
@@ -33,12 +37,12 @@ const Navbar = ({ variant = "light" }: NavbarProps) => {
       </Link>
 
       {/* Desktop nav */}
-      <ul className="hidden md:flex gap-10 list-none">
+      <ul className="hidden md:flex gap-11 list-none">
         {navItems.map((item) => (
           <li key={item.name}>
             <Link
               to={item.path}
-              className={`font-sans text-[11px] font-normal tracking-[0.2em] uppercase no-underline transition-colors duration-300 ${
+              className={`font-sans text-[11px] font-normal tracking-[0.22em] uppercase no-underline transition-colors duration-300 ${
                 isDark ? "text-stone hover:text-accent" : "text-ink hover:text-accent"
               }`}
             >
@@ -59,15 +63,17 @@ const Navbar = ({ variant = "light" }: NavbarProps) => {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className={`absolute top-full left-0 right-0 flex flex-col items-center gap-6 py-8 md:hidden ${
-          isDark ? "bg-ink/95 backdrop-blur-md" : "bg-warm-white/95 backdrop-blur-md"
-        }`}>
+        <div
+          className={`absolute top-full left-0 right-0 flex flex-col items-center gap-6 py-8 md:hidden ${
+            isDark ? "bg-ink/95 backdrop-blur-md" : "bg-warm-white/95 backdrop-blur-md"
+          }`}
+        >
           {navItems.map((item) => (
             <Link
               key={item.name}
               to={item.path}
               onClick={() => setMobileOpen(false)}
-              className={`font-sans text-[12px] font-normal tracking-[0.2em] uppercase no-underline transition-colors duration-300 ${
+              className={`font-sans text-[12px] font-normal tracking-[0.22em] uppercase no-underline transition-colors duration-300 ${
                 isDark ? "text-stone hover:text-accent" : "text-ink hover:text-accent"
               }`}
             >
