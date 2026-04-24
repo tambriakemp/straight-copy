@@ -1,0 +1,465 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
+import { toast } from "sonner";
+
+type Msg = { role: "user" | "assistant"; content: string };
+type ActiveNode = {
+  id: string;
+  key: string;
+  label: string;
+  order_index: number;
+  status: string;
+};
+type PortalClient = {
+  id: string;
+  business_name: string | null;
+  contact_name: string | null;
+  tier: string;
+  brand_kit_intake_submitted_at: string | null;
+  active_node: ActiveNode | null;
+};
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+
+const cleanContent = (text: string) =>
+  text
+    .replace(/\[\[STAGE:\d+\]\]/g, "")
+    .replace(/\[\[BRAND_KIT_COMPLETE\]\]/g, "")
+    .trim();
+
+const STAGE_LABELS = [
+  "Welcome",
+  "Logo",
+  "Colors",
+  "Typography",
+  "References",
+  "Visual Rules",
+  "File Formats",
+  "Scope",
+  "Review",
+];
+
+export default function Portal() {
+  const { clientId } = useParams<{ clientId: string }>();
+
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [client, setClient] = useState<PortalClient | null>(null);
+  const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const [contactEmail, setContactEmail] = useState<string | null>(null);
+
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [stage, setStage] = useState(1);
+  const [readyToSubmit, setReadyToSubmit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lsKey = clientId ? `cre8-portal-${clientId}` : "";
+
+  // ----- Load -----
+  const resolve = useCallback(async () => {
+    if (!clientId) return;
+    setLoading(true);
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${PUB_KEY}`,
+        },
+        body: JSON.stringify({ clientId, action: "resolve" }),
+      });
+      if (resp.status === 404) {
+        setNotFound(true);
+        return;
+      }
+      if (!resp.ok) throw new Error("Could not load portal");
+      const data = await resp.json();
+      setClient(data.client);
+      setSubmittedAt(data.submittedAt);
+      setContactEmail(data.contactEmail);
+
+      // Rehydrate transcript: prefer localStorage if it has more turns
+      const cached = lsKey ? localStorage.getItem(lsKey) : null;
+      const cachedMsgs: Msg[] = cached ? JSON.parse(cached).messages || [] : [];
+      const remoteMsgs: Msg[] = Array.isArray(data.conversation) ? data.conversation : [];
+      const hydrated = cachedMsgs.length > remoteMsgs.length ? cachedMsgs : remoteMsgs;
+      setMessages(hydrated);
+    } catch (e) {
+      console.error(e);
+      toast.error("Could not load portal");
+    } finally {
+      setLoading(false);
+    }
+  }, [clientId, lsKey]);
+
+  useEffect(() => { resolve(); }, [resolve]);
+
+  // Persist transcript locally
+  useEffect(() => {
+    if (!lsKey) return;
+    localStorage.setItem(lsKey, JSON.stringify({ messages, stage }));
+  }, [messages, stage, lsKey]);
+
+  // Auto scroll
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, isStreaming]);
+
+  // Greet on first load if no transcript yet
+  useEffect(() => {
+    if (loading || notFound || !client) return;
+    if (submittedAt) return;
+    if (client.active_node?.key !== "brand_kit") return;
+    if (messages.length === 0 && !isStreaming) {
+      streamReply([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, notFound, client, submittedAt]);
+
+  // ----- Streaming chat -----
+  const streamReply = async (history: Msg[]) => {
+    if (!clientId) return;
+    setIsStreaming(true);
+    let assistantText = "";
+    let detectedComplete = false;
+
+    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${PUB_KEY}`,
+        },
+        body: JSON.stringify({ clientId, action: "chat", messages: history }),
+      });
+
+      if (!resp.ok || !resp.body) {
+        if (resp.status === 429) toast.error("AI is busy — please wait a moment.");
+        else toast.error("Could not reach the assistant.");
+        setMessages((prev) => prev.slice(0, -1));
+        setIsStreaming(false);
+        return;
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let done = false;
+
+      while (!done) {
+        const { value, done: streamDone } = await reader.read();
+        if (streamDone) break;
+        buffer += decoder.decode(value, { stream: true });
+        let idx: number;
+        while ((idx = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+          const json = line.slice(6).trim();
+          if (json === "[DONE]") { done = true; break; }
+          try {
+            const parsed = JSON.parse(json);
+            const delta = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (delta) {
+              assistantText += delta;
+              const stageMatch = assistantText.match(/\[\[STAGE:(\d+)\]\]/);
+              if (stageMatch) setStage(Math.min(8, parseInt(stageMatch[1], 10)));
+              if (assistantText.includes("[[BRAND_KIT_COMPLETE]]")) detectedComplete = true;
+              const display = cleanContent(assistantText);
+              setMessages((prev) => {
+                const copy = [...prev];
+                copy[copy.length - 1] = { role: "assistant", content: display };
+                return copy;
+              });
+            }
+          } catch {
+            buffer = line + "\n" + buffer;
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Connection error.");
+    }
+
+    setIsStreaming(false);
+    if (detectedComplete) setReadyToSubmit(true);
+  };
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || isStreaming) return;
+    const next: Msg[] = [...messages, { role: "user", content: text }];
+    setMessages(next);
+    setInput("");
+    await streamReply(next);
+  };
+
+  const submit = async () => {
+    if (!clientId) return;
+    setSubmitting(true);
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${PUB_KEY}`,
+        },
+        body: JSON.stringify({ clientId, action: "complete", messages }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.success) throw new Error(data.error || "Submit failed");
+      setSubmittedAt(data.submittedAt);
+      if (lsKey) localStorage.removeItem(lsKey);
+      toast.success("Brand Kit intake submitted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Submit failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ----- Render -----
+  if (loading) {
+    return (
+      <div className="crm-shell">
+        <div className="portal-shell">
+          <div className="portal-loading">Loading…</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound || !client) {
+    return (
+      <div className="crm-shell">
+        <div className="portal-shell">
+          <div className="portal-empty">
+            <div className="portal-empty__eyebrow">Portal</div>
+            <h1 className="portal-empty__title">Link <em>invalid</em>.</h1>
+            <p className="portal-empty__sub">
+              We couldn't find a client matching this portal link. Please double-check the URL or
+              reach out to your CRE8 contact.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const node = client.active_node;
+  const businessName = client.business_name || "Your Brand";
+  const tierLabel = client.tier === "growth" ? "Growth" : "Launch";
+  const isBrandKitDone = !!submittedAt;
+  const isBrandKitActive = node?.key === "brand_kit" && !isBrandKitDone;
+
+  return (
+    <div className="crm-shell">
+      <div className="portal-shell">
+        {/* Header */}
+        <header className="portal-header">
+          <div className="portal-header__left">
+            <div className="portal-header__wordmark">Cre8<span className="dot">·</span>Portal</div>
+          </div>
+          <div className="portal-header__right">
+            {node && (
+              <span className="portal-chip">
+                Step {String(node.order_index).padStart(2, "0")} of 10 · {node.label}
+              </span>
+            )}
+          </div>
+        </header>
+
+        <main className="portal-main">
+          {/* Hero */}
+          <section className="portal-hero">
+            <div className="portal-hero__eyebrow">{tierLabel} Journey</div>
+            <h1 className="portal-hero__title">
+              {businessName.split(" ").slice(0, -1).join(" ") || businessName}{" "}
+              {businessName.split(" ").length > 1 && (
+                <em>{businessName.split(" ").slice(-1)[0]}</em>
+              )}
+              {businessName.split(" ").length === 1 && <em>.</em>}
+            </h1>
+            <hr className="portal-hero__rule" />
+            <p className="portal-hero__sub">
+              Welcome{client.contact_name ? `, ${client.contact_name}` : ""}.
+              {contactEmail ? ` We'll keep you posted at ${contactEmail}.` : ""}
+            </p>
+          </section>
+
+          {/* Body */}
+          {isBrandKitDone ? (
+            <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
+          ) : isBrandKitActive ? (
+            <BrandKitChat
+              node={node!}
+              stage={stage}
+              messages={messages}
+              input={input}
+              setInput={setInput}
+              isStreaming={isStreaming}
+              readyToSubmit={readyToSubmit}
+              submitting={submitting}
+              onSend={send}
+              onSubmit={submit}
+              scrollRef={scrollRef}
+            />
+          ) : (
+            <PlaceholderCard node={node} />
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Sub-components ----------
+
+function BrandKitChat({
+  node, stage, messages, input, setInput, isStreaming, readyToSubmit, submitting,
+  onSend, onSubmit, scrollRef,
+}: {
+  node: ActiveNode;
+  stage: number;
+  messages: Msg[];
+  input: string;
+  setInput: (v: string) => void;
+  isStreaming: boolean;
+  readyToSubmit: boolean;
+  submitting: boolean;
+  onSend: () => void;
+  onSubmit: () => void;
+  scrollRef: React.RefObject<HTMLDivElement>;
+}) {
+  return (
+    <section className="portal-node-card">
+      <div className="portal-node-card__head">
+        <div className="portal-node-card__num">
+          Stage <em>{String(node.order_index).padStart(2, "0")}</em>
+        </div>
+        <h2 className="portal-node-card__title">
+          Brand <em>Kit</em>.
+        </h2>
+        <p className="portal-node-card__desc">
+          A short, considered conversation to capture the visual foundation of your brand —
+          logo direction, color, type, and reference points.
+        </p>
+        <div className="portal-stage-indicator">
+          <span className="portal-stage-indicator__lbl">{STAGE_LABELS[Math.min(stage, STAGE_LABELS.length - 1)]}</span>
+          <span className="portal-stage-indicator__count">Stage {stage} of 8</span>
+        </div>
+      </div>
+
+      <div className="portal-chat" ref={scrollRef}>
+        {messages.map((m, i) => (
+          <div key={i} className={`portal-bubble portal-bubble--${m.role}`}>
+            {m.content || (m.role === "assistant" && isStreaming && i === messages.length - 1 ? "…" : "")}
+          </div>
+        ))}
+        {isStreaming && messages[messages.length - 1]?.role !== "assistant" && (
+          <div className="portal-bubble portal-bubble--assistant">…</div>
+        )}
+      </div>
+
+      <div className="portal-composer">
+        <textarea
+          className="portal-composer__input"
+          placeholder={readyToSubmit ? "Anything to add before you submit?" : "Type your answer…"}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
+          disabled={isStreaming || submitting}
+          rows={2}
+        />
+        <div className="portal-composer__actions">
+          <button
+            className="crm-btn crm-btn--ghost crm-btn--sm"
+            onClick={onSend}
+            disabled={isStreaming || submitting || !input.trim()}
+          >
+            Send →
+          </button>
+          {readyToSubmit && (
+            <button
+              className="crm-btn crm-btn--bronze crm-btn--sm"
+              onClick={onSubmit}
+              disabled={submitting}
+            >
+              {submitting ? "Submitting…" : "Review & Submit"}
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ConfirmationCard({ businessName, submittedAt }: { businessName: string; submittedAt: string }) {
+  const dt = new Date(submittedAt);
+  return (
+    <section className="portal-confirm">
+      <div className="portal-confirm__eyebrow">Submitted</div>
+      <h2 className="portal-confirm__title">
+        Thank <em>you</em>.
+      </h2>
+      <hr className="portal-confirm__rule" />
+      <p className="portal-confirm__sub">
+        Your Brand Kit intake is in our hands. The CRE8 team has been notified and will be in
+        touch as the next deliverable for {businessName} comes together.
+      </p>
+      <p className="portal-confirm__meta">
+        Submitted {dt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+        {" · "}
+        {dt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+      </p>
+    </section>
+  );
+}
+
+function PlaceholderCard({ node }: { node: ActiveNode | null }) {
+  if (!node) {
+    return (
+      <section className="portal-confirm">
+        <div className="portal-confirm__eyebrow">All clear</div>
+        <h2 className="portal-confirm__title">
+          Nothing pending <em>right now</em>.
+        </h2>
+        <hr className="portal-confirm__rule" />
+        <p className="portal-confirm__sub">
+          Your team is moving things forward. We'll email you when the next step is ready for
+          your input.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section className="portal-node-card">
+      <div className="portal-node-card__head">
+        <div className="portal-node-card__num">
+          Stage <em>{String(node.order_index).padStart(2, "0")}</em>
+        </div>
+        <h2 className="portal-node-card__title">{node.label}.</h2>
+        <p className="portal-node-card__desc">
+          Your team is working on this step. We'll email you when it's ready for your input
+          here in the portal.
+        </p>
+      </div>
+    </section>
+  );
+}

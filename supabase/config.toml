@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.generate-brand-voice]
 verify_jwt = true
+
+[functions.brand-kit-intake]
+verify_jwt = false
