@@ -760,7 +760,7 @@ const Onboarding = () => {
                   ["90-day goal", fmt(summary["90_day_goal"]) || fmt(summary.goals_12_months)],
                   ["Success looks like", fmt(summary.success_looks_like)],
                   ["Tier", fmt(summary.tier)],
-                ].filter(([, v]) => v && v.trim());
+                ].filter(([, v]) => v && v.trim()) as Array<[string, string]>;
                 return rows;
               })().map(([label, value]) => (
                 <div
