@@ -241,7 +241,7 @@ const Contact = () => {
                 <div className="font-serif text-[40px] font-light text-foreground mb-4">Message Received.</div>
                 <p className="text-[13px] font-light text-taupe leading-[1.8]">
                   Thank you for reaching out. We'll be in touch within 24 hours.<br />
-                  In the meantime, see how we work.
+                  In the meantime, see how the process works.
                 </p>
                 <br /><br />
                 <Link
