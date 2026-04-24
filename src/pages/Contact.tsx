@@ -222,14 +222,14 @@ const Contact = () => {
                 <div className="font-serif text-[40px] font-light text-foreground mb-4">Message Received.</div>
                 <p className="text-[13px] font-light text-taupe leading-[1.8]">
                   Thank you for reaching out. We'll be in touch within 24 hours.<br />
-                  In the meantime, explore our work.
+                  In the meantime, see how we work.
                 </p>
                 <br /><br />
                 <Link
-                  to="/work"
+                  to="/how-it-works"
                   className="text-[11px] tracking-[0.2em] uppercase text-accent no-underline hover:text-foreground transition-colors duration-300"
                 >
-                  View Our Work →
+                  See How It Works →
                 </Link>
               </div>
             )}

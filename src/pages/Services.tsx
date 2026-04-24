@@ -499,10 +499,10 @@ const Services = () => {
               Start the Architecture
             </Link>
             <Link
-              to="/work"
+              to="/how-it-works"
               className="font-sans text-[11px] tracking-[0.2em] uppercase text-charcoal no-underline flex items-center gap-2.5 hover:gap-4 hover:text-accent transition-all duration-300 after:content-['→']"
             >
-              See our work
+              See how it works
             </Link>
           </div>
         </section>
