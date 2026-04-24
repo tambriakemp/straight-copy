@@ -404,9 +404,9 @@ export async function renderBrandVoicePdf(
   doc.registerFontkit(fontkit);
 
   const fonts: Fonts = {
-    serifLight: await doc.embedFont(ff.cormorantLight, { subset: true }),
-    serifSemi: await doc.embedFont(ff.cormorantSemi, { subset: true }),
-    serifItalic: await doc.embedFont(ff.cormorantItalic, { subset: true }),
+    serifLight: await doc.embedFont(ff.serifRegular, { subset: true }),
+    serifSemi: await doc.embedFont(ff.serifSemi, { subset: true }),
+    serifItalic: await doc.embedFont(ff.serifItalic, { subset: true }),
     body: await doc.embedFont(ff.karlaRegular, { subset: true }),
     bodyMedium: await doc.embedFont(ff.karlaMedium, { subset: true }),
   };
