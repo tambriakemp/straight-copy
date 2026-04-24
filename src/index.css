@@ -596,11 +596,13 @@
 .crm-shell .crm-modal {
   margin: auto;
   width: min(1280px, calc(100% - 80px));
+  height: calc(100% - 80px);
   max-height: calc(100% - 80px);
   background: var(--crm-charcoal);
   border: 1px solid var(--crm-border-dark);
   display: grid;
   grid-template-columns: 1.1fr 1fr;
+  grid-template-rows: 100%;
   position: relative; overflow: hidden;
   animation: crmSlideUp var(--crm-dur-slow) var(--crm-ease-out);
 }
