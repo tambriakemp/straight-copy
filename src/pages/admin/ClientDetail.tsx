@@ -582,3 +582,149 @@ function StageModal({
     </div>
   );
 }
+
+// ---------- Brand Voice panel (only shown for the brand_voice journey node) ----------
+function BrandVoicePanel({
+  client,
+  onReload,
+}: {
+  client: Client;
+  onReload: () => void;
+}) {
+  const [busy, setBusy] = useState<null | "regen" | "pdf">(null);
+  const [showDoc, setShowDoc] = useState(false);
+
+  const status = client.brand_voice_status || "pending";
+  const hasDoc = !!client.brand_voice_doc;
+  const hasPdf = !!client.brand_voice_pdf_url;
+
+  const statusPill =
+    status === "complete" ? { label: "Complete", cls: "crm-pill--complete" }
+    : status === "in_progress" ? { label: "Generating…", cls: "crm-pill--current" }
+    : status === "failed" ? { label: "Failed", cls: "crm-pill--blocked" }
+    : { label: "Pending", cls: "" };
+
+  const generatedAt = client.brand_voice_pdf_generated_at || client.brand_voice_generated_at;
+
+  const callFn = async (mode: "regen" | "pdf") => {
+    setBusy(mode);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-brand-voice", {
+        body: { clientId: client.id, pdfOnly: mode === "pdf" },
+      });
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error || "Failed");
+      toast.success(mode === "pdf" ? "PDF generated" : "Brand voice regenerated");
+      onReload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const copyQrc = async () => {
+    if (!client.brand_voice_quick_ref) {
+      toast.error("No Quick Reference Card available");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(client.brand_voice_quick_ref);
+      toast.success("Quick Reference Card copied");
+    } catch {
+      toast.error("Could not copy");
+    }
+  };
+
+  return (
+    <section>
+      <div className="crm-modal__section-head">
+        <div className="crm-modal__section-title">Brand Voice Document</div>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
+        <span className={`crm-pill ${statusPill.cls}`}>● {statusPill.label}</span>
+        {generatedAt && (
+          <span style={{ fontSize: 11, color: "hsl(30 8% 62%)", letterSpacing: "0.04em" }}>
+            Generated {format(new Date(generatedAt), "MMM d, yyyy · h:mm a")}
+          </span>
+        )}
+      </div>
+
+      {client.brand_voice_error && status === "failed" && (
+        <div
+          style={{
+            fontSize: 11,
+            color: "hsl(10 60% 70%)",
+            background: "hsl(10 30% 20% / 0.4)",
+            border: "1px solid hsl(10 30% 35% / 0.5)",
+            padding: "10px 12px",
+            borderRadius: 4,
+            marginBottom: 14,
+            fontFamily: "monospace",
+          }}
+        >
+          {client.brand_voice_error}
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+        <button
+          className="crm-btn crm-btn--ghost crm-btn--sm"
+          onClick={copyQrc}
+          disabled={!client.brand_voice_quick_ref}
+        >
+          Copy Quick Reference Card
+        </button>
+        <button
+          className="crm-btn crm-btn--ghost crm-btn--sm"
+          onClick={() => callFn("regen")}
+          disabled={busy !== null}
+        >
+          {busy === "regen" ? "Regenerating…" : "Regenerate"}
+        </button>
+        {hasDoc && !hasPdf && (
+          <button
+            className="crm-btn crm-btn--bronze crm-btn--sm"
+            onClick={() => callFn("pdf")}
+            disabled={busy !== null}
+          >
+            {busy === "pdf" ? "Generating…" : "Generate PDF"}
+          </button>
+        )}
+      </div>
+
+      {hasDoc && (
+        <>
+          <button
+            className="crm-btn crm-btn--ghost crm-btn--sm"
+            onClick={() => setShowDoc((v) => !v)}
+            style={{ marginBottom: 12 }}
+          >
+            {showDoc ? "Hide document" : "Preview document"}
+          </button>
+          {showDoc && (
+            <div
+              style={{
+                background: "hsl(40 20% 97% / 0.04)",
+                border: "1px solid hsl(40 20% 97% / 0.08)",
+                borderRadius: 4,
+                padding: "20px 24px",
+                maxHeight: 360,
+                overflowY: "auto",
+                fontFamily: "var(--crm-font-serif), serif",
+                fontSize: 13,
+                lineHeight: 1.7,
+                color: "hsl(40 20% 97%)",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {client.brand_voice_doc}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
