@@ -41,6 +41,7 @@ const App = () => (
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/unsubscribe" element={<Unsubscribe />} />
           <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/portal/:clientId" element={<Portal />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/reset-password" element={<ResetPassword />} />
           <Route path="/admin" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
