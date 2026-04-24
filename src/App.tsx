@@ -41,7 +41,9 @@ const App = () => (
           <Route path="/unsubscribe" element={<Unsubscribe />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/reset-password" element={<ResetPassword />} />
           <Route path="/admin" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
+          <Route path="/admin/profile" element={<RequireAdmin><Profile /></RequireAdmin>} />
           <Route path="/admin/clients/:id" element={<RequireAdmin><ClientDetail /></RequireAdmin>} />
           <Route path="/admin/tokens" element={<RequireAdmin><Tokens /></RequireAdmin>} />
           <Route path="/admin/invites" element={<RequireAdmin><Invites /></RequireAdmin>} />
