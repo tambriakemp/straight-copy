@@ -179,6 +179,9 @@ export type Database = {
           brand_voice_doc: string | null
           brand_voice_error: string | null
           brand_voice_generated_at: string | null
+          brand_voice_pdf_generated_at: string | null
+          brand_voice_pdf_path: string | null
+          brand_voice_pdf_url: string | null
           brand_voice_quick_ref: string | null
           brand_voice_started_at: string | null
           brand_voice_status: string
@@ -206,6 +209,9 @@ export type Database = {
           brand_voice_doc?: string | null
           brand_voice_error?: string | null
           brand_voice_generated_at?: string | null
+          brand_voice_pdf_generated_at?: string | null
+          brand_voice_pdf_path?: string | null
+          brand_voice_pdf_url?: string | null
           brand_voice_quick_ref?: string | null
           brand_voice_started_at?: string | null
           brand_voice_status?: string
@@ -233,6 +239,9 @@ export type Database = {
           brand_voice_doc?: string | null
           brand_voice_error?: string | null
           brand_voice_generated_at?: string | null
+          brand_voice_pdf_generated_at?: string | null
+          brand_voice_pdf_path?: string | null
+          brand_voice_pdf_url?: string | null
           brand_voice_quick_ref?: string | null
           brand_voice_started_at?: string | null
           brand_voice_status?: string
