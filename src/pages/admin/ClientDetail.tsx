@@ -523,6 +523,10 @@ function StageModal({
               </div>
             </section>
 
+            {node.key === "brand_voice" && (
+              <BrandVoicePanel client={client} onReload={onReload} />
+            )}
+
             <section>
               <div className="crm-modal__section-head">
                 <div className="crm-modal__section-title">Linked Asset</div>
