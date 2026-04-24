@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
     const body = await req.json();
@@ -203,31 +203,7 @@ Deno.serve(async (req) => {
         .map((m: any) => `${m.role === "user" ? "CLIENT" : "AI"}: ${m.content}`)
         .join("\n\n");
 
-      let summary: any = {};
-      try {
-        const summaryResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              { role: "system", content: SUMMARY_SYSTEM },
-              { role: "user", content: `Conversation:\n\n${transcript}` },
-            ],
-            response_format: { type: "json_object" },
-          }),
-        });
-        if (summaryResp.ok) {
-          const j = await summaryResp.json();
-          try {
-            summary = JSON.parse(j.choices?.[0]?.message?.content || "{}");
-          } catch {
-            summary = { raw: j.choices?.[0]?.message?.content };
-          }
-        }
-      } catch (e) {
-        console.error("summary AI failed:", e);
-      }
+      const summary: any = await extractSummaryWithClaude(transcript, ANTHROPIC_API_KEY);
 
       // Upsert + complete the submission
       let submissionId = invite.submission_id as string | null;
