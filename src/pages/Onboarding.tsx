@@ -28,16 +28,111 @@ const Onboarding = () => {
   const [stage, setStage] = useState(1);
   const [summary, setSummary] = useState<Record<string, any> | null>(null);
   const [savingFinal, setSavingFinal] = useState(false);
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [inviteContact, setInviteContact] = useState<{
+    contact_name?: string | null;
+    business_name?: string | null;
+  } | null>(null);
+  const [hydrating, setHydrating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const hydratedFromServer = useRef(false);
+  const saveTimer = useRef<number | null>(null);
+  const latestSavePayload = useRef<{ conversation: Msg[]; stage: number } | null>(null);
 
   useEffect(() => {
     document.title = "Client Onboarding · CRE8 Visions";
   }, []);
 
+  // Detect invite token in URL + hydrate
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("invite");
+    if (!token) return;
+    setInviteToken(token);
+
+    // Instant hydrate from localStorage
+    try {
+      const cached = localStorage.getItem(`cre8-onboarding-${token}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed.messages) && parsed.messages.length > 0) {
+          setMessages(parsed.messages);
+          if (parsed.stage) setStage(parsed.stage);
+          setView("chat");
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // Resolve from server
+    setHydrating(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("onboarding-session", {
+          body: { action: "resolve", token },
+        });
+        if (error) throw error;
+        if (data?.invite) setInviteContact(data.invite);
+        if (Array.isArray(data?.conversation) && data.conversation.length > 0) {
+          setMessages(data.conversation);
+          if (data.stage) setStage(data.stage);
+          hydratedFromServer.current = true;
+          setView("chat");
+        }
+        if (data?.completed && data?.conversation?.length > 0) {
+          // already done — show summary if we can
+          const cachedSummary = localStorage.getItem(`cre8-onboarding-summary-${token}`);
+          if (cachedSummary) {
+            try {
+              setSummary(JSON.parse(cachedSummary));
+              setStage(7);
+              setView("summary");
+            } catch { /* ignore */ }
+          }
+        }
+      } catch (e) {
+        console.error("invite resolve failed:", e);
+      } finally {
+        setHydrating(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    // Don't force-scroll on initial server hydration; let user land naturally.
+    if (hydratedFromServer.current) {
+      hydratedFromServer.current = false;
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+      return;
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
+
+  // Debounced auto-save (1.5s) when invite is present
+  const scheduleSave = (convo: Msg[], st: number) => {
+    if (!inviteToken) return;
+    latestSavePayload.current = { conversation: convo, stage: st };
+    // Persist locally immediately
+    try {
+      localStorage.setItem(
+        `cre8-onboarding-${inviteToken}`,
+        JSON.stringify({ messages: convo, stage: st })
+      );
+    } catch { /* ignore */ }
+
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      const payload = latestSavePayload.current;
+      if (!payload) return;
+      supabase.functions
+        .invoke("onboarding-session", {
+          body: { action: "save", token: inviteToken, ...payload },
+        })
+        .catch((e) => console.error("autosave failed:", e));
+    }, 1500);
+  };
 
   // Strip metadata tokens from displayed text
   const cleanContent = (text: string) =>
