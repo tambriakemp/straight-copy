@@ -1,121 +1,89 @@
 
 
-## Plan: Client Pipeline CRM with REST API
+## Plan: Invite Links + Resumable Onboarding Sessions
 
-A protected `/admin` area for tracking onboarding clients through delivery, plus a token-authenticated REST API so external automation tools (Zapier, Make, n8n, custom scripts) can read and update pipeline data.
+Two related upgrades to the onboarding experience:
 
-### 1. Database (new tables via migration)
+1. **Unique invite links** — admins generate a personal link per prospect (e.g. `/onboarding?invite=abc123`). Opening it pre-loads their name/email and ties the conversation to that invite.
+2. **Auto-saving, resumable chat** — every message is persisted as it happens. If the client closes the tab and comes back via the same link (or device), they pick up exactly where they left off, with full scrollable history.
 
-**`clients`** — one row per client in pipeline
-- `id` (uuid), `created_at`, `updated_at`
-- `business_name`, `contact_name`, `contact_email`, `contact_phone`
-- `tier` (text: `launch` | `growth`)
-- `stage` (text enum: `intake_submitted`, `brand_voice_generation`, `build_in_progress`, `ready_for_review`, `delivered`, `active_client`)
-- `stage_order` (int — for manual reordering inside a column)
-- `intake_summary` (text — editable summary, auto-seeded from onboarding submission)
-- `brand_voice_url` (text — link to doc)
-- `brand_voice_content` (text — optional inline content)
-- `onboarding_submission_id` (uuid, nullable — links to existing `onboarding_submissions`)
-- `notes` (text)
+### 1. Database changes (one migration)
 
-**`client_checklist_items`** — build checklist
-- `id`, `client_id` (fk), `label`, `completed` (bool), `order_index`, `created_at`
+**New table: `onboarding_invites`**
+- `id` uuid pk
+- `token` text unique (random URL-safe slug — what goes in the link)
+- `contact_name`, `contact_email`, `business_name` (optional pre-fill)
+- `note` (admin-only context, e.g. "lead from Instagram DM")
+- `expires_at` timestamptz nullable
+- `created_by` uuid (admin user id)
+- `created_at`, `last_opened_at`, `completed_at`
+- `submission_id` uuid nullable — links to the row in `onboarding_submissions` once started
 
-**`client_automations`** — automation status indicators
-- `id`, `client_id` (fk), `name`, `status` (`not_started` | `building` | `live` | `paused`), `notes`, `updated_at`
+**Modify `onboarding_submissions`**
+- Add `invite_id` uuid nullable (FK-like reference — soft, no hard FK)
+- Add `last_activity_at` timestamptz (so we can show "in progress" sessions)
+- `completed` already exists; we'll insert the row early (with `completed=false`) and update it as the chat progresses, instead of only inserting at the end.
 
-**`client_deliveries`** — monthly delivery log
-- `id`, `client_id` (fk), `delivery_date`, `title`, `description`, `link_url`, `created_at`
+**RLS**
+- `onboarding_invites`: admins manage (via `is_admin()`), service role full access. Public read of a SINGLE invite by token happens through an edge function — the table itself stays admin-only.
+- `onboarding_submissions`: keep current rules; the edge functions use the service role to read/update by invite token.
 
-**`api_tokens`** — for REST API auth
-- `id`, `token_hash` (text — sha256 of bearer token), `label`, `created_at`, `last_used_at`, `revoked` (bool)
+**Trigger update**
+- Existing `create_client_from_onboarding` trigger still fires when a submission is marked `completed=true`. No change needed.
 
-**`admin_users`** — who can access `/admin`
-- `id`, `user_id` (uuid, references auth.users), `created_at`
+### 2. Edge functions (new + updated)
 
-**RLS:** All tables enable RLS. `clients`, checklist, automations, deliveries — readable/writable by users in `admin_users` (via `is_admin()` security-definer function). API tokens — service role only. Edge functions use service role to bypass RLS for the public API.
+**New: `onboarding-session`** (`verify_jwt = false`, public)
+- `POST { action: "resolve", token }` → returns invite metadata (name/email/business) + any in-progress conversation. Updates `last_opened_at`. 404 if token missing/expired.
+- `POST { action: "save", token, conversation, stage }` → upserts the submission row tied to the invite, stores the running conversation array and current stage, bumps `last_activity_at`. Throttled client-side to ~1 call per 2 seconds.
+- `POST { action: "complete", token, conversation }` → marks complete (reuses existing summary/email logic from `save-onboarding`).
 
-**Trigger:** auto-create a `clients` row when an `onboarding_submissions` row is marked `completed=true` (seeds business name, contact info, intake summary from `summary` JSON, default stage `intake_submitted`).
+**Updated: `save-onboarding`**
+- Stays for the no-invite (anonymous) flow, but factored to share the summary+email helper with `onboarding-session`.
 
-### 2. Authentication
+**No change**: `onboarding-chat` (streaming) stays as-is.
 
-- Enable email/password auth (auto-confirm ON for admin convenience).
-- New `/admin/login` page — email + password.
-- A user becomes admin only after their `auth.users.id` is added to `admin_users` (manually seeded for first user via migration using your email — you'll provide it, or we'll add it via the SQL editor after first signup).
-- Route guard: `<RequireAdmin>` wrapper redirects non-admins to `/admin/login`.
+### 3. Admin UI (new)
 
-### 3. Admin UI (new pages, isolated from marketing site)
+**`/admin/invites`** — new page in admin nav
+- Table of invites: contact, email, business, status (pill: Not opened / In progress / Completed / Expired), created date, last opened, copy-link button, revoke button.
+- "+ New Invite" dialog: name, email, business, optional expiry (7/30/never), optional note → returns the full URL, auto-copies to clipboard, shows toast.
+- Status is computed: `completed_at` set → Completed; `submission_id` set + `last_activity_at` recent → In progress; `last_opened_at` set → Opened; else Not opened. `expires_at` < now → Expired.
 
-Clean minimal design — neutral grays/white, system font stack inside admin (keeps it visually distinct from the editorial marketing site, also faster to scan). Uses existing shadcn components.
+**Dashboard tweak**
+- Small "Invites" button in the topbar next to "+ New Client" that links to `/admin/invites`.
 
-**`/admin` — Kanban dashboard**
-- 6 columns (one per stage), horizontally scrollable on small screens.
-- Each card: business name (bold), contact name, tier badge (Launch=stone / Growth=accent), submitted date (relative), brand voice doc link icon (if set).
-- Drag-and-drop between columns to change stage (`@dnd-kit/core` — already React-friendly, lightweight).
-- Top bar: search input, tier filter, "+ New Client" button, link to API tokens page.
+### 4. Onboarding page changes (`src/pages/Onboarding.tsx`)
 
-**`/admin/clients/:id` — detail page**
-Tabbed layout:
-- **Overview**: contact info (editable inline), tier, stage selector, submitted date, intake summary (textarea), brand voice URL + optional content textarea, notes.
-- **Checklist**: list of checkbox items, add/remove/reorder, defaults seeded based on tier (Launch gets ~6 items, Growth gets ~12).
-- **Automations**: rows with name + status pill (color-coded), add/edit.
-- **Deliveries**: monthly log table, "+ Log Delivery" form (date, title, description, link).
-- **Danger**: archive button.
+- On mount, read `?invite=` from URL.
+  - If present: call `onboarding-session` with `action: "resolve"`. If it returns saved messages → skip the welcome screen, hydrate `messages`, `stage`, scroll to bottom. If it's a fresh invite → show welcome with "Welcome, {name} — ready when you are."
+  - If absent: current anonymous flow (unchanged).
+- After every assistant turn finishes streaming AND after every user send, call `onboarding-session` `action: "save"` with the latest conversation + stage. Debounced (max once per 1.5s, plus a final flush on completion).
+- Use `localStorage` as a fallback cache (`cre8-onboarding-{token}`) so the chat hydrates instantly while the network resolve loads, and so a momentary save failure doesn't lose state.
+- Existing scroll container already exists (`.ob-scroll`). Add an explicit `max-h` and ensure history scrolls naturally — currently it auto-scrolls to bottom on every new message; we'll keep that for new messages but NOT force-scroll when hydrating an existing session (so the user lands at the bottom but can scroll up freely).
+- On `[[ONBOARDING_COMPLETE]]`, call `action: "complete"` instead of the old `save-onboarding` when an invite is present.
 
-**`/admin/tokens` — API token management**
-- List existing tokens (label, created, last used, revoke button).
-- "Generate token" — shows raw token ONCE, stores only sha256 hash.
+### 5. Files to create / edit
 
-### 4. REST API (edge function: `crm-api`)
+**New**
+- `supabase/functions/onboarding-session/index.ts` + `deno.json`
+- `src/pages/admin/Invites.tsx`
+- Migration: `onboarding_invites` table + `invite_id`/`last_activity_at` columns on `onboarding_submissions` + RLS
 
-Single edge function routing by path/method, `verify_jwt = false`, auth via `Authorization: Bearer <token>` header validated against `api_tokens.token_hash`.
+**Edited**
+- `src/pages/Onboarding.tsx` — invite resolution, debounced auto-save, hydration
+- `src/pages/admin/Dashboard.tsx` — "Invites" button in topbar
+- `src/components/admin/AdminLayout.tsx` — "Invites" nav item
+- `src/App.tsx` — add `/admin/invites` route under `<RequireAdmin>`
+- `supabase/functions/save-onboarding/index.ts` — keep as-is, no breaking changes
 
-Endpoints:
-```
-GET    /clients                  list (filters: stage, tier, search)
-POST   /clients                  create
-GET    /clients/:id              full detail (incl. checklist, automations, deliveries)
-PATCH  /clients/:id              update fields (incl. stage)
-POST   /clients/:id/checklist    add checklist item
-PATCH  /checklist/:id            toggle/edit item
-POST   /clients/:id/automations  add automation
-PATCH  /automations/:id          update status
-POST   /clients/:id/deliveries   log delivery
-POST   /clients/:id/documents    save brand voice (url + optional content)
-```
+### Out of scope (ask if wanted)
+- Email delivery of the invite link from the admin panel (currently: copy link, paste into your own email/text). Easy to add later via the existing transactional email system.
+- Per-client analytics (time to complete, drop-off stage).
+- "Resume from another device" via emailed magic link (current model: anyone with the link can resume — same as Calendly/Typform invites).
 
-All responses JSON. Validation with Zod. Returns `401` on bad token, `404` on missing resource, `400` on validation errors. Updates `last_used_at` on every authenticated call.
-
-### 5. Files to create/edit
-
-**New:**
-- Migration: tables + RLS + `is_admin()` function + onboarding→client trigger
-- `src/pages/admin/AdminLogin.tsx`
-- `src/pages/admin/Dashboard.tsx` (Kanban)
-- `src/pages/admin/ClientDetail.tsx`
-- `src/pages/admin/Tokens.tsx`
-- `src/components/admin/RequireAdmin.tsx`
-- `src/components/admin/AdminLayout.tsx` (sidebar nav)
-- `src/components/admin/ClientCard.tsx`
-- `src/components/admin/KanbanColumn.tsx`
-- `src/components/admin/StageBadge.tsx`, `TierBadge.tsx`
-- `supabase/functions/crm-api/index.ts` + `deno.json`
-- `src/hooks/useAdminAuth.ts`
-
-**Edited:**
-- `src/App.tsx` — add `/admin/*` routes
-- `supabase/config.toml` — add `[functions.crm-api]` block with `verify_jwt = false`
-
-**Dependencies to add:** `@dnd-kit/core`, `@dnd-kit/sortable`, `zod` (likely already present), `date-fns` (already present in shadcn).
-
-### 6. Out of scope (ask if you want these added)
-- File uploads for brand voice docs (currently URL-only — can add Supabase Storage bucket if you want true file hosting)
-- Email notifications when clients move stages
-- Multi-admin roles (everyone in `admin_users` has full access)
-- Public-facing client portal
-
-### Notes for the user (non-technical)
-- After this ships, you'll sign up at `/admin/login`, then I'll add your account to the admin list with one SQL line (or we can hardcode your email upfront — let me know).
-- The REST API uses bearer tokens you generate from the admin UI. Treat tokens like passwords — they're shown once.
-- New onboarding submissions automatically appear in the "Intake Submitted" column.
+### Notes for the user
+- The link is the credential. Anyone with it can view/edit that session — same model as a Google Doc share link. Set an expiry date for sensitive invites.
+- Auto-save runs every couple of seconds while the conversation is active. Closing the tab and reopening the same link restores everything.
+- Existing `/onboarding` (no invite) keeps working unchanged for walk-ins.
 
