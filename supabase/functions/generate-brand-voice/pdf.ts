@@ -10,13 +10,13 @@ const TAUPE = rgb(0.5451, 0.4941, 0.4314);   // #8B7E6E
 const BRONZE = rgb(0.6431, 0.4431, 0.2824);  // #A47148
 const RULE = rgb(0.6431, 0.4431, 0.2824);
 
-// Font URLs (Google Fonts static TTF mirrors)
+// Font URLs (Google Fonts static TTF mirrors — pinned)
 const FONTS = {
-  cormorantLight: "https://fonts.gstatic.com/s/cormorantgaramond/v16/co3YmX5slCNuHLi8bLeY9MK7whWMhyjornFLsS6V7w.ttf",
-  cormorantSemi: "https://fonts.gstatic.com/s/cormorantgaramond/v16/co3bmX5slCNuHLi8bLeY9MK7whWMhyjQAllvuQWJ5heb_w.ttf",
-  cormorantItalic: "https://fonts.gstatic.com/s/cormorantgaramond/v16/co3WmX5slCNuHLi8bLeY9MK7whWMhyjYrEPjuw.ttf",
-  karlaRegular: "https://fonts.gstatic.com/s/karla/v31/qkBbXvYC6trAT55ZBi1ueQVIjQTD-JqqFENLR7fHGw.ttf",
-  karlaMedium: "https://fonts.gstatic.com/s/karla/v31/qkBbXvYC6trAT55ZBi1ueQVIjQTD-LqkFENLR7fHGw.ttf",
+  cormorantLight: "https://fonts.gstatic.com/s/cormorantgaramond/v21/co3umX5slCNuHLi8bLeY9MK7whWMhyjypVO7abI26QOD_qE6GnM.ttf",
+  cormorantSemi: "https://fonts.gstatic.com/s/cormorantgaramond/v21/co3umX5slCNuHLi8bLeY9MK7whWMhyjypVO7abI26QOD_iE9GnM.ttf",
+  cormorantItalic: "https://fonts.gstatic.com/s/cormorantgaramond/v21/co3smX5slCNuHLi8bLeY9MK7whWMhyjYrGFEsdtdc62E6zd58jDOjw.ttf",
+  karlaRegular: "https://fonts.gstatic.com/s/karla/v33/qkBIXvYC6trAT55ZBi1ueQVIjQTD-JqqFA.ttf",
+  karlaMedium: "https://fonts.gstatic.com/s/karla/v33/qkBIXvYC6trAT55ZBi1ueQVIjQTDypqqFA.ttf",
 };
 
 let cachedFonts: { [k: string]: Uint8Array } | null = null;
