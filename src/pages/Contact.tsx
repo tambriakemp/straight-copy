@@ -130,8 +130,24 @@ const Contact = () => {
           <div className="bg-cream px-8 md:px-[52px] md:pl-[72px] pt-[160px] pb-20 flex flex-col justify-center">
             {!submitted ? (
               <>
+                <div className="bg-ink border-l-[3px] border-accent px-7 py-6 mb-11 animate-fade-up">
+                  <p className="text-[10px] tracking-[0.3em] uppercase text-accent mb-2.5">Faster Path</p>
+                  <p className="font-serif text-xl font-light text-warm-white mb-2.5 leading-tight">
+                    Ready to start now? Skip the form.
+                  </p>
+                  <p className="text-[13px] font-light text-taupe leading-[1.7] mb-4">
+                    The discovery conversation takes 10–15 minutes and gives us everything we need to start building. Your AI OS build begins within 24 hours of completion.
+                  </p>
+                  <Link
+                    to="/onboarding"
+                    className="inline-block font-sans text-[11px] tracking-[0.2em] uppercase text-warm-white bg-accent px-7 py-3 no-underline hover:opacity-90 transition-opacity"
+                  >
+                    Begin the Conversation
+                  </Link>
+                </div>
+
                 <p className="text-[11px] tracking-[0.35em] uppercase text-charcoal mb-12 animate-fade-up">
-                  Start a Project
+                  Or Send a Message First
                 </p>
 
                 <div className="grid grid-cols-2 gap-8 mb-9 animate-fade-up animate-fade-up-delay-1">
