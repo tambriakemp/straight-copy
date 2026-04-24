@@ -89,11 +89,11 @@ const Contact = () => {
               </p>
               <h1 className="font-serif text-[clamp(48px,5vw,80px)] font-light leading-[0.95] text-warm-white mb-10 animate-fade-up animate-fade-up-delay-1">
                 Let's Build<br />
-                Something<br />
-                <em className="italic text-stone">Real.</em>
+                Your AI<br />
+                <em className="italic text-stone">Architecture.</em>
               </h1>
               <p className="text-[13px] font-light leading-[1.9] text-taupe max-w-[380px] animate-fade-up animate-fade-up-delay-2">
-                Tell us about your brand, your campaign goals, or just say hello. We respond to every inquiry within 24 hours and offer a free 30-minute discovery call for all new clients.
+                Tell us about your business, what you're spending too much time on, and where you want to be in 90 days. We respond to every inquiry within 24 hours. If you're ready to start, the discovery conversation is the faster path.
               </p>
             </div>
 
