@@ -1,18 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Plus, Mail, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { differenceInCalendarDays, format } from "date-fns";
 
 interface ClientRow {
@@ -32,30 +25,34 @@ interface NodeRow {
   order_index: number;
 }
 
+type StatusKey = "new" | "progress" | "stale" | "complete";
+
 interface RowVM extends ClientRow {
   currentStage: string;
+  currentStageIndex: number;
+  totalStages: number;
   nextAction: string;
-  statusColor: "complete" | "active" | "stale" | "new";
+  status: StatusKey;
   daysSince: number;
-  completePct: number;
 }
 
-type SortKey = "business_name" | "tier" | "currentStage" | "daysSince" | "statusColor";
+type SortKey = "business_name" | "tier" | "currentStage" | "daysSince" | "status";
 
 const tierLabel = (t: string) => (t === "growth" ? "Growth" : "Launch");
 
-const dotColor = (s: RowVM["statusColor"]) =>
-  s === "complete" ? "bg-emerald-500"
-  : s === "active" ? "bg-amber-500"
-  : s === "stale" ? "bg-rose-500"
-  : "bg-stone-400";
+const statusText: Record<StatusKey, string> = {
+  new: "New",
+  progress: "In Progress",
+  stale: "Stale",
+  complete: "Complete",
+};
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [nodes, setNodes] = useState<NodeRow[]>([]);
   const [search, setSearch] = useState("");
-  const [tierFilter, setTierFilter] = useState<string>("all");
+  const [tierFilter, setTierFilter] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
@@ -93,12 +90,14 @@ export default function Dashboard() {
   const rows: RowVM[] = useMemo(() => {
     return clients.map((c) => {
       const cn = nodes.filter((x) => x.client_id === c.id).sort((a, b) => a.order_index - b.order_index);
-      const total = cn.length || 1;
+      const total = cn.length;
       const completes = cn.filter((x) => x.status === "complete").length;
       const inProg = cn.find((x) => x.status === "in_progress");
       const firstPending = cn.find((x) => x.status === "pending");
       const lastComplete = [...cn].reverse().find((x) => x.status === "complete");
-      const currentStage = inProg?.label ?? lastComplete?.label ?? cn[0]?.label ?? "—";
+      const currentStageNode = inProg ?? firstPending ?? lastComplete ?? cn[0];
+      const currentStage = currentStageNode?.label ?? "—";
+      const currentStageIndex = currentStageNode ? currentStageNode.order_index + 1 : 0;
       const nextAction = inProg
         ? `Finish ${inProg.label}`
         : firstPending
@@ -108,28 +107,33 @@ export default function Dashboard() {
         new Date(),
         new Date(c.purchased_at || c.created_at),
       );
-      const allDone = completes === cn.length && cn.length > 0;
-      const statusColor: RowVM["statusColor"] = allDone
+      const allDone = total > 0 && completes === total;
+      const status: StatusKey = allDone
         ? "complete"
         : inProg
-        ? "active"
-        : daysSince > 14
+        ? "progress"
+        : daysSince > 60
         ? "stale"
-        : "new";
+        : daysSince > 14 && completes === 0
+        ? "stale"
+        : completes === 0
+        ? "new"
+        : "progress";
       return {
         ...c,
         currentStage,
+        currentStageIndex,
+        totalStages: total,
         nextAction,
-        statusColor,
+        status,
         daysSince,
-        completePct: Math.round((completes / total) * 100),
       };
     });
   }, [clients, nodes]);
 
   const filtered = useMemo(() => {
     const f = rows.filter((r) => {
-      if (tierFilter !== "all" && r.tier !== tierFilter) return false;
+      if (tierFilter !== "ALL" && r.tier.toUpperCase() !== tierFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         return (
@@ -177,179 +181,173 @@ export default function Dashboard() {
 
   return (
     <AdminLayout>
-      <div className="mb-8">
-        <p className="text-[11px] uppercase tracking-[0.35em] text-stone-500 mb-2">
-          Client roster
-        </p>
-        <h1 className="font-serif text-3xl text-stone-900 italic">All clients</h1>
-      </div>
+      <div className="roster">
+        <div className="roster__ghost">CRE8</div>
 
-      <div className="flex flex-wrap items-center gap-3 mb-5">
-        <Input
-          placeholder="Search clients…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs bg-white border-stone-300"
-        />
-        <Select value={tierFilter} onValueChange={setTierFilter}>
-          <SelectTrigger className="w-[140px] bg-white border-stone-300"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All tiers</SelectItem>
-            <SelectItem value="launch">Launch</SelectItem>
-            <SelectItem value="growth">Growth</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="ml-auto flex items-center gap-2">
-          <Link to="/admin/invites">
-            <Button size="sm" variant="outline" className="border-stone-300">
-              <Mail className="h-4 w-4 mr-1" /> Invites
-            </Button>
-          </Link>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="bg-stone-900 hover:bg-stone-800 text-stone-50">
-                <Plus className="h-4 w-4" /> New client
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>New client</DialogTitle></DialogHeader>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label>Business name *</Label>
-                  <Input value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Contact name</Label>
-                  <Input value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Contact email</Label>
-                  <Input type="email" value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Tier</Label>
-                  <Select value={form.tier} onValueChange={(v) => setForm({ ...form, tier: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="launch">Launch</SelectItem>
-                      <SelectItem value="growth">Growth</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={createClient} className="bg-stone-900 hover:bg-stone-800 text-stone-50">Create</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+        <div className="roster__head">
+          <div className="roster__title-block">
+            <div className="roster__eyebrow">Client Roster</div>
+            <h1 className="roster__title">All <em>clients</em></h1>
+            <hr className="roster__rule" />
+            <p className="roster__sub">
+              Every brand on our books and where they sit in the development journey.
+              Click a row to open the interactive journey view.
+            </p>
+          </div>
         </div>
-      </div>
 
-      {loading ? (
-        <p className="text-sm text-stone-500">Loading clients…</p>
-      ) : filtered.length === 0 ? (
-        <div className="bg-white border border-stone-200 rounded-sm p-12 text-center">
-          <p className="text-sm text-stone-500">No clients yet.</p>
+        <div className="roster__toolbar">
+          <div className="roster__search-wrap">
+            <input
+              className="roster__search"
+              placeholder="Search clients..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select className="roster__select" value={tierFilter} onChange={(e) => setTierFilter(e.target.value)}>
+            <option value="ALL">All tiers</option>
+            <option value="LAUNCH">Launch</option>
+            <option value="GROWTH">Growth</option>
+          </select>
+          <div className="roster__actions">
+            <button className="crm-btn crm-btn--ghost" onClick={() => navigate("/admin/invites")}>
+              ✉ Invites
+            </button>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <button className="crm-btn crm-btn--primary">+ New Client</button>
+              </DialogTrigger>
+              <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">New client</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-2">
+                  <div>
+                    <label className="crm-label">Business name *</label>
+                    <input
+                      className="crm-input"
+                      value={form.business_name}
+                      onChange={(e) => setForm({ ...form, business_name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="crm-label">Contact name</label>
+                    <input
+                      className="crm-input"
+                      value={form.contact_name}
+                      onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="crm-label">Contact email</label>
+                    <input
+                      type="email"
+                      className="crm-input"
+                      value={form.contact_email}
+                      onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="crm-label">Tier</label>
+                    <select
+                      className="crm-input"
+                      value={form.tier}
+                      onChange={(e) => setForm({ ...form, tier: e.target.value })}
+                    >
+                      <option value="launch">Launch</option>
+                      <option value="growth">Growth</option>
+                    </select>
+                  </div>
+                </div>
+                <DialogFooter className="mt-2">
+                  <button className="crm-btn crm-btn--bronze" onClick={createClient}>
+                    Create
+                  </button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
-      ) : (
-        <div className="bg-white border border-stone-200 rounded-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-stone-200 bg-stone-50/60">
-                <Th onClick={() => toggleSort("business_name")}>Client</Th>
-                <Th onClick={() => toggleSort("tier")}>Tier</Th>
-                <Th onClick={() => toggleSort("currentStage")}>Current stage</Th>
-                <Th onClick={() => toggleSort("daysSince")} className="text-right">Days since</Th>
-                <th className="px-4 py-3 text-left font-normal text-[11px] uppercase tracking-[0.2em] text-stone-500">
-                  Next action
-                </th>
-                <Th onClick={() => toggleSort("statusColor")} className="text-center w-[80px]">
-                  Status
-                </Th>
-              </tr>
-            </thead>
-            <tbody>
+
+        {loading ? (
+          <p className="text-[hsl(30_8%_62%)] text-sm">Loading clients…</p>
+        ) : filtered.length === 0 ? (
+          <div className="crm-empty">
+            <div className="crm-empty__glyph">∅</div>
+            <div className="crm-empty__title">No <em>clients</em> yet.</div>
+            <div className="crm-empty__sub">
+              Send an invite or create a client to start tracking a journey.
+              New arrivals will appear here the moment they purchase.
+            </div>
+            <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+              <button className="crm-btn crm-btn--ghost" onClick={() => navigate("/admin/invites")}>
+                ✉ Send Invite
+              </button>
+              <button className="crm-btn crm-btn--bronze" onClick={() => setOpen(true)}>
+                + New Client
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="roster__head-row">
+              <button className="roster__col-h" onClick={() => toggleSort("business_name")}>Client ↕</button>
+              <button className="roster__col-h" onClick={() => toggleSort("tier")}>Tier ↕</button>
+              <button className="roster__col-h" onClick={() => toggleSort("currentStage")}>Current Stage ↕</button>
+              <button className="roster__col-h" onClick={() => toggleSort("daysSince")}>Days Since ↕</button>
+              <div className="roster__col-h" style={{ cursor: "default" }}>Next Action</div>
+              <button className="roster__col-h" onClick={() => toggleSort("status")}>Status ↕</button>
+              <div />
+            </div>
+
+            <div className="roster__list">
               {filtered.map((r) => (
-                <tr
+                <div
                   key={r.id}
+                  className="roster__row"
                   onClick={() => navigate(`/admin/clients/${r.id}`)}
-                  className="border-b border-stone-100 last:border-0 hover:bg-stone-50/50 cursor-pointer transition-colors"
                 >
-                  <td className="px-4 py-4">
-                    <div className="font-medium text-stone-900">{r.business_name || "Untitled"}</div>
-                    <div className="text-xs text-stone-500 mt-0.5">
-                      {r.contact_name || r.contact_email || "—"}
+                  <div className="roster__client">
+                    <div className="roster__name">{r.business_name || "Untitled"}</div>
+                    <div className="roster__email">
+                      {r.contact_email || r.contact_name || "—"}
                     </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="text-[11px] uppercase tracking-[0.2em] text-stone-600">
-                      {tierLabel(r.tier)}
+                  </div>
+                  <div className={`roster__tier roster__tier--${r.tier.toLowerCase()}`}>
+                    {tierLabel(r.tier)}
+                  </div>
+                  <div>
+                    <div className="roster__stage">{r.currentStage}</div>
+                    <span className="roster__stage-hint">
+                      {String(r.currentStageIndex).padStart(2, "0")} / {String(r.totalStages || 0).padStart(2, "0")}
                     </span>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="text-stone-800">{r.currentStage}</div>
-                    <div className="mt-1.5 h-px bg-stone-200 w-32 relative overflow-hidden">
-                      <div
-                        className="absolute inset-y-0 left-0 bg-stone-700"
-                        style={{ width: `${r.completePct}%` }}
-                      />
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-right tabular-nums text-stone-700">
-                    {r.daysSince}d
-                    <div className="text-[10px] text-stone-400 mt-0.5">
+                  </div>
+                  <div>
+                    <div className="roster__days">{r.daysSince}d</div>
+                    <span className="roster__days-date">
                       {format(new Date(r.purchased_at || r.created_at), "MMM d")}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-stone-700 italic font-serif">
-                    {r.nextAction}
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex justify-center">
-                      <span
-                        className={`block h-2.5 w-2.5 rounded-full ${dotColor(r.statusColor)}`}
-                        title={r.statusColor}
-                      />
-                    </div>
-                  </td>
-                </tr>
+                    </span>
+                  </div>
+                  <div className="roster__next">{r.nextAction}</div>
+                  <div className="roster__status">
+                    <span className={`status-dot status-dot--${r.status}`} />
+                    {statusText[r.status]}
+                  </div>
+                  <div className="roster__chevron">→</div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </div>
 
-      <div className="mt-6 flex items-center gap-4 text-[11px] uppercase tracking-[0.2em] text-stone-500">
-        <Legend dot="bg-stone-400" label="New" />
-        <Legend dot="bg-amber-500" label="In progress" />
-        <Legend dot="bg-rose-500" label="Stale" />
-        <Legend dot="bg-emerald-500" label="Complete" />
+            <div className="roster__legend">
+              <span className="roster__legend-item"><span className="status-dot status-dot--new" /> New</span>
+              <span className="roster__legend-item"><span className="status-dot status-dot--progress" /> In Progress</span>
+              <span className="roster__legend-item"><span className="status-dot status-dot--stale" /> Stale</span>
+              <span className="roster__legend-item"><span className="status-dot status-dot--complete" /> Complete</span>
+            </div>
+          </>
+        )}
       </div>
     </AdminLayout>
-  );
-}
-
-function Th({
-  children, onClick, className = "",
-}: { children: React.ReactNode; onClick?: () => void; className?: string }) {
-  return (
-    <th
-      onClick={onClick}
-      className={`px-4 py-3 text-left font-normal text-[11px] uppercase tracking-[0.2em] text-stone-500 ${onClick ? "cursor-pointer hover:text-stone-900" : ""} ${className}`}
-    >
-      <span className="inline-flex items-center gap-1.5">
-        {children}
-        {onClick && <ArrowUpDown className="h-3 w-3 opacity-40" />}
-      </span>
-    </th>
-  );
-}
-
-function Legend({ dot, label }: { dot: string; label: string }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className={`block h-2 w-2 rounded-full ${dot}`} />
-      <span>{label}</span>
-    </div>
   );
 }

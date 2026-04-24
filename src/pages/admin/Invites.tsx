@@ -2,22 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
 import { Plus, Copy, Check, Ban, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 type Invite = {
   id: string;
@@ -44,13 +33,13 @@ function randomToken(len = 24) {
 
 function statusOf(inv: Invite): { label: string; tone: string } {
   const now = Date.now();
-  if (inv.revoked) return { label: "Revoked", tone: "bg-zinc-100 text-zinc-600" };
-  if (inv.completed_at) return { label: "Completed", tone: "bg-emerald-100 text-emerald-700" };
+  if (inv.revoked) return { label: "Revoked", tone: "hsl(30 10% 78%)" };
+  if (inv.completed_at) return { label: "Completed", tone: "hsl(150 35% 70%)" };
   if (inv.expires_at && new Date(inv.expires_at).getTime() < now)
-    return { label: "Expired", tone: "bg-amber-100 text-amber-700" };
-  if (inv.submission_id) return { label: "In progress", tone: "bg-blue-100 text-blue-700" };
-  if (inv.last_opened_at) return { label: "Opened", tone: "bg-indigo-100 text-indigo-700" };
-  return { label: "Not opened", tone: "bg-zinc-100 text-zinc-600" };
+    return { label: "Expired", tone: "hsl(8 55% 70%)" };
+  if (inv.submission_id) return { label: "In progress", tone: "hsl(30 25% 44%)" };
+  if (inv.last_opened_at) return { label: "Opened", tone: "hsl(30 10% 78%)" };
+  return { label: "Not opened", tone: "hsl(30 8% 62%)" };
 }
 
 function fmtDate(d: string | null) {
@@ -84,9 +73,7 @@ export default function Invites() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   const linkFor = (token: string) => `${baseUrl}/onboarding?invite=${token}`;
 
@@ -154,188 +141,181 @@ export default function Invites() {
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Onboarding Invites</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
-            Generate personalized links so prospects can complete onboarding at their own pace.
-          </p>
+      <div className="roster">
+        <div className="roster__head">
+          <div className="roster__title-block">
+            <div className="roster__eyebrow">Onboarding</div>
+            <h1 className="roster__title">All <em>invites</em></h1>
+            <hr className="roster__rule" />
+            <p className="roster__sub">
+              Generate personalized links so prospects can complete onboarding at their own pace.
+            </p>
+          </div>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <button className="crm-btn crm-btn--primary">
+                <Plus className="h-4 w-4" /> New Invite
+              </button>
+            </DialogTrigger>
+            <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md">
+              <DialogHeader>
+                <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Create invite link</DialogTitle>
+                <DialogDescription className="text-[hsl(30_8%_62%)]">
+                  The link will be copied to your clipboard. Send it via your own email or DM.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 mt-2">
+                <div>
+                  <label className="crm-label">Contact name</label>
+                  <input
+                    className="crm-input"
+                    value={form.contact_name}
+                    onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
+                    placeholder="Jane Doe"
+                  />
+                </div>
+                <div>
+                  <label className="crm-label">Contact email</label>
+                  <input
+                    className="crm-input" type="email"
+                    value={form.contact_email}
+                    onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
+                    placeholder="jane@studio.com"
+                  />
+                </div>
+                <div>
+                  <label className="crm-label">Business name</label>
+                  <input
+                    className="crm-input"
+                    value={form.business_name}
+                    onChange={(e) => setForm({ ...form, business_name: e.target.value })}
+                    placeholder="Studio Name"
+                  />
+                </div>
+                <div>
+                  <label className="crm-label">Internal note</label>
+                  <textarea
+                    className="crm-input"
+                    rows={2}
+                    value={form.note}
+                    onChange={(e) => setForm({ ...form, note: e.target.value })}
+                    placeholder="Lead from Instagram DM…"
+                  />
+                </div>
+                <div>
+                  <label className="crm-label">Link expires</label>
+                  <select
+                    className="crm-input"
+                    value={form.expiry}
+                    onChange={(e) => setForm({ ...form, expiry: e.target.value })}
+                  >
+                    <option value="7">In 7 days</option>
+                    <option value="30">In 30 days</option>
+                    <option value="90">In 90 days</option>
+                    <option value="never">Never</option>
+                  </select>
+                </div>
+              </div>
+              <DialogFooter className="mt-2">
+                <button className="crm-btn crm-btn--bronze" onClick={create}>
+                  Create &amp; copy link
+                </button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" /> New Invite
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create invite link</DialogTitle>
-              <DialogDescription>
-                The link will be copied to your clipboard. Send it via your own email or DM.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Contact name</Label>
-                <Input
-                  value={form.contact_name}
-                  onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
-                  placeholder="Jane Doe"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Contact email</Label>
-                <Input
-                  type="email"
-                  value={form.contact_email}
-                  onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
-                  placeholder="jane@studio.com"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Business name</Label>
-                <Input
-                  value={form.business_name}
-                  onChange={(e) => setForm({ ...form, business_name: e.target.value })}
-                  placeholder="Studio Name"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Internal note (optional)</Label>
-                <Textarea
-                  rows={2}
-                  value={form.note}
-                  onChange={(e) => setForm({ ...form, note: e.target.value })}
-                  placeholder="Lead from Instagram DM, mentioned wanting brand voice work"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Link expires</Label>
-                <Select value={form.expiry} onValueChange={(v) => setForm({ ...form, expiry: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="7">In 7 days</SelectItem>
-                    <SelectItem value="30">In 30 days</SelectItem>
-                    <SelectItem value="90">In 90 days</SelectItem>
-                    <SelectItem value="never">Never</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={create}>Create & copy link</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
 
-      <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
         {loading ? (
-          <p className="p-6 text-sm text-zinc-500">Loading invites…</p>
+          <p className="text-[hsl(30_8%_62%)] text-sm">Loading invites…</p>
         ) : invites.length === 0 ? (
-          <div className="p-10 text-center">
-            <p className="text-sm text-zinc-500 mb-3">No invites yet.</p>
-            <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Create your first invite
-            </Button>
+          <div className="crm-empty">
+            <div className="crm-empty__glyph">∅</div>
+            <div className="crm-empty__title">No <em>invites</em> yet.</div>
+            <div className="crm-empty__sub">Create your first invite link to get started.</div>
+            <button className="crm-btn crm-btn--bronze" onClick={() => setOpen(true)}>
+              <Plus className="h-4 w-4" /> Create invite
+            </button>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Contact</TableHead>
-                <TableHead>Business</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Last opened</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="roster__head-row" style={{ gridTemplateColumns: "2fr 1.4fr 1fr 0.9fr 0.9fr 1.2fr" }}>
+              <div className="roster__col-h" style={{ cursor: "default" }}>Contact</div>
+              <div className="roster__col-h" style={{ cursor: "default" }}>Business</div>
+              <div className="roster__col-h" style={{ cursor: "default" }}>Status</div>
+              <div className="roster__col-h" style={{ cursor: "default" }}>Created</div>
+              <div className="roster__col-h" style={{ cursor: "default" }}>Last opened</div>
+              <div className="roster__col-h" style={{ cursor: "default", justifyContent: "flex-end" }}>Actions</div>
+            </div>
+            <div className="roster__list">
               {invites.map((inv) => {
                 const s = statusOf(inv);
                 return (
-                  <TableRow key={inv.id}>
-                    <TableCell>
-                      <div className="font-medium text-zinc-900">
+                  <div
+                    key={inv.id}
+                    className="roster__row"
+                    style={{ gridTemplateColumns: "2fr 1.4fr 1fr 0.9fr 0.9fr 1.2fr", cursor: "default" }}
+                  >
+                    <div className="roster__client">
+                      <div className="roster__name" style={{ fontSize: 16 }}>
                         {inv.contact_name || "—"}
                       </div>
-                      <div className="text-xs text-zinc-500">{inv.contact_email || "—"}</div>
+                      <div className="roster__email">{inv.contact_email || "—"}</div>
                       {inv.source_order_id && (
-                        <div className="text-[10px] uppercase tracking-wider text-amber-700 mt-1">
+                        <div style={{ fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 25% 44%)", marginTop: 4 }}>
                           via SureCart · #{inv.source_order_id.slice(-8)}
                           {inv.tier ? ` · ${inv.tier}` : ""}
                         </div>
                       )}
-                    </TableCell>
-                    <TableCell className="text-sm text-zinc-700">
+                    </div>
+                    <div className="roster__next" style={{ fontSize: 13 }}>
                       {inv.business_name || "—"}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={cn(
-                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-                          s.tone
-                        )}
-                      >
+                    </div>
+                    <div>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: s.tone }}>
+                        <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: s.tone }} />
                         {s.label}
                       </span>
-                    </TableCell>
-                    <TableCell className="text-xs text-zinc-500">
+                    </div>
+                    <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
                       {fmtDate(inv.created_at)}
-                    </TableCell>
-                    <TableCell className="text-xs text-zinc-500">
+                    </div>
+                    <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
                       {fmtDate(inv.last_opened_at)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => copyLink(inv)}
-                          disabled={inv.revoked}
-                          title="Copy link"
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                      <button
+                        className="crm-btn crm-btn--ghost crm-btn--sm"
+                        onClick={() => copyLink(inv)}
+                        disabled={inv.revoked}
+                        title="Copy link"
+                      >
+                        {copiedId === inv.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      </button>
+                      <a href={linkFor(inv.token)} target="_blank" rel="noreferrer">
+                        <button className="crm-btn crm-btn--ghost crm-btn--sm" title="Open">
+                          <ExternalLink className="h-3 w-3" />
+                        </button>
+                      </a>
+                      {inv.submission_id && (
+                        <Link to={`/admin/clients/${inv.submission_id}`}>
+                          <button className="crm-btn crm-btn--ghost crm-btn--sm">View</button>
+                        </Link>
+                      )}
+                      {!inv.revoked && !inv.completed_at && (
+                        <button
+                          className="crm-btn crm-btn--ghost crm-btn--sm"
+                          onClick={() => revoke(inv)}
+                          title="Revoke"
                         >
-                          {copiedId === inv.id ? (
-                            <Check className="h-4 w-4 text-emerald-600" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <a
-                          href={linkFor(inv.token)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex"
-                        >
-                          <Button size="sm" variant="ghost" title="Open link">
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </a>
-                        {inv.submission_id && (
-                          <Link to={`/admin/clients/${inv.submission_id}`} className="inline-flex">
-                            <Button size="sm" variant="ghost" title="View submission">
-                              View
-                            </Button>
-                          </Link>
-                        )}
-                        {!inv.revoked && !inv.completed_at && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => revoke(inv)}
-                            title="Revoke"
-                          >
-                            <Ban className="h-4 w-4 text-zinc-500" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                          <Ban className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
-            </TableBody>
-          </Table>
+            </div>
+          </>
         )}
       </div>
     </AdminLayout>
