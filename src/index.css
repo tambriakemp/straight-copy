@@ -625,6 +625,7 @@
   background: var(--crm-ink);
   display: flex; flex-direction: column;
   overflow-y: auto; position: relative;
+  min-height: 0; min-width: 0;
 }
 .crm-shell .crm-modal__left::before {
   content: '';
@@ -647,7 +648,7 @@
 .crm-shell .crm-modal__owner { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
 .crm-shell .crm-owner-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--crm-accent); display: grid; place-items: center; font-family: var(--crm-font-serif); font-style: italic; font-size: 14px; color: var(--crm-warm-white); }
 
-.crm-shell .crm-modal__right { padding: 72px 60px; background: var(--crm-charcoal); overflow-y: auto; display: flex; flex-direction: column; gap: 40px; }
+.crm-shell .crm-modal__right { padding: 72px 60px; background: var(--crm-charcoal); overflow-y: auto; display: flex; flex-direction: column; gap: 40px; min-height: 0; min-width: 0; }
 .crm-shell .crm-modal__section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .crm-shell .crm-modal__section-title { font-size: 10px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--crm-stone); }
 
