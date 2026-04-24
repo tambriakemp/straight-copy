@@ -4,10 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 
+type Mode = "signin" | "signup" | "forgot";
+
 export default function AdminLogin() {
   const navigate = useNavigate();
   const { user, isAdmin, loading } = useAdminAuth();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -28,6 +30,13 @@ export default function AdminLogin() {
         });
         if (error) throw error;
         toast.success("Account created. Check your email to confirm, then ask the owner to grant admin access.");
+      } else if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/admin/reset-password`,
+        });
+        if (error) throw error;
+        toast.success("If that email exists, a reset link is on its way.");
+        setMode("signin");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -39,6 +48,24 @@ export default function AdminLogin() {
       setBusy(false);
     }
   };
+
+  const title =
+    mode === "signin" ? (
+      <>Sign <em style={{ color: "hsl(30 25% 44%)" }}>in</em>.</>
+    ) : mode === "signup" ? (
+      <>Create <em style={{ color: "hsl(30 25% 44%)" }}>account</em>.</>
+    ) : (
+      <>Forgot <em style={{ color: "hsl(30 25% 44%)" }}>password</em>.</>
+    );
+
+  const subtitle =
+    mode === "signin"
+      ? "Admin access only."
+      : mode === "signup"
+        ? "Sign up, then ask the owner for admin access."
+        : "Enter your email and we'll send a recovery link.";
+
+  const cta = mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link";
 
   return (
     <div className="crm-shell">
@@ -65,12 +92,10 @@ export default function AdminLogin() {
               letterSpacing: "-0.01em",
             }}
           >
-            {mode === "signin" ? <>Sign <em style={{ color: "hsl(30 25% 44%)" }}>in</em>.</> : <>Create <em style={{ color: "hsl(30 25% 44%)" }}>account</em>.</>}
+            {title}
           </h1>
           <hr style={{ width: 48, height: 1, background: "hsl(30 25% 44%)", border: 0, margin: "0 0 24px 0" }} />
-          <p style={{ color: "hsl(30 8% 62%)", fontSize: 13, marginBottom: 28 }}>
-            {mode === "signin" ? "Admin access only." : "Sign up, then ask the owner for admin access."}
-          </p>
+          <p style={{ color: "hsl(30 8% 62%)", fontSize: 13, marginBottom: 28 }}>{subtitle}</p>
 
           <form onSubmit={handle} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
@@ -80,30 +105,54 @@ export default function AdminLogin() {
                 type="email" required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
               />
             </div>
-            <div>
-              <label className="crm-label">Password</label>
-              <input
-                className="crm-input"
-                type="password" required minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+            {mode !== "forgot" && (
+              <div>
+                <label className="crm-label">Password</label>
+                <input
+                  className="crm-input"
+                  type="password" required minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                />
+              </div>
+            )}
+            {mode === "signin" && (
+              <button
+                type="button"
+                onClick={() => setMode("forgot")}
+                style={{
+                  alignSelf: "flex-start",
+                  background: "transparent", border: 0, padding: 0,
+                  color: "hsl(30 10% 78%)",
+                  fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+                  cursor: "pointer",
+                  fontFamily: "Karla, sans-serif",
+                  marginTop: -4,
+                }}
+              >
+                Forgot password?
+              </button>
+            )}
             <button
               type="submit"
               className="crm-btn crm-btn--primary"
               disabled={busy}
               style={{ width: "100%", justifyContent: "center", marginTop: 8 }}
             >
-              {busy ? "…" : mode === "signin" ? "Sign in" : "Create account"}
+              {busy ? "…" : cta}
             </button>
           </form>
 
           <button
             type="button"
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+            onClick={() => {
+              if (mode === "forgot") setMode("signin");
+              else setMode(mode === "signin" ? "signup" : "signin");
+            }}
             style={{
               marginTop: 20,
               background: "transparent", border: 0,
@@ -113,7 +162,11 @@ export default function AdminLogin() {
               fontFamily: "Karla, sans-serif",
             }}
           >
-            {mode === "signin" ? "Need an account? Sign up" : "Have an account? Sign in"}
+            {mode === "forgot"
+              ? "Back to sign in"
+              : mode === "signin"
+                ? "Need an account? Sign up"
+                : "Have an account? Sign in"}
           </button>
         </div>
       </div>
