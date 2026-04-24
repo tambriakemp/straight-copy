@@ -374,7 +374,7 @@ export default function ClientDetail() {
 
 // ---------- Stage modal ----------
 function StageModal({
-  client, node, index, total, onClose, onUpdate,
+  client, node, index, total, onClose, onUpdate, onReload,
 }: {
   client: Client;
   node: JourneyNode;
@@ -382,6 +382,7 @@ function StageModal({
   total: number;
   onClose: () => void;
   onUpdate: (patch: Partial<JourneyNode>) => void;
+  onReload: () => void;
 }) {
   const [notes, setNotes] = useState(node.notes || "");
   const [assetLabel, setAssetLabel] = useState(node.asset_label || "");
