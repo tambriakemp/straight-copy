@@ -12,6 +12,7 @@ import HowItWorks from "./pages/HowItWorks.tsx";
 import Privacy from "./pages/Privacy.tsx";
 import Unsubscribe from "./pages/Unsubscribe.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
+import Portal from "./pages/Portal.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AdminLogin from "./pages/admin/AdminLogin.tsx";
 import ResetPassword from "./pages/admin/ResetPassword.tsx";
