@@ -9,20 +9,67 @@ const corsHeaders = {
 
 const OWNER_EMAIL = "hello@cre8visions.com";
 
-const SUMMARY_SYSTEM = `You extract a structured summary from a client onboarding conversation for the CRE8 Visions team.
-Return ONLY valid JSON, nothing else. Use this exact shape:
-{
-  "contact_name": "string or null",
-  "business_name": "string or null",
-  "contact_email": "string or null",
-  "what_they_do": "string",
-  "brand_voice": "string",
-  "ideal_customer": "string",
-  "offerings": "string",
-  "biggest_challenges": "string",
-  "goals_12_months": "string"
+const CLAUDE_MODEL = "claude-sonnet-4-5";
+
+const SUMMARY_SYSTEM = `You extract a structured summary from a client onboarding conversation for the CRE8 Visions team. Each value should be a concise 1-2 sentence summary based ONLY on what the user said. If a field wasn't covered, write "Not specified".`;
+
+const SUMMARY_TOOL = {
+  name: "extract_summary",
+  description: "Extract a structured onboarding summary.",
+  input_schema: {
+    type: "object",
+    properties: {
+      contact_name: { type: ["string", "null"] },
+      business_name: { type: ["string", "null"] },
+      contact_email: { type: ["string", "null"] },
+      what_they_do: { type: "string" },
+      brand_voice: { type: "string" },
+      ideal_customer: { type: "string" },
+      offerings: { type: "string" },
+      biggest_challenges: { type: "string" },
+      goals_12_months: { type: "string" },
+    },
+    required: [
+      "what_they_do",
+      "brand_voice",
+      "ideal_customer",
+      "offerings",
+      "biggest_challenges",
+      "goals_12_months",
+    ],
+  },
+};
+
+async function extractSummaryWithClaude(transcript: string, apiKey: string): Promise<any> {
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 2048,
+        system: SUMMARY_SYSTEM,
+        tools: [SUMMARY_TOOL],
+        tool_choice: { type: "tool", name: "extract_summary" },
+        messages: [{ role: "user", content: `Conversation:\n\n${transcript}` }],
+      }),
+    });
+    if (!resp.ok) {
+      console.error("Anthropic summary error:", resp.status, await resp.text().catch(() => ""));
+      return {};
+    }
+    const j = await resp.json();
+    const toolUse = (j.content || []).find((c: any) => c.type === "tool_use");
+    return toolUse?.input ?? {};
+  } catch (e) {
+    console.error("summary AI failed:", e);
+    return {};
+  }
 }
-Each value should be a concise 1-2 sentence summary based ONLY on what the user said. If a field wasn't covered, write "Not specified".`;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
