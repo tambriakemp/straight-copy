@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.handle-email-suppression]
 verify_jwt = false
+
+[functions.onboarding-chat]
+verify_jwt = false
+
+[functions.save-onboarding]
+verify_jwt = false
