@@ -196,26 +196,26 @@ const Contact = () => {
                 </div>
 
                 <div className="mb-9 animate-fade-up animate-fade-up-delay-3">
-                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Service You're Interested In</label>
+                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">What Brings You Here</label>
                   <select
                     value={form.service}
                     onChange={(e) => handleChange("service", e.target.value)}
                     className="w-full bg-transparent border-0 border-b border-b-sand py-3 font-serif text-lg font-light text-foreground outline-none focus:border-b-accent transition-colors duration-300 appearance-none bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2212%22%20height%3D%228%22%20viewBox%3D%220%200%2012%208%22%3E%3Cpath%20d%3D%22M1%201l5%205%205-5%22%20stroke%3D%22%23A89F94%22%20stroke-width%3D%221.5%22%20fill%3D%22none%22/%3E%3C/svg%3E')] bg-no-repeat bg-[right_4px_center]"
                   >
                     <option value="" disabled>Select a service</option>
-                    <option value="campaign">AI Brand Campaign</option>
-                    <option value="lifestyle">Editorial Lifestyle Content</option>
-                    <option value="video">Short-Form Video</option>
-                    <option value="product">Product Visualization</option>
-                    <option value="retainer">Monthly Retainer</option>
-                    <option value="unsure">Not Sure Yet</option>
+                    <option value="growth">AI OS Growth — with Business Brain</option>
+                    <option value="launch">AI OS Launch</option>
+                    <option value="lead-auto">Lead Capture + Onboarding Automation</option>
+                    <option value="content-auto">Social Content Publishing Automation</option>
+                    <option value="custom">Custom Add-On Build</option>
+                    <option value="unsure">Not Sure Yet — Let's Talk</option>
                   </select>
                 </div>
 
                 <div className="mb-9 animate-fade-up animate-fade-up-delay-3">
-                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Tell Us About Your Project</label>
+                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Tell Us About Your Business</label>
                   <textarea
-                    placeholder="Share your vision, goals, timeline, or anything that helps us understand what you need..."
+                    placeholder="Tell us what you're spending too much time on, what you offer, and what you want to hand off to a system..."
                     value={form.message}
                     onChange={(e) => handleChange("message", e.target.value)}
                     className="w-full bg-transparent border-0 border-b border-b-sand py-3 font-serif text-lg font-light text-foreground placeholder:text-stone outline-none focus:border-b-accent transition-colors duration-300 resize-none h-[100px] leading-[1.6]"
@@ -231,7 +231,7 @@ const Contact = () => {
                     {loading ? "Sending..." : "Send Inquiry"}
                   </button>
                   <p className="text-[11px] font-light text-taupe leading-[1.6]">
-                    We'll follow up within 24 hours with next steps and a free discovery call invite.
+                    We'll follow up within 24 hours. If you're ready to move faster, start the discovery conversation directly.
                   </p>
                 </div>
               </>
