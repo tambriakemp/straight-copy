@@ -80,9 +80,11 @@ export default function ResetPassword() {
           </h1>
           <hr style={{ width: 48, height: 1, background: "hsl(30 25% 44%)", border: 0, margin: "0 0 24px 0" }} />
           <p style={{ color: "hsl(30 8% 62%)", fontSize: 13, marginBottom: 28 }}>
-            {ready
-              ? "Choose a new password for your account."
-              : "Waiting for recovery link… open this page from the email we sent you."}
+            {checking
+              ? "Verifying recovery link…"
+              : hasSession
+                ? "Choose a new password for your account."
+                : "No active recovery session. Open this page from the password reset email — the link must be used in the same browser."}
           </p>
 
           <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -95,7 +97,6 @@ export default function ResetPassword() {
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={!ready}
                 autoComplete="new-password"
               />
             </div>
@@ -108,14 +109,13 @@ export default function ResetPassword() {
                 minLength={8}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                disabled={!ready}
                 autoComplete="new-password"
               />
             </div>
             <button
               type="submit"
               className="crm-btn crm-btn--primary"
-              disabled={busy || !ready}
+              disabled={busy || checking}
               style={{ width: "100%", justifyContent: "center", marginTop: 8 }}
             >
               {busy ? "…" : "Update password"}
