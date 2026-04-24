@@ -14,6 +14,8 @@ import Unsubscribe from "./pages/Unsubscribe.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AdminLogin from "./pages/admin/AdminLogin.tsx";
+import ResetPassword from "./pages/admin/ResetPassword.tsx";
+import Profile from "./pages/admin/Profile.tsx";
 import Dashboard from "./pages/admin/Dashboard.tsx";
 import ClientDetail from "./pages/admin/ClientDetail.tsx";
 import Tokens from "./pages/admin/Tokens.tsx";
