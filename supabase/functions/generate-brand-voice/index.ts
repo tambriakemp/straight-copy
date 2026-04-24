@@ -1,6 +1,8 @@
-// Generates a complete brand voice document from an intake summary using Claude
-// and saves it onto the matching public.clients row.
+// Generates a complete brand voice document from an intake summary using Claude,
+// renders it as an editorial-styled PDF, uploads to storage, and saves URLs onto
+// the matching public.clients row + brand_voice journey_node.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { renderBrandVoicePdf } from "./pdf.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +12,9 @@ const corsHeaders = {
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-5";
+const BUCKET = "client-assets";
+// 10 years in seconds
+const SIGNED_URL_TTL = 60 * 60 * 24 * 365 * 10;
 
 function asList(v: unknown): string {
   if (Array.isArray(v)) return v.join(", ");
@@ -112,6 +117,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     clientId = body.clientId;
+    const pdfOnly: boolean = !!body.pdfOnly;
     let summary: Record<string, unknown> | undefined = body.summary;
 
     if (!clientId) {
@@ -120,79 +126,160 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
-    // Pull intake_data from the row if not supplied.
-    if (!summary) {
-      const { data: row } = await supabase
+    // Load existing client row (need business_name + maybe existing doc)
+    const { data: clientRow, error: clientErr } = await supabase
+      .from("clients")
+      .select("id, business_name, intake_data, brand_voice_doc, brand_voice_quick_ref")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (clientErr) throw new Error(`Load client failed: ${clientErr.message}`);
+    if (!clientRow) throw new Error("Client not found");
+
+    let brandVoiceDoc: string | null = clientRow.brand_voice_doc;
+    let quickRef: string | null = clientRow.brand_voice_quick_ref;
+
+    // ---- 1. Generate doc via Claude (skip if pdfOnly + doc exists) ----
+    if (!pdfOnly || !brandVoiceDoc) {
+      if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
+
+      await supabase
         .from("clients")
-        .select("intake_data")
-        .eq("id", clientId)
-        .maybeSingle();
-      summary = (row?.intake_data as Record<string, unknown>) || {};
+        .update({
+          brand_voice_status: "in_progress",
+          brand_voice_started_at: new Date().toISOString(),
+          pipeline_stage: "brand_voice_generating",
+        })
+        .eq("id", clientId);
+
+      const intake = summary ?? (clientRow.intake_data as Record<string, unknown>) ?? {};
+      const prompt = buildBrandVoicePrompt(intake);
+
+      const claudeResp = await fetch(ANTHROPIC_API, {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          max_tokens: 4000,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+
+      if (!claudeResp.ok) {
+        const txt = await claudeResp.text().catch(() => "");
+        throw new Error(`Claude API ${claudeResp.status}: ${txt.slice(0, 500)}`);
+      }
+
+      const claudeData = await claudeResp.json();
+      brandVoiceDoc = claudeData.content?.[0]?.text ?? null;
+      if (!brandVoiceDoc) throw new Error("Claude returned empty response");
+
+      const qrcMatch = brandVoiceDoc.match(
+        /--- QUICK REFERENCE CARD[\s\S]*?---([\s\S]*?)--- END QUICK REFERENCE CARD ---/,
+      );
+      quickRef = qrcMatch ? qrcMatch[1].trim() : null;
+
+      const { error: updErr } = await supabase
+        .from("clients")
+        .update({
+          brand_voice_doc: brandVoiceDoc,
+          brand_voice_quick_ref: quickRef,
+          brand_voice_status: "complete",
+          brand_voice_generated_at: new Date().toISOString(),
+          pipeline_stage: "brand_voice_complete",
+        })
+        .eq("id", clientId);
+      if (updErr) throw new Error(`DB update failed: ${updErr.message}`);
     }
 
-    await supabase
-      .from("clients")
-      .update({
-        brand_voice_status: "in_progress",
-        brand_voice_started_at: new Date().toISOString(),
-        pipeline_stage: "brand_voice_generating",
-      })
-      .eq("id", clientId);
+    if (!brandVoiceDoc) throw new Error("No brand voice doc available to render");
 
-    const prompt = buildBrandVoicePrompt(summary);
+    // ---- 2. Render PDF, upload, sign ----
+    let pdfPath: string | null = null;
+    let pdfUrl: string | null = null;
+    let pdfWarning: string | null = null;
 
-    const claudeResp = await fetch(ANTHROPIC_API, {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 4000,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
+    try {
+      const generatedAt = new Date();
+      const pdfBytes = await renderBrandVoicePdf(
+        brandVoiceDoc,
+        clientRow.business_name || "Untitled Brand",
+        generatedAt,
+      );
 
-    if (!claudeResp.ok) {
-      const txt = await claudeResp.text().catch(() => "");
-      throw new Error(`Claude API ${claudeResp.status}: ${txt.slice(0, 500)}`);
+      const ts = generatedAt.toISOString().replace(/[:.]/g, "-");
+      pdfPath = `clients/${clientId}/brand-voice/brand-voice-${ts}.pdf`;
+
+      const { error: upErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(pdfPath, pdfBytes, {
+          contentType: "application/pdf",
+          upsert: false,
+        });
+      if (upErr) throw new Error(`Storage upload failed: ${upErr.message}`);
+
+      const { data: signed, error: signErr } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(pdfPath, SIGNED_URL_TTL);
+      if (signErr) throw new Error(`Signed URL failed: ${signErr.message}`);
+      pdfUrl = signed?.signedUrl ?? null;
+
+      // Persist on clients row
+      await supabase
+        .from("clients")
+        .update({
+          brand_voice_pdf_path: pdfPath,
+          brand_voice_pdf_url: pdfUrl,
+          brand_voice_pdf_generated_at: generatedAt.toISOString(),
+        })
+        .eq("id", clientId);
+
+      // Update brand_voice journey_node (best-effort)
+      await supabase
+        .from("journey_nodes")
+        .update({
+          asset_url: pdfUrl,
+          asset_label: "Brand Voice Document (PDF)",
+          status: "complete",
+        })
+        .eq("client_id", clientId)
+        .eq("key", "brand_voice");
+    } catch (pdfErr) {
+      pdfWarning = pdfErr instanceof Error ? pdfErr.message : String(pdfErr);
+      console.error("[generate-brand-voice] PDF step failed:", pdfWarning);
+      // Don't fail the whole request — markdown doc is already saved.
+      await supabase
+        .from("clients")
+        .update({
+          brand_voice_error: `PDF render warning: ${pdfWarning}`,
+        })
+        .eq("id", clientId);
     }
 
-    const claudeData = await claudeResp.json();
-    const brandVoiceDoc: string | undefined = claudeData.content?.[0]?.text;
-    if (!brandVoiceDoc) throw new Error("Claude returned empty response");
-
-    const qrcMatch = brandVoiceDoc.match(
-      /--- QUICK REFERENCE CARD[\s\S]*?---([\s\S]*?)--- END QUICK REFERENCE CARD ---/,
-    );
-    const quickRef = qrcMatch ? qrcMatch[1].trim() : null;
-
-    const { error: updErr } = await supabase
-      .from("clients")
-      .update({
-        brand_voice_doc: brandVoiceDoc,
-        brand_voice_quick_ref: quickRef,
-        brand_voice_status: "complete",
-        brand_voice_generated_at: new Date().toISOString(),
-        pipeline_stage: "brand_voice_complete",
-      })
-      .eq("id", clientId);
-
-    if (updErr) throw new Error(`DB update failed: ${updErr.message}`);
-
-    // Mark the journey node complete (best-effort).
-    await supabase
-      .from("journey_nodes")
-      .update({ status: "complete" })
-      .eq("client_id", clientId)
-      .eq("key", "brand_voice");
+    // Mark journey node complete even if PDF failed (doc exists)
+    if (!pdfWarning) {
+      // already done above
+    } else {
+      await supabase
+        .from("journey_nodes")
+        .update({ status: "complete" })
+        .eq("client_id", clientId)
+        .eq("key", "brand_voice");
+    }
 
     return new Response(
-      JSON.stringify({ success: true, clientId, hasQuickRef: !!quickRef }),
+      JSON.stringify({
+        success: true,
+        clientId,
+        hasQuickRef: !!quickRef,
+        pdfPath,
+        pdfUrl,
+        pdfWarning,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
