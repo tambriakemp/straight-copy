@@ -173,6 +173,9 @@ export type Database = {
       clients: {
         Row: {
           archived: boolean
+          brand_kit_conversation: Json
+          brand_kit_intake: Json | null
+          brand_kit_intake_submitted_at: string | null
           brand_voice_approved: boolean
           brand_voice_approved_at: string | null
           brand_voice_content: string | null
@@ -203,6 +206,9 @@ export type Database = {
         }
         Insert: {
           archived?: boolean
+          brand_kit_conversation?: Json
+          brand_kit_intake?: Json | null
+          brand_kit_intake_submitted_at?: string | null
           brand_voice_approved?: boolean
           brand_voice_approved_at?: string | null
           brand_voice_content?: string | null
@@ -233,6 +239,9 @@ export type Database = {
         }
         Update: {
           archived?: boolean
+          brand_kit_conversation?: Json
+          brand_kit_intake?: Json | null
+          brand_kit_intake_submitted_at?: string | null
           brand_voice_approved?: boolean
           brand_voice_approved_at?: string | null
           brand_voice_content?: string | null
@@ -590,6 +599,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_portal_client: { Args: { _client_id: string }; Returns: Json }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {

@@ -1,65 +1,98 @@
 
+## Overview
+Add a public client-facing portal that requires no admin login but validates the `clientId` against the `clients` table. The portal surfaces the client's name/business, identifies the current active journey node, and renders a conversational chat for that node. Brand Kit (Node 03) gets a dedicated Claude-backed Edge Function that captures structured intake, persists it, advances the node, and fires a notification webhook.
 
-## Plan: Switch all AI calls from Lovable AI Gateway to Anthropic Claude
+Nothing in the existing admin app, onboarding flow, or routes is touched.
 
-Move every AI invocation in the project off `ai.gateway.lovable.dev` (Gemini/GPT-5) and onto Anthropic's Claude API. No other functional changes.
+---
 
-### Scope — files that currently call the AI gateway
+## 1. Database changes (migration)
 
-1. `supabase/functions/onboarding-chat/index.ts` — streaming onboarding conversation
-2. `supabase/functions/onboarding-session/index.ts` — `complete` action runs the structured-summary extraction
-3. `supabase/functions/save-onboarding/index.ts` — legacy summary extraction (kept in sync for parity)
+Add to `public.clients`:
+- `brand_kit_intake jsonb` (nullable) — structured Brand Kit answers
+- `brand_kit_intake_submitted_at timestamptz` (nullable) — completion stamp
+- `brand_kit_conversation jsonb default '[]'::jsonb` — running chat transcript so the portal can resume
 
-These are the only three places. Everything else (email, webhooks, CRM API) is non-AI and stays untouched.
+No RLS policy changes required (existing policies already cover service role + admins; portal uses the edge function with service role, so the table itself stays locked down).
 
-### What changes in each function
+A small read-only RPC `get_portal_client(_client_id uuid)` (SECURITY DEFINER, `STABLE`, `SET search_path = public`) returns only the safe fields the portal needs:
+- `id, business_name, contact_name, tier, brand_kit_intake_submitted_at`
+- the current active node payload (id, key, label, order_index, status)
 
-**Endpoint**
-- From: `https://ai.gateway.lovable.dev/v1/chat/completions`
-- To: `https://api.anthropic.com/v1/messages`
+Granted to `anon` and `authenticated`. This avoids exposing the full `clients` table publicly while still giving the portal the data it needs.
 
-**Auth headers**
-- From: `Authorization: Bearer ${LOVABLE_API_KEY}`
-- To: `x-api-key: ${ANTHROPIC_API_KEY}` + `anthropic-version: 2023-06-01`
+---
 
-**Request shape** (Anthropic differs from OpenAI-compatible):
-- `system` becomes a top-level field, not a message with `role: "system"`
-- `messages` array contains only `user` / `assistant` turns
-- `max_tokens` is required
-- `stream: true` works the same way for SSE
+## 2. New Edge Function: `brand-kit-intake`
 
-**Model**
-- Default to `claude-sonnet-4-5` (latest Sonnet — best balance for chat + structured extraction)
-- One constant per function so it's easy to swap later
+Path: `supabase/functions/brand-kit-intake/index.ts`
+Config: `verify_jwt = false` (public portal).
 
-**Streaming (onboarding-chat only)**
-Anthropic's SSE format is different from OpenAI's. The frontend currently parses `choices[0].delta.content`. I'll transform Anthropic's `content_block_delta` events into the same OpenAI-compatible shape inside the edge function so `Onboarding.tsx` keeps working with zero frontend changes. The transform is a small ReadableStream that maps each `event: content_block_delta` → `data: {"choices":[{"delta":{"content":"..."}}]}` and emits a final `data: [DONE]`.
+Responsibilities:
+1. Accept `{ clientId, action, messages? }`.
+2. Validate `clientId` exists in `clients` (404 otherwise).
+3. Actions:
+   - `resolve` — return client name/business, the active node, and any saved `brand_kit_conversation` so the chat can rehydrate.
+   - `chat` — stream a Claude (`claude-sonnet-4-5`) response using the same Anthropic→OpenAI SSE transform pattern used in `onboarding-chat`. System prompt is Brand Kit–specific: collects logo files/refs, color palette direction, typography preferences, visual references/moodboard inspiration, do/don't visual rules, file format needs, and the brand kit deliverable scope. Emits `[[BRAND_KIT_COMPLETE]]` when done.
+   - `complete` — accept the final structured JSON extracted by Claude (separate non-stream call using `extractSummaryWithClaude`-style helper), then:
+     - Persist `brand_kit_intake` (jsonb) and `brand_kit_intake_submitted_at` on `clients`.
+     - Update Node 03 (`journey_nodes` row where `client_id = X` and `key = 'brand_kit'`) `status = 'client_submitted'` (new allowed status — see note below). Stamp `started_at` if missing.
+     - Save the final transcript to `brand_kit_conversation`.
+     - Fire a notification webhook (POST JSON) to a `BRAND_KIT_NOTIFICATION_WEBHOOK_URL` secret. Failures are logged but do not block the response.
+4. Auto-save partial transcripts on each `chat` turn (debounced server-side), mirroring the onboarding pattern.
 
-**Structured JSON extraction (onboarding-session + save-onboarding)**
-Replace OpenAI-style `response_format: { type: "json_object" }` with Anthropic tool-use:
-- Define a single `extract_summary` tool whose input schema matches the existing summary shape
-- Force the model to call it via `tool_choice: { type: "tool", name: "extract_summary" }`
-- Read the structured object from `content[0].input` instead of parsing a JSON string
+Note on `client_submitted`: existing UI status type is `"pending" | "in_progress" | "complete"`. We will store `"client_submitted"` in the DB column (free-text) — admins still see the node and we'll render it in the portal as "Submitted — awaiting review". The admin journey UI will continue to treat unknown statuses as non-blocking (no admin code change required for portal MVP; it will simply show as not-yet-complete on the admin side, with a note in the node).
 
-**Error handling**
-- 429 → same "Rate limit reached" response
-- 529 (Anthropic overloaded) → same rate-limit message
-- 401 → "AI service authentication failed" (signals bad/missing key)
-- All other errors → existing 500 path, with the Anthropic error body logged
+Secret needed: `BRAND_KIT_NOTIFICATION_WEBHOOK_URL` (added via the secrets tool before deploy). `ANTHROPIC_API_KEY` already exists.
 
-### Secret
+---
 
-A new runtime secret `ANTHROPIC_API_KEY` is required. I'll request it via `add_secret` before deploying. `LOVABLE_API_KEY` stays in the secret store (still used by other potential features) but is no longer referenced by these three functions.
+## 3. New page: `src/pages/Portal.tsx`
 
-### Out of scope (explicitly not touching)
+Route: `/portal/:clientId` (added to `App.tsx`, above the catch-all, outside any `RequireAdmin` wrapper).
 
-- No new features, no UI changes, no DB changes
-- No changes to the journey flow / brand voice generator (that one wasn't built)
-- Frontend `Onboarding.tsx` is unchanged — the SSE transform keeps the contract identical
+Behavior:
+1. On mount, call `brand-kit-intake` with `action: "resolve"`.
+2. If client not found → render a clean "Portal link invalid" state.
+3. Render header: client business name (serif, large) + contact name + tier badge.
+4. Render the **current active node** card — defined as the lowest `order_index` node whose status is not `complete` / `client_submitted`. Show node label, order number (e.g. "03"), and status.
+5. Conditional body:
+   - If active node `key === 'brand_kit'` and not yet submitted → render the chat UI (reusing the styling language of the onboarding chat: streaming bubbles, textarea with Send icon, stage indicator). Calls `brand-kit-intake` for streaming.
+   - On `[[BRAND_KIT_COMPLETE]]` → show "Review & Submit" button which fires the `complete` action.
+   - On success → show a confirmation screen ("Thank you — your Brand Kit intake is in our hands"), with the same dark editorial styling.
+   - If active node is not Brand Kit → render a polite placeholder ("Your team is working on the next step. We'll email you when it's ready for your input.") so the portal is future-proof for other nodes.
+6. If `brand_kit_intake_submitted_at` is already set → show the confirmation screen directly (idempotent).
 
-### Risks / things to confirm after deploy
+State persistence: localStorage cache `cre8-portal-${clientId}` for instant rehydrate, mirroring `Onboarding.tsx`.
 
-- Cost & latency profile changes (Claude Sonnet 4.5 is solid for this workload but priced differently than Gemini Flash)
-- Tool-use JSON output is more reliable than `response_format`, so summary quality should be equal or better
-- If you want a cheaper model for the summary step (e.g. `claude-haiku-4-5`), say so and I'll split the model constants
+---
 
+## 4. Styling
+
+Reuse the existing `.crm-shell` dark editorial scope from `src/index.css` (cream/stone/ink/taupe + Cormorant Garamond + Karla, 11px uppercase 0.35em tracking subheads, etc.). The Portal page will mount inside a `<div className="crm-shell">` wrapper but **without** the admin top nav — instead a slim portal header with the CRE8 wordmark, the client's business name, and the journey progress chip ("Step 03 of 10 · Brand Kit").
+
+New scoped classes in `src/index.css` under `.crm-shell` (no global leakage):
+- `.portal-shell`, `.portal-hero`, `.portal-node-card`, `.portal-chat`, `.portal-bubble--user`, `.portal-bubble--assistant`, `.portal-confirm`.
+
+Matches the same min-height:0 / overflow-y:auto pattern we already use in the modal so chat scrolls correctly within a fixed viewport.
+
+---
+
+## 5. Files touched
+
+- **New:** `supabase/functions/brand-kit-intake/index.ts`
+- **New:** `src/pages/Portal.tsx`
+- **Edit:** `src/App.tsx` — add `<Route path="/portal/:clientId" element={<Portal />} />` above catch-all
+- **Edit:** `src/index.css` — append `.portal-*` classes inside the `.crm-shell` scope
+- **Edit:** `supabase/config.toml` — add `[functions.brand-kit-intake]` with `verify_jwt = false`
+- **Migration:** add the three `clients` columns + `get_portal_client` RPC
+
+No edits to: existing admin pages, `RequireAdmin`, navbar, onboarding chat, or any user-facing marketing pages.
+
+---
+
+## 6. Open question (will use defaults if not answered)
+
+**Webhook destination** — I'll request a `BRAND_KIT_NOTIFICATION_WEBHOOK_URL` secret via the secrets tool right before the function deploys. If you'd rather route this through your existing `notify.cre8visions.com` transactional email pipeline (sending an internal email to `hello@cre8visions.com` instead of an external webhook), I can swap the webhook for a `send-transactional-email` invocation — say the word and I'll adjust before building.
+
+Approve to proceed and I'll switch into build mode.
