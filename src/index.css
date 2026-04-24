@@ -561,7 +561,6 @@
 
 .crm-shell .node:hover .node__frame { stroke: var(--crm-warm-white); stroke-width: 1.5; }
 .crm-shell .node:hover .node__num { fill: var(--crm-warm-white); }
-.crm-shell .node:hover { transform: scale(1.06); }
 
 .crm-shell .canvas__legend {
   position: absolute; left: 52px; bottom: 28px; z-index: 10;
