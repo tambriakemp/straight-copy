@@ -10,11 +10,14 @@ const TAUPE = rgb(0.5451, 0.4941, 0.4314);   // #8B7E6E
 const BRONZE = rgb(0.6431, 0.4431, 0.2824);  // #A47148
 const RULE = rgb(0.6431, 0.4431, 0.2824);
 
-// Font URLs (Google Fonts static TTF mirrors — pinned)
+// Font URLs (Google Fonts static TTF mirrors — pinned).
+// Note: Lora is used in place of Cormorant/Garamond because pdf-lib's TTF
+// subsetting drops glyphs from fonts with aggressive GSUB ligatures (Cormorant,
+// EB Garamond). Lora keeps an editorial serif feel and renders cleanly.
 const FONTS = {
-  cormorantLight: "https://fonts.gstatic.com/s/cormorantgaramond/v21/co3umX5slCNuHLi8bLeY9MK7whWMhyjypVO7abI26QOD_qE6GnM.ttf",
-  cormorantSemi: "https://fonts.gstatic.com/s/cormorantgaramond/v21/co3umX5slCNuHLi8bLeY9MK7whWMhyjypVO7abI26QOD_iE9GnM.ttf",
-  cormorantItalic: "https://fonts.gstatic.com/s/cormorantgaramond/v21/co3smX5slCNuHLi8bLeY9MK7whWMhyjYrGFEsdtdc62E6zd58jDOjw.ttf",
+  serifRegular: "https://fonts.gstatic.com/s/lora/v37/0QI6MX1D_JOuGQbT0gvTJPa787weuyJG.ttf",
+  serifSemi: "https://fonts.gstatic.com/s/lora/v37/0QI6MX1D_JOuGQbT0gvTJPa787zAvCJG.ttf",
+  serifItalic: "https://fonts.gstatic.com/s/lora/v37/0QI8MX1D_JOuMw_hLdO6T2wV9KnW-MoFkqg.ttf",
   karlaRegular: "https://fonts.gstatic.com/s/karla/v33/qkBIXvYC6trAT55ZBi1ueQVIjQTD-JqqFA.ttf",
   karlaMedium: "https://fonts.gstatic.com/s/karla/v33/qkBIXvYC6trAT55ZBi1ueQVIjQTDypqqFA.ttf",
 };
