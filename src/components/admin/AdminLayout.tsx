@@ -36,7 +36,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
         <div className="topnav__right">
-          {user?.email && <span className="topnav__email">{user.email}</span>}
           <button className="topnav__signout" onClick={signOut}>
             ⎋ Sign out
           </button>
