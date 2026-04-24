@@ -101,6 +101,42 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_submissions: {
+        Row: {
+          business_name: string | null
+          completed: boolean
+          contact_email: string | null
+          contact_name: string | null
+          conversation: Json
+          created_at: string
+          id: string
+          summary: Json | null
+          updated_at: string
+        }
+        Insert: {
+          business_name?: string | null
+          completed?: boolean
+          contact_email?: string | null
+          contact_name?: string | null
+          conversation?: Json
+          created_at?: string
+          id?: string
+          summary?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          business_name?: string | null
+          completed?: boolean
+          contact_email?: string | null
+          contact_name?: string | null
+          conversation?: Json
+          created_at?: string
+          id?: string
+          summary?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string

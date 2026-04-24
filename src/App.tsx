@@ -11,6 +11,7 @@ import Contact from "./pages/Contact.tsx";
 import Work from "./pages/Work.tsx";
 import Privacy from "./pages/Privacy.tsx";
 import Unsubscribe from "./pages/Unsubscribe.tsx";
+import Onboarding from "./pages/Onboarding.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/work" element={<Work />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/unsubscribe" element={<Unsubscribe />} />
+          <Route path="/onboarding" element={<Onboarding />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
