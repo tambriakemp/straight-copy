@@ -33,6 +33,13 @@ interface Client {
   intake_summary: string | null;
   brand_voice_url: string | null;
   brand_voice_content: string | null;
+  brand_voice_doc: string | null;
+  brand_voice_quick_ref: string | null;
+  brand_voice_status: string;
+  brand_voice_pdf_url: string | null;
+  brand_voice_pdf_generated_at: string | null;
+  brand_voice_generated_at: string | null;
+  brand_voice_error: string | null;
   notes: string | null;
   purchased_at: string | null;
   created_at: string;
