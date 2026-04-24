@@ -764,6 +764,112 @@
   .crm-shell .crm-modal__left, .crm-shell .crm-modal__right { padding: 40px 28px; }
 }
 
+/* ---------- Mobile (≤640px) ---------- */
+@media (max-width: 640px) {
+  /* Topnav: stack and shrink */
+  .crm-shell .topnav {
+    flex-direction: column; align-items: stretch;
+    gap: 12px; padding: 14px 18px;
+  }
+  .crm-shell .topnav__left { gap: 16px; flex-wrap: wrap; }
+  .crm-shell .topnav__nav { gap: 18px; flex-wrap: wrap; }
+  .crm-shell .topnav__item { font-size: 10px; letter-spacing: 0.18em; padding: 6px 0; }
+  .crm-shell .topnav__right { justify-content: space-between; gap: 12px; font-size: 10px; }
+  .crm-shell .topnav__email { max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Roster page */
+  .crm-shell .roster { padding: 36px 18px 80px; }
+  .crm-shell .roster__head { margin-bottom: 32px; gap: 18px; }
+  .crm-shell .roster__title { font-size: 40px; }
+  .crm-shell .roster__sub { font-size: 13px; }
+  .crm-shell .roster__toolbar { gap: 10px; margin-bottom: 22px; }
+  .crm-shell .roster__search-wrap { min-width: 0; max-width: none; width: 100%; flex-basis: 100%; }
+  .crm-shell .roster__select { width: 100%; }
+  .crm-shell .roster__actions { margin-left: 0; width: 100%; flex-wrap: wrap; }
+  .crm-shell .roster__actions .crm-btn { flex: 1; min-width: 120px; }
+  .crm-shell .roster__legend { gap: 16px; font-size: 9px; letter-spacing: 0.2em; }
+  .crm-shell .roster__ghost { display: none; }
+
+  /* Hide table headers, render rows as stacked cards */
+  .crm-shell .roster__head-row { display: none !important; }
+  .crm-shell .roster__row {
+    display: flex !important; flex-direction: column;
+    gap: 10px; padding: 18px 16px;
+    align-items: stretch !important;
+  }
+  .crm-shell .roster__row > * { display: block; }
+  .crm-shell .roster__row > .roster__chevron { display: none; }
+  .crm-shell .roster__name { font-size: 18px; white-space: normal; }
+  .crm-shell .roster__email { font-size: 12px; white-space: normal; }
+  .crm-shell .roster__days { font-size: 22px; display: inline-block; }
+  .crm-shell .roster__days-date { display: inline-block; margin-top: 0; margin-left: 10px; }
+  .crm-shell .roster__stage { font-size: 14px; display: inline-block; }
+  .crm-shell .roster__stage-hint { display: inline-block; margin-top: 0; margin-left: 10px; }
+
+  /* Detail / canvas page */
+  .crm-shell .detail__pill {
+    position: relative !important; left: 0 !important; top: 0 !important;
+    margin: 14px 14px 8px; max-width: calc(100% - 28px) !important;
+    flex-wrap: wrap; gap: 12px; padding: 12px 14px;
+  }
+  .crm-shell .detail__back { padding-right: 12px; font-size: 9px; letter-spacing: 0.2em; }
+  .crm-shell .detail__client-name { font-size: 18px; }
+  .crm-shell .detail__client-meta { font-size: 9px; letter-spacing: 0.18em; gap: 10px; flex-wrap: wrap; }
+  .crm-shell .detail__edit { width: 32px; height: 32px; }
+  .crm-shell .detail__progress {
+    position: relative !important; top: 0 !important; right: 0 !important;
+    margin: 0 14px 12px; padding: 10px 14px !important; gap: 12px !important;
+    justify-content: space-between;
+  }
+  .crm-shell .detail__progress-fraction { font-size: 22px; }
+  .crm-shell .detail__progress-ring { width: 30px; height: 30px; }
+  .crm-shell .canvas__ghost { font-size: clamp(160px, 60vw, 280px); }
+  .crm-shell .canvas__legend {
+    left: 12px; right: 12px; bottom: 12px;
+    gap: 14px; padding: 10px 14px; font-size: 9px;
+    flex-wrap: wrap; justify-content: center;
+  }
+
+  /* Stage / node modal */
+  .crm-shell .crm-modal {
+    width: 100%; height: 100%; max-height: 100%;
+    margin: 0; border: 0;
+  }
+  .crm-shell .crm-modal__close { top: 14px; right: 14px; width: 32px; height: 32px; }
+  .crm-shell .crm-modal__left, .crm-shell .crm-modal__right {
+    padding: 56px 20px 28px;
+  }
+  .crm-shell .crm-modal__right { padding-top: 28px; gap: 28px; }
+  .crm-shell .crm-modal__title { font-size: 40px; }
+  .crm-shell .crm-modal__desc { font-size: 13px; }
+  .crm-shell .crm-modal__meta { grid-template-columns: 1fr; gap: 18px; }
+  .crm-shell .crm-status-seg { grid-template-columns: repeat(2, 1fr); }
+  .crm-shell .crm-status-seg__btn { padding: 12px 6px; font-size: 9px; letter-spacing: 0.18em; }
+  .crm-shell .crm-checkitem { padding: 12px 14px; gap: 12px; }
+  .crm-shell .crm-checkitem__label { font-size: 13px; }
+  .crm-shell .crm-checkitem__owner { display: none; }
+  .crm-shell .crm-attach { padding: 12px 14px; gap: 12px; }
+  .crm-shell .crm-attach__action { display: none; }
+
+  /* Portal */
+  .crm-shell .portal-header { flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px 20px; }
+  .crm-shell .portal-chip { font-size: 9px; letter-spacing: 0.22em; padding: 6px 12px; }
+  .crm-shell .portal-main { padding: 32px 20px 64px; }
+  .crm-shell .portal-hero { margin-bottom: 36px; }
+  .crm-shell .portal-hero__title { font-size: 38px; }
+  .crm-shell .portal-node-card, .crm-shell .portal-confirm { padding: 28px 20px; }
+  .crm-shell .portal-node-card__title { font-size: 32px; }
+  .crm-shell .portal-stage-indicator { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .crm-shell .portal-chat { padding: 18px; min-height: 280px; max-height: 60vh; }
+  .crm-shell .portal-bubble { max-width: 92%; font-size: 13px; padding: 12px 14px; }
+  .crm-shell .portal-composer__actions { flex-direction: column; }
+  .crm-shell .portal-composer__actions .crm-btn { width: 100%; }
+  .crm-shell .portal-confirm__title { font-size: 38px; }
+
+  /* Empty state */
+  .crm-shell .crm-empty { padding: 56px 20px; }
+}
+
 /* ---------- Client Portal (scoped under .crm-shell) ---------- */
 .crm-shell .portal-shell {
   flex: 1; min-height: 0; display: flex; flex-direction: column;
