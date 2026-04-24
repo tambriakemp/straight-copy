@@ -455,8 +455,17 @@ const Onboarding = () => {
                   animationDelay: "0.15s", opacity: 0,
                 }}
               >
-                Let's build your<br />
-                <em style={{ color: "#C8C0B4" }}>AI foundation.</em>
+                {inviteContact?.contact_name ? (
+                  <>
+                    Welcome, {inviteContact.contact_name.split(" ")[0]}.<br />
+                    <em style={{ color: "#C8C0B4" }}>Ready when you are.</em>
+                  </>
+                ) : (
+                  <>
+                    Let's build your<br />
+                    <em style={{ color: "#C8C0B4" }}>AI foundation.</em>
+                  </>
+                )}
               </h1>
               <p
                 className="ob-fade"
