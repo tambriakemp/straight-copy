@@ -173,7 +173,15 @@ export type Database = {
       clients: {
         Row: {
           archived: boolean
+          brand_voice_approved: boolean
+          brand_voice_approved_at: string | null
           brand_voice_content: string | null
+          brand_voice_doc: string | null
+          brand_voice_error: string | null
+          brand_voice_generated_at: string | null
+          brand_voice_quick_ref: string | null
+          brand_voice_started_at: string | null
+          brand_voice_status: string
           brand_voice_url: string | null
           business_name: string | null
           contact_email: string | null
@@ -181,16 +189,26 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           id: string
+          intake_data: Json | null
           intake_summary: string | null
           notes: string | null
           onboarding_submission_id: string | null
+          pipeline_stage: string
           purchased_at: string | null
           tier: string
           updated_at: string
         }
         Insert: {
           archived?: boolean
+          brand_voice_approved?: boolean
+          brand_voice_approved_at?: string | null
           brand_voice_content?: string | null
+          brand_voice_doc?: string | null
+          brand_voice_error?: string | null
+          brand_voice_generated_at?: string | null
+          brand_voice_quick_ref?: string | null
+          brand_voice_started_at?: string | null
+          brand_voice_status?: string
           brand_voice_url?: string | null
           business_name?: string | null
           contact_email?: string | null
@@ -198,16 +216,26 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           id?: string
+          intake_data?: Json | null
           intake_summary?: string | null
           notes?: string | null
           onboarding_submission_id?: string | null
+          pipeline_stage?: string
           purchased_at?: string | null
           tier?: string
           updated_at?: string
         }
         Update: {
           archived?: boolean
+          brand_voice_approved?: boolean
+          brand_voice_approved_at?: string | null
           brand_voice_content?: string | null
+          brand_voice_doc?: string | null
+          brand_voice_error?: string | null
+          brand_voice_generated_at?: string | null
+          brand_voice_quick_ref?: string | null
+          brand_voice_started_at?: string | null
+          brand_voice_status?: string
           brand_voice_url?: string | null
           business_name?: string | null
           contact_email?: string | null
@@ -215,9 +243,11 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           id?: string
+          intake_data?: Json | null
           intake_summary?: string | null
           notes?: string | null
           onboarding_submission_id?: string | null
+          pipeline_stage?: string
           purchased_at?: string | null
           tier?: string
           updated_at?: string
