@@ -44,6 +44,8 @@ interface Client {
   purchased_at: string | null;
   created_at: string;
   archived: boolean;
+  brand_kit_intake: Record<string, unknown> | null;
+  brand_kit_intake_submitted_at: string | null;
 }
 
 // ---------- S-curve geometry ----------
