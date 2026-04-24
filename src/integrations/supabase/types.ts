@@ -322,6 +322,57 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_invites: {
+        Row: {
+          business_name: string | null
+          completed_at: string | null
+          contact_email: string | null
+          contact_name: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          last_opened_at: string | null
+          note: string | null
+          revoked: boolean
+          submission_id: string | null
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          business_name?: string | null
+          completed_at?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          last_opened_at?: string | null
+          note?: string | null
+          revoked?: boolean
+          submission_id?: string | null
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          business_name?: string | null
+          completed_at?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          last_opened_at?: string | null
+          note?: string | null
+          revoked?: boolean
+          submission_id?: string | null
+          token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       onboarding_submissions: {
         Row: {
           business_name: string | null
@@ -331,6 +382,8 @@ export type Database = {
           conversation: Json
           created_at: string
           id: string
+          invite_id: string | null
+          last_activity_at: string | null
           summary: Json | null
           updated_at: string
         }
@@ -342,6 +395,8 @@ export type Database = {
           conversation?: Json
           created_at?: string
           id?: string
+          invite_id?: string | null
+          last_activity_at?: string | null
           summary?: Json | null
           updated_at?: string
         }
@@ -353,6 +408,8 @@ export type Database = {
           conversation?: Json
           created_at?: string
           id?: string
+          invite_id?: string | null
+          last_activity_at?: string | null
           summary?: Json | null
           updated_at?: string
         }
