@@ -551,17 +551,16 @@
 .crm-shell .node--blocked .node__num { fill: hsl(8 55% 75%); }
 .crm-shell .node--blocked .node__label { fill: hsl(8 35% 75%); }
 
-@keyframes crmBreathe { 0%,100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.1; transform: scale(1.45); } }
+@keyframes crmBreathe { 0%,100% { opacity: 0.5; } 50% { opacity: 0.15; } }
 .crm-shell .node__halo {
   fill: none; stroke: var(--crm-accent); stroke-width: 1;
-  transform-origin: center; transform-box: fill-box;
+  pointer-events: none;
   animation: crmBreathe 3.2s ease-in-out infinite;
 }
 .crm-shell .ambient-off .node__halo { animation: none; opacity: 0.3; }
 
 .crm-shell .node:hover .node__frame { stroke: var(--crm-warm-white); stroke-width: 1.5; }
 .crm-shell .node:hover .node__num { fill: var(--crm-warm-white); }
-.crm-shell .node:hover { transform: scale(1.06); }
 
 .crm-shell .canvas__legend {
   position: absolute; left: 52px; bottom: 28px; z-index: 10;
