@@ -335,7 +335,9 @@ export type Database = {
           last_opened_at: string | null
           note: string | null
           revoked: boolean
+          source_order_id: string | null
           submission_id: string | null
+          tier: string | null
           token: string
           updated_at: string
         }
@@ -351,7 +353,9 @@ export type Database = {
           last_opened_at?: string | null
           note?: string | null
           revoked?: boolean
+          source_order_id?: string | null
           submission_id?: string | null
+          tier?: string | null
           token: string
           updated_at?: string
         }
@@ -367,7 +371,9 @@ export type Database = {
           last_opened_at?: string | null
           note?: string | null
           revoked?: boolean
+          source_order_id?: string | null
           submission_id?: string | null
+          tier?: string | null
           token?: string
           updated_at?: string
         }

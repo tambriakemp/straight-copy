@@ -32,6 +32,8 @@ type Invite = {
   completed_at: string | null;
   revoked: boolean;
   created_at: string;
+  source_order_id: string | null;
+  tier: string | null;
 };
 
 function randomToken(len = 24) {
@@ -259,6 +261,12 @@ export default function Invites() {
                         {inv.contact_name || "—"}
                       </div>
                       <div className="text-xs text-zinc-500">{inv.contact_email || "—"}</div>
+                      {inv.source_order_id && (
+                        <div className="text-[10px] uppercase tracking-wider text-amber-700 mt-1">
+                          via SureCart · #{inv.source_order_id.slice(-8)}
+                          {inv.tier ? ` · ${inv.tier}` : ""}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-zinc-700">
                       {inv.business_name || "—"}
