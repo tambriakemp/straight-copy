@@ -10,6 +10,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { to: "/admin", label: "▦ Clients", exact: true },
     { to: "/admin/invites", label: "✉ Invites" },
     { to: "/admin/tokens", label: "⌁ API Tokens" },
+    { to: "/admin/profile", label: "◐ Profile" },
   ];
 
   const isActive = (to: string, exact?: boolean) =>
