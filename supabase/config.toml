@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.save-onboarding]
 verify_jwt = false
+
+[functions.crm-api]
+verify_jwt = false
