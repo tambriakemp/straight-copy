@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.surecart-webhook]
 verify_jwt = false
+
+[functions.generate-brand-voice]
+verify_jwt = true

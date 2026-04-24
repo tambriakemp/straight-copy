@@ -733,16 +733,36 @@ const Onboarding = () => {
                 brand voice document, your first automations, and your custom AI assistant.
               </p>
 
-              {[
-                ["Contact", `${summary.contact_name || "—"} · ${summary.contact_email || "—"}`],
-                ["Business", summary.business_name || "—"],
-                ["What you do", summary.what_they_do],
-                ["Brand voice", summary.brand_voice],
-                ["Ideal customer", summary.ideal_customer],
-                ["Offerings", summary.offerings],
-                ["Biggest challenges", summary.biggest_challenges],
-                ["12-month goals", summary.goals_12_months],
-              ].map(([label, value]) => (
+              {(() => {
+                const fmt = (v: unknown): string => {
+                  if (Array.isArray(v)) return v.filter(Boolean).join(", ");
+                  if (typeof v === "string") return v;
+                  return "";
+                };
+                const rows: Array<[string, string]> = [
+                  ["Contact", `${summary.contact_name || summary.name || "—"} · ${summary.contact_email || "—"}`],
+                  ["Business", summary.business_name || summary.business || "—"],
+                  ["What you do", fmt(summary.what_they_do)],
+                  ["Primary offer", fmt(summary.primary_offer)],
+                  ["Price point", fmt(summary.price_point)],
+                  ["Brand voice", fmt(summary.brand_voice)],
+                  ["Tone words", fmt(summary.tone_words)],
+                  ["Phrases you use naturally", fmt(summary.natural_phrases)],
+                  ["Words to avoid", fmt(summary.avoid_words)],
+                  ["Ideal customer", fmt(summary.ideal_customer)],
+                  ["What they struggle with", fmt(summary.customer_struggles)],
+                  ["What they want", fmt(summary.customer_outcome)],
+                  ["Platforms", fmt(summary.platforms)],
+                  ["Tools you use", fmt(summary.tools)],
+                  ["Where leads come from", fmt(summary.inquiry_channel)],
+                  ["Biggest time drain", fmt(summary.biggest_time_drain)],
+                  ["Most want automated", fmt(summary.wants_automated_first)],
+                  ["90-day goal", fmt(summary["90_day_goal"]) || fmt(summary.goals_12_months)],
+                  ["Success looks like", fmt(summary.success_looks_like)],
+                  ["Tier", fmt(summary.tier)],
+                ].filter(([, v]) => v && v.trim()) as Array<[string, string]>;
+                return rows;
+              })().map(([label, value]) => (
                 <div
                   key={label as string}
                   style={{
