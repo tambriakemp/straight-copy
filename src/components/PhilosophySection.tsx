@@ -1,44 +1,40 @@
 const stats = [
-  { num: "10×", label: "Faster than traditional shoots" },
-  { num: "80%", label: "Lower cost vs. production" },
-  { num: "∞", label: "Scalable content volume" },
-  { num: "100%", label: "Brand-accurate every time" },
+  { num: "2", label: "Core automations every client gets" },
+  { num: "3", label: "Monthly deliverables that build over time" },
+  { num: "∞", label: "The system compounds — no ceiling" },
+  { num: "0", label: "Tech knowledge required from you" },
 ];
-
-import philosophySkincare from "@/assets/philosophy-skincare.jpg";
-import philosophyBottom from "@/assets/philosophy-bottom.jpg";
 
 const PhilosophySection = () => {
   return (
-    <section id="philosophy" className="py-[140px] px-8 md:px-[52px] bg-ink grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-[120px] items-center">
-      <div className="relative h-[400px] md:h-[560px]">
-        <div className="absolute w-[70%] h-[80%] top-0 left-0 overflow-hidden">
-          <img src={philosophySkincare} alt="Botanical repair serum product shot" className="w-full h-full object-cover" />
-        </div>
-        <div className="absolute w-[55%] h-[55%] bottom-0 right-0 overflow-hidden">
-          <img src={philosophyBottom} alt="Model portrait" className="w-full h-full object-cover" />
-        </div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-serif text-[48px] md:text-[64px] font-light italic text-warm-white whitespace-nowrap drop-shadow-2xl">
-          "Real."
+    <section
+      id="philosophy"
+      className="py-[140px] px-8 md:px-[52px] bg-cream grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-[120px] items-center"
+    >
+      <div className="reveal">
+        <p className="text-[10px] tracking-[0.35em] uppercase text-accent mb-6">Who We Are</p>
+        <h2 className="font-serif text-[clamp(40px,5vw,68px)] font-light leading-[1.05] text-ink mb-8">
+          AI Business<br /><em className="italic">Architects.</em>
+        </h2>
+        <p className="text-[15px] font-light leading-[1.9] text-charcoal mb-5">
+          We don't set up tools. We design intelligent systems — the kind that learn your business, run in the background, and compound in value the longer they run.
+        </p>
+        <p className="text-[15px] font-light leading-[1.9] text-charcoal mb-5">
+          An architect doesn't maintain buildings. They design systems that stand on their own. That's what we build for your business — a structure that works whether you're there or not.
+        </p>
+        <p className="text-[15px] font-light leading-[1.9] text-charcoal mb-5">
+          Every month your AI gets better at being you. Every month your system gets harder to replace. That's the architecture.
+        </p>
+        <div className="font-serif text-[22px] font-light italic text-accent mt-9 pt-9 border-t border-sand">
+          "I architect the AI systems that run your business so you don't have to."
         </div>
       </div>
-      <div className="reveal">
-        <p className="text-[11px] tracking-[0.35em] uppercase text-stone mb-8">Our Philosophy</p>
-        <div className="w-12 h-px bg-accent mb-8" />
-        <h2 className="font-serif text-[clamp(36px,4vw,56px)] font-light leading-[1.15] text-warm-white mb-10">
-          The future of<br />brand content<br />is <em className="italic text-stone">already here.</em>
-        </h2>
-        <p className="text-[13px] font-light leading-[1.9] text-taupe mb-6">
-          Brands used to need a full production crew, a studio, a photographer, models, and weeks of lead time. We've collapsed that entire process into days — without sacrificing a single pixel of quality.
-        </p>
-        <p className="text-[13px] font-light leading-[1.9] text-taupe mb-6">
-          Most people can't tell the difference. That's the point.
-        </p>
-        <div className="grid grid-cols-2 gap-8 mt-14 pt-10 border-t border-warm-white/[0.08]">
+      <div className="reveal reveal-delay-1">
+        <div className="grid grid-cols-2 gap-[2px]">
           {stats.map((s) => (
-            <div key={s.label}>
-              <div className="font-serif text-[48px] font-light text-warm-white leading-none">{s.num}</div>
-              <div className="text-[11px] tracking-[0.15em] uppercase text-taupe mt-2">{s.label}</div>
+            <div key={s.label} className="bg-ink p-10">
+              <div className="font-serif text-[56px] font-light text-warm-white leading-none mb-2">{s.num}</div>
+              <div className="text-[11px] tracking-[0.15em] uppercase text-taupe">{s.label}</div>
             </div>
           ))}
         </div>
