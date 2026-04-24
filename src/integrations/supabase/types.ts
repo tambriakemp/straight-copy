@@ -14,6 +14,227 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      api_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          last_used_at: string | null
+          revoked: boolean
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          last_used_at?: string | null
+          revoked?: boolean
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          last_used_at?: string | null
+          revoked?: boolean
+          token_hash?: string
+        }
+        Relationships: []
+      }
+      client_automations: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_automations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_checklist_items: {
+        Row: {
+          client_id: string
+          completed: boolean
+          created_at: string
+          id: string
+          label: string
+          order_index: number
+        }
+        Insert: {
+          client_id: string
+          completed?: boolean
+          created_at?: string
+          id?: string
+          label: string
+          order_index?: number
+        }
+        Update: {
+          client_id?: string
+          completed?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          order_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_checklist_items_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_deliveries: {
+        Row: {
+          client_id: string
+          created_at: string
+          delivery_date: string
+          description: string | null
+          id: string
+          link_url: string | null
+          title: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          delivery_date?: string
+          description?: string | null
+          id?: string
+          link_url?: string | null
+          title: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          delivery_date?: string
+          description?: string | null
+          id?: string
+          link_url?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_deliveries_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          archived: boolean
+          brand_voice_content: string | null
+          brand_voice_url: string | null
+          business_name: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          intake_summary: string | null
+          notes: string | null
+          onboarding_submission_id: string | null
+          stage: string
+          stage_order: number
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          archived?: boolean
+          brand_voice_content?: string | null
+          brand_voice_url?: string | null
+          business_name?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          intake_summary?: string | null
+          notes?: string | null
+          onboarding_submission_id?: string | null
+          stage?: string
+          stage_order?: number
+          tier?: string
+          updated_at?: string
+        }
+        Update: {
+          archived?: boolean
+          brand_voice_content?: string | null
+          brand_voice_url?: string | null
+          business_name?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          intake_summary?: string | null
+          notes?: string | null
+          onboarding_submission_id?: string | null
+          stage?: string
+          stage_order?: number
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_onboarding_submission_id_fkey"
+            columns: ["onboarding_submission_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -174,6 +395,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string
