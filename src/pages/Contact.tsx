@@ -89,11 +89,11 @@ const Contact = () => {
               </p>
               <h1 className="font-serif text-[clamp(48px,5vw,80px)] font-light leading-[0.95] text-warm-white mb-10 animate-fade-up animate-fade-up-delay-1">
                 Let's Build<br />
-                Something<br />
-                <em className="italic text-stone">Real.</em>
+                Your AI<br />
+                <em className="italic text-stone">Architecture.</em>
               </h1>
               <p className="text-[13px] font-light leading-[1.9] text-taupe max-w-[380px] animate-fade-up animate-fade-up-delay-2">
-                Tell us about your brand, your campaign goals, or just say hello. We respond to every inquiry within 24 hours and offer a free 30-minute discovery call for all new clients.
+                Tell us about your business, what you're spending too much time on, and where you want to be in 90 days. We respond to every inquiry within 24 hours. If you're ready to start, the discovery conversation is the faster path.
               </p>
             </div>
 
@@ -110,7 +110,7 @@ const Contact = () => {
               </div>
               <div className="flex flex-col gap-1 py-7 border-t border-white/[0.07]">
                 <span className="text-[11px] tracking-[0.25em] uppercase text-stone">Based In</span>
-                <span className="font-serif text-lg font-light italic text-stone">Atlanta, Georgia</span>
+                <span className="font-serif text-lg font-light italic text-stone">Fort Worth, Texas</span>
               </div>
               <div className="flex gap-6 pt-10 border-t border-white/[0.07]">
                 <a href="https://instagram.com/cre8_visions" target="_blank" rel="noopener noreferrer" className="text-[11px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
@@ -119,6 +119,9 @@ const Contact = () => {
                 <a href="https://www.linkedin.com/company/cre8visions/" target="_blank" rel="noopener noreferrer" className="text-[11px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
                   LinkedIn
                 </a>
+                <Link to="/how-it-works" className="text-[11px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
+                  How It Works
+                </Link>
               </div>
             </div>
           </div>
@@ -127,8 +130,24 @@ const Contact = () => {
           <div className="bg-cream px-8 md:px-[52px] md:pl-[72px] pt-[160px] pb-20 flex flex-col justify-center">
             {!submitted ? (
               <>
+                <div className="bg-ink border-l-[3px] border-accent px-7 py-6 mb-11 animate-fade-up">
+                  <p className="text-[10px] tracking-[0.3em] uppercase text-accent mb-2.5">Faster Path</p>
+                  <p className="font-serif text-xl font-light text-warm-white mb-2.5 leading-tight">
+                    Ready to start now? Skip the form.
+                  </p>
+                  <p className="text-[13px] font-light text-taupe leading-[1.7] mb-4">
+                    The discovery conversation takes 10–15 minutes and gives us everything we need to start building. Your AI OS build begins within 24 hours of completion.
+                  </p>
+                  <Link
+                    to="/onboarding"
+                    className="inline-block font-sans text-[11px] tracking-[0.2em] uppercase text-warm-white bg-accent px-7 py-3 no-underline hover:opacity-90 transition-opacity"
+                  >
+                    Begin the Conversation
+                  </Link>
+                </div>
+
                 <p className="text-[11px] tracking-[0.35em] uppercase text-charcoal mb-12 animate-fade-up">
-                  Start a Project
+                  Or Send a Message First
                 </p>
 
                 <div className="grid grid-cols-2 gap-8 mb-9 animate-fade-up animate-fade-up-delay-1">
@@ -177,26 +196,26 @@ const Contact = () => {
                 </div>
 
                 <div className="mb-9 animate-fade-up animate-fade-up-delay-3">
-                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Service You're Interested In</label>
+                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">What Brings You Here</label>
                   <select
                     value={form.service}
                     onChange={(e) => handleChange("service", e.target.value)}
                     className="w-full bg-transparent border-0 border-b border-b-sand py-3 font-serif text-lg font-light text-foreground outline-none focus:border-b-accent transition-colors duration-300 appearance-none bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2212%22%20height%3D%228%22%20viewBox%3D%220%200%2012%208%22%3E%3Cpath%20d%3D%22M1%201l5%205%205-5%22%20stroke%3D%22%23A89F94%22%20stroke-width%3D%221.5%22%20fill%3D%22none%22/%3E%3C/svg%3E')] bg-no-repeat bg-[right_4px_center]"
                   >
                     <option value="" disabled>Select a service</option>
-                    <option value="campaign">AI Brand Campaign</option>
-                    <option value="lifestyle">Editorial Lifestyle Content</option>
-                    <option value="video">Short-Form Video</option>
-                    <option value="product">Product Visualization</option>
-                    <option value="retainer">Monthly Retainer</option>
-                    <option value="unsure">Not Sure Yet</option>
+                    <option value="growth">AI OS Growth — with Business Brain</option>
+                    <option value="launch">AI OS Launch</option>
+                    <option value="lead-auto">Lead Capture + Onboarding Automation</option>
+                    <option value="content-auto">Social Content Publishing Automation</option>
+                    <option value="custom">Custom Add-On Build</option>
+                    <option value="unsure">Not Sure Yet — Let's Talk</option>
                   </select>
                 </div>
 
                 <div className="mb-9 animate-fade-up animate-fade-up-delay-3">
-                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Tell Us About Your Project</label>
+                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Tell Us About Your Business</label>
                   <textarea
-                    placeholder="Share your vision, goals, timeline, or anything that helps us understand what you need..."
+                    placeholder="Tell us what you're spending too much time on, what you offer, and what you want to hand off to a system..."
                     value={form.message}
                     onChange={(e) => handleChange("message", e.target.value)}
                     className="w-full bg-transparent border-0 border-b border-b-sand py-3 font-serif text-lg font-light text-foreground placeholder:text-stone outline-none focus:border-b-accent transition-colors duration-300 resize-none h-[100px] leading-[1.6]"
@@ -212,7 +231,7 @@ const Contact = () => {
                     {loading ? "Sending..." : "Send Inquiry"}
                   </button>
                   <p className="text-[11px] font-light text-taupe leading-[1.6]">
-                    We'll follow up within 24 hours with next steps and a free discovery call invite.
+                    We'll follow up within 24 hours. If you're ready to move faster, start the discovery conversation directly.
                   </p>
                 </div>
               </>
@@ -222,7 +241,7 @@ const Contact = () => {
                 <div className="font-serif text-[40px] font-light text-foreground mb-4">Message Received.</div>
                 <p className="text-[13px] font-light text-taupe leading-[1.8]">
                   Thank you for reaching out. We'll be in touch within 24 hours.<br />
-                  In the meantime, see how we work.
+                  In the meantime, see how the process works.
                 </p>
                 <br /><br />
                 <Link
