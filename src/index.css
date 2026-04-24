@@ -194,6 +194,7 @@
   --crm-dur-base:   300ms;
   --crm-dur-slow:   500ms;
 
+  height: 100vh;
   min-height: 100vh;
   background: var(--crm-ink);
   color: var(--crm-warm-white);
@@ -203,6 +204,7 @@
   font-weight: 300;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .crm-shell *::-webkit-scrollbar { width: 8px; height: 8px; }
