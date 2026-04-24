@@ -17,6 +17,7 @@ import AdminLogin from "./pages/admin/AdminLogin.tsx";
 import Dashboard from "./pages/admin/Dashboard.tsx";
 import ClientDetail from "./pages/admin/ClientDetail.tsx";
 import Tokens from "./pages/admin/Tokens.tsx";
+import Invites from "./pages/admin/Invites.tsx";
 import RequireAdmin from "./components/admin/RequireAdmin.tsx";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ const App = () => (
           <Route path="/admin" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
           <Route path="/admin/clients/:id" element={<RequireAdmin><ClientDetail /></RequireAdmin>} />
           <Route path="/admin/tokens" element={<RequireAdmin><Tokens /></RequireAdmin>} />
+          <Route path="/admin/invites" element={<RequireAdmin><Invites /></RequireAdmin>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

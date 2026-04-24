@@ -21,5 +21,8 @@ verify_jwt = false
 [functions.save-onboarding]
 verify_jwt = false
 
+[functions.onboarding-session]
+verify_jwt = false
+
 [functions.crm-api]
 verify_jwt = false

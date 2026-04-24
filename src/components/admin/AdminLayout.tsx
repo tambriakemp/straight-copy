@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutGrid, Key, LogOut } from "lucide-react";
+import { LayoutGrid, Key, LogOut, Mail } from "lucide-react";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const nav = [
     { to: "/admin", label: "Pipeline", icon: LayoutGrid, exact: true },
+    { to: "/admin/invites", label: "Invites", icon: Mail },
     { to: "/admin/tokens", label: "API Tokens", icon: Key },
   ];
 
