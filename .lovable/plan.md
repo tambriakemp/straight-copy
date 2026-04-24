@@ -1,88 +1,121 @@
 
 
-## Plan: Match Homepage Exactly to the Cre8 Visions Design System
+## Plan: Client Pipeline CRM with REST API
 
-The current homepage has the right sections but several elements don't match the supplied design system mockup. I'll rewrite each section component (and the navbar/footer) so the page is a 1:1 React/Tailwind translation of the HTML reference.
+A protected `/admin` area for tracking onboarding clients through delivery, plus a token-authenticated REST API so external automation tools (Zapier, Make, n8n, custom scripts) can read and update pipeline data.
 
-### Changes per component
+### 1. Database (new tables via migration)
 
-**1. `Navbar.tsx`**
-- Switch from `absolute` to `fixed` positioning (the mockup uses a fixed translucent bar over the dark hero).
-- Always render with the dark blurred background `bg-ink/75 backdrop-blur-[14px]` regardless of variant — the mockup nav is always dark.
-- Remove the `md:right-1/2` light-variant constraint for the homepage. (Other pages can keep light variant by overriding.)
+**`clients`** — one row per client in pipeline
+- `id` (uuid), `created_at`, `updated_at`
+- `business_name`, `contact_name`, `contact_email`, `contact_phone`
+- `tier` (text: `launch` | `growth`)
+- `stage` (text enum: `intake_submitted`, `brand_voice_generation`, `build_in_progress`, `ready_for_review`, `delivered`, `active_client`)
+- `stage_order` (int — for manual reordering inside a column)
+- `intake_summary` (text — editable summary, auto-seeded from onboarding submission)
+- `brand_voice_url` (text — link to doc)
+- `brand_voice_content` (text — optional inline content)
+- `onboarding_submission_id` (uuid, nullable — links to existing `onboarding_submissions`)
+- `notes` (text)
 
-**2. `HeroSection.tsx` (full rewrite)**
-- Remove the 4-cell blueprint grid on the right entirely.
-- Single full-width centered hero with max-width 980px content block:
-  - Eyebrow with leading 36px line + "AI Business Architecture"
-  - Headline `clamp(64px, 9vw, 132px)` — "We architect the AI systems that run your *business.*" (only "business." italic on its own line)
-  - Sub paragraph at 19px / stone color
-  - CTA row: "Start the Process" (primary) + "See What We Build" (ghost with arrow)
-- Watermark: giant italic "CV" at bottom-right (520px, 2.5% white opacity).
-- Hero padding `160px 0 120px`, min-height 100vh.
+**`client_checklist_items`** — build checklist
+- `id`, `client_id` (fk), `label`, `completed` (bool), `order_index`, `created_at`
 
-**3. `MarqueeStrip.tsx`**
-- Items rendered in serif italic (Cormorant Garamond) at 17px instead of current sans/14px.
-- Slower animation (28s instead of 20s).
+**`client_automations`** — automation status indicators
+- `id`, `client_id` (fk), `name`, `status` (`not_started` | `building` | `live` | `paused`), `notes`, `updated_at`
 
-**4. `ProblemSolutionSection.tsx`**
-- Add eyebrow leading-line treatment (36px horizontal line before label).
-- Increase paddings to `140px 72px`, body text to 17px, headline to clamp(40px, 4.2vw, 58px).
-- Use grid layout `32px 1fr` for the icon + text rows.
+**`client_deliveries`** — monthly delivery log
+- `id`, `client_id` (fk), `delivery_date`, `title`, `description`, `link_url`, `created_at`
 
-**5. `ServicesSection.tsx` (rename heading + restyle)**
-- Centered section header (eyebrow with lines on both sides, large centered title, intro paragraph) — replaces current left-aligned 2-col header.
-- Two automation cards with the hover effect: card flips from cream → ink on hover (text colors invert). Top accent line scales in on hover.
-- "Need something more?" upcharge row: separate block below grid with `border-top: 2px solid accent`, two-column `1fr 1.4fr` layout, tag pills in warm-white with sand border.
+**`api_tokens`** — for REST API auth
+- `id`, `token_hash` (text — sha256 of bearer token), `label`, `created_at`, `last_used_at`, `revoked` (bool)
 
-**6. `MonthlyValueSection.tsx`**
-- Centered section header (eyebrow with double lines, centered title + intro).
-- Three cards on dark bg. Card hover changes the giant "01/02/03" numeral from faint white to accent color.
-- Time pill becomes a small caps line with top border, not a separate accent row.
+**`admin_users`** — who can access `/admin`
+- `id`, `user_id` (uuid, references auth.users), `created_at`
 
-**7. `PhilosophySection.tsx` (Architect)**
-- Add eyebrow leading-line treatment.
-- Stats grid: 4 cells, each `padding: 56px 44px`, large numerals at 88px, label at 13px tracking 0.14em.
+**RLS:** All tables enable RLS. `clients`, checklist, automations, deliveries — readable/writable by users in `admin_users` (via `is_admin()` security-definer function). API tokens — service role only. Edge functions use service role to bypass RLS for the public API.
 
-**8. `ProcessSection.tsx`**
-- Header layout matches: eyebrow + left-aligned title on the left, "Begin yours" ghost link on the right (already close, minor tweaks).
-- Step cards: number at 88px in `sand` color (not mist), step title at 26px serif, hover changes border-top to accent and bg to warm-white.
+**Trigger:** auto-create a `clients` row when an `onboarding_submissions` row is marked `completed=true` (seeds business name, contact info, intake summary from `summary` JSON, default stage `intake_submitted`).
 
-**9. `ContactSection.tsx` (CTA)**
-- Centered eyebrow with double leading lines + "Ready to Build" label.
-- Headline "Stop running your business manually. *Architect it.*" at clamp(56px, 7vw, 108px).
-- Two CTAs: primary "Start the Architecture" + ghost "See What We Build".
-- Giant "ARCHITECT" watermark behind (260px, 2% white opacity).
+### 2. Authentication
 
-**10. `Footer.tsx`**
-- Match mockup: charcoal background, three-column flex (logo / copyright / links), padding `48px 64px`.
-- Already very close — only spacing/typography fine-tunes needed.
+- Enable email/password auth (auto-confirm ON for admin convenience).
+- New `/admin/login` page — email + password.
+- A user becomes admin only after their `auth.users.id` is added to `admin_users` (manually seeded for first user via migration using your email — you'll provide it, or we'll add it via the SQL editor after first signup).
+- Route guard: `<RequireAdmin>` wrapper redirects non-admins to `/admin/login`.
 
-**11. `index.css` / global helpers**
-- Update marquee animation duration to 28s (or override per-component).
-- Add a `.reveal` opacity/transform pattern is already present.
-- The `useScrollReveal` hook is already wired — keep it.
+### 3. Admin UI (new pages, isolated from marketing site)
 
-### What stays the same
-- Color tokens (cream, ink, accent, stone, taupe, etc.) — already match the mockup hex values.
-- Font families (Cormorant Garamond + Karla) — already loaded.
-- Section ordering: Hero → Marquee → Problem/Solution → Services → MonthlyValue → Philosophy → Process → Contact → Footer (already matches).
-- `useCustomCursor` and `useScrollReveal` hooks — kept.
-- Routes and other pages — unchanged.
+Clean minimal design — neutral grays/white, system font stack inside admin (keeps it visually distinct from the editorial marketing site, also faster to scan). Uses existing shadcn components.
 
-### Files touched
-- `src/components/Navbar.tsx`
-- `src/components/HeroSection.tsx`
-- `src/components/MarqueeStrip.tsx`
-- `src/components/ProblemSolutionSection.tsx`
-- `src/components/ServicesSection.tsx`
-- `src/components/MonthlyValueSection.tsx`
-- `src/components/PhilosophySection.tsx`
-- `src/components/ProcessSection.tsx`
-- `src/components/ContactSection.tsx`
-- `src/components/Footer.tsx`
-- `src/index.css` (minor — marquee speed + any new utility)
+**`/admin` — Kanban dashboard**
+- 6 columns (one per stage), horizontally scrollable on small screens.
+- Each card: business name (bold), contact name, tier badge (Launch=stone / Growth=accent), submitted date (relative), brand voice doc link icon (if set).
+- Drag-and-drop between columns to change stage (`@dnd-kit/core` — already React-friendly, lightweight).
+- Top bar: search input, tier filter, "+ New Client" button, link to API tokens page.
 
-### Note
-Because the navbar is shared across all pages, switching it to always-dark/fixed will affect other pages too. If you want to preserve the current light navbar look on `/services`, `/philosophy`, `/contact`, etc., I can keep the `variant` prop and only change the dark variant to match the mockup (recommended). Let me know if you'd rather have the dark fixed nav on every page.
+**`/admin/clients/:id` — detail page**
+Tabbed layout:
+- **Overview**: contact info (editable inline), tier, stage selector, submitted date, intake summary (textarea), brand voice URL + optional content textarea, notes.
+- **Checklist**: list of checkbox items, add/remove/reorder, defaults seeded based on tier (Launch gets ~6 items, Growth gets ~12).
+- **Automations**: rows with name + status pill (color-coded), add/edit.
+- **Deliveries**: monthly log table, "+ Log Delivery" form (date, title, description, link).
+- **Danger**: archive button.
+
+**`/admin/tokens` — API token management**
+- List existing tokens (label, created, last used, revoke button).
+- "Generate token" — shows raw token ONCE, stores only sha256 hash.
+
+### 4. REST API (edge function: `crm-api`)
+
+Single edge function routing by path/method, `verify_jwt = false`, auth via `Authorization: Bearer <token>` header validated against `api_tokens.token_hash`.
+
+Endpoints:
+```
+GET    /clients                  list (filters: stage, tier, search)
+POST   /clients                  create
+GET    /clients/:id              full detail (incl. checklist, automations, deliveries)
+PATCH  /clients/:id              update fields (incl. stage)
+POST   /clients/:id/checklist    add checklist item
+PATCH  /checklist/:id            toggle/edit item
+POST   /clients/:id/automations  add automation
+PATCH  /automations/:id          update status
+POST   /clients/:id/deliveries   log delivery
+POST   /clients/:id/documents    save brand voice (url + optional content)
+```
+
+All responses JSON. Validation with Zod. Returns `401` on bad token, `404` on missing resource, `400` on validation errors. Updates `last_used_at` on every authenticated call.
+
+### 5. Files to create/edit
+
+**New:**
+- Migration: tables + RLS + `is_admin()` function + onboarding→client trigger
+- `src/pages/admin/AdminLogin.tsx`
+- `src/pages/admin/Dashboard.tsx` (Kanban)
+- `src/pages/admin/ClientDetail.tsx`
+- `src/pages/admin/Tokens.tsx`
+- `src/components/admin/RequireAdmin.tsx`
+- `src/components/admin/AdminLayout.tsx` (sidebar nav)
+- `src/components/admin/ClientCard.tsx`
+- `src/components/admin/KanbanColumn.tsx`
+- `src/components/admin/StageBadge.tsx`, `TierBadge.tsx`
+- `supabase/functions/crm-api/index.ts` + `deno.json`
+- `src/hooks/useAdminAuth.ts`
+
+**Edited:**
+- `src/App.tsx` — add `/admin/*` routes
+- `supabase/config.toml` — add `[functions.crm-api]` block with `verify_jwt = false`
+
+**Dependencies to add:** `@dnd-kit/core`, `@dnd-kit/sortable`, `zod` (likely already present), `date-fns` (already present in shadcn).
+
+### 6. Out of scope (ask if you want these added)
+- File uploads for brand voice docs (currently URL-only — can add Supabase Storage bucket if you want true file hosting)
+- Email notifications when clients move stages
+- Multi-admin roles (everyone in `admin_users` has full access)
+- Public-facing client portal
+
+### Notes for the user (non-technical)
+- After this ships, you'll sign up at `/admin/login`, then I'll add your account to the admin list with one SQL line (or we can hardcode your email upfront — let me know).
+- The REST API uses bearer tokens you generate from the admin UI. Treat tokens like passwords — they're shown once.
+- New onboarding submissions automatically appear in the "Intake Submitted" column.
 
