@@ -365,6 +365,7 @@ export default function ClientDetail() {
           total={total}
           onClose={() => setOpenNodeId(null)}
           onUpdate={(patch) => updateNode(openNode.id, patch)}
+          onReload={load}
         />
       )}
     </AdminLayout>
