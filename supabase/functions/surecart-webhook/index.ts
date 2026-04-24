@@ -12,8 +12,8 @@ const corsHeaders = {
 // Map SureCart product IDs → tier. Edit these to match your SureCart products.
 // Anything not listed defaults to "launch".
 const PRODUCT_TIER_MAP: Record<string, 'launch' | 'growth'> = {
-  // 'prod_xxxxxxxx': 'launch',
-  // 'prod_yyyyyyyy': 'growth',
+  '4e9d2ca6-2011-4541-9a45-b02291d76abf': 'launch',
+  'b23d2c69-5584-434f-8589-cc27acaa6cba': 'growth',
 }
 
 const SITE_URL = 'https://cre8visions.com'
