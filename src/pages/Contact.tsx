@@ -110,7 +110,7 @@ const Contact = () => {
               </div>
               <div className="flex flex-col gap-1 py-7 border-t border-white/[0.07]">
                 <span className="text-[11px] tracking-[0.25em] uppercase text-stone">Based In</span>
-                <span className="font-serif text-lg font-light italic text-stone">Atlanta, Georgia</span>
+                <span className="font-serif text-lg font-light italic text-stone">Fort Worth, Texas</span>
               </div>
               <div className="flex gap-6 pt-10 border-t border-white/[0.07]">
                 <a href="https://instagram.com/cre8_visions" target="_blank" rel="noopener noreferrer" className="text-[11px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
@@ -119,6 +119,9 @@ const Contact = () => {
                 <a href="https://www.linkedin.com/company/cre8visions/" target="_blank" rel="noopener noreferrer" className="text-[11px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
                   LinkedIn
                 </a>
+                <Link to="/how-it-works" className="text-[11px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
+                  How It Works
+                </Link>
               </div>
             </div>
           </div>
