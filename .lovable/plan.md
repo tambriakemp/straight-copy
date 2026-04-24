@@ -1,86 +1,65 @@
 
 
-## Plan: Auto-send Onboarding Invite on SureCart Purchase
+## Plan: Switch all AI calls from Lovable AI Gateway to Anthropic Claude
 
-When a customer completes a SureCart checkout, automatically create an onboarding invite and email them the unique link.
+Move every AI invocation in the project off `ai.gateway.lovable.dev` (Gemini/GPT-5) and onto Anthropic's Claude API. No other functional changes.
 
-### How it works
+### Scope — files that currently call the AI gateway
 
-```text
-SureCart checkout paid
-        │
-        ▼
-SureCart webhook  ──►  /functions/v1/surecart-webhook
-                              │
-                              ├─ verify signature
-                              ├─ map product → tier (launch / growth)
-                              ├─ create onboarding_invites row
-                              └─ send branded email with /onboarding?invite=TOKEN
-                                        │
-                                        ▼
-                              Customer clicks link → resumable chat
-```
+1. `supabase/functions/onboarding-chat/index.ts` — streaming onboarding conversation
+2. `supabase/functions/onboarding-session/index.ts` — `complete` action runs the structured-summary extraction
+3. `supabase/functions/save-onboarding/index.ts` — legacy summary extraction (kept in sync for parity)
 
-### 1. New edge function: `surecart-webhook`
+These are the only three places. Everything else (email, webhooks, CRM API) is non-AI and stays untouched.
 
-- Public endpoint (`verify_jwt = false`) at `/functions/v1/surecart-webhook`
-- Listens for SureCart `order.paid` / `checkout.completed` events
-- Verifies the webhook signature using a `SURECART_WEBHOOK_SECRET` you'll provide
-- Extracts: customer email, name, product/price ID, order ID
-- Maps product ID → `tier` (`launch` or `growth`) using a small lookup you configure
-- Idempotent: if an invite already exists for that order ID, returns the existing one (so SureCart retries don't duplicate)
-- Inserts a row into `onboarding_invites` with a fresh random token, pre-filled name/email, 30-day expiry, and `note` like "Auto-created from SureCart order #1234"
-- Calls `send-transactional-email` with a new template (below) to deliver the link
+### What changes in each function
 
-### 2. New email template: `onboarding-invite`
+**Endpoint**
+- From: `https://ai.gateway.lovable.dev/v1/chat/completions`
+- To: `https://api.anthropic.com/v1/messages`
 
-Branded React Email template matching your editorial cream/ink aesthetic. Includes:
-- Personal greeting ("Welcome, {name}")
-- Short paragraph: thanks for joining {tier} tier, here's your onboarding link
-- Big button → `https://cre8visions.com/onboarding?invite={token}`
-- Note that the link saves progress and can be reopened anytime
-- Unsubscribe footer (auto-handled by existing email infra)
+**Auth headers**
+- From: `Authorization: Bearer ${LOVABLE_API_KEY}`
+- To: `x-api-key: ${ANTHROPIC_API_KEY}` + `anthropic-version: 2023-06-01`
 
-### 3. Database addition (small migration)
+**Request shape** (Anthropic differs from OpenAI-compatible):
+- `system` becomes a top-level field, not a message with `role: "system"`
+- `messages` array contains only `user` / `assistant` turns
+- `max_tokens` is required
+- `stream: true` works the same way for SSE
 
-Add two optional columns to `onboarding_invites` to track the SureCart origin:
-- `source_order_id` text — for idempotency lookup
-- `tier` text — `launch` / `growth` so it carries through to the auto-created client
+**Model**
+- Default to `claude-sonnet-4-5` (latest Sonnet — best balance for chat + structured extraction)
+- One constant per function so it's easy to swap later
 
-Update `create_client_from_onboarding` trigger to read `tier` from the linked invite (instead of hardcoding `launch`) so Growth customers land in the correct tier automatically.
+**Streaming (onboarding-chat only)**
+Anthropic's SSE format is different from OpenAI's. The frontend currently parses `choices[0].delta.content`. I'll transform Anthropic's `content_block_delta` events into the same OpenAI-compatible shape inside the edge function so `Onboarding.tsx` keeps working with zero frontend changes. The transform is a small ReadableStream that maps each `event: content_block_delta` → `data: {"choices":[{"delta":{"content":"..."}}]}` and emits a final `data: [DONE]`.
 
-### 4. Admin UI tweak
+**Structured JSON extraction (onboarding-session + save-onboarding)**
+Replace OpenAI-style `response_format: { type: "json_object" }` with Anthropic tool-use:
+- Define a single `extract_summary` tool whose input schema matches the existing summary shape
+- Force the model to call it via `tool_choice: { type: "tool", name: "extract_summary" }`
+- Read the structured object from `content[0].input` instead of parsing a JSON string
 
-On `/admin/invites`, show a small "via SureCart · order #1234" tag on auto-generated invites so you can tell them apart from manually-created ones.
+**Error handling**
+- 429 → same "Rate limit reached" response
+- 529 (Anthropic overloaded) → same rate-limit message
+- 401 → "AI service authentication failed" (signals bad/missing key)
+- All other errors → existing 500 path, with the Anthropic error body logged
 
-### 5. Configuration (a one-time setup, after this ships)
+### Secret
 
-You'll need to:
-1. Add a runtime secret `SURECART_WEBHOOK_SECRET` (shown to you when you create the webhook in SureCart's dashboard — I'll prompt you with the secrets tool)
-2. Tell me your SureCart product IDs and which tier each maps to (Launch vs Growth) — I'll hardcode the map in the webhook function (or store it as a small config table if you want to edit it without redeploying)
-3. In SureCart's dashboard, add a webhook pointing to:
-   `https://zjxvcgcuukgqawczanud.supabase.co/functions/v1/surecart-webhook`
-   subscribed to `order.paid` (and optionally `checkout.completed` as backup)
+A new runtime secret `ANTHROPIC_API_KEY` is required. I'll request it via `add_secret` before deploying. `LOVABLE_API_KEY` stays in the secret store (still used by other potential features) but is no longer referenced by these three functions.
 
-### Files to create / edit
+### Out of scope (explicitly not touching)
 
-**New**
-- `supabase/functions/surecart-webhook/index.ts` + `deno.json`
-- `supabase/functions/_shared/transactional-email-templates/onboarding-invite.tsx`
-- Migration: `source_order_id` + `tier` columns on `onboarding_invites`, updated trigger
+- No new features, no UI changes, no DB changes
+- No changes to the journey flow / brand voice generator (that one wasn't built)
+- Frontend `Onboarding.tsx` is unchanged — the SSE transform keeps the contract identical
 
-**Edited**
-- `supabase/functions/_shared/transactional-email-templates/registry.ts` — register new template
-- `supabase/config.toml` — `[functions.surecart-webhook] verify_jwt = false`
-- `src/pages/admin/Invites.tsx` — show SureCart origin tag
+### Risks / things to confirm after deploy
 
-### MCP question — short answer
-
-MCP connectors (Notion, Linear, Slack, etc.) extend **me** while I'm building — they don't run in your deployed app. SureCart isn't in the MCP catalog, but even if it were, it'd be the wrong tool here. SureCart's own webhook system is the standard, reliable way to react to payments in production, and that's what this plan uses.
-
-### Out of scope (ask if wanted)
-- Refund handling (revoke the invite if a payment is refunded)
-- Sending the invite to a different email than the buyer (e.g. agency buying for a client)
-- Slack/Discord notification to your team when a new paid invite is created
-- A small admin page to edit the product → tier mapping without redeploying
+- Cost & latency profile changes (Claude Sonnet 4.5 is solid for this workload but priced differently than Gemini Flash)
+- Tool-use JSON output is more reliable than `response_format`, so summary quality should be equal or better
+- If you want a cheaper model for the summary step (e.g. `claude-haiku-4-5`), say so and I'll split the model constants
 
