@@ -1000,7 +1000,6 @@ function NodeChecklist({
                   >
                     <span className="crm-checkitem__box" aria-hidden />
                     <span className="crm-checkitem__label">{it.label}</span>
-                    {readonly && <span className="crm-checkitem__auto-tag">system</span>}
                   </div>
                 );
               })}

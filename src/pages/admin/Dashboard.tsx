@@ -334,16 +334,7 @@ export default function Dashboard() {
                     <span className={`status-dot status-dot--${r.status}`} />
                     {statusText[r.status]}
                   </div>
-                  <div className="roster__row-actions" onClick={(e) => e.stopPropagation()}>
-                    <a
-                      className="roster__portal-link"
-                      href={`/portal/${r.id}?as=admin`}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Open this client's portal in a new tab as an admin preview"
-                    >
-                      ◉ Open as client ↗
-                    </a>
+                  <div className="roster__row-actions">
                     <span className="roster__chevron">→</span>
                   </div>
                 </div>

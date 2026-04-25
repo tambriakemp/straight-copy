@@ -846,6 +846,26 @@
   .crm-shell .crm-modal__left, .crm-shell .crm-modal__right { padding: 40px 28px; }
 }
 
+/* ---------- Tablet (≤1180px): prevent header pill from overlapping the journey progress pill ---------- */
+@media (max-width: 1180px) {
+  .crm-shell .detail__pill {
+    max-width: calc(100% - 220px);
+    flex-wrap: wrap;
+    row-gap: 10px;
+    column-gap: 16px;
+    padding: 12px 18px;
+  }
+  .crm-shell .detail__client { flex: 1 1 auto; min-width: 200px; }
+  .crm-shell .detail__client-name { font-size: 19px; }
+  .crm-shell .detail__client-meta { gap: 10px; }
+  .crm-shell .detail__portal-actions {
+    margin-left: 0; padding-left: 0; border-left: 0;
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+  .crm-shell .detail__portal-btn { font-size: 9px; padding: 6px 10px; letter-spacing: 0.18em; }
+}
+
 /* ---------- Mobile (≤640px) ---------- */
 @media (max-width: 640px) {
   /* Topnav: stack and shrink */
