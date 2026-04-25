@@ -27,9 +27,9 @@ const pricingTiers = [
     price: "$997 / month",
     includesLabel: "Everything in Launch, plus",
     items: [
-      "Full Business Brain setup — your complete Claude Project with base artifacts and skill files",
+      "Full Business Brain setup — your complete AI Project with base artifacts and skill files",
       "Brand kit creation — colors, fonts, visual direction loaded into the Brain",
-      "HeyGen avatar built for your business — custom AI video presence",
+      "AI avatar built for your business — custom AI video presence",
       "Posts + Reels content system — static captions and AI avatar video reels",
       "Monthly Brain update — new SOPs, offers, and skill files added as you grow",
       "One custom add-on build per quarter — your choice",
@@ -238,7 +238,7 @@ const Services = () => {
             <div>
               <div className="font-serif text-[24px] font-light text-warm-white mb-1.5">One-time setup fee</div>
               <p className="text-[13px] font-light text-taupe leading-[1.7]">
-                Launch setup covers brand voice doc, AI assistant, both core automations, and full onboarding. Growth setup adds your Business Brain, brand kit, HeyGen avatar, and full posts + reels content system. Paid once. Everything is yours from day one.
+                Launch setup covers brand voice doc, AI assistant, both core automations, and full onboarding. Growth setup adds your Business Brain, brand kit, AI avatar, and full posts + reels content system. Paid once. Everything is yours from day one.
               </p>
             </div>
             <div className="flex gap-10 flex-shrink-0">
@@ -321,7 +321,7 @@ const Services = () => {
               </h2>
             </div>
             <p className="text-[15px] font-light text-taupe leading-[1.9] reveal self-end">
-              A Claude Project built specifically for your business — loaded with every artifact, SOP, and skill file you need to run and grow. The source of truth your entire AI OS pulls from. The most complete version of your business that has ever existed in one place.
+              An AI Project built specifically for your business — loaded with every artifact, SOP, and skill file you need to run and grow. The source of truth your entire AI OS pulls from. The most complete version of your business that has ever existed in one place.
             </p>
           </div>
 

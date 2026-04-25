@@ -37,7 +37,7 @@ const steps: Step[] = [
     titleA: "The Discovery",
     titleB: "Conversation",
     body: [
-      "This isn't a form or an onboarding questionnaire. It's a guided AI conversation — you type naturally, like you're texting someone who's genuinely curious about your business. It asks one question at a time, follows up when it needs more detail, and wraps up when it has everything it needs.",
+      "This isn't a form or an onboarding questionnaire. It's a guided conversation — you type naturally, like you're texting someone who's genuinely curious about your business. It asks one question at a time, follows up when it needs more detail, and wraps up when it has everything it needs.",
       "You don't need to prepare anything. You don't need to know what tools you want to use. You don't need to have a brand guide or existing content. We built the conversation to work for businesses at any stage — from day one to year five.",
     ],
     details: [
@@ -141,7 +141,7 @@ const steps: Step[] = [
           "Social content system — posts + reels ready",
           "AI assistant — live and tested",
           "Business Brain — loaded and ready (Growth)",
-          "HeyGen avatar — built and connected (Growth)",
+          "AI avatar — built and connected (Growth)",
         ],
       },
     ],
