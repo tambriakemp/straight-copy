@@ -7,6 +7,14 @@ import { differenceInCalendarDays, format } from "date-fns";
 
 type NodeStatus = "pending" | "in_progress" | "complete";
 type ModalStatus = "notstarted" | "inprog" | "blocked" | "complete";
+type ChecklistOwner = "auto" | "client" | "agency";
+interface ChecklistItem {
+  id: string;
+  label: string;
+  owner: ChecklistOwner;
+  done: boolean;
+  auto_key?: string;
+}
 
 interface JourneyNode {
   id: string;
@@ -21,6 +29,7 @@ interface JourneyNode {
   started_at: string | null;
   completed_at: string | null;
   updated_at: string;
+  checklist: ChecklistItem[] | null;
 }
 
 interface Client {
@@ -164,7 +173,7 @@ export default function ClientDetail() {
     ]);
     if (c.error) toast.error(c.error.message);
     setClient((c.data as Client) || null);
-    setNodes((n.data as JourneyNode[]) || []);
+    setNodes(((n.data as unknown) as JourneyNode[]) || []);
     setLoading(false);
   }, [id]);
 
@@ -525,6 +534,8 @@ function StageModal({
               </div>
             </section>
 
+            <NodeChecklist node={node} onUpdate={onUpdate} />
+
             {node.key === "brand_voice" && (
               <BrandVoicePanel client={client} onReload={onReload} />
             )}
@@ -739,25 +750,6 @@ function BrandKitPanel({ client }: { client: Client }) {
   const intake = (client.brand_kit_intake || {}) as Record<string, unknown>;
   const submitted = !!client.brand_kit_intake_submitted_at;
 
-  const has = (...keys: string[]) =>
-    submitted &&
-    keys.some((k) => {
-      const v = intake[k];
-      if (v == null) return false;
-      if (typeof v === "string") return v.trim().length > 0;
-      if (Array.isArray(v)) return v.length > 0;
-      if (typeof v === "object") return Object.keys(v as object).length > 0;
-      return true;
-    });
-
-  const items = [
-    { label: "Logos", done: has("logos", "logo", "logo_files", "logo_references") },
-    { label: "Color Palette", done: has("colors", "color_palette", "palette") },
-    { label: "Typography", done: has("typography", "fonts", "type") },
-    { label: "Visual References", done: has("visual_references", "moodboard", "references", "inspiration") },
-    { label: "Brand Guidelines", done: has("guidelines", "dos_and_donts", "brand_rules", "deliverable_scope") },
-  ];
-
   const portalUrl = `${window.location.origin}/portal/${client.id}`;
 
   const copyPortal = async () => {
@@ -780,55 +772,6 @@ function BrandKitPanel({ client }: { client: Client }) {
         )}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-        {items.map((it) => (
-          <label
-            key={it.label}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "10px 14px",
-              border: "1px solid hsl(30 12% 22%)",
-              borderRadius: 6,
-              background: it.done ? "hsl(30 12% 14%)" : "transparent",
-              cursor: "default",
-            }}
-          >
-            <span
-              aria-hidden
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: 3,
-                border: "1px solid hsl(30 18% 38%)",
-                background: it.done ? "hsl(36 38% 56%)" : "transparent",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "hsl(30 12% 10%)",
-                fontSize: 11,
-                lineHeight: 1,
-                fontWeight: 700,
-                flexShrink: 0,
-              }}
-            >
-              {it.done ? "✓" : ""}
-            </span>
-            <span
-              style={{
-                fontFamily: "var(--crm-font-sans), sans-serif",
-                fontSize: 12,
-                letterSpacing: "0.04em",
-                color: it.done ? "hsl(40 20% 97%)" : "hsl(30 8% 62%)",
-                textDecoration: it.done ? "none" : "none",
-              }}
-            >
-              {it.label}
-            </span>
-          </label>
-        ))}
-      </div>
 
       <div
         style={{
@@ -912,6 +855,98 @@ function BrandKitPanel({ client }: { client: Client }) {
           </pre>
         </details>
       )}
+    </section>
+  );
+}
+
+// ---------- Node Checklist (3-section, ownership-coded) ----------
+function NodeChecklist({
+  node,
+  onUpdate,
+}: {
+  node: JourneyNode;
+  onUpdate: (patch: Partial<JourneyNode>) => void;
+}) {
+  const items: ChecklistItem[] = Array.isArray(node.checklist) ? node.checklist : [];
+
+  if (items.length === 0) {
+    return (
+      <section>
+        <div className="crm-modal__section-head">
+          <div className="crm-modal__section-title">Checklist</div>
+        </div>
+        <div style={{ fontSize: 12, color: "hsl(30 8% 62%)", fontStyle: "italic", fontFamily: "var(--crm-font-serif), serif" }}>
+          No checklist items defined for this stage yet.
+        </div>
+      </section>
+    );
+  }
+
+  const toggle = (id: string) => {
+    const next = items.map((it) => (it.id === id ? { ...it, done: !it.done } : it));
+    onUpdate({ checklist: next });
+  };
+
+  const groups: { owner: ChecklistOwner; label: string; icon: string }[] = [
+    { owner: "auto",   label: "Auto",   icon: "🤖" },
+    { owner: "client", label: "Client", icon: "👤" },
+    { owner: "agency", label: "Agency", icon: "✦" },
+  ];
+
+  const doneCount = items.filter((i) => i.done).length;
+
+  return (
+    <section>
+      <div className="crm-modal__section-head">
+        <div className="crm-modal__section-title">Checklist</div>
+        <span className="crm-checklist-group__count">
+          {doneCount} of {items.length} complete
+        </span>
+      </div>
+
+      {groups.map((g) => {
+        const groupItems = items.filter((i) => i.owner === g.owner);
+        if (groupItems.length === 0) return null;
+        const groupDone = groupItems.filter((i) => i.done).length;
+        return (
+          <div key={g.owner} className="crm-checklist-group">
+            <div className="crm-checklist-group__head">
+              <span><span className="icon">{g.icon}</span>{g.label}</span>
+              <span className="crm-checklist-group__count">{groupDone}/{groupItems.length}</span>
+            </div>
+            <div className="crm-checklist">
+              {groupItems.map((it) => {
+                const readonly = it.owner === "auto";
+                return (
+                  <div
+                    key={it.id}
+                    className={[
+                      "crm-checkitem",
+                      `crm-checkitem--${it.owner}`,
+                      it.done ? "crm-checkitem--done" : "",
+                      readonly ? "crm-checkitem--readonly" : "",
+                    ].filter(Boolean).join(" ")}
+                    onClick={() => { if (!readonly) toggle(it.id); }}
+                    role={readonly ? undefined : "button"}
+                    tabIndex={readonly ? -1 : 0}
+                    onKeyDown={(e) => {
+                      if (readonly) return;
+                      if (e.key === " " || e.key === "Enter") {
+                        e.preventDefault();
+                        toggle(it.id);
+                      }
+                    }}
+                  >
+                    <span className="crm-checkitem__box" aria-hidden />
+                    <span className="crm-checkitem__label">{it.label}</span>
+                    {readonly && <span className="crm-checkitem__auto-tag">system</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </section>
   );
 }
