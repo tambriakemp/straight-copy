@@ -4,17 +4,22 @@ import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
 import { differenceInCalendarDays, format } from "date-fns";
+import { syncChecklist, templateIdFor, type ChecklistItem as ChecklistItemTpl } from "@/lib/journey-checklists";
 
 type NodeStatus = "pending" | "in_progress" | "complete";
 type ModalStatus = "notstarted" | "inprog" | "blocked" | "complete";
 type ChecklistOwner = "auto" | "client" | "agency";
 interface ChecklistItem {
-  id: string;
+  /** Stable identity. New items always have one; legacy rows may not until next save. */
+  key?: string;
+  /** Legacy id from older template versions — kept for backward compatibility. */
+  id?: string;
   label: string;
   owner: ChecklistOwner;
   done: boolean;
   auto_key?: string;
 }
+
 
 interface JourneyNode {
   id: string;
