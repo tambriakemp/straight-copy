@@ -370,10 +370,12 @@ export default function Portal() {
           </section>
 
           {/* Contract — sign your service agreement */}
-          <ContractSection
-            clientId={clientId!}
-            contactName={client.contact_name}
-          />
+          <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
+            <ContractSection
+              clientId={clientId!}
+              contactName={client.contact_name}
+            />
+          </div>
 
           {/* Account Access — always available, collapsible */}
           <AccountAccessSection
@@ -383,25 +385,27 @@ export default function Portal() {
           />
 
           {/* Body */}
-          {isBrandKitDone ? (
-            <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
-          ) : isBrandKitActive ? (
-            <BrandKitChat
-              node={node!}
-              stage={stage}
-              messages={messages}
-              input={input}
-              setInput={setInput}
-              isStreaming={isStreaming}
-              readyToSubmit={readyToSubmit}
-              submitting={submitting}
-              onSend={send}
-              onSubmit={submit}
-              scrollRef={scrollRef}
-            />
-          ) : (
-            <PlaceholderCard node={node} />
-          )}
+          <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
+            {isBrandKitDone ? (
+              <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
+            ) : isBrandKitActive ? (
+              <BrandKitChat
+                node={node!}
+                stage={stage}
+                messages={messages}
+                input={input}
+                setInput={setInput}
+                isStreaming={isStreaming}
+                readyToSubmit={readyToSubmit}
+                submitting={submitting}
+                onSend={send}
+                onSubmit={submit}
+                scrollRef={scrollRef}
+              />
+            ) : (
+              <PlaceholderCard node={node} />
+            )}
+          </div>
         </main>
       </div>
     </div>
