@@ -324,49 +324,68 @@ export default function ClientDetail() {
           <div className="detail__bar-spacer" />
 
           <div className="detail__portal-actions">
-            <a
-              className="detail__portal-btn"
-              href={`/portal/${client.id}?as=admin`}
-              target="_blank"
-              rel="noreferrer"
-              title="Open this client's portal in a new tab as an admin preview (your admin session is unchanged)"
-            >
-              ◉ Open as client ↗
-            </a>
-            <button
-              className="detail__portal-btn detail__portal-btn--ghost"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(`${window.location.origin}/portal/${client.id}`);
-                  toast.success("Portal link copied");
-                } catch {
-                  toast.error("Could not copy link");
-                }
-              }}
-              title="Copy portal link"
-            >
-              ⧉ Copy
-            </button>
-            <button
-              className="detail__portal-btn detail__portal-btn--ghost"
-              onClick={async () => {
-                const t = toast.loading("Syncing to SureContact…");
-                try {
-                  const { data, error } = await supabase.functions.invoke(
-                    "sync-client-to-surecontact",
-                    { body: { clientId: client.id } },
-                  );
-                  if (error) throw new Error(error.message);
-                  if (!data?.success) throw new Error(data?.error || "Sync failed");
-                  toast.success("Synced to SureContact", { id: t });
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Sync failed", { id: t });
-                }
-              }}
-              title="Push this client's portal link, tier, and current journey stage into SureContact"
-            >
-              ⇪ Sync to SureContact
-            </button>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <a
+                    className="detail__portal-btn detail__portal-btn--icon"
+                    href={`/portal/${client.id}?as=admin`}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Open as client"
+                  >
+                    <Eye size={14} strokeWidth={1.5} />
+                  </a>
+                </TooltipTrigger>
+                <TooltipContent>Open this client's portal as an admin preview</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(`${window.location.origin}/portal/${client.id}`);
+                        toast.success("Portal link copied");
+                      } catch {
+                        toast.error("Could not copy link");
+                      }
+                    }}
+                    aria-label="Copy portal link"
+                  >
+                    <Copy size={14} strokeWidth={1.5} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Copy portal link</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
+                    onClick={async () => {
+                      const t = toast.loading("Syncing to SureContact…");
+                      try {
+                        const { data, error } = await supabase.functions.invoke(
+                          "sync-client-to-surecontact",
+                          { body: { clientId: client.id } },
+                        );
+                        if (error) throw new Error(error.message);
+                        if (!data?.success) throw new Error(data?.error || "Sync failed");
+                        toast.success("Synced to SureContact", { id: t });
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : "Sync failed", { id: t });
+                      }
+                    }}
+                    aria-label="Sync to SureContact"
+                  >
+                    <RefreshCw size={14} strokeWidth={1.5} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Sync portal link, tier &amp; stage to SureContact</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           <div className="detail__bar-divider" aria-hidden="true" />
@@ -391,7 +410,7 @@ export default function ClientDetail() {
                 strokeLinecap="round"
               />
               <text
-                x="22" y="25" textAnchor="middle" fontSize="10"
+                x="22" y="25" textAnchor="middle" fontSize="9"
                 fill="hsl(40 20% 97%)"
                 fontFamily="Cormorant Garamond, serif" fontStyle="italic"
               >
