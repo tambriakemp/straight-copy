@@ -60,7 +60,7 @@ export async function upsertSureContact(
     }
   }
 
-  const body = {
+  const body: Record<string, unknown> = {
     primary_fields: {
       email: input.email.trim(),
       first_name: (input.firstName || "").trim(),
@@ -76,6 +76,13 @@ export async function upsertSureContact(
       : ["Cre8 Visions Clients"],
     tags: input.tags || [],
   };
+
+  if (input.tagsToRemove && input.tagsToRemove.length > 0) {
+    // SureContact accepts both naming conventions in upsert payloads;
+    // sending both is harmless and ensures stale stage tags are dropped.
+    body.tags_to_remove = input.tagsToRemove;
+    body.remove_tags = input.tagsToRemove;
+  }
 
   try {
     const resp = await fetch(SURECONTACT_UPSERT_URL, {
