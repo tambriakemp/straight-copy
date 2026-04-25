@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
+import ContractSection from "@/components/portal/ContractSection";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type ActiveNode = {
@@ -351,6 +352,12 @@ export default function Portal() {
               {contactEmail ? ` We'll keep you posted at ${contactEmail}.` : ""}
             </p>
           </section>
+
+          {/* Contract — sign your service agreement */}
+          <ContractSection
+            clientId={clientId!}
+            contactName={client.contact_name}
+          />
 
           {/* Account Access — always available, collapsible */}
           <AccountAccessSection
