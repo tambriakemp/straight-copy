@@ -1,92 +1,97 @@
-## Goal
+## Contract System Plan
 
-Use SureContact as the email engine for client lifecycle emails (welcome, kickoff, etc.) while still personalizing each email with that client's unique portal link (`https://cre8visions.com/portal/{clientId}`). SureContact gets the link as a **custom field on the contact record**, so any template you build in SureContact can merge it with a normal merge tag.
+### 1. Database (one migration)
 
-This keeps SureContact as the source of truth for sends + analytics — Lovable's job is just to keep the contact record (and that one custom field) in sync.
+New table `client_contracts`:
+- `id`, `client_id` (FK clients), `tier` (launch/growth), `template_version` (text, e.g. `"launch-v1"`)
+- Client signature: `client_signature_name`, `client_signature_type` ('typed'|'drawn'), `client_signature_data` (text — drawn = base64 PNG, typed = name), `client_signed_at`, `client_ip`, `client_user_agent`
+- Counter: `agency_signer_name` (default `'Tambria Kemp'`), `agency_countersigned_at` (auto-set on insert via default `now()`)
+- PDF: `pdf_path`, `pdf_url`, `pdf_generated_at`
+- `created_at`, `updated_at`
 
----
+RLS: admins manage all; service role manages all. Portal access goes through edge functions (service role), so no client-facing RLS needed.
 
-## How it works
+Storage: reuse existing private `client-assets` bucket — PDFs stored at `contracts/{clientId}/{contractId}.pdf`, signed URLs returned to portal.
 
-1. When a client is created (or their portal info changes), Lovable upserts the contact in SureContact with a custom field `portal_url` containing their unique link.
-2. You build the welcome / kickoff / re-engagement emails inside SureContact using a merge tag like `{{custom.portal_url}}` (or whatever syntax your SureContact account uses — to be confirmed in step 4).
-3. Sending, scheduling, opens, clicks, and the rest of the analytics all live inside SureContact. Lovable doesn't send the email — it just guarantees the link is always there before SureContact sends.
-4. Optional: tag/list assignment per stage (e.g. tag `Portal: Onboarding`, `Portal: Brand Kit`, `Portal: Kickoff`) so you can trigger SureContact automations off journey progress.
+### 2. Hardcoded contract templates
 
----
+New file `src/lib/contract-templates.ts` and matching `supabase/functions/_shared/contract-templates.ts` (mirrored, like the journey-checklist pattern):
+- `LAUNCH_CONTRACT` — full agreement text + version string `launch-v1`
+- `GROWTH_CONTRACT` — full agreement text + version string `growth-v1`
+- Each exports `{ version, title, sections: [{heading, body}] }` so we can render to both HTML (portal) and PDF (server) from one source.
+- I'll seed both with placeholder service-agreement text covering: scope, payment, deliverables, IP, confidentiality, termination, signatures. **You'll review and tell me what to change before this ships** — easy edits since it's plain TS strings.
 
-## What gets built
+### 3. Edge function `contract-sign`
 
-### 1. New shared helper: `supabase/functions/_shared/surecontact.ts`
-A single `upsertSureContactClient({ client, portalUrl, tags?, lists? })` helper that POSTs to the same `/api/v1/public/contacts/upsert` endpoint already used by `submit-contact`. It will write:
-- `primary_fields`: email, first/last name, company (business_name)
-- `custom_fields.portal_url` — the unique portal link
-- `custom_fields.client_tier` — launch / growth
-- `custom_fields.journey_stage` — current active node label (e.g. "Brand Kit Intake")
-- `tags`: e.g. `["Client Portal", "Tier: Growth", "Stage: Brand Kit"]`
-- `lists`: configurable, default `["Cre8 Visions Clients"]`
+New `supabase/functions/contract-sign/index.ts` with three actions:
+- **`get`** → returns the active contract for a client: rendered template based on `clients.tier`, plus existing signature record if already signed (so portal shows signed state).
+- **`sign`** → accepts `{ clientId, signatureType, signatureData, signatureName }`. Validates with Zod. Captures IP from `x-forwarded-for` and UA. Inserts into `client_contracts` (countersigned timestamp auto-set). Generates PDF inline (using `jsPDF` via npm import — already used elsewhere or pdf-lib). Uploads to `client-assets/contracts/{clientId}/{id}.pdf`. Then flips `intake.contract_signed` AND `intake.contract_countersigned` items on the client's intake journey node to `done: true` (mirrors how `accounts_submitted` is flipped today). Returns `{ success, contract, pdfUrl }`.
+- **`download`** → returns a signed URL for the stored PDF (admin or portal).
 
-This reuses the existing `SURECONTACT_API_KEY` secret — no new keys needed.
+`verify_jwt = false` (portal is unauthenticated, like `brand-kit-intake`). Function is added to `supabase/config.toml`.
 
-### 2. New edge function: `sync-client-to-surecontact`
-- `verify_jwt = false` (called server-side from other functions and from the admin UI with the anon key)
-- Input: `{ clientId }`
-- Loads the client from `public.clients`, computes the portal URL using a `PORTAL_BASE_URL` env (defaults to `https://cre8visions.com`), looks up the active journey node, and calls the helper.
-- Idempotent — safe to call repeatedly.
+### 4. Portal UI changes
 
-### 3. Auto-sync hooks
-Wire calls to `sync-client-to-surecontact` into the points where client state changes:
-- **On client creation** — extend the existing `create_client_from_onboarding` flow (the trigger fires on `onboarding_submissions` completion). Easiest path: add an `AFTER INSERT` trigger on `public.clients` that calls a small `pg_net` HTTP POST to the new edge function (using the anon key from vault). Falls back gracefully if the call fails — never blocks the insert.
-- **On tier change** — extend the existing `sync_journey_nodes_on_tier_change` to also re-sync.
-- **On journey node advancement** — extend `auto_complete_journey_node` so when a node is marked complete, the next active node label gets pushed up to SureContact (so `journey_stage` and stage tags stay accurate, which lets SureContact automations trigger off them).
-- **Manual re-sync button** in the admin client detail page header next to "Open as client" / "Copy portal link" — fires the function on demand for QA / fixes.
+**Rename Node 01:**
+- `AccountAccessSection.tsx` line 177: change `"Node 01 · Foundations"` → `"Node 01 · Intake"`. (Header/eyebrow and title stay distinct — title remains "Set Up Your Accounts".)
+- The active-node chip in Portal header already uses `node.label` which is "Intake" from the template, so no change needed there.
 
-### 4. SureContact dashboard side (you do this once, no code)
-After the function is live and at least one client is synced, you'll need to:
-- a. Create the custom field `portal_url` (and optionally `client_tier`, `journey_stage`) in SureContact's custom-fields settings — type: text/URL.
-- b. Create the lists / tags you want to use (`Cre8 Visions Clients`, `Stage: Brand Kit`, etc.).
-- c. Build your welcome email template in SureContact and drop the merge tag for `portal_url` into the CTA button. The exact merge-tag syntax depends on SureContact's editor — most commonly `{{custom_fields.portal_url}}` or `{{contact.custom.portal_url}}`. We'll confirm the exact syntax against a synced contact before you build the template.
-- d. Set up the SureContact automation/trigger (e.g. "When tag `Stage: Onboarding` is added → send Welcome email").
+**Add Contract section** (new component `src/components/portal/ContractSection.tsx`, rendered above `AccountAccessSection`):
+- Collapsible card matching the existing `portal-access` styling.
+- Header: eyebrow "Node 01 · Intake", title "Sign Your *Agreement*."
+- Status chip: "Not signed" / "Signed ✓ {date}".
+- Body when unsigned: short intro + **"Review & Sign Contract"** button → opens dialog/inline expansion with full contract text in a scrollable container, then signature panel.
+- Signature panel (Radix Tabs):
+  - **Type** tab (default): legal-name input + "I agree to the terms above" checkbox + script-font preview of typed name.
+  - **Draw** tab: HTML5 canvas with mouse + touch support, Clear + Done buttons, exports to PNG via `canvas.toDataURL()`.
+- Submit calls `contract-sign:sign`. On success: collapses to signed state showing both signatures, signing date, and a **"Download PDF"** button.
+- When signed, both `intake.contract_signed` and `intake.contract_countersigned` checklist items appear `done` in the admin view automatically (handled server-side).
 
-I'll give you a short checklist with exact steps after the sync is wired up.
+### 5. Admin UI
 
-### 5. Where the portal URL comes from
-Currently the code uses `window.location.origin` (so admin previews use the lovable.app domain). For emails, that's wrong — clients should always get `cre8visions.com`. The new edge function will use a server-side constant `PORTAL_BASE_URL` (defaulting to `https://cre8visions.com`, overridable via a Supabase secret if you want to point at the staging domain during testing).
+In `src/pages/admin/ClientDetail.tsx`, new **"Contract"** section in the client detail (alongside existing client info / journey panels):
+- Shows current contract status: Unsigned / Signed on {date} by {name}.
+- If signed: "Download signed PDF" button (calls `contract-sign:download`), shows client signature method (typed/drawn) + IP + UA snippet for audit.
+- If unsigned: "Send contract link" helper text (just shows the portal URL — actual SureContact email comes later if you want).
+- Read-only — admin doesn't sign on the client's behalf; the auto-countersignature happens at signing time.
 
----
+### 6. PDF generation (server-side)
 
-## What we explicitly are NOT doing
+In the edge function, use `jspdf` (npm:jspdf via esm.sh) to:
+1. Render contract title, version, date.
+2. Each section as heading + body (auto-page-break).
+3. Two signature blocks at end:
+   - **Client:** if typed → name in cursive font (jsPDF supports embedding TTFs; I'll embed `Great Vibes` or `Allura` from Google Fonts, base64-encoded). If drawn → embed the PNG. + printed name + date + IP.
+   - **Agency:** "Tambria Kemp" rendered in the same cursive font + "Cre8 Visions, LLC" + date.
+4. Save buffer → upload to storage → return path.
 
-- **Not** sending emails from Lovable / Lovable Cloud for these client lifecycle emails. SureContact is the sender, period. (The existing `send-transactional-email` infra stays in place for things SureContact can't do, like internal admin notifications and the contact-form auto-reply.)
-- **Not** building campaign management UI in Lovable — you compose, schedule, and analyze emails inside SureContact.
-- **Not** changing the existing public website contact form behavior.
-- **Not** touching admin auth, RLS, or the portal itself.
+PDF QA: I'll generate a sample with a fake signature, convert to image, and visually check before considering this done.
 
----
+### 7. Script font
 
-## Open questions before I build (only one matters)
+Add Google Font `Great Vibes` link to `index.html` (already loads other fonts editorially) for the typed-signature on-screen preview. The PDF embeds the same TTF directly so output matches.
 
-**Q: Confirm the SureContact custom-field merge-tag syntax.** Different ESPs use different syntax (`{{custom.portal_url}}`, `{{custom_fields.portal_url}}`, `{{contact.portal_url}}`, `[[portal_url]]`, etc.). I can confirm this two ways:
-- (a) You check SureContact's email editor docs / their merge-tag picker and tell me the syntax — fastest, or
-- (b) I build the sync, you sync one test client, then we look at how that contact appears in SureContact's contact view to confirm the field name SureContact uses, and you check the editor's merge-tag dropdown.
+### Files touched
 
-Either way the sync code is the same — this only affects what you paste into the SureContact email body. Default assumption: `{{custom_fields.portal_url}}`.
+**New:**
+- `supabase/migrations/{ts}_client_contracts.sql`
+- `src/lib/contract-templates.ts`
+- `supabase/functions/_shared/contract-templates.ts`
+- `supabase/functions/contract-sign/index.ts` + `deno.json`
+- `src/components/portal/ContractSection.tsx`
+- `src/components/admin/ContractSection.tsx`
 
----
+**Edited:**
+- `src/components/portal/AccountAccessSection.tsx` (rename "Foundations" → "Intake")
+- `src/pages/Portal.tsx` (mount `<ContractSection>` above `<AccountAccessSection>`)
+- `src/pages/admin/ClientDetail.tsx` (mount admin `<ContractSection>`)
+- `src/index.css` (styles for `.portal-contract-*` and `.crm-contract-*`)
+- `supabase/config.toml` (add `[functions.contract-sign]` with `verify_jwt = false`)
+- `index.html` (add Great Vibes font link)
 
-## Files touched
+### Out of scope (for follow-up)
+- Sending contract via SureContact email (will need a separate "send contract" trigger and a SureContact template variable for the portal link — happy to add next).
+- Editable contract templates (you chose hardcoded; we can graduate to a `contract_templates` table later if needed).
+- Multi-page contract amendments / re-signing flows.
 
-**New**
-- `supabase/functions/_shared/surecontact.ts`
-- `supabase/functions/sync-client-to-surecontact/index.ts`
-- `supabase/config.toml` — add `[functions.sync-client-to-surecontact] verify_jwt = false`
-
-**Edited**
-- `supabase/functions/submit-contact/index.ts` — refactor to use the shared helper (no behavior change)
-- `src/pages/admin/ClientDetail.tsx` — add "Sync to SureContact" button in the header banner
-- Migration: trigger on `public.clients` AFTER INSERT/UPDATE that calls the edge function via `pg_net`; extend `auto_complete_journey_node` to also fire it on stage advancement
-
-**Untouched**
-- All existing portal, onboarding, brand-kit-intake, auth, and email-queue infrastructure.
-
-Approve and I'll switch to build mode and ship it.
+After you approve, I'll execute this end to end and visually QA the generated PDF before handing back.
