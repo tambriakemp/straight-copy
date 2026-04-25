@@ -295,6 +295,7 @@ export default function Portal() {
   if (notFound || !client) {
     return (
       <div className="crm-shell">
+        {adminBanner}
         <div className="portal-shell">
           <div className="portal-empty">
             <div className="portal-empty__eyebrow">Portal</div>
@@ -317,6 +318,7 @@ export default function Portal() {
 
   return (
     <div className="crm-shell">
+      {adminBanner}
       <div className="portal-shell">
         {/* Header */}
         <header className="portal-header">
