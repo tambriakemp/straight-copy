@@ -83,6 +83,7 @@ export default function Portal() {
       setClient(data.client);
       setSubmittedAt(data.submittedAt);
       setContactEmail(data.contactEmail);
+      setAccountAccess(data.accountAccess ?? {});
 
       // Rehydrate transcript: prefer localStorage if it has more turns
       const cached = lsKey ? localStorage.getItem(lsKey) : null;
@@ -299,6 +300,13 @@ export default function Portal() {
               {contactEmail ? ` We'll keep you posted at ${contactEmail}.` : ""}
             </p>
           </section>
+
+          {/* Account Access — always available, collapsible */}
+          <AccountAccessSection
+            clientId={clientId!}
+            tier={client.tier}
+            initial={accountAccess}
+          />
 
           {/* Body */}
           {isBrandKitDone ? (
