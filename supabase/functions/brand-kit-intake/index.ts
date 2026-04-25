@@ -326,12 +326,21 @@ Deno.serve(async (req) => {
           brand_kit_guidelines: filled(intakeObj.guidelines) || filled(intakeObj.dos_and_donts) || filled(intakeObj.brand_rules) || filled(intakeObj.deliverable_scope),
         };
         const currentChecklist = Array.isArray(bkNode.checklist) ? bkNode.checklist as any[] : [];
-        const nextChecklist = currentChecklist.map((it: any) => {
-          if (it && it.auto_key && autoKeyMatches[it.auto_key]) {
-            return { ...it, done: true };
+        // Map both stable `key` (e.g. "brand_kit.logos") and legacy `auto_key`
+        // (e.g. "brand_kit_logos") onto the same boolean so this works whether
+        // the stored item has been migrated to keys yet or not.
+        const keyOrAutoKeyMatches = (it: any): boolean => {
+          if (!it) return false;
+          if (typeof it.key === "string") {
+            const short = it.key.split(".").pop();
+            if (short && autoKeyMatches[`brand_kit_${short}`]) return true;
           }
-          return it;
-        });
+          if (typeof it.auto_key === "string" && autoKeyMatches[it.auto_key]) return true;
+          return false;
+        };
+        const nextChecklist = currentChecklist.map((it: any) =>
+          keyOrAutoKeyMatches(it) ? { ...it, done: true } : it,
+        );
 
         await supabase
           .from("journey_nodes")
