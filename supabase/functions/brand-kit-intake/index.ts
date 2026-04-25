@@ -457,24 +457,6 @@ Deno.serve(async (req) => {
             .eq("id", intakeNode.id);
         }
       }
-      if (allDone) {
-        const { data: intakeNode } = await supabase
-          .from("journey_nodes")
-          .select("id, checklist")
-          .eq("client_id", clientId)
-          .eq("key", "intake")
-          .maybeSingle();
-        if (intakeNode) {
-          const current = Array.isArray(intakeNode.checklist) ? intakeNode.checklist as any[] : [];
-          const next = current.map((it: any) =>
-            it && it.auto_key === "accounts_submitted" ? { ...it, done: true } : it
-          );
-          await supabase
-            .from("journey_nodes")
-            .update({ checklist: next })
-            .eq("id", intakeNode.id);
-        }
-      }
 
       return new Response(
         JSON.stringify({ success: true, accountAccess: nextState }),
