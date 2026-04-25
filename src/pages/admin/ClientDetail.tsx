@@ -771,8 +771,7 @@ function BrandKitPanel({ client }: { client: Client }) {
           </span>
         )}
       </div>
-        ))}
-      </div>
+
 
       <div
         style={{
