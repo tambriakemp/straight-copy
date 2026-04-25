@@ -300,20 +300,45 @@ Deno.serve(async (req) => {
         .eq("id", clientId);
       if (updErr) throw new Error(`Save intake failed: ${updErr.message}`);
 
-      // 2. Advance Node 03 — mark as client_submitted; stamp started_at if needed.
+      // 2. Advance Node 03 — auto-check the client-submitted items, mark as client_submitted.
       const { data: bkNode } = await supabase
         .from("journey_nodes")
-        .select("id, started_at")
+        .select("id, started_at, checklist")
         .eq("client_id", clientId)
         .eq("key", "brand_kit")
         .maybeSingle();
       if (bkNode) {
+        // Map intake fields → auto_keys that should flip to done.
+        const intakeObj = (intake || {}) as Record<string, unknown>;
+        const filled = (val: unknown): boolean => {
+          if (val == null) return false;
+          if (typeof val === "string") return val.trim().length > 0;
+          if (Array.isArray(val)) return val.length > 0;
+          if (typeof val === "object") return Object.keys(val as object).length > 0;
+          return Boolean(val);
+        };
+        const autoKeyMatches: Record<string, boolean> = {
+          brand_kit_logos:      filled(intakeObj.logos) || filled(intakeObj.logo) || filled(intakeObj.logo_files) || filled(intakeObj.logo_references),
+          brand_kit_colors:     filled(intakeObj.colors) || filled(intakeObj.color_palette) || filled(intakeObj.palette),
+          brand_kit_typography: filled(intakeObj.typography) || filled(intakeObj.fonts) || filled(intakeObj.type),
+          brand_kit_references: filled(intakeObj.visual_references) || filled(intakeObj.moodboard) || filled(intakeObj.references) || filled(intakeObj.inspiration),
+          brand_kit_guidelines: filled(intakeObj.guidelines) || filled(intakeObj.dos_and_donts) || filled(intakeObj.brand_rules) || filled(intakeObj.deliverable_scope),
+        };
+        const currentChecklist = Array.isArray(bkNode.checklist) ? bkNode.checklist as any[] : [];
+        const nextChecklist = currentChecklist.map((it: any) => {
+          if (it && it.auto_key && autoKeyMatches[it.auto_key]) {
+            return { ...it, done: true };
+          }
+          return it;
+        });
+
         await supabase
           .from("journey_nodes")
           .update({
             status: "client_submitted",
             started_at: bkNode.started_at ?? submittedAt,
             notes: "Client submitted Brand Kit intake via portal.",
+            checklist: nextChecklist,
           })
           .eq("id", bkNode.id);
       }
