@@ -843,29 +843,49 @@
   .crm-shell .roster__stage { font-size: 14px; display: inline-block; }
   .crm-shell .roster__stage-hint { display: inline-block; margin-top: 0; margin-left: 10px; }
 
-  /* Detail / canvas page */
+  /* Detail / canvas page — make scrollable on mobile */
+  .crm-shell { height: auto; min-height: 100vh; overflow: visible; }
+  .crm-shell .crm-page { overflow: visible; min-height: 0; }
+  .crm-shell .detail { overflow: visible; min-height: 0; }
+
   .crm-shell .detail__pill {
     position: relative !important; left: 0 !important; top: 0 !important;
-    margin: 14px 14px 8px; max-width: calc(100% - 28px) !important;
-    flex-wrap: wrap; gap: 12px; padding: 12px 14px;
+    margin: 16px 14px 10px; max-width: calc(100% - 28px) !important;
+    flex-wrap: wrap; gap: 14px; padding: 14px 16px;
   }
-  .crm-shell .detail__back { padding-right: 12px; font-size: 9px; letter-spacing: 0.2em; }
-  .crm-shell .detail__client-name { font-size: 18px; }
-  .crm-shell .detail__client-meta { font-size: 9px; letter-spacing: 0.18em; gap: 10px; flex-wrap: wrap; }
-  .crm-shell .detail__edit { width: 32px; height: 32px; }
+  .crm-shell .detail__back { padding-right: 12px; font-size: 10px; letter-spacing: 0.22em; }
+  .crm-shell .detail__client-name { font-size: 22px; }
+  .crm-shell .detail__client-meta { font-size: 10px; letter-spacing: 0.18em; gap: 10px; flex-wrap: wrap; }
+  .crm-shell .detail__edit { width: 36px; height: 36px; }
   .crm-shell .detail__progress {
     position: relative !important; top: 0 !important; right: 0 !important;
-    margin: 0 14px 12px; padding: 10px 14px !important; gap: 12px !important;
+    margin: 0 14px 14px; padding: 14px 18px !important; gap: 16px !important;
     justify-content: space-between;
   }
-  .crm-shell .detail__progress-fraction { font-size: 22px; }
-  .crm-shell .detail__progress-ring { width: 30px; height: 30px; }
+  .crm-shell .detail__progress-eyebrow { font-size: 10px; }
+  .crm-shell .detail__progress-fraction { font-size: 28px; }
+  .crm-shell .detail__progress-ring { width: 38px; height: 38px; }
+
+  /* Give the canvas a tall, fixed height so the SVG nodes are readable
+     and the page can scroll naturally on mobile. */
+  .crm-shell .canvas {
+    flex: none;
+    height: 78vh;
+    min-height: 560px;
+    margin: 0 14px 14px;
+    border: 1px solid var(--crm-border-dark);
+  }
   .crm-shell .canvas__ghost { font-size: clamp(160px, 60vw, 280px); }
+  /* Scale up node typography on mobile so labels are legible */
+  .crm-shell .canvas .node__num { font-size: 18px; }
+  .crm-shell .canvas .node__label { font-size: 13px; letter-spacing: 0.18em; }
   .crm-shell .canvas__legend {
-    left: 12px; right: 12px; bottom: 12px;
-    gap: 14px; padding: 10px 14px; font-size: 9px;
+    position: relative; left: auto; right: auto; bottom: auto;
+    margin: 0 14px 24px;
+    gap: 16px; padding: 12px 16px; font-size: 10px; letter-spacing: 0.22em;
     flex-wrap: wrap; justify-content: center;
   }
+  .crm-shell .canvas__legend-swatch { width: 12px; height: 12px; }
 
   /* Stage / node modal */
   .crm-shell .crm-modal {
