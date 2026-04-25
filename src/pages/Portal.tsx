@@ -43,6 +43,30 @@ const STAGE_LABELS = [
 
 export default function Portal() {
   const { clientId } = useParams<{ clientId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Admin impersonation flag — persists across in-portal navigation via sessionStorage.
+  // Does NOT touch the Supabase auth session; admin remains signed in on the admin tab.
+  const impersonationKey = clientId ? `cre8-portal-as-admin-${clientId}` : "";
+  const adminPreview = useMemo(() => {
+    if (!clientId) return false;
+    if (searchParams.get("as") === "admin") {
+      try { sessionStorage.setItem(impersonationKey, "1"); } catch { /* ignore */ }
+      return true;
+    }
+    try { return sessionStorage.getItem(impersonationKey) === "1"; } catch { return false; }
+  }, [clientId, searchParams, impersonationKey]);
+
+  const exitPreview = () => {
+    try { sessionStorage.removeItem(impersonationKey); } catch { /* ignore */ }
+    if (searchParams.has("as")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("as");
+      setSearchParams(next, { replace: true });
+    }
+    // Soft reload so the banner disappears immediately and any cached preview state clears.
+    window.location.reload();
+  };
 
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
