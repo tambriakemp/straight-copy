@@ -304,8 +304,9 @@ export default function ClientDetail() {
   return (
     <AdminLayout>
       <div className="detail">
-        <div className="detail__pill">
+        <div className="detail__bar">
           <button className="detail__back" onClick={() => navigate("/admin")}>Back</button>
+
           <div className="detail__client">
             <div className="detail__client-name">{client.business_name || "Untitled"}</div>
             <div className="detail__client-meta">
@@ -316,6 +317,9 @@ export default function ClientDetail() {
               <span>{client.contact_name || client.contact_email || "—"}</span>
             </div>
           </div>
+
+          <div className="detail__bar-spacer" />
+
           <div className="detail__portal-actions">
             <a
               className="detail__portal-btn"
@@ -341,35 +345,37 @@ export default function ClientDetail() {
               ⧉ Copy
             </button>
           </div>
-        </div>
 
-        <div className="detail__progress">
-          <div>
-            <div className="detail__progress-eyebrow">Journey</div>
-            <div className="detail__progress-fraction">
-              {String(completedCount).padStart(2, "0")}
-              <span className="slash">/</span>
-              <span className="total">{String(total).padStart(2, "0")}</span>
+          <div className="detail__bar-divider" aria-hidden="true" />
+
+          <div className="detail__progress">
+            <div className="detail__progress-text">
+              <div className="detail__progress-eyebrow">Journey</div>
+              <div className="detail__progress-fraction">
+                {String(completedCount).padStart(2, "0")}
+                <span className="slash">/</span>
+                <span className="total">{String(total).padStart(2, "0")}</span>
+              </div>
             </div>
+            <svg className="detail__progress-ring" viewBox="0 0 44 44">
+              <circle cx="22" cy="22" r="18" fill="none" stroke="hsl(40 20% 97% / 0.08)" strokeWidth="2" />
+              <circle
+                cx="22" cy="22" r="18" fill="none"
+                stroke="hsl(30 25% 44%)" strokeWidth="2"
+                strokeDasharray={ringC}
+                strokeDashoffset={ringOffset}
+                transform="rotate(-90 22 22)"
+                strokeLinecap="round"
+              />
+              <text
+                x="22" y="25" textAnchor="middle" fontSize="10"
+                fill="hsl(40 20% 97%)"
+                fontFamily="Cormorant Garamond, serif" fontStyle="italic"
+              >
+                {pct}%
+              </text>
+            </svg>
           </div>
-          <svg className="detail__progress-ring" viewBox="0 0 44 44">
-            <circle cx="22" cy="22" r="18" fill="none" stroke="hsl(40 20% 97% / 0.08)" strokeWidth="2" />
-            <circle
-              cx="22" cy="22" r="18" fill="none"
-              stroke="hsl(30 25% 44%)" strokeWidth="2"
-              strokeDasharray={ringC}
-              strokeDashoffset={ringOffset}
-              transform="rotate(-90 22 22)"
-              strokeLinecap="round"
-            />
-            <text
-              x="22" y="25" textAnchor="middle" fontSize="10"
-              fill="hsl(40 20% 97%)"
-              fontFamily="Cormorant Garamond, serif" fontStyle="italic"
-            >
-              {pct}%
-            </text>
-          </svg>
         </div>
 
         <div className="canvas" ref={wrapRef}>
