@@ -534,6 +534,8 @@ function StageModal({
               </div>
             </section>
 
+            <NodeChecklist node={node} onUpdate={onUpdate} />
+
             {node.key === "brand_voice" && (
               <BrandVoicePanel client={client} onReload={onReload} />
             )}
