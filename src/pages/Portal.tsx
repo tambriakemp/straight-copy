@@ -152,6 +152,19 @@ export default function Portal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, notFound, client, submittedAt]);
 
+  // Deep-link: scroll to focused section after load
+  useEffect(() => {
+    if (loading || notFound || !client || !focus) return;
+    const targetId = focus === "contract" ? "portal-contract" : focus === "brand-kit" ? "portal-brand-kit" : null;
+    if (!targetId) return;
+    // Small delay so layout settles after sections mount
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(targetId);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [loading, notFound, client, focus]);
+
   // ----- Streaming chat -----
   const streamReply = async (history: Msg[]) => {
     if (!clientId) return;
