@@ -1052,3 +1052,343 @@
   .crm-shell .portal-main { padding: 40px 24px 80px; }
   .crm-shell .portal-node-card, .crm-shell .portal-confirm { padding: 32px 24px; }
 }
+
+/* ============================================================
+ * Portal — Account Access Section
+ * ============================================================ */
+.crm-shell .portal-access {
+  margin-bottom: 36px;
+  background: hsl(40 20% 97% / 0.04);
+  border: 1px solid hsl(40 20% 97% / 0.12);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color var(--crm-dur-base) var(--crm-ease-soft);
+}
+.crm-shell .portal-access.is-open { border-color: hsl(40 20% 97% / 0.2); }
+
+.crm-shell .portal-access__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 28px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  color: var(--crm-warm-white);
+  font-family: inherit;
+}
+.crm-shell .portal-access__toggle:hover { background: hsl(40 20% 97% / 0.03); }
+
+.crm-shell .portal-access__eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--crm-stone);
+  margin-bottom: 6px;
+  font-family: var(--crm-font-sans);
+}
+.crm-shell .portal-access__title {
+  font-family: var(--crm-font-serif);
+  font-size: 26px;
+  font-weight: 400;
+  margin: 0;
+  color: var(--crm-warm-white);
+  line-height: 1.1;
+}
+.crm-shell .portal-access__title em { font-style: italic; color: var(--crm-accent); }
+
+.crm-shell .portal-access__toggle-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.crm-shell .portal-access__status {
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--crm-taupe);
+  padding: 6px 12px;
+  border: 1px solid hsl(40 20% 97% / 0.15);
+  border-radius: 999px;
+}
+.crm-shell .portal-access__status.is-done {
+  color: var(--crm-warm-white);
+  border-color: var(--crm-accent);
+  background: hsl(28 45% 50% / 0.15);
+}
+.crm-shell .portal-access__chev {
+  font-size: 24px;
+  color: var(--crm-stone);
+  transition: transform var(--crm-dur-base) var(--crm-ease-soft);
+  display: inline-block;
+}
+.crm-shell .portal-access__chev.is-open { transform: rotate(90deg); }
+
+.crm-shell .portal-access__body {
+  padding: 8px 28px 28px;
+  border-top: 1px solid hsl(40 20% 97% / 0.08);
+}
+.crm-shell .portal-access__intro {
+  color: var(--crm-taupe);
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 18px 0 22px;
+}
+.crm-shell .portal-access__link { color: var(--crm-accent); text-decoration: underline; text-underline-offset: 3px; }
+
+.crm-shell .portal-access__list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.crm-shell .portal-access__item {
+  background: hsl(40 20% 97% / 0.03);
+  border: 1px solid hsl(40 20% 97% / 0.1);
+  border-left: 3px solid hsl(45 75% 55%); /* yellow — client-owned */
+  border-radius: 3px;
+  padding: 14px 16px;
+  transition: background var(--crm-dur-base);
+}
+.crm-shell .portal-access__item.is-done {
+  background: hsl(28 45% 50% / 0.08);
+  border-color: hsl(40 20% 97% / 0.18);
+  border-left-color: var(--crm-accent);
+}
+.crm-shell .portal-access__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  cursor: pointer;
+}
+.crm-shell .portal-access__cb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid hsl(40 20% 97% / 0.4);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+  position: relative;
+  transition: all var(--crm-dur-base);
+}
+.crm-shell .portal-access__cb:checked {
+  background: var(--crm-accent);
+  border-color: var(--crm-accent);
+}
+.crm-shell .portal-access__cb:checked::after {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--crm-warm-white);
+  font-size: 12px;
+  font-weight: 600;
+}
+.crm-shell .portal-access__copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.crm-shell .portal-access__lbl {
+  font-family: var(--crm-font-serif);
+  font-size: 17px;
+  color: var(--crm-warm-white);
+  line-height: 1.3;
+}
+.crm-shell .portal-access__desc {
+  font-size: 13px;
+  color: var(--crm-taupe);
+  line-height: 1.55;
+}
+
+.crm-shell .portal-access__subs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 12px 0 4px 32px;
+  padding-top: 12px;
+  border-top: 1px dashed hsl(40 20% 97% / 0.1);
+}
+.crm-shell .portal-access__sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--crm-stone);
+  cursor: pointer;
+  font-family: var(--crm-font-sans);
+}
+.crm-shell .portal-access__sub input[type="checkbox"] {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid hsl(40 20% 97% / 0.35);
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+}
+.crm-shell .portal-access__sub input[type="checkbox"]:checked {
+  background: var(--crm-accent);
+  border-color: var(--crm-accent);
+}
+.crm-shell .portal-access__sub input[type="checkbox"]:checked::after {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--crm-warm-white);
+  font-size: 10px;
+}
+
+.crm-shell .portal-access__divider {
+  height: 1px;
+  background: hsl(40 20% 97% / 0.1);
+  margin: 28px 0;
+}
+
+.crm-shell .portal-access__sub-title {
+  font-family: var(--crm-font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--crm-warm-white);
+  margin: 0 0 8px;
+}
+.crm-shell .portal-access__sub-title em { font-style: italic; color: var(--crm-accent); }
+
+.crm-shell .portal-access__field-label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--crm-stone);
+  margin: 18px 0 8px;
+  font-family: var(--crm-font-sans);
+}
+.crm-shell .portal-access__textarea {
+  width: 100%;
+  background: hsl(40 20% 97% / 0.04);
+  border: 1px solid hsl(40 20% 97% / 0.18);
+  color: var(--crm-warm-white);
+  font-family: var(--crm-font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  border-radius: 3px;
+  resize: vertical;
+  min-height: 110px;
+}
+.crm-shell .portal-access__textarea:focus {
+  outline: none;
+  border-color: var(--crm-accent);
+}
+.crm-shell .portal-access__textarea::placeholder {
+  color: var(--crm-taupe);
+  font-style: italic;
+  font-family: var(--crm-font-serif);
+}
+
+.crm-shell .portal-access__upload {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.crm-shell .portal-access__file {
+  color: var(--crm-warm-white);
+  font-size: 13px;
+  font-family: var(--crm-font-sans);
+}
+.crm-shell .portal-access__file::file-selector-button {
+  background: transparent;
+  color: var(--crm-warm-white);
+  border: 1px solid hsl(40 20% 97% / 0.25);
+  padding: 8px 14px;
+  border-radius: 3px;
+  font-family: var(--crm-font-sans);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-right: 12px;
+}
+.crm-shell .portal-access__file::file-selector-button:hover { border-color: var(--crm-accent); }
+.crm-shell .portal-access__upload-hint { font-size: 12px; color: var(--crm-stone); font-style: italic; font-family: var(--crm-font-serif); }
+
+.crm-shell .portal-access__files {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.crm-shell .portal-access__file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: hsl(40 20% 97% / 0.04);
+  border: 1px solid hsl(40 20% 97% / 0.1);
+  border-radius: 3px;
+  font-size: 13px;
+  color: var(--crm-warm-white);
+}
+.crm-shell .portal-access__file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-shell .portal-access__file-remove {
+  background: transparent;
+  border: 0;
+  color: var(--crm-stone);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: var(--crm-font-sans);
+}
+.crm-shell .portal-access__file-remove:hover { color: var(--crm-accent); }
+
+.crm-shell .portal-access__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid hsl(40 20% 97% / 0.08);
+  flex-wrap: wrap;
+}
+.crm-shell .portal-access__save {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--crm-stone);
+}
+.crm-shell .portal-access__badge {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--crm-warm-white);
+  padding: 6px 12px;
+  background: hsl(28 45% 50% / 0.2);
+  border: 1px solid var(--crm-accent);
+  border-radius: 999px;
+}
+
+@media (max-width: 720px) {
+  .crm-shell .portal-access__toggle { padding: 18px 20px; }
+  .crm-shell .portal-access__title { font-size: 22px; }
+  .crm-shell .portal-access__body { padding: 4px 20px 22px; }
+  .crm-shell .portal-access__lbl { font-size: 15px; }
+  .crm-shell .portal-access__desc { font-size: 12.5px; }
+  .crm-shell .portal-access__subs { margin-left: 28px; }
+  .crm-shell .portal-access__status { font-size: 9px; padding: 5px 10px; }
+}
