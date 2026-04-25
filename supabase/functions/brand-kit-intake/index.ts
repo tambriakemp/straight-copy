@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
     if (action === "resolve") {
       const { data: row } = await supabase
         .from("clients")
-        .select("brand_kit_conversation, brand_kit_intake_submitted_at, contact_email")
+        .select("brand_kit_conversation, brand_kit_intake_submitted_at, contact_email, client_account_access")
         .eq("id", clientId)
         .maybeSingle();
       return new Response(
@@ -215,6 +215,7 @@ Deno.serve(async (req) => {
           contactEmail: row?.contact_email ?? null,
           conversation: row?.brand_kit_conversation ?? [],
           submittedAt: row?.brand_kit_intake_submitted_at ?? null,
+          accountAccess: row?.client_account_access ?? {},
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -371,6 +372,91 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true, intake, submittedAt }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // ---------- ACCOUNT ACCESS: RESOLVE ----------
+    if (action === "account-access-resolve") {
+      const { data: row } = await supabase
+        .from("clients")
+        .select("client_account_access")
+        .eq("id", clientId)
+        .maybeSingle();
+      return new Response(
+        JSON.stringify({ accountAccess: row?.client_account_access ?? {} }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // ---------- ACCOUNT ACCESS: SAVE ----------
+    if (action === "account-access-save") {
+      const payload = (body.accountAccess && typeof body.accountAccess === "object")
+        ? body.accountAccess as Record<string, unknown>
+        : {};
+
+      // Whitelist + sanitize fields
+      const KNOWN_KEYS = new Set([
+        "surecontact", "ottokit", "social_media",
+        "social_instagram", "social_tiktok", "social_linkedin", "social_facebook", "social_youtube",
+        "website", "heygen", "claude",
+      ]);
+      const sanitizedChecks: Record<string, boolean> = {};
+      for (const [k, v] of Object.entries(payload.checks ?? {})) {
+        if (KNOWN_KEYS.has(k)) sanitizedChecks[k] = Boolean(v);
+      }
+      const notes = typeof payload.notes === "string" ? payload.notes.slice(0, 4000) : "";
+      const files: Array<{ path: string; name: string; size: number }> = Array.isArray(payload.files)
+        ? (payload.files as any[]).slice(0, 10).map((f) => ({
+            path: typeof f?.path === "string" ? f.path.slice(0, 500) : "",
+            name: typeof f?.name === "string" ? f.name.slice(0, 200) : "",
+            size: typeof f?.size === "number" ? f.size : 0,
+          })).filter((f) => f.path)
+        : [];
+
+      // Tier-aware "all required" check
+      const tier = (portalData as any).tier as string;
+      const requiredKeys = ["surecontact", "ottokit", "social_media", "website"];
+      if (tier === "growth") requiredKeys.push("heygen", "claude");
+      const allDone = requiredKeys.every((k) => sanitizedChecks[k] === true);
+      const submittedAt = allDone ? new Date().toISOString() : null;
+
+      const nextState = {
+        checks: sanitizedChecks,
+        notes,
+        files,
+        updated_at: new Date().toISOString(),
+        submitted_at: submittedAt,
+      };
+
+      const { error: updErr } = await supabase
+        .from("clients")
+        .update({ client_account_access: nextState })
+        .eq("id", clientId);
+      if (updErr) throw new Error(`Save account access failed: ${updErr.message}`);
+
+      // If complete, flip the intake node's accounts_submitted item to done
+      if (allDone) {
+        const { data: intakeNode } = await supabase
+          .from("journey_nodes")
+          .select("id, checklist")
+          .eq("client_id", clientId)
+          .eq("key", "intake")
+          .maybeSingle();
+        if (intakeNode) {
+          const current = Array.isArray(intakeNode.checklist) ? intakeNode.checklist as any[] : [];
+          const next = current.map((it: any) =>
+            it && it.auto_key === "accounts_submitted" ? { ...it, done: true } : it
+          );
+          await supabase
+            .from("journey_nodes")
+            .update({ checklist: next })
+            .eq("id", intakeNode.id);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, accountAccess: nextState }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

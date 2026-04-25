@@ -190,6 +190,7 @@ export type Database = {
           brand_voice_status: string
           brand_voice_url: string | null
           business_name: string | null
+          client_account_access: Json
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
@@ -223,6 +224,7 @@ export type Database = {
           brand_voice_status?: string
           brand_voice_url?: string | null
           business_name?: string | null
+          client_account_access?: Json
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -256,6 +258,7 @@ export type Database = {
           brand_voice_status?: string
           brand_voice_url?: string | null
           business_name?: string | null
+          client_account_access?: Json
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null

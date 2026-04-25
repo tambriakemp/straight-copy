@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
+import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type ActiveNode = {
@@ -48,6 +49,7 @@ export default function Portal() {
   const [client, setClient] = useState<PortalClient | null>(null);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState<string | null>(null);
+  const [accountAccess, setAccountAccess] = useState<AccountAccessState>({});
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -81,6 +83,7 @@ export default function Portal() {
       setClient(data.client);
       setSubmittedAt(data.submittedAt);
       setContactEmail(data.contactEmail);
+      setAccountAccess(data.accountAccess ?? {});
 
       // Rehydrate transcript: prefer localStorage if it has more turns
       const cached = lsKey ? localStorage.getItem(lsKey) : null;
@@ -297,6 +300,13 @@ export default function Portal() {
               {contactEmail ? ` We'll keep you posted at ${contactEmail}.` : ""}
             </p>
           </section>
+
+          {/* Account Access — always available, collapsible */}
+          <AccountAccessSection
+            clientId={clientId!}
+            tier={client.tier}
+            initial={accountAccess}
+          />
 
           {/* Body */}
           {isBrandKitDone ? (
