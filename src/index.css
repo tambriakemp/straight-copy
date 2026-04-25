@@ -473,6 +473,51 @@
 .crm-shell .detail__client-meta .sep { color: hsl(40 20% 97% / 0.12); }
 .crm-shell .detail__client-meta .tier { color: var(--crm-accent); }
 
+.crm-shell .detail__portal-actions {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: 12px; padding-left: 18px;
+  border-left: 1px solid var(--crm-border-dark);
+}
+.crm-shell .detail__portal-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px;
+  background: hsl(30 25% 44% / 0.14);
+  border: 1px solid hsl(30 25% 44% / 0.45);
+  color: var(--crm-accent);
+  font-family: var(--crm-font-sans);
+  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  text-decoration: none; cursor: pointer;
+  transition: background var(--crm-dur-base), color var(--crm-dur-base), border-color var(--crm-dur-base);
+}
+.crm-shell .detail__portal-btn:hover { background: hsl(30 25% 44% / 0.28); color: var(--crm-warm-white); border-color: var(--crm-accent); }
+.crm-shell .detail__portal-btn--ghost {
+  background: transparent;
+  color: var(--crm-stone);
+  border-color: var(--crm-border-dark);
+}
+.crm-shell .detail__portal-btn--ghost:hover { color: var(--crm-warm-white); border-color: var(--crm-stone); background: hsl(40 20% 97% / 0.04); }
+
+.crm-shell .roster__row-actions { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+.crm-shell .roster__portal-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px;
+  background: hsl(30 25% 44% / 0.12);
+  border: 1px solid hsl(30 25% 44% / 0.4);
+  color: var(--crm-accent);
+  font-family: var(--crm-font-sans);
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  text-decoration: none;
+  transition: background var(--crm-dur-base), color var(--crm-dur-base);
+  white-space: nowrap;
+}
+.crm-shell .roster__portal-link:hover { background: hsl(30 25% 44% / 0.26); color: var(--crm-warm-white); }
+
+@media (max-width: 640px) {
+  .crm-shell .detail__portal-actions { margin-left: 0; padding-left: 0; border-left: 0; flex-wrap: wrap; }
+  .crm-shell .detail__portal-btn { font-size: 9px; padding: 6px 10px; letter-spacing: 0.18em; }
+  .crm-shell .roster__portal-link { display: none; }
+}
+
 .crm-shell .detail__edit {
   margin-left: 8px; width: 36px; height: 36px;
   display: grid; place-items: center;

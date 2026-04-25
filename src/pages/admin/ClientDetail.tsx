@@ -281,6 +281,31 @@ export default function ClientDetail() {
               <span>{client.contact_name || client.contact_email || "—"}</span>
             </div>
           </div>
+          <div className="detail__portal-actions">
+            <a
+              className="detail__portal-btn"
+              href={`/portal/${client.id}`}
+              target="_blank"
+              rel="noreferrer"
+              title="Open this client's portal in a new tab"
+            >
+              ◉ View portal ↗
+            </a>
+            <button
+              className="detail__portal-btn detail__portal-btn--ghost"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(`${window.location.origin}/portal/${client.id}`);
+                  toast.success("Portal link copied");
+                } catch {
+                  toast.error("Could not copy link");
+                }
+              }}
+              title="Copy portal link"
+            >
+              ⧉ Copy
+            </button>
+          </div>
         </div>
 
         <div className="detail__progress">
