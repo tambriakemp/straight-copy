@@ -7,6 +7,14 @@ import { differenceInCalendarDays, format } from "date-fns";
 
 type NodeStatus = "pending" | "in_progress" | "complete";
 type ModalStatus = "notstarted" | "inprog" | "blocked" | "complete";
+type ChecklistOwner = "auto" | "client" | "agency";
+interface ChecklistItem {
+  id: string;
+  label: string;
+  owner: ChecklistOwner;
+  done: boolean;
+  auto_key?: string;
+}
 
 interface JourneyNode {
   id: string;
@@ -21,6 +29,7 @@ interface JourneyNode {
   started_at: string | null;
   completed_at: string | null;
   updated_at: string;
+  checklist: ChecklistItem[] | null;
 }
 
 interface Client {
