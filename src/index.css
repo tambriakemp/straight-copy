@@ -1694,3 +1694,33 @@
   .crm-shell .portal-contract__sig-script { font-size: 32px; }
   .crm-shell .portal-contract__sig-card .portal-contract__sig-script { font-size: 28px; }
 }
+
+/* ===== Admin contract panel ===== */
+.admin-contract {
+  margin-top: 24px;
+  padding: 24px 28px;
+  border: 1px solid hsl(40 20% 97% / 0.1);
+  border-radius: 6px;
+  background: hsl(28 12% 9% / 0.6);
+}
+.admin-contract__head { margin-bottom: 16px; }
+.admin-contract__eyebrow {
+  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: hsl(28 45% 55%); margin-bottom: 6px;
+}
+.admin-contract__title {
+  font-family: var(--crm-font-serif); font-size: 18px; color: var(--crm-warm-white);
+}
+.admin-contract__body { display: flex; flex-direction: column; gap: 8px; }
+.admin-contract__row { display: flex; gap: 12px; font-size: 13px; }
+.admin-contract__row .lbl {
+  min-width: 140px; color: var(--crm-stone); font-style: italic;
+  font-family: var(--crm-font-serif);
+}
+.admin-contract__row .val { color: var(--crm-warm-white); }
+.admin-contract__row .val--mono { font-family: ui-monospace, monospace; font-size: 12px; }
+.admin-contract__actions { margin-top: 14px; }
+.admin-contract__empty {
+  font-size: 13px; color: var(--crm-stone); font-style: italic;
+  font-family: var(--crm-font-serif);
+}
