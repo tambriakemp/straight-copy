@@ -365,6 +365,46 @@ export default function ClientDetail() {
                   <button
                     className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
                     onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(`${window.location.origin}/portal/${client.id}?focus=contract`);
+                        toast.success("Contract link copied");
+                      } catch {
+                        toast.error("Could not copy link");
+                      }
+                    }}
+                    aria-label="Copy contract link"
+                  >
+                    <FileSignature size={14} strokeWidth={1.5} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Copy direct link to the client's contract</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(`${window.location.origin}/portal/${client.id}?focus=brand-kit`);
+                        toast.success("Brand Kit chat link copied");
+                      } catch {
+                        toast.error("Could not copy link");
+                      }
+                    }}
+                    aria-label="Copy Brand Kit chat link"
+                  >
+                    <MessageSquare size={14} strokeWidth={1.5} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Copy direct link to the Brand Kit intake chat</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
+                    onClick={async () => {
                       const t = toast.loading("Syncing to SureContact…");
                       try {
                         const { data, error } = await supabase.functions.invoke(
