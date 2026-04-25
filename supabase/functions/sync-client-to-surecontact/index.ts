@@ -75,17 +75,34 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
+    // All possible stage labels across both tiers — used to remove stale
+    // `Stage:` tags from SureContact so each contact carries only their
+    // current stage.
+    const { data: allTemplates } = await supabase
+      .from("journey_templates")
+      .select("label");
+    const allStageTags = new Set<string>(
+      (allTemplates ?? []).map((t) => `Stage: ${t.label}`),
+    );
+    allStageTags.add("Stage: Complete");
+
     const portalUrl = `${PORTAL_BASE_URL.replace(/\/$/, "")}/portal/${clientId}`;
     const tierLabel = client.tier === "growth" ? "Growth" : "Launch";
     const stageLabel = activeNode?.label || "Complete";
+    const currentStageTag = `Stage: ${stageLabel}`;
 
     const { firstName, lastName } = splitContactName(client.contact_name);
 
     const tags = [
       "Client Portal",
       `Tier: ${tierLabel}`,
-      `Stage: ${stageLabel}`,
+      currentStageTag,
     ];
+
+    // Every other known stage tag should be stripped on this sync.
+    const tagsToRemove = Array.from(allStageTags).filter(
+      (t) => t !== currentStageTag,
+    );
 
     const result = await upsertSureContact(
       {
@@ -101,6 +118,7 @@ Deno.serve(async (req) => {
           client_id: clientId,
         },
         tags,
+        tagsToRemove,
         lists: ["Cre8 Visions Clients"],
         metadata: { form_source: "cre8visions_crm", trigger: "client_sync" },
       },
