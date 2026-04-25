@@ -452,6 +452,8 @@ export default function ClientDetail() {
           </div>
           <div className="canvas__hint">Click any deliverable to update its status and notes.</div>
         </div>
+
+        <AdminContractSection clientId={client.id} />
       </div>
 
       {openNode && (
