@@ -284,6 +284,7 @@ export default function Portal() {
   if (loading) {
     return (
       <div className="crm-shell">
+        {adminBanner}
         <div className="portal-shell">
           <div className="portal-loading">Loading…</div>
         </div>
