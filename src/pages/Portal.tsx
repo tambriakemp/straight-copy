@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
+import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type ActiveNode = {
@@ -48,6 +49,7 @@ export default function Portal() {
   const [client, setClient] = useState<PortalClient | null>(null);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState<string | null>(null);
+  const [accountAccess, setAccountAccess] = useState<AccountAccessState>({});
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
