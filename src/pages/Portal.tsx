@@ -86,6 +86,9 @@ export default function Portal() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lsKey = clientId ? `cre8-portal-${clientId}` : "";
 
+  // Deep-link focus: ?focus=contract | brand-kit
+  const focus = searchParams.get("focus");
+
   // ----- Load -----
   const resolve = useCallback(async () => {
     if (!clientId) return;
