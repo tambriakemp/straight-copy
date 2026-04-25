@@ -284,12 +284,12 @@ export default function ClientDetail() {
           <div className="detail__portal-actions">
             <a
               className="detail__portal-btn"
-              href={`/portal/${client.id}`}
+              href={`/portal/${client.id}?as=admin`}
               target="_blank"
               rel="noreferrer"
-              title="Open this client's portal in a new tab"
+              title="Open this client's portal in a new tab as an admin preview (your admin session is unchanged)"
             >
-              ◉ View portal ↗
+              ◉ Open as client ↗
             </a>
             <button
               className="detail__portal-btn detail__portal-btn--ghost"
@@ -836,12 +836,13 @@ function BrandKitPanel({ client }: { client: Client }) {
           </button>
           <a
             className="crm-btn crm-btn--ghost"
-            href={portalUrl}
+            href={`${portalUrl}?as=admin`}
             target="_blank"
             rel="noreferrer"
             style={{ fontSize: 11, textDecoration: "none" }}
+            title="Open as an admin preview (your admin session is unchanged)"
           >
-            Open ↗
+            Open as client ↗
           </a>
         </div>
       </div>

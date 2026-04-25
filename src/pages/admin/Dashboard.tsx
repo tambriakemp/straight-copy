@@ -337,12 +337,12 @@ export default function Dashboard() {
                   <div className="roster__row-actions" onClick={(e) => e.stopPropagation()}>
                     <a
                       className="roster__portal-link"
-                      href={`/portal/${r.id}`}
+                      href={`/portal/${r.id}?as=admin`}
                       target="_blank"
                       rel="noreferrer"
-                      title="Open client portal in new tab"
+                      title="Open this client's portal in a new tab as an admin preview"
                     >
-                      ◉ Portal ↗
+                      ◉ Open as client ↗
                     </a>
                     <span className="roster__chevron">→</span>
                   </div>
