@@ -397,7 +397,7 @@ function flipChecklistItems(checklist: any[], keys: string[]): any[] {
   });
 }
 
-async function flipIntakeChecklist(supabase: ReturnType<typeof createClient>, clientId: string) {
+async function flipIntakeChecklist(supabase: any, clientId: string) {
   const { data: intakeNode } = await supabase
     .from("journey_nodes")
     .select("id, checklist")
