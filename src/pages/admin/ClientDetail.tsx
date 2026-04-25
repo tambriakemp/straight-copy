@@ -750,25 +750,6 @@ function BrandKitPanel({ client }: { client: Client }) {
   const intake = (client.brand_kit_intake || {}) as Record<string, unknown>;
   const submitted = !!client.brand_kit_intake_submitted_at;
 
-  const has = (...keys: string[]) =>
-    submitted &&
-    keys.some((k) => {
-      const v = intake[k];
-      if (v == null) return false;
-      if (typeof v === "string") return v.trim().length > 0;
-      if (Array.isArray(v)) return v.length > 0;
-      if (typeof v === "object") return Object.keys(v as object).length > 0;
-      return true;
-    });
-
-  const items = [
-    { label: "Logos", done: has("logos", "logo", "logo_files", "logo_references") },
-    { label: "Color Palette", done: has("colors", "color_palette", "palette") },
-    { label: "Typography", done: has("typography", "fonts", "type") },
-    { label: "Visual References", done: has("visual_references", "moodboard", "references", "inspiration") },
-    { label: "Brand Guidelines", done: has("guidelines", "dos_and_donts", "brand_rules", "deliverable_scope") },
-  ];
-
   const portalUrl = `${window.location.origin}/portal/${client.id}`;
 
   const copyPortal = async () => {
@@ -790,54 +771,6 @@ function BrandKitPanel({ client }: { client: Client }) {
           </span>
         )}
       </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-        {items.map((it) => (
-          <label
-            key={it.label}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "10px 14px",
-              border: "1px solid hsl(30 12% 22%)",
-              borderRadius: 6,
-              background: it.done ? "hsl(30 12% 14%)" : "transparent",
-              cursor: "default",
-            }}
-          >
-            <span
-              aria-hidden
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: 3,
-                border: "1px solid hsl(30 18% 38%)",
-                background: it.done ? "hsl(36 38% 56%)" : "transparent",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "hsl(30 12% 10%)",
-                fontSize: 11,
-                lineHeight: 1,
-                fontWeight: 700,
-                flexShrink: 0,
-              }}
-            >
-              {it.done ? "✓" : ""}
-            </span>
-            <span
-              style={{
-                fontFamily: "var(--crm-font-sans), sans-serif",
-                fontSize: 12,
-                letterSpacing: "0.04em",
-                color: it.done ? "hsl(40 20% 97%)" : "hsl(30 8% 62%)",
-                textDecoration: it.done ? "none" : "none",
-              }}
-            >
-              {it.label}
-            </span>
-          </label>
         ))}
       </div>
 
