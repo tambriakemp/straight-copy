@@ -673,13 +673,36 @@
 .crm-shell .crm-status-seg__btn--active.crm-status-seg__btn--blocked { color: hsl(8 55% 70%); }
 .crm-shell .crm-status-seg__btn--active.crm-status-seg__btn--complete { color: hsl(150 35% 70%); }
 
-.crm-shell .crm-checklist { display: flex; flex-direction: column; gap: 2px; }
+.crm-shell .crm-checklist { display: flex; flex-direction: column; gap: 6px; }
+.crm-shell .crm-checklist-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.crm-shell .crm-checklist-group:last-child { margin-bottom: 0; }
+.crm-shell .crm-checklist-group__head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 2px 8px;
+  font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--crm-stone);
+}
+.crm-shell .crm-checklist-group__head .icon { font-size: 12px; margin-right: 8px; }
+.crm-shell .crm-checklist-group__count {
+  font-family: var(--crm-font-serif); font-style: italic;
+  font-size: 12px; letter-spacing: 0.06em; color: var(--crm-taupe);
+  text-transform: none;
+}
+
 .crm-shell .crm-checkitem {
-  display: flex; align-items: center; gap: 16px;
-  padding: 14px 16px; background: var(--crm-ink);
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px 12px 16px; background: var(--crm-ink);
   cursor: pointer; transition: background var(--crm-dur-base);
+  border-left: 3px solid transparent;
 }
 .crm-shell .crm-checkitem:hover { background: hsl(36 5% 20%); }
+.crm-shell .crm-checkitem--auto    { border-left-color: hsl(150 45% 52%); }   /* green */
+.crm-shell .crm-checkitem--client  { border-left-color: hsl(45 80% 58%); }    /* yellow */
+.crm-shell .crm-checkitem--agency  { border-left-color: hsl(8 65% 60%); }     /* red */
+
+.crm-shell .crm-checkitem--readonly { cursor: not-allowed; opacity: 0.92; }
+.crm-shell .crm-checkitem--readonly:hover { background: var(--crm-ink); }
+
 .crm-shell .crm-checkitem__box {
   width: 16px; height: 16px;
   border: 1px solid var(--crm-stone);
@@ -688,9 +711,10 @@
 }
 .crm-shell .crm-checkitem--done .crm-checkitem__box { background: var(--crm-accent); border-color: var(--crm-accent); }
 .crm-shell .crm-checkitem--done .crm-checkitem__box::after { content: '✓'; font-size: 11px; color: var(--crm-warm-white); }
-.crm-shell .crm-checkitem__label { font-size: 13px; color: var(--crm-warm-white); flex: 1; }
+.crm-shell .crm-checkitem__label { font-size: 13px; color: var(--crm-warm-white); flex: 1; line-height: 1.45; }
 .crm-shell .crm-checkitem--done .crm-checkitem__label { color: var(--crm-taupe); text-decoration: line-through; text-decoration-color: hsl(40 20% 97% / 0.2); }
 .crm-shell .crm-checkitem__owner { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--crm-taupe); }
+.crm-shell .crm-checkitem__auto-tag { font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--crm-taupe); font-style: italic; font-family: var(--crm-font-serif); }
 
 .crm-shell .crm-attach-list { display: flex; flex-direction: column; gap: 2px; }
 .crm-shell .crm-attach { display: flex; align-items: center; gap: 16px; padding: 14px 16px; background: var(--crm-ink); transition: background var(--crm-dur-base); text-decoration: none; }
