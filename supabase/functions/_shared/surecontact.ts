@@ -11,6 +11,8 @@ export interface SureContactUpsertInput {
   company?: string | null;
   customFields?: Record<string, string | number | null | undefined>;
   tags?: string[];
+  /** Tags SureContact should drop from the contact on this upsert. */
+  tagsToRemove?: string[];
   lists?: string[];
   metadata?: Record<string, unknown>;
 }
