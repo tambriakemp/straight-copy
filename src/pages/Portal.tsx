@@ -86,6 +86,9 @@ export default function Portal() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lsKey = clientId ? `cre8-portal-${clientId}` : "";
 
+  // Deep-link focus: ?focus=contract | brand-kit
+  const focus = searchParams.get("focus");
+
   // ----- Load -----
   const resolve = useCallback(async () => {
     if (!clientId) return;
@@ -148,6 +151,19 @@ export default function Portal() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, notFound, client, submittedAt]);
+
+  // Deep-link: scroll to focused section after load
+  useEffect(() => {
+    if (loading || notFound || !client || !focus) return;
+    const targetId = focus === "contract" ? "portal-contract" : focus === "brand-kit" ? "portal-brand-kit" : null;
+    if (!targetId) return;
+    // Small delay so layout settles after sections mount
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(targetId);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [loading, notFound, client, focus]);
 
   // ----- Streaming chat -----
   const streamReply = async (history: Msg[]) => {
@@ -354,10 +370,12 @@ export default function Portal() {
           </section>
 
           {/* Contract — sign your service agreement */}
-          <ContractSection
-            clientId={clientId!}
-            contactName={client.contact_name}
-          />
+          <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
+            <ContractSection
+              clientId={clientId!}
+              contactName={client.contact_name}
+            />
+          </div>
 
           {/* Account Access — always available, collapsible */}
           <AccountAccessSection
@@ -367,25 +385,27 @@ export default function Portal() {
           />
 
           {/* Body */}
-          {isBrandKitDone ? (
-            <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
-          ) : isBrandKitActive ? (
-            <BrandKitChat
-              node={node!}
-              stage={stage}
-              messages={messages}
-              input={input}
-              setInput={setInput}
-              isStreaming={isStreaming}
-              readyToSubmit={readyToSubmit}
-              submitting={submitting}
-              onSend={send}
-              onSubmit={submit}
-              scrollRef={scrollRef}
-            />
-          ) : (
-            <PlaceholderCard node={node} />
-          )}
+          <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
+            {isBrandKitDone ? (
+              <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
+            ) : isBrandKitActive ? (
+              <BrandKitChat
+                node={node!}
+                stage={stage}
+                messages={messages}
+                input={input}
+                setInput={setInput}
+                isStreaming={isStreaming}
+                readyToSubmit={readyToSubmit}
+                submitting={submitting}
+                onSend={send}
+                onSubmit={submit}
+                scrollRef={scrollRef}
+              />
+            ) : (
+              <PlaceholderCard node={node} />
+            )}
+          </div>
         </main>
       </div>
     </div>

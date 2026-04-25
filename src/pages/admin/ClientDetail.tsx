@@ -6,7 +6,7 @@ import AdminContractSection from "@/components/admin/AdminContractSection";
 import { toast } from "sonner";
 import { differenceInCalendarDays, format } from "date-fns";
 import { syncChecklist, templateIdFor, type ChecklistItem as ChecklistItemTpl } from "@/lib/journey-checklists";
-import { Eye, Copy, RefreshCw } from "lucide-react";
+import { Eye, Copy, RefreshCw, FileSignature, MessageSquare } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type NodeStatus = "pending" | "in_progress" | "complete";
@@ -358,6 +358,46 @@ export default function ClientDetail() {
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>Copy portal link</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(`${window.location.origin}/portal/${client.id}?focus=contract`);
+                        toast.success("Contract link copied");
+                      } catch {
+                        toast.error("Could not copy link");
+                      }
+                    }}
+                    aria-label="Copy contract link"
+                  >
+                    <FileSignature size={14} strokeWidth={1.5} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Copy direct link to the client's contract</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(`${window.location.origin}/portal/${client.id}?focus=brand-kit`);
+                        toast.success("Brand Kit chat link copied");
+                      } catch {
+                        toast.error("Could not copy link");
+                      }
+                    }}
+                    aria-label="Copy Brand Kit chat link"
+                  >
+                    <MessageSquare size={14} strokeWidth={1.5} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Copy direct link to the Brand Kit intake chat</TooltipContent>
               </Tooltip>
 
               <Tooltip>
