@@ -284,12 +284,12 @@ export default function ClientDetail() {
           <div className="detail__portal-actions">
             <a
               className="detail__portal-btn"
-              href={`/portal/${client.id}`}
+              href={`/portal/${client.id}?as=admin`}
               target="_blank"
               rel="noreferrer"
-              title="Open this client's portal in a new tab"
+              title="Open this client's portal in a new tab as an admin preview (your admin session is unchanged)"
             >
-              ◉ View portal ↗
+              ◉ Open as client ↗
             </a>
             <button
               className="detail__portal-btn detail__portal-btn--ghost"
