@@ -595,6 +595,62 @@ export type Database = {
         }
         Relationships: []
       }
+      surecontact_events: {
+        Row: {
+          campaign_id: string | null
+          campaign_name: string | null
+          client_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          ip_address: string | null
+          message_id: string | null
+          occurred_at: string | null
+          payload: Json
+          recipient_email: string | null
+          url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          campaign_name?: string | null
+          client_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          message_id?: string | null
+          occurred_at?: string | null
+          payload?: Json
+          recipient_email?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          campaign_name?: string | null
+          client_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          message_id?: string | null
+          occurred_at?: string | null
+          payload?: Json
+          recipient_email?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "surecontact_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
