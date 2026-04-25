@@ -1,3 +1,5 @@
+import { upsertSureContact } from "../_shared/surecontact.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -20,7 +22,6 @@ Deno.serve(async (req) => {
   try {
     const { firstName, lastName, email, brand, service, message } = await req.json();
 
-    // Validate required fields
     if (!firstName || typeof firstName !== "string" || firstName.trim().length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: "First name is required" }),
@@ -43,52 +44,36 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build SureContact request body
-    const sureContactBody = {
-      primary_fields: {
-        email: email.trim(),
-        first_name: firstName.trim(),
-        last_name: (lastName || "").trim(),
-        company: (brand || "").trim(),
-        source: "api",
-        status: "active",
-      },
-      custom_fields: {
-        service_interest: (service && serviceLabels[service]) || service || "",
-        message: message || "",
-      },
-      metadata: {
-        form_source: "cre8visions_website",
-      },
-      lists: ["Cre8 Visions List"],
-      tags: ["Website Contact Us"],
-    };
-
     console.log("Sending contact to SureContact:", email);
 
-    const response = await fetch("https://api.surecontact.com/api/v1/public/contacts/upsert", {
-      method: "POST",
-      headers: {
-        "X-API-Key": apiKey,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
+    const result = await upsertSureContact(
+      {
+        email,
+        firstName,
+        lastName,
+        company: brand,
+        customFields: {
+          service_interest: (service && serviceLabels[service]) || service || "",
+          message: message || "",
+        },
+        tags: ["Website Contact Us"],
+        lists: ["Cre8 Visions List"],
+        metadata: { form_source: "cre8visions_website" },
       },
-      body: JSON.stringify(sureContactBody),
-    });
+      apiKey,
+    );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("SureContact API error:", JSON.stringify(data));
+    if (!result.ok) {
+      console.error("SureContact API error:", JSON.stringify(result.data));
       return new Response(
-        JSON.stringify({ success: false, error: data.message || "Failed to submit contact" }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: result.error || "Failed to submit contact" }),
+        { status: result.status || 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     console.log("Contact submitted successfully");
     return new Response(
-      JSON.stringify({ success: true, data }),
+      JSON.stringify({ success: true, data: result.data }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
