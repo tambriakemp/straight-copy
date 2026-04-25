@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
     if (action === "resolve") {
       const { data: row } = await supabase
         .from("clients")
-        .select("brand_kit_conversation, brand_kit_intake_submitted_at, contact_email")
+        .select("brand_kit_conversation, brand_kit_intake_submitted_at, contact_email, client_account_access")
         .eq("id", clientId)
         .maybeSingle();
       return new Response(
@@ -215,6 +215,7 @@ Deno.serve(async (req) => {
           contactEmail: row?.contact_email ?? null,
           conversation: row?.brand_kit_conversation ?? [],
           submittedAt: row?.brand_kit_intake_submitted_at ?? null,
+          accountAccess: row?.client_account_access ?? {},
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
