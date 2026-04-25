@@ -4,7 +4,7 @@ const steps = [
   {
     num: "01",
     title: "Discovery Conversation",
-    desc: "A guided AI conversation captures everything about your business, brand, and biggest time drains. No forms. No calls needed.",
+    desc: "A guided conversation captures everything about your business, brand, and biggest time drains. No forms. No calls needed.",
   },
   {
     num: "02",
