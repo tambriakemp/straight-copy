@@ -6,7 +6,7 @@ import AdminContractSection from "@/components/admin/AdminContractSection";
 import { toast } from "sonner";
 import { differenceInCalendarDays, format } from "date-fns";
 import { syncChecklist, templateIdFor, type ChecklistItem as ChecklistItemTpl } from "@/lib/journey-checklists";
-import { Eye, Copy, RefreshCw } from "lucide-react";
+import { Eye, Copy, RefreshCw, FileSignature, MessageSquare } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type NodeStatus = "pending" | "in_progress" | "complete";
