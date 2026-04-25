@@ -435,7 +435,28 @@ Deno.serve(async (req) => {
         .eq("id", clientId);
       if (updErr) throw new Error(`Save account access failed: ${updErr.message}`);
 
-      // If complete, flip the intake node's accounts_submitted item to done
+      // If complete, flip the intake node's accounts_submitted item to done.
+      // Match by stable `key` first, with `auto_key` as legacy fallback.
+      if (allDone) {
+        const { data: intakeNode } = await supabase
+          .from("journey_nodes")
+          .select("id, checklist")
+          .eq("client_id", clientId)
+          .eq("key", "intake")
+          .maybeSingle();
+        if (intakeNode) {
+          const current = Array.isArray(intakeNode.checklist) ? intakeNode.checklist as any[] : [];
+          const next = current.map((it: any) =>
+            it && (it.key === "intake.accounts_submitted" || it.auto_key === "accounts_submitted")
+              ? { ...it, done: true }
+              : it,
+          );
+          await supabase
+            .from("journey_nodes")
+            .update({ checklist: next })
+            .eq("id", intakeNode.id);
+        }
+      }
       if (allDone) {
         const { data: intakeNode } = await supabase
           .from("journey_nodes")
