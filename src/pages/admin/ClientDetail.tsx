@@ -173,7 +173,7 @@ export default function ClientDetail() {
     ]);
     if (c.error) toast.error(c.error.message);
     setClient((c.data as Client) || null);
-    setNodes((n.data as JourneyNode[]) || []);
+    setNodes(((n.data as unknown) as JourneyNode[]) || []);
     setLoading(false);
   }, [id]);
 
