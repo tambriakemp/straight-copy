@@ -503,6 +503,11 @@
   border-color: var(--crm-border-dark);
 }
 .crm-shell .detail__portal-btn--ghost:hover { color: var(--crm-warm-white); border-color: var(--crm-stone); background: hsl(40 20% 97% / 0.04); }
+.crm-shell .detail__portal-btn--icon {
+  width: 34px; height: 34px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 0;
+}
 
 .crm-shell .roster__row-actions { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
 .crm-shell .roster__portal-link {
