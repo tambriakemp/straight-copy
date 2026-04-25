@@ -608,6 +608,10 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      fire_surecontact_sync: {
+        Args: { _client_id: string }
+        Returns: undefined
+      }
       get_portal_client: { Args: { _client_id: string }; Returns: Json }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
