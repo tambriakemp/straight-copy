@@ -257,6 +257,30 @@ export default function Portal() {
   };
 
   // ----- Render -----
+  const adminBanner = adminPreview ? (
+    <div className="portal-admin-banner" role="status" aria-live="polite">
+      <div className="portal-admin-banner__inner">
+        <span className="portal-admin-banner__badge">Admin preview</span>
+        <span className="portal-admin-banner__text">
+          You're viewing this portal as the client. Your admin session is unchanged.
+        </span>
+        <div className="portal-admin-banner__actions">
+          <a className="portal-admin-banner__btn" href="/admin" target="_blank" rel="noreferrer">
+            ← Back to admin
+          </a>
+          <button
+            type="button"
+            className="portal-admin-banner__btn portal-admin-banner__btn--ghost"
+            onClick={exitPreview}
+            title="Exit admin preview on this tab"
+          >
+            Exit preview
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   if (loading) {
     return (
       <div className="crm-shell">
