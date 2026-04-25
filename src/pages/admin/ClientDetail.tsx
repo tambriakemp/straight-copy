@@ -836,12 +836,13 @@ function BrandKitPanel({ client }: { client: Client }) {
           </button>
           <a
             className="crm-btn crm-btn--ghost"
-            href={portalUrl}
+            href={`${portalUrl}?as=admin`}
             target="_blank"
             rel="noreferrer"
             style={{ fontSize: 11, textDecoration: "none" }}
+            title="Open as an admin preview (your admin session is unchanged)"
           >
-            Open ↗
+            Open as client ↗
           </a>
         </div>
       </div>
