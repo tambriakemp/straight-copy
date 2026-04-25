@@ -1,98 +1,92 @@
+## Goal
 
-## Overview
-Add a public client-facing portal that requires no admin login but validates the `clientId` against the `clients` table. The portal surfaces the client's name/business, identifies the current active journey node, and renders a conversational chat for that node. Brand Kit (Node 03) gets a dedicated Claude-backed Edge Function that captures structured intake, persists it, advances the node, and fires a notification webhook.
+Use SureContact as the email engine for client lifecycle emails (welcome, kickoff, etc.) while still personalizing each email with that client's unique portal link (`https://cre8visions.com/portal/{clientId}`). SureContact gets the link as a **custom field on the contact record**, so any template you build in SureContact can merge it with a normal merge tag.
 
-Nothing in the existing admin app, onboarding flow, or routes is touched.
-
----
-
-## 1. Database changes (migration)
-
-Add to `public.clients`:
-- `brand_kit_intake jsonb` (nullable) — structured Brand Kit answers
-- `brand_kit_intake_submitted_at timestamptz` (nullable) — completion stamp
-- `brand_kit_conversation jsonb default '[]'::jsonb` — running chat transcript so the portal can resume
-
-No RLS policy changes required (existing policies already cover service role + admins; portal uses the edge function with service role, so the table itself stays locked down).
-
-A small read-only RPC `get_portal_client(_client_id uuid)` (SECURITY DEFINER, `STABLE`, `SET search_path = public`) returns only the safe fields the portal needs:
-- `id, business_name, contact_name, tier, brand_kit_intake_submitted_at`
-- the current active node payload (id, key, label, order_index, status)
-
-Granted to `anon` and `authenticated`. This avoids exposing the full `clients` table publicly while still giving the portal the data it needs.
+This keeps SureContact as the source of truth for sends + analytics — Lovable's job is just to keep the contact record (and that one custom field) in sync.
 
 ---
 
-## 2. New Edge Function: `brand-kit-intake`
+## How it works
 
-Path: `supabase/functions/brand-kit-intake/index.ts`
-Config: `verify_jwt = false` (public portal).
-
-Responsibilities:
-1. Accept `{ clientId, action, messages? }`.
-2. Validate `clientId` exists in `clients` (404 otherwise).
-3. Actions:
-   - `resolve` — return client name/business, the active node, and any saved `brand_kit_conversation` so the chat can rehydrate.
-   - `chat` — stream a Claude (`claude-sonnet-4-5`) response using the same Anthropic→OpenAI SSE transform pattern used in `onboarding-chat`. System prompt is Brand Kit–specific: collects logo files/refs, color palette direction, typography preferences, visual references/moodboard inspiration, do/don't visual rules, file format needs, and the brand kit deliverable scope. Emits `[[BRAND_KIT_COMPLETE]]` when done.
-   - `complete` — accept the final structured JSON extracted by Claude (separate non-stream call using `extractSummaryWithClaude`-style helper), then:
-     - Persist `brand_kit_intake` (jsonb) and `brand_kit_intake_submitted_at` on `clients`.
-     - Update Node 03 (`journey_nodes` row where `client_id = X` and `key = 'brand_kit'`) `status = 'client_submitted'` (new allowed status — see note below). Stamp `started_at` if missing.
-     - Save the final transcript to `brand_kit_conversation`.
-     - Fire a notification webhook (POST JSON) to a `BRAND_KIT_NOTIFICATION_WEBHOOK_URL` secret. Failures are logged but do not block the response.
-4. Auto-save partial transcripts on each `chat` turn (debounced server-side), mirroring the onboarding pattern.
-
-Note on `client_submitted`: existing UI status type is `"pending" | "in_progress" | "complete"`. We will store `"client_submitted"` in the DB column (free-text) — admins still see the node and we'll render it in the portal as "Submitted — awaiting review". The admin journey UI will continue to treat unknown statuses as non-blocking (no admin code change required for portal MVP; it will simply show as not-yet-complete on the admin side, with a note in the node).
-
-Secret needed: `BRAND_KIT_NOTIFICATION_WEBHOOK_URL` (added via the secrets tool before deploy). `ANTHROPIC_API_KEY` already exists.
+1. When a client is created (or their portal info changes), Lovable upserts the contact in SureContact with a custom field `portal_url` containing their unique link.
+2. You build the welcome / kickoff / re-engagement emails inside SureContact using a merge tag like `{{custom.portal_url}}` (or whatever syntax your SureContact account uses — to be confirmed in step 4).
+3. Sending, scheduling, opens, clicks, and the rest of the analytics all live inside SureContact. Lovable doesn't send the email — it just guarantees the link is always there before SureContact sends.
+4. Optional: tag/list assignment per stage (e.g. tag `Portal: Onboarding`, `Portal: Brand Kit`, `Portal: Kickoff`) so you can trigger SureContact automations off journey progress.
 
 ---
 
-## 3. New page: `src/pages/Portal.tsx`
+## What gets built
 
-Route: `/portal/:clientId` (added to `App.tsx`, above the catch-all, outside any `RequireAdmin` wrapper).
+### 1. New shared helper: `supabase/functions/_shared/surecontact.ts`
+A single `upsertSureContactClient({ client, portalUrl, tags?, lists? })` helper that POSTs to the same `/api/v1/public/contacts/upsert` endpoint already used by `submit-contact`. It will write:
+- `primary_fields`: email, first/last name, company (business_name)
+- `custom_fields.portal_url` — the unique portal link
+- `custom_fields.client_tier` — launch / growth
+- `custom_fields.journey_stage` — current active node label (e.g. "Brand Kit Intake")
+- `tags`: e.g. `["Client Portal", "Tier: Growth", "Stage: Brand Kit"]`
+- `lists`: configurable, default `["Cre8 Visions Clients"]`
 
-Behavior:
-1. On mount, call `brand-kit-intake` with `action: "resolve"`.
-2. If client not found → render a clean "Portal link invalid" state.
-3. Render header: client business name (serif, large) + contact name + tier badge.
-4. Render the **current active node** card — defined as the lowest `order_index` node whose status is not `complete` / `client_submitted`. Show node label, order number (e.g. "03"), and status.
-5. Conditional body:
-   - If active node `key === 'brand_kit'` and not yet submitted → render the chat UI (reusing the styling language of the onboarding chat: streaming bubbles, textarea with Send icon, stage indicator). Calls `brand-kit-intake` for streaming.
-   - On `[[BRAND_KIT_COMPLETE]]` → show "Review & Submit" button which fires the `complete` action.
-   - On success → show a confirmation screen ("Thank you — your Brand Kit intake is in our hands"), with the same dark editorial styling.
-   - If active node is not Brand Kit → render a polite placeholder ("Your team is working on the next step. We'll email you when it's ready for your input.") so the portal is future-proof for other nodes.
-6. If `brand_kit_intake_submitted_at` is already set → show the confirmation screen directly (idempotent).
+This reuses the existing `SURECONTACT_API_KEY` secret — no new keys needed.
 
-State persistence: localStorage cache `cre8-portal-${clientId}` for instant rehydrate, mirroring `Onboarding.tsx`.
+### 2. New edge function: `sync-client-to-surecontact`
+- `verify_jwt = false` (called server-side from other functions and from the admin UI with the anon key)
+- Input: `{ clientId }`
+- Loads the client from `public.clients`, computes the portal URL using a `PORTAL_BASE_URL` env (defaults to `https://cre8visions.com`), looks up the active journey node, and calls the helper.
+- Idempotent — safe to call repeatedly.
 
----
+### 3. Auto-sync hooks
+Wire calls to `sync-client-to-surecontact` into the points where client state changes:
+- **On client creation** — extend the existing `create_client_from_onboarding` flow (the trigger fires on `onboarding_submissions` completion). Easiest path: add an `AFTER INSERT` trigger on `public.clients` that calls a small `pg_net` HTTP POST to the new edge function (using the anon key from vault). Falls back gracefully if the call fails — never blocks the insert.
+- **On tier change** — extend the existing `sync_journey_nodes_on_tier_change` to also re-sync.
+- **On journey node advancement** — extend `auto_complete_journey_node` so when a node is marked complete, the next active node label gets pushed up to SureContact (so `journey_stage` and stage tags stay accurate, which lets SureContact automations trigger off them).
+- **Manual re-sync button** in the admin client detail page header next to "Open as client" / "Copy portal link" — fires the function on demand for QA / fixes.
 
-## 4. Styling
+### 4. SureContact dashboard side (you do this once, no code)
+After the function is live and at least one client is synced, you'll need to:
+- a. Create the custom field `portal_url` (and optionally `client_tier`, `journey_stage`) in SureContact's custom-fields settings — type: text/URL.
+- b. Create the lists / tags you want to use (`Cre8 Visions Clients`, `Stage: Brand Kit`, etc.).
+- c. Build your welcome email template in SureContact and drop the merge tag for `portal_url` into the CTA button. The exact merge-tag syntax depends on SureContact's editor — most commonly `{{custom_fields.portal_url}}` or `{{contact.custom.portal_url}}`. We'll confirm the exact syntax against a synced contact before you build the template.
+- d. Set up the SureContact automation/trigger (e.g. "When tag `Stage: Onboarding` is added → send Welcome email").
 
-Reuse the existing `.crm-shell` dark editorial scope from `src/index.css` (cream/stone/ink/taupe + Cormorant Garamond + Karla, 11px uppercase 0.35em tracking subheads, etc.). The Portal page will mount inside a `<div className="crm-shell">` wrapper but **without** the admin top nav — instead a slim portal header with the CRE8 wordmark, the client's business name, and the journey progress chip ("Step 03 of 10 · Brand Kit").
+I'll give you a short checklist with exact steps after the sync is wired up.
 
-New scoped classes in `src/index.css` under `.crm-shell` (no global leakage):
-- `.portal-shell`, `.portal-hero`, `.portal-node-card`, `.portal-chat`, `.portal-bubble--user`, `.portal-bubble--assistant`, `.portal-confirm`.
-
-Matches the same min-height:0 / overflow-y:auto pattern we already use in the modal so chat scrolls correctly within a fixed viewport.
-
----
-
-## 5. Files touched
-
-- **New:** `supabase/functions/brand-kit-intake/index.ts`
-- **New:** `src/pages/Portal.tsx`
-- **Edit:** `src/App.tsx` — add `<Route path="/portal/:clientId" element={<Portal />} />` above catch-all
-- **Edit:** `src/index.css` — append `.portal-*` classes inside the `.crm-shell` scope
-- **Edit:** `supabase/config.toml` — add `[functions.brand-kit-intake]` with `verify_jwt = false`
-- **Migration:** add the three `clients` columns + `get_portal_client` RPC
-
-No edits to: existing admin pages, `RequireAdmin`, navbar, onboarding chat, or any user-facing marketing pages.
+### 5. Where the portal URL comes from
+Currently the code uses `window.location.origin` (so admin previews use the lovable.app domain). For emails, that's wrong — clients should always get `cre8visions.com`. The new edge function will use a server-side constant `PORTAL_BASE_URL` (defaulting to `https://cre8visions.com`, overridable via a Supabase secret if you want to point at the staging domain during testing).
 
 ---
 
-## 6. Open question (will use defaults if not answered)
+## What we explicitly are NOT doing
 
-**Webhook destination** — I'll request a `BRAND_KIT_NOTIFICATION_WEBHOOK_URL` secret via the secrets tool right before the function deploys. If you'd rather route this through your existing `notify.cre8visions.com` transactional email pipeline (sending an internal email to `hello@cre8visions.com` instead of an external webhook), I can swap the webhook for a `send-transactional-email` invocation — say the word and I'll adjust before building.
+- **Not** sending emails from Lovable / Lovable Cloud for these client lifecycle emails. SureContact is the sender, period. (The existing `send-transactional-email` infra stays in place for things SureContact can't do, like internal admin notifications and the contact-form auto-reply.)
+- **Not** building campaign management UI in Lovable — you compose, schedule, and analyze emails inside SureContact.
+- **Not** changing the existing public website contact form behavior.
+- **Not** touching admin auth, RLS, or the portal itself.
 
-Approve to proceed and I'll switch into build mode.
+---
+
+## Open questions before I build (only one matters)
+
+**Q: Confirm the SureContact custom-field merge-tag syntax.** Different ESPs use different syntax (`{{custom.portal_url}}`, `{{custom_fields.portal_url}}`, `{{contact.portal_url}}`, `[[portal_url]]`, etc.). I can confirm this two ways:
+- (a) You check SureContact's email editor docs / their merge-tag picker and tell me the syntax — fastest, or
+- (b) I build the sync, you sync one test client, then we look at how that contact appears in SureContact's contact view to confirm the field name SureContact uses, and you check the editor's merge-tag dropdown.
+
+Either way the sync code is the same — this only affects what you paste into the SureContact email body. Default assumption: `{{custom_fields.portal_url}}`.
+
+---
+
+## Files touched
+
+**New**
+- `supabase/functions/_shared/surecontact.ts`
+- `supabase/functions/sync-client-to-surecontact/index.ts`
+- `supabase/config.toml` — add `[functions.sync-client-to-surecontact] verify_jwt = false`
+
+**Edited**
+- `supabase/functions/submit-contact/index.ts` — refactor to use the shared helper (no behavior change)
+- `src/pages/admin/ClientDetail.tsx` — add "Sync to SureContact" button in the header banner
+- Migration: trigger on `public.clients` AFTER INSERT/UPDATE that calls the edge function via `pg_net`; extend `auto_complete_journey_node` to also fire it on stage advancement
+
+**Untouched**
+- All existing portal, onboarding, brand-kit-intake, auth, and email-queue infrastructure.
+
+Approve and I'll switch to build mode and ship it.

@@ -344,6 +344,26 @@ export default function ClientDetail() {
             >
               ⧉ Copy
             </button>
+            <button
+              className="detail__portal-btn detail__portal-btn--ghost"
+              onClick={async () => {
+                const t = toast.loading("Syncing to SureContact…");
+                try {
+                  const { data, error } = await supabase.functions.invoke(
+                    "sync-client-to-surecontact",
+                    { body: { clientId: client.id } },
+                  );
+                  if (error) throw new Error(error.message);
+                  if (!data?.success) throw new Error(data?.error || "Sync failed");
+                  toast.success("Synced to SureContact", { id: t });
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Sync failed", { id: t });
+                }
+              }}
+              title="Push this client's portal link, tier, and current journey stage into SureContact"
+            >
+              ⇪ Sync to SureContact
+            </button>
           </div>
 
           <div className="detail__bar-divider" aria-hidden="true" />
