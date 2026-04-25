@@ -371,6 +371,7 @@ export type Database = {
         Row: {
           asset_label: string | null
           asset_url: string | null
+          checklist: Json
           client_id: string
           completed_at: string | null
           created_at: string
@@ -387,6 +388,7 @@ export type Database = {
         Insert: {
           asset_label?: string | null
           asset_url?: string | null
+          checklist?: Json
           client_id: string
           completed_at?: string | null
           created_at?: string
@@ -403,6 +405,7 @@ export type Database = {
         Update: {
           asset_label?: string | null
           asset_url?: string | null
+          checklist?: Json
           client_id?: string
           completed_at?: string | null
           created_at?: string
@@ -435,6 +438,7 @@ export type Database = {
       }
       journey_templates: {
         Row: {
+          checklist: Json
           created_at: string
           description: string | null
           id: string
@@ -444,6 +448,7 @@ export type Database = {
           tier: string
         }
         Insert: {
+          checklist?: Json
           created_at?: string
           description?: string | null
           id?: string
@@ -453,6 +458,7 @@ export type Database = {
           tier: string
         }
         Update: {
+          checklist?: Json
           created_at?: string
           description?: string | null
           id?: string
