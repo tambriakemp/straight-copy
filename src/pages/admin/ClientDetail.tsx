@@ -4,17 +4,22 @@ import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
 import { differenceInCalendarDays, format } from "date-fns";
+import { syncChecklist, templateIdFor, type ChecklistItem as ChecklistItemTpl } from "@/lib/journey-checklists";
 
 type NodeStatus = "pending" | "in_progress" | "complete";
 type ModalStatus = "notstarted" | "inprog" | "blocked" | "complete";
 type ChecklistOwner = "auto" | "client" | "agency";
 interface ChecklistItem {
-  id: string;
+  /** Stable identity. New items always have one; legacy rows may not until next save. */
+  key?: string;
+  /** Legacy id from older template versions — kept for backward compatibility. */
+  id?: string;
   label: string;
   owner: ChecklistOwner;
   done: boolean;
   auto_key?: string;
 }
+
 
 interface JourneyNode {
   id: string;
@@ -172,10 +177,40 @@ export default function ClientDetail() {
       supabase.from("journey_nodes").select("*").eq("client_id", id).order("order_index"),
     ]);
     if (c.error) toast.error(c.error.message);
-    setClient((c.data as Client) || null);
-    setNodes(((n.data as unknown) as JourneyNode[]) || []);
+    const clientRow = (c.data as Client) || null;
+    const rawNodes = ((n.data as unknown) as JourneyNode[]) || [];
+
+    // Reshape each node's checklist against the latest template (preserves
+    // `done` by stable key). If anything drifts, persist the corrected shape
+    // back so it stops drifting on subsequent loads.
+    const tier = clientRow?.tier ?? "launch";
+    const reshaped = rawNodes.map((node) => {
+      const tplId = templateIdFor(tier, node.key);
+      if (!tplId) return node;
+      const synced = syncChecklist(node.checklist, tplId) as ChecklistItemTpl[];
+      const drifted =
+        !Array.isArray(node.checklist) ||
+        node.checklist.length !== synced.length ||
+        node.checklist.some((it: any, i) => {
+          const s = synced[i];
+          return !it || it.key !== s.key || it.label !== s.label || it.owner !== s.owner;
+        });
+      if (drifted) {
+        // Fire-and-forget; realtime sub will pick up the round-trip.
+        supabase
+          .from("journey_nodes")
+          .update({ checklist: synced as never })
+          .eq("id", node.id)
+          .then(({ error }) => { if (error) console.warn("[checklist sync]", error.message); });
+      }
+      return { ...node, checklist: synced as ChecklistItem[] };
+    });
+
+    setClient(clientRow);
+    setNodes(reshaped);
     setLoading(false);
   }, [id]);
+
 
   useEffect(() => { load(); }, [load]);
 
