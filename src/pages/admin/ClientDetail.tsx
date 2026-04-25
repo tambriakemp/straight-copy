@@ -317,7 +317,7 @@ export default function ClientDetail() {
           <div className="canvas__ghost">Cre8</div>
 
           {total > 0 && (
-            <svg className="canvas__svg" viewBox={`0 0 ${size.w} ${size.h}`} preserveAspectRatio="none">
+            <svg className="canvas__svg" viewBox={`0 0 ${size.w} ${size.h}`} preserveAspectRatio="xMidYMid meet">
               <path className="journey-path-bg" d={fullPath} />
               <path className="journey-path-drift" d={fullPath} />
               {progressPath && <path className="journey-path-progress" d={progressPath} />}
