@@ -132,6 +132,74 @@ export type Database = {
           },
         ]
       }
+      client_contracts: {
+        Row: {
+          agency_countersigned_at: string
+          agency_signer_name: string
+          client_id: string
+          client_ip: string | null
+          client_signature_data: string
+          client_signature_name: string
+          client_signature_type: string
+          client_signed_at: string
+          client_user_agent: string | null
+          created_at: string
+          id: string
+          pdf_generated_at: string | null
+          pdf_path: string | null
+          pdf_url: string | null
+          template_version: string
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          agency_countersigned_at?: string
+          agency_signer_name?: string
+          client_id: string
+          client_ip?: string | null
+          client_signature_data: string
+          client_signature_name: string
+          client_signature_type: string
+          client_signed_at?: string
+          client_user_agent?: string | null
+          created_at?: string
+          id?: string
+          pdf_generated_at?: string | null
+          pdf_path?: string | null
+          pdf_url?: string | null
+          template_version: string
+          tier: string
+          updated_at?: string
+        }
+        Update: {
+          agency_countersigned_at?: string
+          agency_signer_name?: string
+          client_id?: string
+          client_ip?: string | null
+          client_signature_data?: string
+          client_signature_name?: string
+          client_signature_type?: string
+          client_signed_at?: string
+          client_user_agent?: string | null
+          created_at?: string
+          id?: string
+          pdf_generated_at?: string | null
+          pdf_path?: string | null
+          pdf_url?: string | null
+          template_version?: string
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_contracts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_deliveries: {
         Row: {
           client_id: string

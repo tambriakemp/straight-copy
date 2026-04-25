@@ -174,7 +174,7 @@ export default function AccountAccessSection({
         aria-expanded={open}
       >
         <div className="portal-access__toggle-left">
-          <div className="portal-access__eyebrow">Node 01 · Foundations</div>
+          <div className="portal-access__eyebrow">Node 01 · Intake</div>
           <h2 className="portal-access__title">
             Set Up Your <em>Accounts</em>.
           </h2>

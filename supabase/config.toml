@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.surecontact-webhook]
 verify_jwt = false
+
+[functions.contract-sign]
+verify_jwt = false
