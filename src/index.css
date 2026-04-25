@@ -503,6 +503,11 @@
   border-color: var(--crm-border-dark);
 }
 .crm-shell .detail__portal-btn--ghost:hover { color: var(--crm-warm-white); border-color: var(--crm-stone); background: hsl(40 20% 97% / 0.04); }
+.crm-shell .detail__portal-btn--icon {
+  width: 34px; height: 34px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 0;
+}
 
 .crm-shell .roster__row-actions { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
 .crm-shell .roster__portal-link {
@@ -539,7 +544,7 @@
 .crm-shell .detail__progress-fraction { font-family: var(--crm-font-serif); font-weight: 300; font-size: 30px; color: var(--crm-warm-white); line-height: 1; letter-spacing: -0.01em; }
 .crm-shell .detail__progress-fraction .slash { color: var(--crm-accent); font-style: italic; margin: 0 2px; }
 .crm-shell .detail__progress-fraction .total { color: var(--crm-taupe); }
-.crm-shell .detail__progress-ring { width: 44px; height: 44px; flex-shrink: 0; }
+.crm-shell .detail__progress-ring { width: 72px; height: 72px; flex-shrink: 0; }
 
 /* Canvas */
 .crm-shell .canvas {
@@ -837,7 +842,7 @@
   .crm-shell .roster__row > *:nth-child(7) { display: none; }
   .crm-shell .detail__bar { left: 16px; right: 16px; top: 16px; padding: 12px 16px; gap: 14px; }
   .crm-shell .detail__progress-fraction { font-size: 26px; }
-  .crm-shell .detail__progress-ring { width: 34px; height: 34px; }
+  .crm-shell .detail__progress-ring { width: 60px; height: 60px; }
   .crm-shell .canvas__legend { left: 16px; bottom: 20px; }
   .crm-shell .canvas__hint { display: none; }
   .crm-shell .crm-modal__left, .crm-shell .crm-modal__right { padding: 40px 28px; }
@@ -859,7 +864,7 @@
   .crm-shell .detail__portal-actions { order: 3; }
   .crm-shell .detail__progress { order: 4; margin-left: auto; gap: 12px; }
   .crm-shell .detail__progress-fraction { font-size: 24px; }
-  .crm-shell .detail__progress-ring { width: 38px; height: 38px; }
+  .crm-shell .detail__progress-ring { width: 64px; height: 64px; }
   .crm-shell .detail__portal-btn { font-size: 9px; padding: 6px 10px; letter-spacing: 0.18em; }
 }
 
@@ -926,7 +931,7 @@
   .crm-shell .detail__progress { flex-basis: 100%; justify-content: space-between; gap: 16px; }
   .crm-shell .detail__progress-eyebrow { font-size: 10px; }
   .crm-shell .detail__progress-fraction { font-size: 28px; }
-  .crm-shell .detail__progress-ring { width: 38px; height: 38px; }
+  .crm-shell .detail__progress-ring { width: 64px; height: 64px; }
 
   /* Give the canvas a tall, fixed height so the SVG nodes are readable
      and the page can scroll naturally on mobile. */
