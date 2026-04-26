@@ -9,6 +9,7 @@ export interface SureContactUpsertInput {
   firstName?: string | null;
   lastName?: string | null;
   company?: string | null;
+  phone?: string | null;
   customFields?: Record<string, string | number | null | undefined>;
   tags?: string[];
   /** Tags SureContact should drop from the contact on this upsert. */
@@ -66,6 +67,7 @@ export async function upsertSureContact(
       first_name: (input.firstName || "").trim(),
       last_name: (input.lastName || "").trim(),
       company: (input.company || "").trim(),
+      phone: (input.phone || "").trim(),
       source: "api",
       status: "active",
     },

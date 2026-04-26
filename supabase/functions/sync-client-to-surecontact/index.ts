@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     // Load client
     const { data: client, error: clientErr } = await supabase
       .from("clients")
-      .select("id, business_name, contact_name, contact_email, tier, archived")
+      .select("id, business_name, contact_name, contact_email, contact_phone, tier, archived")
       .eq("id", clientId)
       .maybeSingle();
 
@@ -113,6 +113,7 @@ Deno.serve(async (req) => {
         firstName,
         lastName,
         company: client.business_name,
+        phone: client.contact_phone,
         customFields: {
           portal_url: portalUrl,
           contract_url: contractUrl,
@@ -121,6 +122,8 @@ Deno.serve(async (req) => {
           journey_stage: stageLabel,
           journey_stage_key: activeNode?.key ?? "",
           client_id: clientId,
+          company_name: client.business_name ?? "",
+          phone: client.contact_phone ?? "",
         },
         tags,
         tagsToRemove,
