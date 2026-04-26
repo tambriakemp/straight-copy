@@ -1,97 +1,69 @@
-## Contract System Plan
+## Goal
+Replace the current `src/pages/Philosophy.tsx` (which is the old "Cre8 Visions / We believe in what's real" creative-content version) with the new business-architecture version from the uploaded `Cre8_Visions_Philosophy.html`, matching copy, structure, and styling exactly while keeping the page integrated with the React/Tailwind/Router app.
 
-### 1. Database (one migration)
+## Scope of changes
 
-New table `client_contracts`:
-- `id`, `client_id` (FK clients), `tier` (launch/growth), `template_version` (text, e.g. `"launch-v1"`)
-- Client signature: `client_signature_name`, `client_signature_type` ('typed'|'drawn'), `client_signature_data` (text — drawn = base64 PNG, typed = name), `client_signed_at`, `client_ip`, `client_user_agent`
-- Counter: `agency_signer_name` (default `'Tambria Kemp'`), `agency_countersigned_at` (auto-set on insert via default `now()`)
-- PDF: `pdf_path`, `pdf_url`, `pdf_generated_at`
-- `created_at`, `updated_at`
+### File: `src/pages/Philosophy.tsx` (full rewrite of body)
+Keep existing scaffolding (Navbar, Footer, custom cursor hooks, scroll reveal, scroll-to-top), and replace all section content with the new structure.
 
-RLS: admins manage all; service role manages all. Portal access goes through edge functions (service role), so no client-facing RLS needed.
+**Hero**
+- Eyebrow: "Our Philosophy"
+- Headline (3 lines): `We believe your` / `business should` / `<em>run without you.</em>`
+- Background watermark word: `Architect.` (centered, ~22vw, 4% white opacity, italic)
+- Left vertical accent gradient line + scroll indicator on bottom-right (unchanged behavior)
 
-Storage: reuse existing private `client-assets` bucket — PDFs stored at `contracts/{clientId}/{contractId}.pdf`, signed URLs returned to portal.
+**Opening section (cream, 2-col)**
+- Left: blockquote — *"You didn't start a business to spend your days doing tasks a machine could handle. **You started it to build something that matters.**"* — attribution `— Cre8 Visions`
+- Right: eyebrow `Where We Come From` + 3 paragraphs of new "burn out / AI changed what's possible / architect the system" copy
 
-### 2. Hardcoded contract templates
+**Pillars section (ink, 2x2 grid)**
+Replace all 4 pillars with:
+1. `Systems` over hustle
+2. `Ownership` over dependency
+3. `Intelligence` that compounds
+4. `Access` for every business
 
-New file `src/lib/contract-templates.ts` and matching `supabase/functions/_shared/contract-templates.ts` (mirrored, like the journey-checklist pattern):
-- `LAUNCH_CONTRACT` — full agreement text + version string `launch-v1`
-- `GROWTH_CONTRACT` — full agreement text + version string `growth-v1`
-- Each exports `{ version, title, sections: [{heading, body}] }` so we can render to both HTML (portal) and PDF (server) from one source.
-- I'll seed both with placeholder service-agreement text covering: scope, payment, deliverables, IP, confidentiality, termination, signatures. **You'll review and tell me what to change before this ships** — easy edits since it's plain TS strings.
+Header intro changes to: "Four beliefs that shape every system we build — and every decision we make about how to build it."
 
-### 3. Edge function `contract-sign`
+**Manifesto section (cream, centered)**
+Replace 2 manifesto paragraphs + closing with the 3 new manifesto paragraphs ("future of business is not about working more", "architects, not vendors", "businesses that win the next decade") plus closing line "That infrastructure is what we build…"
 
-New `supabase/functions/contract-sign/index.ts` with three actions:
-- **`get`** → returns the active contract for a client: rendered template based on `clients.tier`, plus existing signature record if already signed (so portal shows signed state).
-- **`sign`** → accepts `{ clientId, signatureType, signatureData, signatureName }`. Validates with Zod. Captures IP from `x-forwarded-for` and UA. Inserts into `client_contracts` (countersigned timestamp auto-set). Generates PDF inline (using `jsPDF` via npm import — already used elsewhere or pdf-lib). Uploads to `client-assets/contracts/{clientId}/{id}.pdf`. Then flips `intake.contract_signed` AND `intake.contract_countersigned` items on the client's intake journey node to `done: true` (mirrors how `accounts_submitted` is flipped today). Returns `{ success, contract, pdfUrl }`.
-- **`download`** → returns a signed URL for the stored PDF (admin or portal).
+**Stats strip (accent background, 4 cols)**
+Replace stats with:
+- `2` — Core automations every client gets
+- `3` — Monthly deliverables that compound
+- `0` — Tech knowledge required from you
+- `∞` — The system has no ceiling
 
-`verify_jwt = false` (portal is unauthenticated, like `brand-kit-intake`). Function is added to `supabase/config.toml`.
+**"Our Approach to AI" section (warm-white, sticky-title 2-col)**
+- Eyebrow becomes `How We Work` (was "Transparency")
+- Title becomes `Our Approach to AI` (already matches)
+- Replace all ethics items with the 5 new ones:
+  1. We design before we build
+  2. We're transparent about what AI can and can't do
+  3. We stay ahead so you don't have to
+  4. We build for your voice, not a generic one
+  5. We measure success by your results — not our activity
 
-### 4. Portal UI changes
+**CTA section (ink, centered)**
+- Watermark: change `REAL.` → `THINK.`
+- Eyebrow: `The Architecture Starts Here`
+- Headline: `Same belief.` / `Different business.` / `<em>Every time.</em>`
+- Buttons: Primary `Start the Architecture` → `/contact`; Ghost `See what we build` → `/services` (was `/how-it-works`)
 
-**Rename Node 01:**
-- `AccountAccessSection.tsx` line 177: change `"Node 01 · Foundations"` → `"Node 01 · Intake"`. (Header/eyebrow and title stay distinct — title remains "Set Up Your Accounts".)
-- The active-node chip in Portal header already uses `node.label` which is "Intake" from the template, so no change needed there.
+### Styling notes
+- Continue using existing palette tokens (`bg-ink`, `bg-cream`, `text-warm-white`, `text-stone`, `text-accent`, `text-taupe`, `text-charcoal`, `border-mist-custom`, `bg-sand`, etc.) — matches the source CSS variables 1:1.
+- Continue using Cormorant Garamond (`font-serif`) and Karla (default sans). All `font-light`, italic emphasis on `<em>`.
+- Keep `clamp()` font sizes inline-styled where Tailwind can't express them (already a pattern used in the existing file).
+- Keep `reveal` / `reveal-delay-*` classes for scroll animation (already wired via `useScrollReveal`).
+- Hover behavior on pillars (left accent bar grows, bg shifts to `#221F1C`) — preserve existing implementation.
 
-**Add Contract section** (new component `src/components/portal/ContractSection.tsx`, rendered above `AccountAccessSection`):
-- Collapsible card matching the existing `portal-access` styling.
-- Header: eyebrow "Node 01 · Intake", title "Sign Your *Agreement*."
-- Status chip: "Not signed" / "Signed ✓ {date}".
-- Body when unsigned: short intro + **"Review & Sign Contract"** button → opens dialog/inline expansion with full contract text in a scrollable container, then signature panel.
-- Signature panel (Radix Tabs):
-  - **Type** tab (default): legal-name input + "I agree to the terms above" checkbox + script-font preview of typed name.
-  - **Draw** tab: HTML5 canvas with mouse + touch support, Clear + Done buttons, exports to PNG via `canvas.toDataURL()`.
-- Submit calls `contract-sign:sign`. On success: collapses to signed state showing both signatures, signing date, and a **"Download PDF"** button.
-- When signed, both `intake.contract_signed` and `intake.contract_countersigned` checklist items appear `done` in the admin view automatically (handled server-side).
+### Files NOT changed
+- `src/components/PhilosophySection.tsx` (homepage section) — request is specifically about the Philosophy page.
+- `src/App.tsx` routing — `/philosophy` already mounts `Philosophy.tsx`.
+- Navbar / Footer / hooks — unchanged.
 
-### 5. Admin UI
-
-In `src/pages/admin/ClientDetail.tsx`, new **"Contract"** section in the client detail (alongside existing client info / journey panels):
-- Shows current contract status: Unsigned / Signed on {date} by {name}.
-- If signed: "Download signed PDF" button (calls `contract-sign:download`), shows client signature method (typed/drawn) + IP + UA snippet for audit.
-- If unsigned: "Send contract link" helper text (just shows the portal URL — actual SureContact email comes later if you want).
-- Read-only — admin doesn't sign on the client's behalf; the auto-countersignature happens at signing time.
-
-### 6. PDF generation (server-side)
-
-In the edge function, use `jspdf` (npm:jspdf via esm.sh) to:
-1. Render contract title, version, date.
-2. Each section as heading + body (auto-page-break).
-3. Two signature blocks at end:
-   - **Client:** if typed → name in cursive font (jsPDF supports embedding TTFs; I'll embed `Great Vibes` or `Allura` from Google Fonts, base64-encoded). If drawn → embed the PNG. + printed name + date + IP.
-   - **Agency:** "Tambria Kemp" rendered in the same cursive font + "Cre8 Visions, LLC" + date.
-4. Save buffer → upload to storage → return path.
-
-PDF QA: I'll generate a sample with a fake signature, convert to image, and visually check before considering this done.
-
-### 7. Script font
-
-Add Google Font `Great Vibes` link to `index.html` (already loads other fonts editorially) for the typed-signature on-screen preview. The PDF embeds the same TTF directly so output matches.
-
-### Files touched
-
-**New:**
-- `supabase/migrations/{ts}_client_contracts.sql`
-- `src/lib/contract-templates.ts`
-- `supabase/functions/_shared/contract-templates.ts`
-- `supabase/functions/contract-sign/index.ts` + `deno.json`
-- `src/components/portal/ContractSection.tsx`
-- `src/components/admin/ContractSection.tsx`
-
-**Edited:**
-- `src/components/portal/AccountAccessSection.tsx` (rename "Foundations" → "Intake")
-- `src/pages/Portal.tsx` (mount `<ContractSection>` above `<AccountAccessSection>`)
-- `src/pages/admin/ClientDetail.tsx` (mount admin `<ContractSection>`)
-- `src/index.css` (styles for `.portal-contract-*` and `.crm-contract-*`)
-- `supabase/config.toml` (add `[functions.contract-sign]` with `verify_jwt = false`)
-- `index.html` (add Great Vibes font link)
-
-### Out of scope (for follow-up)
-- Sending contract via SureContact email (will need a separate "send contract" trigger and a SureContact template variable for the portal link — happy to add next).
-- Editable contract templates (you chose hardcoded; we can graduate to a `contract_templates` table later if needed).
-- Multi-page contract amendments / re-signing flows.
-
-After you approve, I'll execute this end to end and visually QA the generated PDF before handing back.
+## Out of scope
+- No copy changes to other pages.
+- No new routes or components.
+- No design-system token additions (existing tokens cover everything in the reference HTML).
