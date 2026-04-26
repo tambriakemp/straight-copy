@@ -613,6 +613,92 @@ export default function ClientDetail() {
           onReload={load}
         />
       )}
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Edit contact details</DialogTitle>
+            <DialogDescription>
+              Update business and contact information. Changes sync to SureContact automatically.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-business">Business name</Label>
+              <Input
+                id="edit-business"
+                value={editForm.business_name}
+                maxLength={200}
+                onChange={(e) => setEditForm((f) => ({ ...f, business_name: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name">Contact name</Label>
+              <Input
+                id="edit-name"
+                placeholder="First Last"
+                value={editForm.contact_name}
+                maxLength={200}
+                onChange={(e) => setEditForm((f) => ({ ...f, contact_name: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter as “First Last” — first/last are split automatically when syncing.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editForm.contact_email}
+                maxLength={255}
+                onChange={(e) => setEditForm((f) => ({ ...f, contact_email: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-phone">Phone</Label>
+              <Input
+                id="edit-phone"
+                value={editForm.contact_phone}
+                maxLength={60}
+                onChange={(e) => setEditForm((f) => ({ ...f, contact_phone: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-tier">Tier</Label>
+              <select
+                id="edit-tier"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={editForm.tier}
+                onChange={(e) => setEditForm((f) => ({ ...f, tier: e.target.value }))}
+              >
+                <option value="launch">Launch</option>
+                <option value="growth">Growth</option>
+              </select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="detail__portal-btn detail__portal-btn--ghost"
+              onClick={() => setEditOpen(false)}
+              disabled={savingEdit}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="detail__portal-btn"
+              onClick={saveEdit}
+              disabled={savingEdit}
+            >
+              {savingEdit ? "Saving…" : "Save changes"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
