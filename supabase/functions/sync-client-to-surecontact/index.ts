@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     // Load client
     const { data: client, error: clientErr } = await supabase
       .from("clients")
-      .select("id, business_name, contact_name, contact_email, tier, archived")
+      .select("id, business_name, contact_name, contact_email, contact_phone, tier, archived")
       .eq("id", clientId)
       .maybeSingle();
 
