@@ -6,8 +6,18 @@ import AdminContractSection from "@/components/admin/AdminContractSection";
 import { toast } from "sonner";
 import { differenceInCalendarDays, format } from "date-fns";
 import { syncChecklist, templateIdFor, type ChecklistItem as ChecklistItemTpl } from "@/lib/journey-checklists";
-import { Eye, Copy, RefreshCw, FileSignature, MessageSquare } from "lucide-react";
+import { Eye, Copy, RefreshCw, FileSignature, MessageSquare, Pencil } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type NodeStatus = "pending" | "in_progress" | "complete";
 type ModalStatus = "notstarted" | "inprog" | "blocked" | "complete";
