@@ -67,6 +67,7 @@ export async function upsertSureContact(
       first_name: (input.firstName || "").trim(),
       last_name: (input.lastName || "").trim(),
       company: (input.company || "").trim(),
+      phone: (input.phone || "").trim(),
       source: "api",
       status: "active",
     },
