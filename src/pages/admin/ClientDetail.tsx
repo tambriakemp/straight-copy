@@ -163,6 +163,66 @@ export default function ClientDetail() {
   const [nodes, setNodes] = useState<JourneyNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [openNodeId, setOpenNodeId] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    business_name: "",
+    contact_name: "",
+    contact_email: "",
+    contact_phone: "",
+    tier: "launch",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEdit = () => {
+    if (!client) return;
+    setEditForm({
+      business_name: client.business_name ?? "",
+      contact_name: client.contact_name ?? "",
+      contact_email: client.contact_email ?? "",
+      contact_phone: client.contact_phone ?? "",
+      tier: client.tier ?? "launch",
+    });
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!client) return;
+    const businessName = editForm.business_name.trim();
+    const contactName = editForm.contact_name.trim();
+    const contactEmail = editForm.contact_email.trim();
+    const contactPhone = editForm.contact_phone.trim();
+
+    if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    if (businessName.length > 200 || contactName.length > 200 || contactPhone.length > 60) {
+      toast.error("One of the fields is too long.");
+      return;
+    }
+
+    setSavingEdit(true);
+    const patch = {
+      business_name: businessName || null,
+      contact_name: contactName || null,
+      contact_email: contactEmail || null,
+      contact_phone: contactPhone || null,
+      tier: editForm.tier,
+    };
+    const { error } = await supabase
+      .from("clients")
+      .update(patch as never)
+      .eq("id", client.id);
+    setSavingEdit(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setClient({ ...client, ...patch });
+    setEditOpen(false);
+    toast.success("Contact details updated. SureContact will resync automatically.");
+  };
+
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1200, h: 700 });
