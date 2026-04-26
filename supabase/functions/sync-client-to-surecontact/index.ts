@@ -115,6 +115,8 @@ Deno.serve(async (req) => {
         company: client.business_name,
         customFields: {
           portal_url: portalUrl,
+          contract_url: contractUrl,
+          brand_kit_url: brandKitUrl,
           client_tier: tierLabel,
           journey_stage: stageLabel,
           journey_stage_key: activeNode?.key ?? "",
