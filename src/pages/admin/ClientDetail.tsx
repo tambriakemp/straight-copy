@@ -6,8 +6,18 @@ import AdminContractSection from "@/components/admin/AdminContractSection";
 import { toast } from "sonner";
 import { differenceInCalendarDays, format } from "date-fns";
 import { syncChecklist, templateIdFor, type ChecklistItem as ChecklistItemTpl } from "@/lib/journey-checklists";
-import { Eye, Copy, RefreshCw, FileSignature, MessageSquare } from "lucide-react";
+import { Eye, Copy, RefreshCw, FileSignature, MessageSquare, Pencil } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type NodeStatus = "pending" | "in_progress" | "complete";
 type ModalStatus = "notstarted" | "inprog" | "blocked" | "complete";
@@ -153,6 +163,66 @@ export default function ClientDetail() {
   const [nodes, setNodes] = useState<JourneyNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [openNodeId, setOpenNodeId] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    business_name: "",
+    contact_name: "",
+    contact_email: "",
+    contact_phone: "",
+    tier: "launch",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEdit = () => {
+    if (!client) return;
+    setEditForm({
+      business_name: client.business_name ?? "",
+      contact_name: client.contact_name ?? "",
+      contact_email: client.contact_email ?? "",
+      contact_phone: client.contact_phone ?? "",
+      tier: client.tier ?? "launch",
+    });
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!client) return;
+    const businessName = editForm.business_name.trim();
+    const contactName = editForm.contact_name.trim();
+    const contactEmail = editForm.contact_email.trim();
+    const contactPhone = editForm.contact_phone.trim();
+
+    if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    if (businessName.length > 200 || contactName.length > 200 || contactPhone.length > 60) {
+      toast.error("One of the fields is too long.");
+      return;
+    }
+
+    setSavingEdit(true);
+    const patch = {
+      business_name: businessName || null,
+      contact_name: contactName || null,
+      contact_email: contactEmail || null,
+      contact_phone: contactPhone || null,
+      tier: editForm.tier,
+    };
+    const { error } = await supabase
+      .from("clients")
+      .update(patch as never)
+      .eq("id", client.id);
+    setSavingEdit(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setClient({ ...client, ...patch });
+    setEditOpen(false);
+    toast.success("Contact details updated. SureContact will resync automatically.");
+  };
+
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1200, h: 700 });
@@ -338,6 +408,20 @@ export default function ClientDetail() {
                   </a>
                 </TooltipTrigger>
                 <TooltipContent>Open this client's portal as an admin preview</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
+                    onClick={openEdit}
+                    aria-label="Edit contact details"
+                  >
+                    <Pencil size={14} strokeWidth={1.5} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Edit contact details</TooltipContent>
               </Tooltip>
 
               <Tooltip>
@@ -529,6 +613,92 @@ export default function ClientDetail() {
           onReload={load}
         />
       )}
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Edit contact details</DialogTitle>
+            <DialogDescription>
+              Update business and contact information. Changes sync to SureContact automatically.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-business">Business name</Label>
+              <Input
+                id="edit-business"
+                value={editForm.business_name}
+                maxLength={200}
+                onChange={(e) => setEditForm((f) => ({ ...f, business_name: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name">Contact name</Label>
+              <Input
+                id="edit-name"
+                placeholder="First Last"
+                value={editForm.contact_name}
+                maxLength={200}
+                onChange={(e) => setEditForm((f) => ({ ...f, contact_name: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter as “First Last” — first/last are split automatically when syncing.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editForm.contact_email}
+                maxLength={255}
+                onChange={(e) => setEditForm((f) => ({ ...f, contact_email: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-phone">Phone</Label>
+              <Input
+                id="edit-phone"
+                value={editForm.contact_phone}
+                maxLength={60}
+                onChange={(e) => setEditForm((f) => ({ ...f, contact_phone: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-tier">Tier</Label>
+              <select
+                id="edit-tier"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={editForm.tier}
+                onChange={(e) => setEditForm((f) => ({ ...f, tier: e.target.value }))}
+              >
+                <option value="launch">Launch</option>
+                <option value="growth">Growth</option>
+              </select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="detail__portal-btn detail__portal-btn--ghost"
+              onClick={() => setEditOpen(false)}
+              disabled={savingEdit}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="detail__portal-btn"
+              onClick={saveEdit}
+              disabled={savingEdit}
+            >
+              {savingEdit ? "Saving…" : "Save changes"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
