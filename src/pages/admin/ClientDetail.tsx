@@ -413,6 +413,20 @@ export default function ClientDetail() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
+                    type="button"
+                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
+                    onClick={openEdit}
+                    aria-label="Edit contact details"
+                  >
+                    <Pencil size={14} strokeWidth={1.5} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Edit contact details</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
                     className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
                     onClick={async () => {
                       try {
