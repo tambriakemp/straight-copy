@@ -143,6 +143,18 @@ Deno.serve(async (req) => {
     customer?.last_name || data?.last_name || data?.checkout?.last_name || ''
   const fullName = [firstName, lastName].filter(Boolean).join(' ').trim()
 
+  // Subscription + customer IDs (SureCart shapes vary across event types)
+  const customerId: string =
+    customer?.id ||
+    data?.customer_id ||
+    data?.checkout?.customer?.id ||
+    ''
+  const subscriptionId: string =
+    data?.subscription?.id ||
+    data?.subscription_id ||
+    firstSubscriptionFromOrder(data) ||
+    ''
+
   // Product → tier (look at first line item)
   const lineItems =
     data?.line_items?.data ||
