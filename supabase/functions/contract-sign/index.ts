@@ -672,6 +672,8 @@ Deno.serve(async (req) => {
       const ua = req.headers.get("user-agent");
       const now = new Date();
 
+      const audit = (input as any).audit ?? null;
+
       // Insert contract row first (gets ID for pdf path)
       const { data: inserted, error: insertErr } = await supabase
         .from("client_contracts")
@@ -685,6 +687,7 @@ Deno.serve(async (req) => {
           client_signed_at: now.toISOString(),
           client_ip: ip,
           client_user_agent: ua,
+          client_audit: audit,
           agency_countersigned_at: now.toISOString(),
         })
         .select("id, agency_signer_name")
@@ -708,6 +711,10 @@ Deno.serve(async (req) => {
           agencyName: inserted.agency_signer_name,
           countersignedAt: now,
           ip,
+          userAgent: ua,
+          audit,
+          contractId: inserted.id,
+          templateVersion: template.version,
         });
 
         pdfPath = `contracts/${input.clientId}/${inserted.id}.pdf`;
