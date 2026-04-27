@@ -19,6 +19,9 @@ type PortalClient = {
   contact_name: string | null;
   tier: string;
   brand_kit_intake_submitted_at: string | null;
+  build_start_date: string | null;
+  delivery_date: string | null;
+  delivery_video_url: string | null;
   active_node: ActiveNode | null;
 };
 
