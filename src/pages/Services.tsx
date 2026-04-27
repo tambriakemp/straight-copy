@@ -20,6 +20,7 @@ const pricingTiers = [
     ],
     cta: "Start with Launch",
     featured: false,
+    href: "https://app.cre8visions.com/checkout/?line_items%5B0%5D%5Bprice_id%5D=4e9d2ca6-2011-4541-9a45-b02291d76abf&line_items%5B0%5D%5Bquantity%5D=1",
   },
   {
     label: "Most Popular",
