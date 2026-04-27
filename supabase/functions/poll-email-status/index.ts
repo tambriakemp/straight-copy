@@ -131,18 +131,16 @@ interface ClientRow {
 
 /**
  * Tier cadence based on age since client.created_at:
- *   0–48h: 15 minutes
- *   48h–10d: 2 hours
- *   10d+: 12 hours
+ *   0–48h: every 2 hours
+ *   48h+:  every 12 hours
  */
 function isDueForPoll(c: ClientRow, now: Date): boolean {
   if (!c.email_tracking_last_polled_at) return true;
   const last = new Date(c.email_tracking_last_polled_at).getTime();
   const ageHours = (now.getTime() - new Date(c.created_at).getTime()) / 3_600_000;
-  let intervalMs: number;
-  if (ageHours <= 48) intervalMs = 15 * 60 * 1000;
-  else if (ageHours <= 10 * 24) intervalMs = 2 * 60 * 60 * 1000;
-  else intervalMs = 12 * 60 * 60 * 1000;
+  const intervalMs = ageHours <= 48
+    ? 2 * 60 * 60 * 1000
+    : 12 * 60 * 60 * 1000;
   return now.getTime() - last >= intervalMs;
 }
 
