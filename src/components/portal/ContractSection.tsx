@@ -180,6 +180,8 @@ export default function ContractSection({
     }
 
     setSubmitting(true);
+    // Capture browser/device data for legal audit trail
+    const audit = collectAuditData();
     try {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/contract-sign`, {
         method: "POST",
@@ -191,6 +193,7 @@ export default function ContractSection({
           signatureName,
           signatureData,
           agreed: true,
+          audit,
         }),
       });
       const data = await resp.json();
