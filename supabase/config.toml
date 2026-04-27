@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.check-email-status]
 verify_jwt = true
+
+[functions.poll-email-status]
+verify_jwt = false
