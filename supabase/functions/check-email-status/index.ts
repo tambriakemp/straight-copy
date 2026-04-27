@@ -56,12 +56,11 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } },
     );
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);
-    if (claimsErr || !claims?.claims?.sub) {
+    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    if (userErr || !userData?.user?.id) {
       return json({ success: false, error: "Unauthorized" }, 401);
     }
-    const { data: isAdmin } = await supabase.rpc("is_admin", { _user_id: claims.claims.sub });
+    const { data: isAdmin } = await supabase.rpc("is_admin", { _user_id: userData.user.id });
     if (!isAdmin) return json({ success: false, error: "Forbidden" }, 403);
 
     const body = await req.json().catch(() => ({}));
