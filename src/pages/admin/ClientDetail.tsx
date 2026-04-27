@@ -880,6 +880,35 @@ function StageModal({
               <BrandKitPanel client={client} />
             )}
 
+            {node.key === "intake" && (
+              <BuildSchedulePanel client={client} onReload={onReload} />
+            )}
+
+            {node.key === "delivery" && (
+              <ClientFieldEditor
+                client={client}
+                field="delivery_video_url"
+                title="Delivery Video"
+                label="Video URL"
+                placeholder="https://… (Loom, Vimeo, YouTube)"
+                helpText="Pasting a link here makes it visible to the client in their portal."
+                onReload={onReload}
+              />
+            )}
+
+            {node.key === "automation_02" && (
+              <ClientFieldEditor
+                client={client}
+                field="build_update_note"
+                title="Build Update Note"
+                label="Note for client"
+                placeholder="What should the client know about this update?"
+                helpText="Saved here and synced to SureContact. When this stage is marked complete, your SureContact automation can use this note in the email it sends the client."
+                multiline
+                onReload={onReload}
+              />
+            )}
+
             <section>
               <div className="crm-modal__section-head">
                 <div className="crm-modal__section-title">Linked Asset</div>
