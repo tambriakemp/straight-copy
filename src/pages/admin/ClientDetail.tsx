@@ -73,6 +73,10 @@ interface Client {
   archived: boolean;
   brand_kit_intake: Record<string, unknown> | null;
   brand_kit_intake_submitted_at: string | null;
+  build_start_date: string | null;
+  delivery_date: string | null;
+  delivery_video_url: string | null;
+  build_update_note: string | null;
 }
 
 // ---------- S-curve geometry ----------
@@ -388,6 +392,18 @@ export default function ClientDetail() {
               <span>{daysSince}d since purchase</span>
               <span className="sep">·</span>
               <span>{client.contact_name || client.contact_email || "—"}</span>
+              {client.build_start_date && (
+                <>
+                  <span className="sep">·</span>
+                  <span>Build {format(new Date(client.build_start_date + "T12:00:00"), "MMM d")}</span>
+                </>
+              )}
+              {client.delivery_date && (
+                <>
+                  <span className="sep">·</span>
+                  <span>Delivery {format(new Date(client.delivery_date + "T12:00:00"), "MMM d")}</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -864,6 +880,35 @@ function StageModal({
               <BrandKitPanel client={client} />
             )}
 
+            {node.key === "intake" && (
+              <BuildSchedulePanel client={client} onReload={onReload} />
+            )}
+
+            {node.key === "delivery" && (
+              <ClientFieldEditor
+                client={client}
+                field="delivery_video_url"
+                title="Delivery Video"
+                label="Video URL"
+                placeholder="https://… (Loom, Vimeo, YouTube)"
+                helpText="Pasting a link here makes it visible to the client in their portal."
+                onReload={onReload}
+              />
+            )}
+
+            {node.key === "automation_02" && (
+              <ClientFieldEditor
+                client={client}
+                field="build_update_note"
+                title="Build Update Note"
+                label="Note for client"
+                placeholder="What should the client know about this update?"
+                helpText="Saved here and synced to SureContact. When this stage is marked complete, your SureContact automation can use this note in the email it sends the client."
+                multiline
+                onReload={onReload}
+              />
+            )}
+
             <section>
               <div className="crm-modal__section-head">
                 <div className="crm-modal__section-title">Linked Asset</div>
@@ -1271,3 +1316,122 @@ function NodeChecklist({
   );
 }
 
+
+// ---------- Build & Delivery schedule (intake node) ----------
+function BuildSchedulePanel({ client, onReload }: { client: Client; onReload: () => void }) {
+  const [buildStart, setBuildStart] = useState(client.build_start_date || "");
+  const [delivery, setDelivery] = useState(client.delivery_date || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setBuildStart(client.build_start_date || "");
+    setDelivery(client.delivery_date || "");
+  }, [client.id, client.build_start_date, client.delivery_date]);
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase
+      .from("clients")
+      .update({
+        build_start_date: buildStart || null,
+        delivery_date: delivery || null,
+      } as never)
+      .eq("id", client.id);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Schedule updated. SureContact will resync.");
+    onReload();
+  };
+
+  return (
+    <section>
+      <div className="crm-modal__section-head">
+        <div className="crm-modal__section-title">Build &amp; Delivery</div>
+      </div>
+      <p style={{ fontSize: 12, color: "hsl(30 8% 62%)", margin: "0 0 12px" }}>
+        Auto-set the day after intake completes (next-day EST), with delivery 8 days later. Adjust if needed.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
+          Build start
+          <input type="date" className="crm-input" value={buildStart} onChange={(e) => setBuildStart(e.target.value)} />
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
+          Delivery
+          <input type="date" className="crm-input" value={delivery} onChange={(e) => setDelivery(e.target.value)} />
+        </label>
+      </div>
+      <div style={{ marginTop: 10 }}>
+        <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={save} disabled={saving}>
+          {saving ? "Saving…" : "Save schedule"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// ---------- Generic single-field editor used for delivery video URL & build update note ----------
+function ClientFieldEditor({
+  client, field, title, label, placeholder, helpText, multiline, onReload,
+}: {
+  client: Client;
+  field: "delivery_video_url" | "build_update_note";
+  title: string;
+  label: string;
+  placeholder: string;
+  helpText?: string;
+  multiline?: boolean;
+  onReload: () => void;
+}) {
+  const initial = (client[field] as string | null) || "";
+  const [value, setValue] = useState(initial);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setValue((client[field] as string | null) || ""); }, [client.id, client[field]]);
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase
+      .from("clients")
+      .update({ [field]: value.trim() || null } as never)
+      .eq("id", client.id);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${title} saved. SureContact will resync.`);
+    onReload();
+  };
+
+  return (
+    <section>
+      <div className="crm-modal__section-head">
+        <div className="crm-modal__section-title">{title}</div>
+      </div>
+      {helpText && (
+        <p style={{ fontSize: 12, color: "hsl(30 8% 62%)", margin: "0 0 10px" }}>{helpText}</p>
+      )}
+      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
+        {label}
+        {multiline ? (
+          <textarea
+            className="crm-notes-area"
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        ) : (
+          <input
+            className="crm-input"
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        )}
+      </label>
+      <div style={{ marginTop: 10 }}>
+        <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={save} disabled={saving || value === initial}>
+          {saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+    </section>
+  );
+}

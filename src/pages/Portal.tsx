@@ -19,6 +19,9 @@ type PortalClient = {
   contact_name: string | null;
   tier: string;
   brand_kit_intake_submitted_at: string | null;
+  build_start_date: string | null;
+  delivery_date: string | null;
+  delivery_video_url: string | null;
   active_node: ActiveNode | null;
 };
 
@@ -384,7 +387,56 @@ export default function Portal() {
               Welcome{client.contact_name ? `, ${client.contact_name}` : ""}.
               {contactEmail ? ` We'll keep you posted at ${contactEmail}.` : ""}
             </p>
+            {(client.build_start_date || client.delivery_date) && (
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 24,
+                  marginTop: 18,
+                  fontSize: 13,
+                  letterSpacing: "0.04em",
+                  color: "hsl(30 8% 62%)",
+                }}
+              >
+                {client.build_start_date && (
+                  <span>
+                    <strong style={{ color: "hsl(40 20% 97%)", fontWeight: 500 }}>Build starts</strong>{" "}
+                    {new Date(client.build_start_date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                )}
+                {client.delivery_date && (
+                  <span>
+                    <strong style={{ color: "hsl(40 20% 97%)", fontWeight: 500 }}>Delivery</strong>{" "}
+                    {new Date(client.delivery_date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                )}
+              </div>
+            )}
           </section>
+
+          {/* Delivery video — shown once admin pastes a link */}
+          {client.delivery_video_url && (
+            <section className="portal-confirm" id="portal-delivery-video" style={{ scrollMarginTop: 24 }}>
+              <div className="portal-confirm__eyebrow">Your Delivery</div>
+              <h2 className="portal-confirm__title">
+                Walk<em>through</em>.
+              </h2>
+              <hr className="portal-confirm__rule" />
+              <p className="portal-confirm__sub">
+                Your delivery video is ready. Watch the walkthrough below.
+              </p>
+              <a
+                href={client.delivery_video_url}
+                target="_blank"
+                rel="noreferrer"
+                className="crm-btn crm-btn--bronze crm-btn--sm"
+                style={{ display: "inline-block", marginTop: 16 }}
+              >
+                Watch delivery video →
+              </a>
+            </section>
+          )}
 
           {/* Contract — sign your service agreement */}
           <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
