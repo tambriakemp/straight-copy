@@ -210,6 +210,16 @@ Deno.serve(async (req) => {
     token = existing.token
     inviteId = existing.id
     console.log('Reusing existing invite for order', orderId)
+    // Backfill subscription IDs in case they were missing on the first event
+    if (subscriptionId || customerId) {
+      await supabase
+        .from('onboarding_invites')
+        .update({
+          surecart_subscription_id: subscriptionId || null,
+          surecart_customer_id: customerId || null,
+        })
+        .eq('id', inviteId)
+    }
   } else {
     token = randomToken(20)
     const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString()
@@ -221,6 +231,8 @@ Deno.serve(async (req) => {
         contact_email: email,
         tier,
         source_order_id: orderId,
+        surecart_subscription_id: subscriptionId || null,
+        surecart_customer_id: customerId || null,
         note: `Auto-created from SureCart order #${orderNumber}`,
         expires_at: expiresAt,
       })
@@ -234,6 +246,24 @@ Deno.serve(async (req) => {
       })
     }
     inviteId = created.id
+  }
+
+  // If a client already exists for this email (re-purchase, manual creation,
+  // or the trigger ran from a previous onboarding), copy the subscription IDs
+  // onto it so the cancel button works.
+  if (subscriptionId) {
+    await supabase
+      .from('clients')
+      .update({
+        surecart_subscription_id: subscriptionId,
+        surecart_customer_id: customerId || null,
+        surecart_order_id: orderId || null,
+        subscription_status: 'active',
+        subscription_canceled_at: null,
+        subscription_cancel_at_period_end: false,
+      })
+      .eq('contact_email', email)
+      .is('surecart_subscription_id', null)
   }
 
   const inviteUrl = `${SITE_URL}/onboarding?invite=${token}`
