@@ -25,7 +25,10 @@ export default function ContractSection({
   clientId: string;
   contactName: string | null;
 }) {
-  const [open, setOpen] = useState(true);
+  // Collapsed by default; we expand automatically when there's no signed
+  // contract yet (so the client sees the document and the sign CTA).
+  const [open, setOpen] = useState(false);
+  const [userToggled, setUserToggled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [template, setTemplate] = useState<ContractTemplate | null>(null);
   const [contract, setContract] = useState<SignedContract | null>(null);
@@ -60,6 +63,11 @@ export default function ContractSection({
       if (!resp.ok) throw new Error(data.error || "Failed to load contract");
       setTemplate(data.template);
       setContract(data.contract);
+      // Auto-expand only when unsigned — keep collapsed once signed unless
+      // the client explicitly opens it.
+      if (!userToggled) {
+        setOpen(!data.contract);
+      }
     } catch (e) {
       console.error("[contract] load failed", e);
     } finally {
@@ -199,6 +207,7 @@ export default function ContractSection({
 
   const downloadPdf = async () => {
     if (!contract) return;
+    const filename = `cre8-visions-service-agreement-${contract.id}.pdf`;
     try {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/contract-sign`, {
         method: "POST",
@@ -207,7 +216,25 @@ export default function ContractSection({
       });
       const data = await resp.json();
       if (!resp.ok || !data.pdfUrl) throw new Error(data.error || "Download failed");
-      window.open(data.pdfUrl, "_blank", "noopener");
+
+      // Fetch as blob so the browser actually downloads the PDF instead of
+      // navigating away or being blocked as a cross-origin popup.
+      try {
+        const fileResp = await fetch(data.pdfUrl);
+        if (!fileResp.ok) throw new Error("Could not retrieve PDF");
+        const blob = await fileResp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } catch {
+        // Fallback: open the signed URL in a new tab.
+        window.open(data.pdfUrl, "_blank", "noopener");
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Download failed");
     }
