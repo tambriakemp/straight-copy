@@ -890,7 +890,10 @@ function StageModal({
             )}
 
             {node.key === "intake" && (
-              <BuildSchedulePanel client={client} onReload={onReload} />
+              <>
+                <EmailTrackingPanel client={client} onReload={onReload} />
+                <BuildSchedulePanel client={client} onReload={onReload} />
+              </>
             )}
 
             {node.key === "delivery" && (
