@@ -39,6 +39,7 @@ const pricingTiers = [
     ],
     cta: "Start with Growth",
     featured: true,
+    href: "https://app.cre8visions.com/checkout/?line_items%5B0%5D%5Bprice_id%5D=b23d2c69-5584-434f-8589-cc27acaa6cba&line_items%5B0%5D%5Bquantity%5D=1",
   },
 ];
 
