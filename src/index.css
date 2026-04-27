@@ -880,13 +880,15 @@
     margin: 0 24px 24px;
     border: 1px solid var(--crm-border-dark);
   }
+  /* Keep legend pinned to the bottom of the canvas at tablet sizes too,
+     so it doesn't collide with the absolute detail__bar at the top. */
   .crm-shell .canvas__legend {
-    position: relative; left: auto; right: auto; bottom: auto;
-    margin: 0 24px 24px;
+    left: 24px; right: auto; bottom: 20px;
     gap: 18px; padding: 12px 18px;
     flex-wrap: wrap;
   }
   .crm-shell .canvas__hint { display: none; }
+
 }
 
 
