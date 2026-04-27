@@ -7,6 +7,7 @@
 //
 // verify_jwt = false (public). All access is mediated by the function.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { flipChecklistItem } from "../_shared/auto-checklist.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
