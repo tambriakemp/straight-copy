@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.contract-sign]
 verify_jwt = false
+
+[functions.check-email-status]
+verify_jwt = true

@@ -281,6 +281,7 @@ export type Database = {
           surecart_customer_id: string | null
           surecart_order_id: string | null
           surecart_subscription_id: string | null
+          surecontact_contact_uuid: string | null
           tier: string
           updated_at: string
         }
@@ -326,6 +327,7 @@ export type Database = {
           surecart_customer_id?: string | null
           surecart_order_id?: string | null
           surecart_subscription_id?: string | null
+          surecontact_contact_uuid?: string | null
           tier?: string
           updated_at?: string
         }
@@ -371,6 +373,7 @@ export type Database = {
           surecart_customer_id?: string | null
           surecart_order_id?: string | null
           surecart_subscription_id?: string | null
+          surecontact_contact_uuid?: string | null
           tier?: string
           updated_at?: string
         }
