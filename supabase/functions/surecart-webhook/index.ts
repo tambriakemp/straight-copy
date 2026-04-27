@@ -132,6 +132,43 @@ Deno.serve(async (req) => {
     eventType === 'order.paid' ||
     eventType === 'checkout.completed' ||
     eventType === 'checkout.paid'
+  const isSubscriptionEvent = eventType.startsWith('subscription.')
+
+  // Subscription lifecycle events: keep clients.subscription_status in sync.
+  if (isSubscriptionEvent) {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+    const sub = event?.data?.object || event?.data || event
+    const subId: string = sub?.id || sub?.subscription_id || ''
+    if (!subId) {
+      return new Response(JSON.stringify({ ok: true, ignored: 'no_sub_id' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    const status: string = sub?.status || (eventType.endsWith('.canceled') ? 'canceled' : 'active')
+    const cancelAtPeriodEnd: boolean = !!sub?.cancel_at_period_end
+    const canceledAtSec: number | null = sub?.canceled_at ?? null
+    const cpEndSec: number | null = sub?.current_period_end_at ?? sub?.current_period_end ?? null
+    const toIso = (s: number | null) =>
+      s ? new Date((s > 1e12 ? s : s * 1000)).toISOString() : null
+    const { error: upErr } = await supabase
+      .from('clients')
+      .update({
+        subscription_status: status,
+        subscription_cancel_at_period_end: cancelAtPeriodEnd,
+        subscription_canceled_at: toIso(canceledAtSec),
+        subscription_current_period_end: toIso(cpEndSec),
+      })
+      .eq('surecart_subscription_id', subId)
+    if (upErr) console.error('Subscription sync error', upErr)
+    return new Response(JSON.stringify({ ok: true, synced: subId, status }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
 
   if (!isPaid) {
     return new Response(JSON.stringify({ ok: true, ignored: eventType }), {
