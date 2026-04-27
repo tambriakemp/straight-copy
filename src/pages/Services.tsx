@@ -223,14 +223,14 @@ const Services = () => {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  to="/contact"
+                <a
+                  href={p.href}
                   className={`font-sans text-[11px] tracking-[0.2em] uppercase text-warm-white px-10 py-4 no-underline inline-block hover:-translate-y-0.5 transition-all duration-300 ${
                     p.featured ? "bg-accent hover:bg-accent/90" : "bg-ink hover:bg-accent"
                   }`}
                 >
                   {p.cta}
-                </Link>
+                </a>
               </div>
             ))}
           </div>
