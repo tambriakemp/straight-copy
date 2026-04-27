@@ -27,6 +27,20 @@ function randomToken(len = 20) {
   ).join('')
 }
 
+// Try to pull a subscription id out of an order payload (line_items[].subscription)
+function firstSubscriptionFromOrder(data: any): string {
+  const items =
+    data?.line_items?.data ||
+    data?.line_items ||
+    data?.checkout?.line_items?.data ||
+    []
+  if (!Array.isArray(items)) return ''
+  for (const it of items) {
+    const sid = it?.subscription?.id || it?.subscription_id || it?.subscription
+    if (typeof sid === 'string' && sid) return sid
+  }
+  return ''
+
 async function verifySignature(
   rawBody: string,
   signatureHeader: string | null,
