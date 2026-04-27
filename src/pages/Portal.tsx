@@ -111,7 +111,7 @@ export default function Portal() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${PUB_KEY}`,
         },
-        body: JSON.stringify({ clientId, action: "resolve" }),
+        body: JSON.stringify({ clientId, action: "resolve", asAdmin: adminPreview }),
       });
       if (resp.status === 404) {
         setNotFound(true);
@@ -145,7 +145,7 @@ export default function Portal() {
     } finally {
       setLoading(false);
     }
-  }, [clientId, lsKey]);
+  }, [clientId, lsKey, adminPreview]);
 
   useEffect(() => { resolve(); }, [resolve]);
 
