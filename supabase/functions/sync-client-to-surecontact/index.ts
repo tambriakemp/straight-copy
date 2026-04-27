@@ -145,6 +145,25 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Best-effort: extract the SureContact contact UUID from the upsert
+    // response and persist it on the client so other functions (like
+    // check-email-status) can call activity endpoints without a lookup.
+    try {
+      const d: any = result.data;
+      const uuid =
+        d?.contact?.uuid ?? d?.contact?.id ??
+        d?.data?.uuid ?? d?.data?.id ??
+        d?.uuid ?? d?.id ?? null;
+      if (uuid && typeof uuid === "string") {
+        await supabase
+          .from("clients")
+          .update({ surecontact_contact_uuid: uuid })
+          .eq("id", clientId);
+      }
+    } catch (e) {
+      console.warn("[sync-client-to-surecontact] failed to persist contact uuid", e);
+    }
+
     return json({
       success: true,
       portal_url: portalUrl,
