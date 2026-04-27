@@ -205,6 +205,10 @@ Deno.serve(async (req) => {
 
     // ---------- RESOLVE ----------
     if (action === "resolve") {
+      // Flip portal_accessed when a real client (not admin impersonation) loads the portal.
+      if (!body.asAdmin) {
+        try { await flipChecklistItem(supabase as any, clientId, "intake", "intake.portal_accessed"); } catch {/* ignore */}
+      }
       const { data: row } = await supabase
         .from("clients")
         .select("brand_kit_conversation, brand_kit_intake_submitted_at, contact_email, client_account_access, surecart_subscription_id, subscription_status, subscription_canceled_at, subscription_current_period_end, subscription_cancel_at_period_end")
