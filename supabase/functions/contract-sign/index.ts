@@ -253,7 +253,10 @@ export async function renderContractPdf(input: RenderInput): Promise<Uint8Array>
     serifBold: await doc.embedFont(fontBytes.serifBold, { subset: true }),
     serifItalic: await doc.embedFont(fontBytes.serifItalic, { subset: true }),
     body: await doc.embedFont(fontBytes.body, { subset: true }),
-    script: await doc.embedFont(fontBytes.script, { subset: true }),
+    // Great Vibes uses contextual alternates / ligatures — disable subsetting
+    // so all glyphs in the signed name render correctly (avoids "only one
+    // letter shows" issue with pdf-lib subsetting).
+    script: await doc.embedFont(fontBytes.script, { subset: false }),
   };
 
   const c: Cursor = { doc, page: doc.addPage([PAGE_W, PAGE_H]), y: PAGE_H - MARGIN_Y_TOP, fonts };
