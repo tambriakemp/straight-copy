@@ -399,6 +399,122 @@ export async function renderContractPdf(input: RenderInput): Promise<Uint8Array>
     colWidth,
   );
 
+  // ---------- Electronic Signature Audit Page ----------
+  newPage(c);
+  c.page.drawText("CRE8 VISIONS, LLC", {
+    x: MARGIN_X, y: c.y - 9, size: 9, font: c.fonts.body, color: BRONZE,
+  });
+  c.y -= 26;
+  c.page.drawText("Electronic Signature Certificate", {
+    x: MARGIN_X, y: c.y - 20, size: 20, font: c.fonts.serifBold, color: INK,
+  });
+  c.y -= 30;
+  c.page.drawText(
+    "This certificate documents the electronic execution of the foregoing Agreement",
+    { x: MARGIN_X, y: c.y - 10, size: 10, font: c.fonts.serifItalic, color: TAUPE },
+  );
+  c.y -= 14;
+  c.page.drawText(
+    "and constitutes the audit record relied upon for legal validity (E-SIGN Act / UETA).",
+    { x: MARGIN_X, y: c.y - 10, size: 10, font: c.fonts.serifItalic, color: TAUPE },
+  );
+  c.y -= 22;
+  drawHorizontalRule(c);
+
+  const fmtDateTime = (iso?: string) => {
+    if (!iso) return "—";
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString("en-US", {
+        year: "numeric", month: "long", day: "numeric",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+        timeZoneName: "short",
+      });
+    } catch { return iso; }
+  };
+
+  const drawKV = (label: string, value: string) => {
+    const labelSize = 8;
+    const valueSize = 9.5;
+    const lineHeight = 13;
+    const labelW = 130;
+    const valueMaxW = PAGE_W - MARGIN_X * 2 - labelW;
+    const lines = wrapText(value || "—", c.fonts.body, valueSize, valueMaxW);
+    ensureSpace(c, lines.length * lineHeight + 4);
+    c.page.drawText(label.toUpperCase(), {
+      x: MARGIN_X, y: c.y - labelSize, size: labelSize, font: c.fonts.body, color: BRONZE,
+    });
+    let yy = c.y - valueSize;
+    for (const ln of lines) {
+      c.page.drawText(ln, {
+        x: MARGIN_X + labelW, y: yy, size: valueSize, font: c.fonts.body, color: INK,
+      });
+      yy -= lineHeight;
+    }
+    c.y -= Math.max(lineHeight, lines.length * lineHeight) + 4;
+  };
+
+  const drawSubhead = (text: string) => {
+    ensureSpace(c, 24);
+    c.y -= 6;
+    c.page.drawText(text, {
+      x: MARGIN_X, y: c.y - 11, size: 11, font: c.fonts.serifBold, color: INK,
+    });
+    c.y -= 18;
+  };
+
+  const a = input.audit ?? {};
+  const sig = input.clientSignature;
+
+  drawSubhead("Document");
+  drawKV("Agreement", input.template.title);
+  drawKV("Template Version", input.templateVersion || input.template.version);
+  if (input.contractId) drawKV("Contract ID", input.contractId);
+  drawKV("Client", input.businessName);
+  drawKV("Signatory", sig.name);
+
+  drawSubhead("Signature Event");
+  drawKV("Method", sig.type === "drawn" ? "Hand-drawn (canvas, PNG)" : "Typed name");
+  drawKV("Consent", "Signatory affirmatively checked the consent box and clicked Sign.");
+  drawKV("Signed At (UTC)", fmtDateTime(input.signedAt.toISOString()));
+  if (a.signedAtLocal) drawKV("Signed At (Local)", a.signedAtLocal);
+  drawKV("Countersigned (UTC)", fmtDateTime(input.countersignedAt.toISOString()));
+  drawKV("Countersigner", `${input.agencyName} for Cre8 Visions, LLC`);
+
+  drawSubhead("Network & Origin");
+  drawKV("IP Address", input.ip || "Not captured");
+  drawKV("Page URL", a.pageUrl || "—");
+  drawKV("Referrer", a.referrer || "—");
+
+  drawSubhead("Device & Browser");
+  drawKV("User Agent", a.userAgent || input.userAgent || "—");
+  drawKV("Platform", a.platform || "—");
+  drawKV("Language", a.language || "—");
+  if (a.languages && a.languages.length) drawKV("Languages", a.languages.join(", "));
+  drawKV("Timezone", a.timezone ? `${a.timezone} (${a.timezoneOffset || ""})`.trim() : "—");
+  if (a.screen) {
+    const s = a.screen;
+    drawKV(
+      "Screen",
+      `${s.width ?? "?"} x ${s.height ?? "?"} px @${s.pixelRatio ?? 1}x, ${s.colorDepth ?? "?"}-bit`,
+    );
+  }
+  if (a.viewport) {
+    drawKV("Viewport", `${a.viewport.width ?? "?"} x ${a.viewport.height ?? "?"} px`);
+  }
+
+  c.y -= 8;
+  drawHorizontalRule(c);
+  drawBody(
+    c,
+    "By electronically signing the Agreement, the signatory consented to do business electronically and " +
+      "agreed that their typed or drawn signature constitutes a legally binding signature equivalent to a " +
+      "handwritten signature under the U.S. E-SIGN Act (15 U.S.C. ch. 96) and the Uniform Electronic " +
+      "Transactions Act (UETA), as well as comparable laws of the signatory's jurisdiction. Cre8 Visions, " +
+      "LLC retains this audit record together with the executed Agreement as evidence of the parties' " +
+      "intent to be bound.",
+  );
+
   return await doc.save();
 }
 
