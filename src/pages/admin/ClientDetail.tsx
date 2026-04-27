@@ -1329,6 +1329,141 @@ function NodeChecklist({
 }
 
 
+// ---------- Email tracking (intake node) ----------
+type EmailKey = "welcome" | "scope" | "kickoff" | "day3" | "delivery";
+interface EmailTrackingRow {
+  client_id: string;
+  welcome_sent_at: string | null;  welcome_opened_at: string | null;
+  scope_sent_at: string | null;    scope_opened_at: string | null;
+  kickoff_sent_at: string | null;  kickoff_opened_at: string | null;
+  day3_sent_at: string | null;     day3_opened_at: string | null;
+  delivery_sent_at: string | null; delivery_opened_at: string | null;
+  updated_at: string | null;
+}
+
+const EMAIL_LABELS: Record<EmailKey, string> = {
+  welcome: "Welcome",
+  scope: "Scope summary",
+  kickoff: "Kickoff confirmation",
+  day3: "Build update (Day 3)",
+  delivery: "Delivery (AI OS is live)",
+};
+
+function EmailTrackingPanel({ client, onReload }: { client: Client; onReload: () => void }) {
+  const [tracking, setTracking] = useState<EmailTrackingRow | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const paused = !!client.email_tracking_paused_at;
+  const completeAt = client.email_tracking_complete_at;
+  const lastChecked = tracking?.updated_at || client.email_tracking_last_polled_at || null;
+
+  const loadCached = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("client_email_tracking")
+      .select("*")
+      .eq("client_id", client.id)
+      .maybeSingle();
+    setTracking((data as EmailTrackingRow | null) ?? null);
+    setLoading(false);
+  }, [client.id]);
+
+  useEffect(() => { loadCached(); }, [loadCached]);
+
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-email-status", {
+        body: { clientId: client.id },
+      });
+      if (error) {
+        toast.error("Refresh failed");
+      } else if (data?.success) {
+        await loadCached();
+        onReload();
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const togglePause = async () => {
+    const next = paused
+      ? { email_tracking_paused_at: null, email_tracking_paused_reason: null }
+      : { email_tracking_paused_at: new Date().toISOString(), email_tracking_paused_reason: "manual" };
+    const { error } = await supabase
+      .from("clients")
+      .update(next as never)
+      .eq("id", client.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(paused ? "Email tracking resumed" : "Email tracking paused");
+    onReload();
+  };
+
+  const rows: { key: EmailKey; sent: string | null; opened: string | null }[] = [
+    { key: "welcome",  sent: tracking?.welcome_sent_at ?? null,  opened: tracking?.welcome_opened_at ?? null },
+    { key: "scope",    sent: tracking?.scope_sent_at ?? null,    opened: tracking?.scope_opened_at ?? null },
+    { key: "kickoff",  sent: tracking?.kickoff_sent_at ?? null,  opened: tracking?.kickoff_opened_at ?? null },
+    { key: "day3",     sent: tracking?.day3_sent_at ?? null,     opened: tracking?.day3_opened_at ?? null },
+    { key: "delivery", sent: tracking?.delivery_sent_at ?? null, opened: tracking?.delivery_opened_at ?? null },
+  ];
+
+  return (
+    <section>
+      <div className="crm-modal__section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="crm-modal__section-title">SureContact emails</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={refresh} disabled={refreshing || paused}>
+            {refreshing ? "Checking…" : "Refresh"}
+          </button>
+          <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={togglePause}>
+            {paused ? "Resume" : "Pause"}
+          </button>
+        </div>
+      </div>
+
+      <p style={{ fontSize: 12, color: "hsl(30 8% 62%)", margin: "0 0 10px" }}>
+        {completeAt
+          ? `All five emails confirmed sent + opened on ${format(new Date(completeAt), "MMM d, yyyy")} — polling stopped.`
+          : paused
+          ? `Polling paused${client.email_tracking_paused_reason ? ` (${client.email_tracking_paused_reason})` : ""}.`
+          : `Auto-checked every 15 min – 12 hr (tier-based). ${lastChecked ? `Last checked ${format(new Date(lastChecked), "MMM d, h:mm a")}.` : "Not checked yet."}`}
+      </p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {rows.map((r) => (
+          <div
+            key={r.key}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr auto auto",
+              gap: 12,
+              alignItems: "center",
+              padding: "8px 10px",
+              border: "1px solid hsl(30 8% 22%)",
+              borderRadius: 4,
+              fontSize: 12,
+            }}
+          >
+            <span style={{ color: "hsl(40 20% 90%)" }}>{EMAIL_LABELS[r.key]}</span>
+            <span style={{ color: r.sent ? "hsl(140 40% 65%)" : "hsl(30 8% 50%)", letterSpacing: "0.15em", textTransform: "uppercase", fontSize: 10 }}>
+              {r.sent ? `Sent ${format(new Date(r.sent), "MMM d")}` : "Not sent"}
+            </span>
+            <span style={{ color: r.opened ? "hsl(40 60% 70%)" : "hsl(30 8% 40%)", letterSpacing: "0.15em", textTransform: "uppercase", fontSize: 10 }}>
+              {r.opened ? "Opened" : "—"}
+            </span>
+          </div>
+        ))}
+        {loading && !tracking && (
+          <div style={{ fontSize: 11, color: "hsl(30 8% 50%)" }}>Loading cached status…</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+
 // ---------- Build & Delivery schedule (intake node) ----------
 function BuildSchedulePanel({ client, onReload }: { client: Client; onReload: () => void }) {
   const [buildStart, setBuildStart] = useState(client.build_start_date || "");
