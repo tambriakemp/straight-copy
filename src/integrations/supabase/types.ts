@@ -270,6 +270,13 @@ export type Database = {
           onboarding_submission_id: string | null
           pipeline_stage: string
           purchased_at: string | null
+          subscription_cancel_at_period_end: boolean
+          subscription_canceled_at: string | null
+          subscription_current_period_end: string | null
+          subscription_status: string | null
+          surecart_customer_id: string | null
+          surecart_order_id: string | null
+          surecart_subscription_id: string | null
           tier: string
           updated_at: string
         }
@@ -304,6 +311,13 @@ export type Database = {
           onboarding_submission_id?: string | null
           pipeline_stage?: string
           purchased_at?: string | null
+          subscription_cancel_at_period_end?: boolean
+          subscription_canceled_at?: string | null
+          subscription_current_period_end?: string | null
+          subscription_status?: string | null
+          surecart_customer_id?: string | null
+          surecart_order_id?: string | null
+          surecart_subscription_id?: string | null
           tier?: string
           updated_at?: string
         }
@@ -338,6 +352,13 @@ export type Database = {
           onboarding_submission_id?: string | null
           pipeline_stage?: string
           purchased_at?: string | null
+          subscription_cancel_at_period_end?: boolean
+          subscription_canceled_at?: string | null
+          subscription_current_period_end?: string | null
+          subscription_status?: string | null
+          surecart_customer_id?: string | null
+          surecart_order_id?: string | null
+          surecart_subscription_id?: string | null
           tier?: string
           updated_at?: string
         }
