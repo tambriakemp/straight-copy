@@ -233,6 +233,21 @@ function drawSignatureBlock(c: Cursor, block: SignatureBlock, x: number, blockWi
   }
 }
 
+interface AuditData {
+  userAgent?: string;
+  platform?: string;
+  language?: string;
+  languages?: string[];
+  timezone?: string;
+  timezoneOffset?: string;
+  screen?: { width?: number | null; height?: number | null; pixelRatio?: number | null; colorDepth?: number | null };
+  viewport?: { width?: number | null; height?: number | null };
+  referrer?: string;
+  pageUrl?: string;
+  signedAtLocal?: string;
+  signedAtIso?: string;
+}
+
 interface RenderInput {
   template: ContractTemplate;
   businessName: string;
@@ -242,6 +257,10 @@ interface RenderInput {
   agencyName: string;
   countersignedAt: Date;
   ip: string | null;
+  userAgent?: string | null;
+  audit?: AuditData | null;
+  contractId?: string;
+  templateVersion?: string;
 }
 
 export async function renderContractPdf(input: RenderInput): Promise<Uint8Array> {
