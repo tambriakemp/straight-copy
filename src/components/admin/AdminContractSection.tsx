@@ -47,6 +47,7 @@ export default function AdminContractSection({ clientId }: { clientId: string })
 
   const downloadPdf = async () => {
     if (!contract) return;
+    const filename = `cre8-visions-service-agreement-${contract.id}.pdf`;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/contract-sign`, {
@@ -59,7 +60,24 @@ export default function AdminContractSection({ clientId }: { clientId: string })
       });
       const data = await resp.json();
       if (!resp.ok || !data.pdfUrl) throw new Error(data.error || "No PDF available");
-      window.open(data.pdfUrl, "_blank", "noopener");
+
+      // Fetch as blob to force a real file download (cross-origin storage URLs
+      // ignore the `download` attribute, and async window.open is often blocked).
+      try {
+        const fileResp = await fetch(data.pdfUrl);
+        if (!fileResp.ok) throw new Error("Could not retrieve PDF");
+        const blob = await fileResp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } catch {
+        window.open(data.pdfUrl, "_blank", "noopener");
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Download failed");
     }
