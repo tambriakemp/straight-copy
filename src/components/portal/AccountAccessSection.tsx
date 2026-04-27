@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -18,10 +18,31 @@ export type AccountAccessState = {
 const ACCOUNTS_BASE: Array<{
   key: string;
   label: string;
-  desc: string;
+  desc: ReactNode;
   growthOnly?: boolean;
 }> = [
-  { key: "surecontact", label: "SureContact", desc: "This is where all your email sequences and client communications will live." },
+  {
+    key: "surecontact",
+    label: "SureContact",
+    desc: (
+      <>
+        This is where all your email sequences and client communications will live. You can sign up{" "}
+        <a
+          href="https://surecontact.com/?aff=63f97d32"
+          target="_blank"
+          rel="noreferrer"
+          className="portal-access__link"
+        >
+          here
+        </a>
+        . As of right now, they're offering a limited-time lifetime deal — no monthly platform fee, just a one-time payment. You'll only pay for the emails you actually send, not for housing your contacts. Once you've signed up, click <strong>Members</strong> and add{" "}
+        <a href="mailto:info@cre8visions.com" className="portal-access__link">
+          info@cre8visions.com
+        </a>{" "}
+        as a member. When that's done, check this item off so the team knows it's complete.
+      </>
+    ),
+  },
   { key: "ottokit", label: "Ottokit", desc: "This is where all your automations and workflows will be built and managed." },
   { key: "social_media", label: "Social Media Accounts", desc: "We'll need admin access to whichever platforms you want to publish content on." },
   { key: "website", label: "Website Access", desc: "We'll need login access to your website to connect your lead capture system." },
