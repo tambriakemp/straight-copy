@@ -365,7 +365,7 @@ export default function Portal() {
           <div className="portal-header__right">
             {node && (
               <span className="portal-chip">
-                Step {String(node.order_index).padStart(2, "0")} of 10 · {node.label}
+                Step {String(node.order_index + 1).padStart(2, "0")} of 10 · {node.label}
               </span>
             )}
           </div>
@@ -462,28 +462,29 @@ export default function Portal() {
             />
           </div>
 
-          {/* Body */}
-          <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
-            {isBrandKitDone ? (
-              <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
-            ) : isBrandKitActive ? (
-              <BrandKitChat
-                node={node!}
-                stage={stage}
-                messages={messages}
-                input={input}
-                setInput={setInput}
-                isStreaming={isStreaming}
-                readyToSubmit={readyToSubmit}
-                submitting={submitting}
-                onSend={send}
-                onSubmit={submit}
-                scrollRef={scrollRef}
-              />
-            ) : (
-              <PlaceholderCard node={node} />
-            )}
-          </div>
+          {/* Body — only render Brand Kit chat / confirmation. Other nodes are
+              communicated via the header chip; no redundant placeholder card. */}
+          {(isBrandKitDone || isBrandKitActive) && (
+            <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
+              {isBrandKitDone ? (
+                <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
+              ) : (
+                <BrandKitChat
+                  node={node!}
+                  stage={stage}
+                  messages={messages}
+                  input={input}
+                  setInput={setInput}
+                  isStreaming={isStreaming}
+                  readyToSubmit={readyToSubmit}
+                  submitting={submitting}
+                  onSend={send}
+                  onSubmit={submit}
+                  scrollRef={scrollRef}
+                />
+              )}
+            </div>
+          )}
         </main>
       </div>
     </div>
