@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
 import ContractSection from "@/components/portal/ContractSection";
+import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type ActiveNode = {
@@ -75,6 +76,13 @@ export default function Portal() {
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState<string | null>(null);
   const [accountAccess, setAccountAccess] = useState<AccountAccessState>({});
+  const [subscription, setSubscription] = useState<SubscriptionState>({
+    id: null,
+    status: null,
+    canceled_at: null,
+    current_period_end: null,
+    cancel_at_period_end: false,
+  });
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -112,6 +120,15 @@ export default function Portal() {
       setSubmittedAt(data.submittedAt);
       setContactEmail(data.contactEmail);
       setAccountAccess(data.accountAccess ?? {});
+      if (data.subscription) {
+        setSubscription({
+          id: data.subscription.id ?? null,
+          status: data.subscription.status ?? null,
+          canceled_at: data.subscription.canceled_at ?? null,
+          current_period_end: data.subscription.current_period_end ?? null,
+          cancel_at_period_end: !!data.subscription.cancel_at_period_end,
+        });
+      }
 
       // Rehydrate transcript: prefer localStorage if it has more turns
       const cached = lsKey ? localStorage.getItem(lsKey) : null;
@@ -383,6 +400,15 @@ export default function Portal() {
             tier={client.tier}
             initial={accountAccess}
           />
+
+          {/* Subscription — manage plan / cancel / resume */}
+          <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
+            <SubscriptionSection
+              clientId={clientId!}
+              tier={client.tier}
+              initial={subscription}
+            />
+          </div>
 
           {/* Body */}
           <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>

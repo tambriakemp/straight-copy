@@ -576,6 +576,8 @@ export type Database = {
           revoked: boolean
           source_order_id: string | null
           submission_id: string | null
+          surecart_customer_id: string | null
+          surecart_subscription_id: string | null
           tier: string | null
           token: string
           updated_at: string
@@ -594,6 +596,8 @@ export type Database = {
           revoked?: boolean
           source_order_id?: string | null
           submission_id?: string | null
+          surecart_customer_id?: string | null
+          surecart_subscription_id?: string | null
           tier?: string | null
           token: string
           updated_at?: string
@@ -612,6 +616,8 @@ export type Database = {
           revoked?: boolean
           source_order_id?: string | null
           submission_id?: string | null
+          surecart_customer_id?: string | null
+          surecart_subscription_id?: string | null
           tier?: string | null
           token?: string
           updated_at?: string
