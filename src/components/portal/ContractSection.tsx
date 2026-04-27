@@ -18,6 +18,43 @@ type SignedContract = {
   pdf_url: string | null;
 };
 
+function collectAuditData() {
+  const nav: any = typeof navigator !== "undefined" ? navigator : {};
+  const scr: any = typeof screen !== "undefined" ? screen : {};
+  const win: any = typeof window !== "undefined" ? window : {};
+  let timezone = "";
+  let timezoneOffset = "";
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    const off = new Date().getTimezoneOffset();
+    const sign = off <= 0 ? "+" : "-";
+    const abs = Math.abs(off);
+    timezoneOffset = `UTC${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+  } catch {}
+  return {
+    userAgent: nav.userAgent || "",
+    platform: nav.userAgentData?.platform || nav.platform || "",
+    language: nav.language || "",
+    languages: Array.isArray(nav.languages) ? nav.languages.slice(0, 6) : [],
+    timezone,
+    timezoneOffset,
+    screen: {
+      width: scr.width || null,
+      height: scr.height || null,
+      pixelRatio: win.devicePixelRatio || null,
+      colorDepth: scr.colorDepth || null,
+    },
+    viewport: {
+      width: win.innerWidth || null,
+      height: win.innerHeight || null,
+    },
+    referrer: typeof document !== "undefined" ? document.referrer || "" : "",
+    pageUrl: typeof location !== "undefined" ? location.href : "",
+    signedAtLocal: new Date().toString(),
+    signedAtIso: new Date().toISOString(),
+  };
+}
+
 export default function ContractSection({
   clientId,
   contactName,
@@ -180,6 +217,8 @@ export default function ContractSection({
     }
 
     setSubmitting(true);
+    // Capture browser/device data for legal audit trail
+    const audit = collectAuditData();
     try {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/contract-sign`, {
         method: "POST",
@@ -191,6 +230,7 @@ export default function ContractSection({
           signatureName,
           signatureData,
           agreed: true,
+          audit,
         }),
       });
       const data = await resp.json();

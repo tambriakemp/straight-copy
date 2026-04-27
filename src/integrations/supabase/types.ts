@@ -136,6 +136,7 @@ export type Database = {
         Row: {
           agency_countersigned_at: string
           agency_signer_name: string
+          client_audit: Json | null
           client_id: string
           client_ip: string | null
           client_signature_data: string
@@ -155,6 +156,7 @@ export type Database = {
         Insert: {
           agency_countersigned_at?: string
           agency_signer_name?: string
+          client_audit?: Json | null
           client_id: string
           client_ip?: string | null
           client_signature_data: string
@@ -174,6 +176,7 @@ export type Database = {
         Update: {
           agency_countersigned_at?: string
           agency_signer_name?: string
+          client_audit?: Json | null
           client_id?: string
           client_ip?: string | null
           client_signature_data?: string

@@ -1,0 +1,1 @@
+ALTER TABLE public.client_contracts ADD COLUMN IF NOT EXISTS client_audit jsonb;
