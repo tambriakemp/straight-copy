@@ -40,6 +40,7 @@ function firstSubscriptionFromOrder(data: any): string {
     if (typeof sid === 'string' && sid) return sid
   }
   return ''
+}
 
 async function verifySignature(
   rawBody: string,
