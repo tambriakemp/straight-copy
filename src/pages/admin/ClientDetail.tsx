@@ -392,6 +392,18 @@ export default function ClientDetail() {
               <span>{daysSince}d since purchase</span>
               <span className="sep">·</span>
               <span>{client.contact_name || client.contact_email || "—"}</span>
+              {client.build_start_date && (
+                <>
+                  <span className="sep">·</span>
+                  <span>Build {format(new Date(client.build_start_date + "T12:00:00"), "MMM d")}</span>
+                </>
+              )}
+              {client.delivery_date && (
+                <>
+                  <span className="sep">·</span>
+                  <span>Delivery {format(new Date(client.delivery_date + "T12:00:00"), "MMM d")}</span>
+                </>
+              )}
             </div>
           </div>
 
