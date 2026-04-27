@@ -76,6 +76,13 @@ export default function Portal() {
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState<string | null>(null);
   const [accountAccess, setAccountAccess] = useState<AccountAccessState>({});
+  const [subscription, setSubscription] = useState<SubscriptionState>({
+    id: null,
+    status: null,
+    canceled_at: null,
+    current_period_end: null,
+    cancel_at_period_end: false,
+  });
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
