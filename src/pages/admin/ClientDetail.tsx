@@ -1260,10 +1260,26 @@ function NodeChecklist({
     );
   }
 
+  const itemId = (it: ChecklistItem) => it.key ?? it.id ?? "";
+
   const toggle = (id: string) => {
-    const next = items.map((it) => (it.id === id ? { ...it, done: !it.done } : it));
+    if (!id) return;
+    const next = items.map((it) => (itemId(it) === id ? { ...it, done: !it.done } : it));
     onUpdate({ checklist: next });
   };
+
+  // Items the agency must NOT be able to toggle manually — system-managed.
+  // Includes all auto items, all client-owned items, and the agency
+  // contract-countersigned step (flipped automatically when the contract
+  // is countersigned in the contract panel).
+  const SYSTEM_MANAGED_KEYS = new Set<string>([
+    "intake.contract_countersigned",
+  ]);
+
+  const isReadonly = (it: ChecklistItem) =>
+    it.owner === "auto" ||
+    it.owner === "client" ||
+    SYSTEM_MANAGED_KEYS.has(itemId(it));
 
   const groups: { owner: ChecklistOwner; label: string; icon: string }[] = [
     { owner: "auto",   label: "Auto",   icon: "🤖" },
@@ -1294,24 +1310,25 @@ function NodeChecklist({
             </div>
             <div className="crm-checklist">
               {groupItems.map((it) => {
-                const readonly = it.owner === "auto";
+                const id = itemId(it);
+                const readonly = isReadonly(it);
                 return (
                   <div
-                    key={it.id}
+                    key={id || it.label}
                     className={[
                       "crm-checkitem",
                       `crm-checkitem--${it.owner}`,
                       it.done ? "crm-checkitem--done" : "",
                       readonly ? "crm-checkitem--readonly" : "",
                     ].filter(Boolean).join(" ")}
-                    onClick={() => { if (!readonly) toggle(it.id); }}
+                    onClick={() => { if (!readonly) toggle(id); }}
                     role={readonly ? undefined : "button"}
                     tabIndex={readonly ? -1 : 0}
                     onKeyDown={(e) => {
                       if (readonly) return;
                       if (e.key === " " || e.key === "Enter") {
                         e.preventDefault();
-                        toggle(it.id);
+                        toggle(id);
                       }
                     }}
                   >
@@ -1320,6 +1337,10 @@ function NodeChecklist({
                   </div>
                 );
               })}
+            </div>
+          </div>
+        );
+      })}
             </div>
           </div>
         );
