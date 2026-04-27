@@ -511,9 +511,6 @@ function BrandKitChat({
   return (
     <section className="portal-node-card">
       <div className="portal-node-card__head">
-        <div className="portal-node-card__num">
-          Stage <em>{String(node.order_index).padStart(2, "0")}</em>
-        </div>
         <h2 className="portal-node-card__title">
           Brand <em>Kit</em>.
         </h2>
@@ -617,9 +614,6 @@ function PlaceholderCard({ node }: { node: ActiveNode | null }) {
   return (
     <section className="portal-node-card">
       <div className="portal-node-card__head">
-        <div className="portal-node-card__num">
-          Stage <em>{String(node.order_index).padStart(2, "0")}</em>
-        </div>
         <h2 className="portal-node-card__title">{node.label}.</h2>
         <p className="portal-node-card__desc">
           Your team is working on this step. We'll email you when it's ready for your input
