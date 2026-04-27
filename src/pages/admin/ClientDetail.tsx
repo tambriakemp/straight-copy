@@ -1309,26 +1309,30 @@ function NodeChecklist({
             </div>
             <div className="crm-checklist">
               {groupItems.map((it) => {
-                const id = itemId(it);
+                const absoluteIdx = items.indexOf(it);
+                const id = itemId(it, absoluteIdx);
                 const readonly = isReadonly(it);
+                const handleToggle = (e: React.SyntheticEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (readonly) return;
+                  toggleAt(absoluteIdx);
+                };
                 return (
                   <div
-                    key={id || it.label}
+                    key={id}
                     className={[
                       "crm-checkitem",
                       `crm-checkitem--${it.owner}`,
                       it.done ? "crm-checkitem--done" : "",
                       readonly ? "crm-checkitem--readonly" : "",
                     ].filter(Boolean).join(" ")}
-                    onClick={() => { if (!readonly) toggle(id); }}
+                    onClick={handleToggle}
                     role={readonly ? undefined : "button"}
                     tabIndex={readonly ? -1 : 0}
                     onKeyDown={(e) => {
                       if (readonly) return;
-                      if (e.key === " " || e.key === "Enter") {
-                        e.preventDefault();
-                        toggle(id);
-                      }
+                      if (e.key === " " || e.key === "Enter") handleToggle(e);
                     }}
                   >
                     <span className="crm-checkitem__box" aria-hidden />
