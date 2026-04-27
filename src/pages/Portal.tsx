@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
 import ContractSection from "@/components/portal/ContractSection";
+import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type ActiveNode = {
