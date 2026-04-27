@@ -401,6 +401,15 @@ export default function Portal() {
             initial={accountAccess}
           />
 
+          {/* Subscription — manage plan / cancel / resume */}
+          <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
+            <SubscriptionSection
+              clientId={clientId!}
+              tier={client.tier}
+              initial={subscription}
+            />
+          </div>
+
           {/* Body */}
           <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
             {isBrandKitDone ? (
