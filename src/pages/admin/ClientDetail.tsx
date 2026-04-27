@@ -751,36 +751,10 @@ function StageModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // When the Intake (Node 01) panel opens, ask SureContact which campaign
-  // emails have actually been sent/opened for this client and auto-flip the
-  // matching checklist items. Silent failure — manual checkboxes still work.
-  useEffect(() => {
-    if (node.key !== "intake" || !client.id) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("check-email-status", {
-          body: { clientId: client.id },
-        });
-        if (cancelled) return;
-        if (error) {
-          console.warn("[check-email-status] invoke failed", error);
-          return;
-        }
-        // Reload only if the function reported any email as sent — avoids a
-        // pointless refresh when nothing changed.
-        const anySent =
-          data?.welcome_sent?.sent || data?.scope_sent?.sent ||
-          data?.kickoff_sent?.sent || data?.day3_sent?.sent ||
-          data?.delivery_sent?.sent;
-        if (anySent) onReload();
-      } catch (e) {
-        console.warn("[check-email-status] error", e);
-      }
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [node.id, node.key, client.id]);
+  // Email tracking is handled by a scheduled `poll-email-status` cron job —
+  // no per-open API calls. The Intake panel renders cached state and exposes
+  // a manual "Refresh" button if the admin needs an immediate check.
+
 
   const dbToModalStatus = (s: NodeStatus): ModalStatus =>
     s === "complete" ? "complete" : s === "in_progress" ? "inprog" : "notstarted";
