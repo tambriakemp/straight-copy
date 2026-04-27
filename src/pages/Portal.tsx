@@ -120,6 +120,15 @@ export default function Portal() {
       setSubmittedAt(data.submittedAt);
       setContactEmail(data.contactEmail);
       setAccountAccess(data.accountAccess ?? {});
+      if (data.subscription) {
+        setSubscription({
+          id: data.subscription.id ?? null,
+          status: data.subscription.status ?? null,
+          canceled_at: data.subscription.canceled_at ?? null,
+          current_period_end: data.subscription.current_period_end ?? null,
+          cancel_at_period_end: !!data.subscription.cancel_at_period_end,
+        });
+      }
 
       // Rehydrate transcript: prefer localStorage if it has more turns
       const cached = lsKey ? localStorage.getItem(lsKey) : null;
