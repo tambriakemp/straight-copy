@@ -77,6 +77,10 @@ interface Client {
   delivery_date: string | null;
   delivery_video_url: string | null;
   build_update_note: string | null;
+  email_tracking_last_polled_at?: string | null;
+  email_tracking_complete_at?: string | null;
+  email_tracking_paused_at?: string | null;
+  email_tracking_paused_reason?: string | null;
 }
 
 // ---------- S-curve geometry ----------
