@@ -1260,18 +1260,17 @@ function NodeChecklist({
     );
   }
 
-  const itemId = (it: ChecklistItem) => it.key ?? it.id ?? "";
+  const itemId = (it: ChecklistItem, idx: number) => it.key ?? it.id ?? `idx:${idx}`;
 
-  const toggle = (id: string) => {
-    if (!id) return;
-    const next = items.map((it) => (itemId(it) === id ? { ...it, done: !it.done } : it));
+  const toggleAt = (targetIdx: number) => {
+    const next = items.map((it, i) => (i === targetIdx ? { ...it, done: !it.done } : it));
     onUpdate({ checklist: next });
   };
 
   // Items the agency must NOT be able to toggle manually — system-managed.
-  // Includes all auto items, all client-owned items, and the agency
-  // contract-countersigned step (flipped automatically when the contract
-  // is countersigned in the contract panel).
+  // Auto items, all client-owned items (controlled by automated polling /
+  // portal events), and the agency contract-countersigned step (flipped
+  // automatically when the contract is countersigned).
   const SYSTEM_MANAGED_KEYS = new Set<string>([
     "intake.contract_countersigned",
   ]);
@@ -1279,7 +1278,7 @@ function NodeChecklist({
   const isReadonly = (it: ChecklistItem) =>
     it.owner === "auto" ||
     it.owner === "client" ||
-    SYSTEM_MANAGED_KEYS.has(itemId(it));
+    SYSTEM_MANAGED_KEYS.has(it.key ?? it.id ?? "");
 
   const groups: { owner: ChecklistOwner; label: string; icon: string }[] = [
     { owner: "auto",   label: "Auto",   icon: "🤖" },
@@ -1310,26 +1309,30 @@ function NodeChecklist({
             </div>
             <div className="crm-checklist">
               {groupItems.map((it) => {
-                const id = itemId(it);
+                const absoluteIdx = items.indexOf(it);
+                const id = itemId(it, absoluteIdx);
                 const readonly = isReadonly(it);
+                const handleToggle = (e: React.SyntheticEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (readonly) return;
+                  toggleAt(absoluteIdx);
+                };
                 return (
                   <div
-                    key={id || it.label}
+                    key={id}
                     className={[
                       "crm-checkitem",
                       `crm-checkitem--${it.owner}`,
                       it.done ? "crm-checkitem--done" : "",
                       readonly ? "crm-checkitem--readonly" : "",
                     ].filter(Boolean).join(" ")}
-                    onClick={() => { if (!readonly) toggle(id); }}
+                    onClick={handleToggle}
                     role={readonly ? undefined : "button"}
                     tabIndex={readonly ? -1 : 0}
                     onKeyDown={(e) => {
                       if (readonly) return;
-                      if (e.key === " " || e.key === "Enter") {
-                        e.preventDefault();
-                        toggle(id);
-                      }
+                      if (e.key === " " || e.key === "Enter") handleToggle(e);
                     }}
                   >
                     <span className="crm-checkitem__box" aria-hidden />
