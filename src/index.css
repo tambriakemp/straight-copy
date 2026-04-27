@@ -848,8 +848,14 @@
   .crm-shell .crm-modal__left, .crm-shell .crm-modal__right { padding: 40px 28px; }
 }
 
-/* ---------- Tablet (≤1180px): allow the unified detail bar to wrap gracefully ---------- */
+/* ---------- Tablet (≤1180px): allow the unified detail bar to wrap gracefully,
+   make the page scroll naturally, and give the canvas a tall fixed height
+   so journey nodes don't overlap. ---------- */
 @media (max-width: 1180px) {
+  .crm-shell { height: auto; min-height: 100vh; overflow: visible; }
+  .crm-shell .crm-page { overflow: visible; min-height: 0; }
+  .crm-shell .detail { overflow: visible; min-height: 0; }
+
   .crm-shell .detail__bar {
     flex-wrap: wrap;
     row-gap: 12px;
@@ -866,7 +872,23 @@
   .crm-shell .detail__progress-fraction { font-size: 24px; }
   .crm-shell .detail__progress-ring { width: 64px; height: 64px; }
   .crm-shell .detail__portal-btn { font-size: 9px; padding: 6px 10px; letter-spacing: 0.18em; }
+
+  .crm-shell .canvas {
+    flex: none;
+    height: 78vh;
+    min-height: 620px;
+    margin: 0 24px 24px;
+    border: 1px solid var(--crm-border-dark);
+  }
+  .crm-shell .canvas__legend {
+    position: relative; left: auto; right: auto; bottom: auto;
+    margin: 0 24px 24px;
+    gap: 18px; padding: 12px 18px;
+    flex-wrap: wrap;
+  }
+  .crm-shell .canvas__hint { display: none; }
 }
+
 
 /* ---------- Mobile (≤640px) ---------- */
 @media (max-width: 640px) {
