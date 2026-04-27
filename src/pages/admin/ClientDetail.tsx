@@ -73,6 +73,10 @@ interface Client {
   archived: boolean;
   brand_kit_intake: Record<string, unknown> | null;
   brand_kit_intake_submitted_at: string | null;
+  build_start_date: string | null;
+  delivery_date: string | null;
+  delivery_video_url: string | null;
+  build_update_note: string | null;
 }
 
 // ---------- S-curve geometry ----------
