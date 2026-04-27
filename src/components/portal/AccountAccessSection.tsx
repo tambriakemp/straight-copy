@@ -43,7 +43,29 @@ const ACCOUNTS_BASE: Array<{
       </>
     ),
   },
-  { key: "ottokit", label: "Ottokit", desc: "This is where all your automations and workflows will be built and managed." },
+  {
+    key: "ottokit",
+    label: "Ottokit",
+    desc: (
+      <>
+        This is where all your automations and workflows will be built and managed. You can sign up{" "}
+        <a
+          href="https://ottokit.com/?aff=e14f4e4e"
+          target="_blank"
+          rel="noreferrer"
+          className="portal-access__link"
+        >
+          here
+        </a>
+        . We strongly recommend the <strong>Business Lifetime</strong> plan — it includes the{" "}
+        <strong>Human in the Loop</strong> feature, which lets you verify automations and emails before they're sent. Ottokit also offers a payment plan for the lifetime deal, so you don't have to pay it all at once. Once you've signed up, invite{" "}
+        <a href="mailto:info@cre8visions.com" className="portal-access__link">
+          info@cre8visions.com
+        </a>{" "}
+        to your workspace, then check this item off so the team knows it's complete.
+      </>
+    ),
+  },
   { key: "social_media", label: "Social Media Accounts", desc: "We'll need admin access to whichever platforms you want to publish content on." },
   { key: "website", label: "Website Access", desc: "We'll need login access to your website to connect your lead capture system." },
   { key: "heygen", label: "HeyGen", desc: "This is where your AI avatar will be created and managed.", growthOnly: true },
