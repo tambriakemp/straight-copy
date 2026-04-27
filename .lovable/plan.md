@@ -1,65 +1,59 @@
+# Auto-check intake checklist items from real events
+
+## Problem
+
+The intake checklist shows 4 "auto" email items and 1 "client" open item that are labeled as if the system tracks them, but **nothing flips them today**. The SureContact webhook logs events into `surecontact_events` but never updates `journey_nodes.checklist`. Outbound app emails sent via `send-transactional-email` also don't mark themselves as sent.
+
+Result: those checkmarks stay unchecked forever unless you tick them by hand, which defeats their purpose.
+
 ## Goal
 
-Let a client cancel their plan from the portal with a button — no trip to SureCart — by calling the SureCart REST API server-side from a Supabase Edge Function.
+Every checklist item with `owner: "auto"` or an event-driven `owner: "client"` item gets a **real, physical checkmark** the moment the actual event occurs — no manual intervention.
 
-## Is it possible?
+## Mapping (event → checklist key)
 
-Yes. SureCart exposes a public REST API at `https://api.surecart.com/v1` with a `POST /subscriptions/{id}/cancel` endpoint (and a `DELETE /subscriptions/{id}` for immediate cancel). It requires a SureCart **API token** (created in SureCart → Settings → Advanced → API Tokens). Once we have the subscription ID for each client and that token, we can cancel from our backend.
+| Event | Source | Flips |
+|---|---|---|
+| Welcome email successfully sent | `send-transactional-email` (template `welcome-email` or equivalent) | `intake.welcome_email_sent` |
+| Contract email sent for signature | `send-transactional-email` (contract template) OR `contract-sign` when token issued | `intake.contract_sent` |
+| Scope summary email sent | `send-transactional-email` (scope summary template) | `intake.scope_summary_sent` |
+| Kickoff confirmation email sent | `send-transactional-email` (kickoff template) | `intake.kickoff_confirmation_sent` |
+| SureContact `opened` event for welcome email | `surecontact-webhook` matching `campaign_name` | `intake.welcome_opened` |
 
-## What's missing today
+(`contract_signed`, `contract_countersigned`, `onboarding_completed`, `accounts_submitted` already auto-flip — leaving them untouched.)
 
-1. We don't store the SureCart **subscription ID** or **customer ID** on the `clients` table — the webhook today only uses the order to create an onboarding invite.
-2. No SureCart API token secret is configured.
-3. No cancel UI in the portal, no edge function to call SureCart.
+## Implementation
 
-## Plan
+### 1. Shared helper: `flipIntakeChecklistItem(clientId, key)`
+Add a small helper in `supabase/functions/_shared/` that:
+- Loads the active intake `journey_nodes` row for the client.
+- Sets the matching checklist item's `done = true` (idempotent — no-op if already done).
+- Writes back. The existing `auto_complete_journey_node` trigger handles auto-completing the node when all items are done.
 
-### 1. Capture subscription + customer IDs
+### 2. Update `send-transactional-email`
+After a successful send, look up the template name and (if it maps to an intake key) call the helper. Mapping table lives in the function:
+```
+welcome-email           → intake.welcome_email_sent
+contract-invitation     → intake.contract_sent
+scope-summary           → intake.scope_summary_sent
+kickoff-confirmation    → intake.kickoff_confirmation_sent
+```
+Resolve `clientId` from the recipient email (same lookup pattern the SureContact webhook uses).
 
-- Add columns to `clients`:
-  - `surecart_subscription_id text`
-  - `surecart_customer_id text`
-  - `surecart_order_id text`
-  - `subscription_status text` (active, canceled, past_due, etc.)
-  - `subscription_canceled_at timestamptz`
-  - `subscription_cancel_at_period_end boolean default false`
-- Update `surecart-webhook` to:
-  - Persist these fields when an order/subscription event comes in (match by `contact_email` or by the existing onboarding link).
-  - Handle `subscription.updated` / `subscription.canceled` / `subscription.revoked` events to keep `subscription_status` in sync.
+**You'll need to confirm the exact template names** you use for those four emails so I map them correctly. If a template doesn't exist yet (e.g. scope summary), I'll flag it.
 
-### 2. Add the SureCart API token
+### 3. Update `surecontact-webhook`
+After logging the event, if `event_type === 'opened'` AND `campaign_name` matches the welcome campaign (configurable string match, e.g. contains "welcome"), flip `intake.welcome_opened` for the resolved client.
 
-- Ask user to create a token in SureCart and add it as `SURECART_API_TOKEN` via the secrets tool.
+### 4. Admin UI signal
+On the intake checklist in `ClientDetail.tsx`, items already render their `done` state — no UI change required, the checkmark will just appear in real time when the user reloads or the realtime subscription fires.
 
-### 3. New edge function: `cancel-subscription`
+Optionally: add a small "Auto-checked from SureContact event at HH:MM" tooltip on hover for items flipped by the system. Low priority — confirm if you want it.
 
-- Auth: requires the logged-in client (validates the Supabase JWT, looks up their `client_id`).
-- Loads the client's `surecart_subscription_id`.
-- Offers two modes (we pick one as the default in the UI):
-  - **Cancel at period end** (recommended) — `POST https://api.surecart.com/v1/subscriptions/{id}/cancel` with `{ "cancel_at_period_end": true }`. Client keeps access until the renewal date.
-  - **Cancel immediately** — same endpoint without the flag, or `DELETE`.
-- On success, updates `clients.subscription_status` and `subscription_canceled_at`.
-- Returns the new status to the UI.
+## Questions before I build
 
-### 4. Portal UI
+1. **Template names**: What are the exact `templateName` values you use (or plan to use) when sending the welcome, contract invite, scope summary, and kickoff confirmation emails through `send-transactional-email`? If any aren't built yet, I'll list them and we can decide whether to scaffold them now or leave the corresponding checklist item as manual until they exist.
+2. **Welcome-opened matching**: Should I match the SureContact `opened` event by exact `campaign_name`, by a substring like "welcome", or by `message_id` correlated with the original send log?
+3. **Backfill**: For existing clients whose welcome emails already went out before this is wired, do you want me to mark `welcome_email_sent` as done based on `email_send_log` history, or leave existing clients as-is?
 
-In `src/pages/Portal.tsx` (or a new `SubscriptionSection` component):
-
-- Show current plan + status pulled from `clients` (Launch / Growth, "Active until …" / "Cancels on …").
-- "Cancel subscription" button → opens an `AlertDialog` confirmation explaining:
-  - What they lose access to
-  - That the cancellation takes effect at the end of the current billing period
-- On confirm, calls `supabase.functions.invoke('cancel-subscription')`.
-- After success, swaps the button for a "Resume subscription" CTA (optional — SureCart supports `POST /subscriptions/{id}/resume` to undo a pending cancel before the period ends).
-
-### 5. Admin visibility
-
-- Surface `subscription_status` and a "Cancel on behalf of client" button in `src/pages/admin/ClientDetail.tsx` so you can also cancel from the admin side if needed.
-
-## Open questions before building
-
-1. **Default cancel behavior** — cancel at period end (client keeps access until renewal) or immediate (access cut off the moment they click)?
-2. **Allow resume** — should the portal offer a "Resume" button if they cancel and change their mind before the period ends?
-3. **Existing clients** — for clients already in the database who don't have a `surecart_subscription_id` yet, do you want me to add an admin field to paste it in manually, or rely only on new orders going forward?
-
-Once you confirm those, I'll add the migration, secret, edge function, and portal UI.
+Once you answer those, I'll implement in one pass.
