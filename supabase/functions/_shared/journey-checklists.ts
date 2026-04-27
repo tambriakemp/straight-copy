@@ -53,16 +53,16 @@ export const CHECKLIST_TEMPLATES: Record<TemplateId, ChecklistItemTemplate[]> = 
   ],
   "growth:intake": [
     { key: "intake.welcome_email_sent",        label: "Welcome email sent via SureContact",                                owner: "auto" },
-    { key: "intake.contract_sent",             label: "Contract sent for signature",                                        owner: "auto" },
     { key: "intake.scope_summary_sent",        label: "Scope summary email sent to client",                                 owner: "auto" },
-    { key: "intake.welcome_opened",            label: "Welcome email opened and portal accessed",                           owner: "client" },
+    { key: "intake.welcome_opened",            label: "Welcome email opened",                                               owner: "auto" },
+    { key: "intake.kickoff_confirmation_sent", label: "Kickoff confirmation email sent via SureContact",                    owner: "auto" },
+    { key: "intake.portal_accessed",           label: "Portal accessed",                                                    owner: "client" },
     { key: "intake.contract_signed",           label: "Contract signed",                                                    owner: "client" },
     { key: "intake.onboarding_completed",      label: "Onboarding chat completed",                                          owner: "client", auto_key: "onboarding_completed" },
     { key: "intake.accounts_submitted",        label: "Required accounts created and access submitted via portal",         owner: "client", auto_key: "accounts_submitted" },
     { key: "intake.contract_countersigned",    label: "Contract countersigned",                                             owner: "agency" },
     { key: "intake.summary_reviewed",          label: "Intake summary reviewed and quality confirmed",                      owner: "agency" },
     { key: "intake.social_audit",              label: "Baseline social audit completed if client has existing accounts",   owner: "agency" },
-    { key: "intake.kickoff_confirmation_sent", label: "Kickoff confirmation email sent via SureContact",                    owner: "auto" },
   ],
 };
 
