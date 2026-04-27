@@ -354,8 +354,34 @@ Deno.serve(async (req) => {
 
   console.log('Transactional email enqueued', { templateName, effectiveRecipient })
 
+  // 6. If this template maps to a journey checklist item, flip it now.
+  // Best-effort — never blocks the response.
+  const checklistMapping = TEMPLATE_TO_CHECKLIST[templateName]
+  if (checklistMapping) {
+    try {
+      const clientId = await resolveClientIdByEmail(supabase, effectiveRecipient)
+      if (clientId) {
+        const flipped = await flipChecklistItem(
+          supabase,
+          clientId,
+          checklistMapping.nodeKey,
+          checklistMapping.itemKey,
+        )
+        if (flipped) {
+          console.log('[auto-checklist] flipped', {
+            clientId,
+            ...checklistMapping,
+            templateName,
+          })
+        }
+      }
+    } catch (e) {
+      console.warn('[auto-checklist] flip failed (non-fatal)', e)
+    }
+  }
+
   return new Response(
-    JSON.stringify({ success: true, queued: true }),
+    JSON.stringify({ success: true, queued: true, messageId }),
     {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
