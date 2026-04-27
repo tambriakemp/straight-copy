@@ -20,6 +20,7 @@ const pricingTiers = [
     ],
     cta: "Start with Launch",
     featured: false,
+    href: "https://app.cre8visions.com/checkout/?line_items%5B0%5D%5Bprice_id%5D=4e9d2ca6-2011-4541-9a45-b02291d76abf&line_items%5B0%5D%5Bquantity%5D=1",
   },
   {
     label: "Most Popular",
@@ -38,6 +39,7 @@ const pricingTiers = [
     ],
     cta: "Start with Growth",
     featured: true,
+    href: "https://app.cre8visions.com/checkout/?line_items%5B0%5D%5Bprice_id%5D=b23d2c69-5584-434f-8589-cc27acaa6cba&line_items%5B0%5D%5Bquantity%5D=1",
   },
 ];
 
@@ -221,14 +223,14 @@ const Services = () => {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  to="/contact"
+                <a
+                  href={p.href}
                   className={`font-sans text-[11px] tracking-[0.2em] uppercase text-warm-white px-10 py-4 no-underline inline-block hover:-translate-y-0.5 transition-all duration-300 ${
                     p.featured ? "bg-accent hover:bg-accent/90" : "bg-ink hover:bg-accent"
                   }`}
                 >
                   {p.cta}
-                </Link>
+                </a>
               </div>
             ))}
           </div>
