@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
     if (action === "resolve") {
       const { data: row } = await supabase
         .from("clients")
-        .select("brand_kit_conversation, brand_kit_intake_submitted_at, contact_email, client_account_access")
+        .select("brand_kit_conversation, brand_kit_intake_submitted_at, contact_email, client_account_access, surecart_subscription_id, subscription_status, subscription_canceled_at, subscription_current_period_end, subscription_cancel_at_period_end")
         .eq("id", clientId)
         .maybeSingle();
       return new Response(
@@ -216,6 +216,13 @@ Deno.serve(async (req) => {
           conversation: row?.brand_kit_conversation ?? [],
           submittedAt: row?.brand_kit_intake_submitted_at ?? null,
           accountAccess: row?.client_account_access ?? {},
+          subscription: {
+            id: row?.surecart_subscription_id ?? null,
+            status: row?.subscription_status ?? null,
+            canceled_at: row?.subscription_canceled_at ?? null,
+            current_period_end: row?.subscription_current_period_end ?? null,
+            cancel_at_period_end: row?.subscription_cancel_at_period_end ?? false,
+          },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
