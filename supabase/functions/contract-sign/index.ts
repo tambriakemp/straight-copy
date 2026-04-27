@@ -565,6 +565,7 @@ const SignSchema = z.object({
   // typed: just the name; drawn: PNG data URL up to ~250KB
   signatureData: z.string().min(1).max(400_000),
   agreed: z.literal(true),
+  audit: z.record(z.any()).optional(),
 });
 
 const DownloadSchema = z.object({
