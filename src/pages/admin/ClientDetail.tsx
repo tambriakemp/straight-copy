@@ -1341,10 +1341,6 @@ function NodeChecklist({
           </div>
         );
       })}
-            </div>
-          </div>
-        );
-      })}
     </section>
   );
 }
