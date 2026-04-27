@@ -145,7 +145,7 @@ export default function Portal() {
     } finally {
       setLoading(false);
     }
-  }, [clientId, lsKey]);
+  }, [clientId, lsKey, adminPreview]);
 
   useEffect(() => { resolve(); }, [resolve]);
 
