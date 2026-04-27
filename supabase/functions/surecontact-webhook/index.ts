@@ -184,6 +184,54 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Best-effort: for "opened" events, see if we can correlate to a logged
+  // welcome email send and flip intake.welcome_opened. Matches by message_id
+  // against email_send_log (template_name = 'onboarding-invite').
+  for (const row of rows) {
+    if (
+      row.event_type === "opened" &&
+      row.client_id &&
+      typeof row.message_id === "string" &&
+      row.message_id.length > 0
+    ) {
+      try {
+        const { data: log } = await supabase
+          .from("email_send_log")
+          .select("template_name, recipient_email")
+          .eq("message_id", row.message_id)
+          .eq("template_name", "onboarding-invite")
+          .limit(1)
+          .maybeSingle();
+        if (log) {
+          const { data: node } = await supabase
+            .from("journey_nodes")
+            .select("id, checklist")
+            .eq("client_id", row.client_id)
+            .eq("key", "intake")
+            .maybeSingle();
+          if (node && Array.isArray(node.checklist)) {
+            let mutated = false;
+            const next = (node.checklist as any[]).map((it) => {
+              if (it && typeof it === "object" && it.key === "intake.welcome_opened" && !it.done) {
+                mutated = true;
+                return { ...it, done: true };
+              }
+              return it;
+            });
+            if (mutated) {
+              await supabase.from("journey_nodes").update({ checklist: next }).eq("id", node.id);
+              console.log("[surecontact-webhook] flipped welcome_opened", {
+                client_id: row.client_id,
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[surecontact-webhook] welcome_opened flip failed", e);
+      }
+    }
+  }
+
   console.log(`[surecontact-webhook] logged ${rows.length} event(s)`);
 
   return new Response(

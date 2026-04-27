@@ -2,6 +2,11 @@ import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
+import {
+  TEMPLATE_TO_CHECKLIST,
+  flipChecklistItem,
+  resolveClientIdByEmail,
+} from '../_shared/auto-checklist.ts'
 
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
@@ -349,8 +354,34 @@ Deno.serve(async (req) => {
 
   console.log('Transactional email enqueued', { templateName, effectiveRecipient })
 
+  // 6. If this template maps to a journey checklist item, flip it now.
+  // Best-effort — never blocks the response.
+  const checklistMapping = TEMPLATE_TO_CHECKLIST[templateName]
+  if (checklistMapping) {
+    try {
+      const clientId = await resolveClientIdByEmail(supabase, effectiveRecipient)
+      if (clientId) {
+        const flipped = await flipChecklistItem(
+          supabase,
+          clientId,
+          checklistMapping.nodeKey,
+          checklistMapping.itemKey,
+        )
+        if (flipped) {
+          console.log('[auto-checklist] flipped', {
+            clientId,
+            ...checklistMapping,
+            templateName,
+          })
+        }
+      }
+    } catch (e) {
+      console.warn('[auto-checklist] flip failed (non-fatal)', e)
+    }
+  }
+
   return new Response(
-    JSON.stringify({ success: true, queued: true }),
+    JSON.stringify({ success: true, queued: true, messageId }),
     {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
