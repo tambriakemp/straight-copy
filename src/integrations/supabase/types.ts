@@ -238,6 +238,59 @@ export type Database = {
           },
         ]
       }
+      client_email_tracking: {
+        Row: {
+          client_id: string
+          day3_opened_at: string | null
+          day3_sent_at: string | null
+          delivery_opened_at: string | null
+          delivery_sent_at: string | null
+          kickoff_opened_at: string | null
+          kickoff_sent_at: string | null
+          scope_opened_at: string | null
+          scope_sent_at: string | null
+          updated_at: string
+          welcome_opened_at: string | null
+          welcome_sent_at: string | null
+        }
+        Insert: {
+          client_id: string
+          day3_opened_at?: string | null
+          day3_sent_at?: string | null
+          delivery_opened_at?: string | null
+          delivery_sent_at?: string | null
+          kickoff_opened_at?: string | null
+          kickoff_sent_at?: string | null
+          scope_opened_at?: string | null
+          scope_sent_at?: string | null
+          updated_at?: string
+          welcome_opened_at?: string | null
+          welcome_sent_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          day3_opened_at?: string | null
+          day3_sent_at?: string | null
+          delivery_opened_at?: string | null
+          delivery_sent_at?: string | null
+          kickoff_opened_at?: string | null
+          kickoff_sent_at?: string | null
+          scope_opened_at?: string | null
+          scope_sent_at?: string | null
+          updated_at?: string
+          welcome_opened_at?: string | null
+          welcome_sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_email_tracking_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           archived: boolean
@@ -267,6 +320,10 @@ export type Database = {
           created_at: string
           delivery_date: string | null
           delivery_video_url: string | null
+          email_tracking_complete_at: string | null
+          email_tracking_last_polled_at: string | null
+          email_tracking_paused_at: string | null
+          email_tracking_paused_reason: string | null
           id: string
           intake_data: Json | null
           intake_summary: string | null
@@ -313,6 +370,10 @@ export type Database = {
           created_at?: string
           delivery_date?: string | null
           delivery_video_url?: string | null
+          email_tracking_complete_at?: string | null
+          email_tracking_last_polled_at?: string | null
+          email_tracking_paused_at?: string | null
+          email_tracking_paused_reason?: string | null
           id?: string
           intake_data?: Json | null
           intake_summary?: string | null
@@ -359,6 +420,10 @@ export type Database = {
           created_at?: string
           delivery_date?: string | null
           delivery_video_url?: string | null
+          email_tracking_complete_at?: string | null
+          email_tracking_last_polled_at?: string | null
+          email_tracking_paused_at?: string | null
+          email_tracking_paused_reason?: string | null
           id?: string
           intake_data?: Json | null
           intake_summary?: string | null
