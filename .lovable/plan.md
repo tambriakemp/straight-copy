@@ -1,69 +1,65 @@
 ## Goal
-Replace the current `src/pages/Philosophy.tsx` (which is the old "Cre8 Visions / We believe in what's real" creative-content version) with the new business-architecture version from the uploaded `Cre8_Visions_Philosophy.html`, matching copy, structure, and styling exactly while keeping the page integrated with the React/Tailwind/Router app.
 
-## Scope of changes
+Let a client cancel their plan from the portal with a button — no trip to SureCart — by calling the SureCart REST API server-side from a Supabase Edge Function.
 
-### File: `src/pages/Philosophy.tsx` (full rewrite of body)
-Keep existing scaffolding (Navbar, Footer, custom cursor hooks, scroll reveal, scroll-to-top), and replace all section content with the new structure.
+## Is it possible?
 
-**Hero**
-- Eyebrow: "Our Philosophy"
-- Headline (3 lines): `We believe your` / `business should` / `<em>run without you.</em>`
-- Background watermark word: `Architect.` (centered, ~22vw, 4% white opacity, italic)
-- Left vertical accent gradient line + scroll indicator on bottom-right (unchanged behavior)
+Yes. SureCart exposes a public REST API at `https://api.surecart.com/v1` with a `POST /subscriptions/{id}/cancel` endpoint (and a `DELETE /subscriptions/{id}` for immediate cancel). It requires a SureCart **API token** (created in SureCart → Settings → Advanced → API Tokens). Once we have the subscription ID for each client and that token, we can cancel from our backend.
 
-**Opening section (cream, 2-col)**
-- Left: blockquote — *"You didn't start a business to spend your days doing tasks a machine could handle. **You started it to build something that matters.**"* — attribution `— Cre8 Visions`
-- Right: eyebrow `Where We Come From` + 3 paragraphs of new "burn out / AI changed what's possible / architect the system" copy
+## What's missing today
 
-**Pillars section (ink, 2x2 grid)**
-Replace all 4 pillars with:
-1. `Systems` over hustle
-2. `Ownership` over dependency
-3. `Intelligence` that compounds
-4. `Access` for every business
+1. We don't store the SureCart **subscription ID** or **customer ID** on the `clients` table — the webhook today only uses the order to create an onboarding invite.
+2. No SureCart API token secret is configured.
+3. No cancel UI in the portal, no edge function to call SureCart.
 
-Header intro changes to: "Four beliefs that shape every system we build — and every decision we make about how to build it."
+## Plan
 
-**Manifesto section (cream, centered)**
-Replace 2 manifesto paragraphs + closing with the 3 new manifesto paragraphs ("future of business is not about working more", "architects, not vendors", "businesses that win the next decade") plus closing line "That infrastructure is what we build…"
+### 1. Capture subscription + customer IDs
 
-**Stats strip (accent background, 4 cols)**
-Replace stats with:
-- `2` — Core automations every client gets
-- `3` — Monthly deliverables that compound
-- `0` — Tech knowledge required from you
-- `∞` — The system has no ceiling
+- Add columns to `clients`:
+  - `surecart_subscription_id text`
+  - `surecart_customer_id text`
+  - `surecart_order_id text`
+  - `subscription_status text` (active, canceled, past_due, etc.)
+  - `subscription_canceled_at timestamptz`
+  - `subscription_cancel_at_period_end boolean default false`
+- Update `surecart-webhook` to:
+  - Persist these fields when an order/subscription event comes in (match by `contact_email` or by the existing onboarding link).
+  - Handle `subscription.updated` / `subscription.canceled` / `subscription.revoked` events to keep `subscription_status` in sync.
 
-**"Our Approach to AI" section (warm-white, sticky-title 2-col)**
-- Eyebrow becomes `How We Work` (was "Transparency")
-- Title becomes `Our Approach to AI` (already matches)
-- Replace all ethics items with the 5 new ones:
-  1. We design before we build
-  2. We're transparent about what AI can and can't do
-  3. We stay ahead so you don't have to
-  4. We build for your voice, not a generic one
-  5. We measure success by your results — not our activity
+### 2. Add the SureCart API token
 
-**CTA section (ink, centered)**
-- Watermark: change `REAL.` → `THINK.`
-- Eyebrow: `The Architecture Starts Here`
-- Headline: `Same belief.` / `Different business.` / `<em>Every time.</em>`
-- Buttons: Primary `Start the Architecture` → `/contact`; Ghost `See what we build` → `/services` (was `/how-it-works`)
+- Ask user to create a token in SureCart and add it as `SURECART_API_TOKEN` via the secrets tool.
 
-### Styling notes
-- Continue using existing palette tokens (`bg-ink`, `bg-cream`, `text-warm-white`, `text-stone`, `text-accent`, `text-taupe`, `text-charcoal`, `border-mist-custom`, `bg-sand`, etc.) — matches the source CSS variables 1:1.
-- Continue using Cormorant Garamond (`font-serif`) and Karla (default sans). All `font-light`, italic emphasis on `<em>`.
-- Keep `clamp()` font sizes inline-styled where Tailwind can't express them (already a pattern used in the existing file).
-- Keep `reveal` / `reveal-delay-*` classes for scroll animation (already wired via `useScrollReveal`).
-- Hover behavior on pillars (left accent bar grows, bg shifts to `#221F1C`) — preserve existing implementation.
+### 3. New edge function: `cancel-subscription`
 
-### Files NOT changed
-- `src/components/PhilosophySection.tsx` (homepage section) — request is specifically about the Philosophy page.
-- `src/App.tsx` routing — `/philosophy` already mounts `Philosophy.tsx`.
-- Navbar / Footer / hooks — unchanged.
+- Auth: requires the logged-in client (validates the Supabase JWT, looks up their `client_id`).
+- Loads the client's `surecart_subscription_id`.
+- Offers two modes (we pick one as the default in the UI):
+  - **Cancel at period end** (recommended) — `POST https://api.surecart.com/v1/subscriptions/{id}/cancel` with `{ "cancel_at_period_end": true }`. Client keeps access until the renewal date.
+  - **Cancel immediately** — same endpoint without the flag, or `DELETE`.
+- On success, updates `clients.subscription_status` and `subscription_canceled_at`.
+- Returns the new status to the UI.
 
-## Out of scope
-- No copy changes to other pages.
-- No new routes or components.
-- No design-system token additions (existing tokens cover everything in the reference HTML).
+### 4. Portal UI
+
+In `src/pages/Portal.tsx` (or a new `SubscriptionSection` component):
+
+- Show current plan + status pulled from `clients` (Launch / Growth, "Active until …" / "Cancels on …").
+- "Cancel subscription" button → opens an `AlertDialog` confirmation explaining:
+  - What they lose access to
+  - That the cancellation takes effect at the end of the current billing period
+- On confirm, calls `supabase.functions.invoke('cancel-subscription')`.
+- After success, swaps the button for a "Resume subscription" CTA (optional — SureCart supports `POST /subscriptions/{id}/resume` to undo a pending cancel before the period ends).
+
+### 5. Admin visibility
+
+- Surface `subscription_status` and a "Cancel on behalf of client" button in `src/pages/admin/ClientDetail.tsx` so you can also cancel from the admin side if needed.
+
+## Open questions before building
+
+1. **Default cancel behavior** — cancel at period end (client keeps access until renewal) or immediate (access cut off the moment they click)?
+2. **Allow resume** — should the portal offer a "Resume" button if they cancel and change their mind before the period ends?
+3. **Existing clients** — for clients already in the database who don't have a `surecart_subscription_id` yet, do you want me to add an admin field to paste it in manually, or rely only on new orders going forward?
+
+Once you confirm those, I'll add the migration, secret, edge function, and portal UI.
