@@ -257,7 +257,10 @@ export default function ContractSection({
       <button
         type="button"
         className="portal-access__toggle"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setUserToggled(true);
+          setOpen((v) => !v);
+        }}
         aria-expanded={open}
       >
         <div className="portal-access__toggle-left">
