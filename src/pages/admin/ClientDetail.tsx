@@ -486,75 +486,6 @@ export default function ClientDetail() {
                 <TooltipContent>Copy direct link to the client's contract</TooltipContent>
               </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
-                    onClick={async () => {
-                      const t = toast.loading("Preparing Brand Voice chat link…");
-                      try {
-                        // 1. Try to find an existing usable invite tied to this client.
-                        // Match priority: (a) invite linked via the client's onboarding_submission_id,
-                        // (b) most recent non-revoked, non-completed invite for the same email.
-                        let token: string | null = null;
-
-                        if (client.onboarding_submission_id) {
-                          const { data: bySubmission } = await supabase
-                            .from("onboarding_invites")
-                            .select("token, revoked")
-                            .eq("submission_id", client.onboarding_submission_id)
-                            .maybeSingle();
-                          if (bySubmission && !bySubmission.revoked) token = bySubmission.token;
-                        }
-
-                        if (!token && client.contact_email) {
-                          const { data: byEmail } = await supabase
-                            .from("onboarding_invites")
-                            .select("token, revoked, completed_at")
-                            .eq("contact_email", client.contact_email)
-                            .order("created_at", { ascending: false })
-                            .limit(1);
-                          const candidate = byEmail?.[0];
-                          if (candidate && !candidate.revoked) token = candidate.token;
-                        }
-
-                        // 2. No usable invite — mint a fresh one tied to this client's contact info.
-                        if (!token) {
-                          const bytes = new Uint8Array(20);
-                          crypto.getRandomValues(bytes);
-                          const newToken = Array.from(bytes, (b) =>
-                            "abcdefghijklmnopqrstuvwxyz0123456789"[b % 36],
-                          ).join("");
-                          const { data: created, error: createErr } = await supabase
-                            .from("onboarding_invites")
-                            .insert({
-                              token: newToken,
-                              contact_name: client.contact_name,
-                              contact_email: client.contact_email,
-                              business_name: client.business_name,
-                              tier: client.tier,
-                              note: "Auto-generated from client detail",
-                            })
-                            .select("token")
-                            .single();
-                          if (createErr) throw new Error(createErr.message);
-                          token = created.token;
-                        }
-
-                        const url = `${window.location.origin}/onboarding?invite=${token}`;
-                        await navigator.clipboard.writeText(url);
-                        toast.success("Brand Voice chat link copied", { id: t });
-                      } catch (e) {
-                        toast.error(e instanceof Error ? e.message : "Could not copy link", { id: t });
-                      }
-                    }}
-                    aria-label="Copy Brand Voice intake chat link"
-                  >
-                    <MessageSquare size={14} strokeWidth={1.5} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Copy direct link to the Brand Voice intake chat</TooltipContent>
-              </Tooltip>
 
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -945,6 +876,7 @@ function StageModal({
 
             {node.key === "intake" && (
               <>
+                <OnboardingChatLinkPanel client={client} />
                 <EmailTrackingPanel client={client} onReload={onReload} />
                 <BuildSchedulePanel client={client} onReload={onReload} />
               </>
@@ -1733,6 +1665,162 @@ function HeyGenKeyPanel({ client }: { client: Client }) {
           <div style={{ fontSize: 13, color: "hsl(30 8% 70%)" }}>
             Client hasn't submitted a HeyGen API key yet.
           </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------- Onboarding (Brand Voice) chat link panel — only shown on the intake node ----------
+function OnboardingChatLinkPanel({ client }: { client: Client }) {
+  const [token, setToken] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ opened: boolean; completed: boolean }>({ opened: false, completed: false });
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  // Look up the most relevant invite for this client. Match priority:
+  //   (a) invite linked via the client's onboarding_submission_id
+  //   (b) most recent invite for the same email
+  const load = useCallback(async () => {
+    setLoading(true);
+    let row: { token: string; last_opened_at: string | null; completed_at: string | null; revoked: boolean } | null = null;
+
+    if (client.onboarding_submission_id) {
+      const { data } = await supabase
+        .from("onboarding_invites")
+        .select("token, last_opened_at, completed_at, revoked")
+        .eq("submission_id", client.onboarding_submission_id)
+        .maybeSingle();
+      if (data && !data.revoked) row = data;
+    }
+    if (!row && client.contact_email) {
+      const { data } = await supabase
+        .from("onboarding_invites")
+        .select("token, last_opened_at, completed_at, revoked")
+        .eq("contact_email", client.contact_email)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const candidate = data?.[0];
+      if (candidate && !candidate.revoked) row = candidate;
+    }
+
+    if (row) {
+      setToken(row.token);
+      setStatus({ opened: !!row.last_opened_at, completed: !!row.completed_at });
+    } else {
+      setToken(null);
+      setStatus({ opened: false, completed: false });
+    }
+    setLoading(false);
+  }, [client.id, client.contact_email, client.onboarding_submission_id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const ensureToken = async (): Promise<string | null> => {
+    if (token) return token;
+    const bytes = new Uint8Array(20);
+    crypto.getRandomValues(bytes);
+    const newToken = Array.from(bytes, (b) => "abcdefghijklmnopqrstuvwxyz0123456789"[b % 36]).join("");
+    const { data, error } = await supabase
+      .from("onboarding_invites")
+      .insert({
+        token: newToken,
+        contact_name: client.contact_name,
+        contact_email: client.contact_email,
+        business_name: client.business_name,
+        tier: client.tier,
+        note: "Auto-generated from client detail",
+      })
+      .select("token")
+      .single();
+    if (error) {
+      toast.error(error.message);
+      return null;
+    }
+    setToken(data.token);
+    return data.token;
+  };
+
+  const copy = async () => {
+    setBusy(true);
+    try {
+      const t = await ensureToken();
+      if (!t) return;
+      await navigator.clipboard.writeText(`${window.location.origin}/onboarding?invite=${t}`);
+      toast.success("Brand Voice chat link copied");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not copy link");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const url = token ? `${window.location.origin}/onboarding?invite=${token}` : "";
+  const pill = status.completed
+    ? { label: "Completed", cls: "crm-pill--complete" }
+    : status.opened
+      ? { label: "Opened", cls: "crm-pill--inprog" }
+      : { label: "Not opened", cls: "" };
+
+  return (
+    <section>
+      <div className="crm-modal__section-head">
+        <div className="crm-modal__section-title">Brand Voice Intake Chat</div>
+        {!loading && token && (
+          <span className={`crm-pill ${pill.cls}`} style={{ fontSize: 10 }}>● {pill.label}</span>
+        )}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          padding: 12,
+          border: "1px dashed hsl(30 12% 22%)",
+          borderRadius: 6,
+        }}
+      >
+        <div style={{ fontSize: 12, color: "hsl(30 8% 70%)", lineHeight: 1.55 }}>
+          A unique link to the client's onboarding chat. Send this so they can complete the intake
+          that powers the Brand Voice doc. Marks <em>Onboarding chat completed</em> automatically
+          on submit.
+        </div>
+
+        {loading ? (
+          <div style={{ fontSize: 12, color: "hsl(30 8% 60%)" }}>Loading…</div>
+        ) : (
+          <>
+            {token && (
+              <input
+                readOnly
+                value={url}
+                onFocus={(e) => e.currentTarget.select()}
+                className="crm-input"
+                style={{ fontSize: 12, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+              />
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                className="crm-btn crm-btn--bronze crm-btn--sm"
+                onClick={copy}
+                disabled={busy}
+              >
+                {token ? "Copy link" : "Generate & copy link"}
+              </button>
+              {token && (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="crm-btn crm-btn--ghost crm-btn--sm"
+                >
+                  Open ↗
+                </a>
+              )}
+            </div>
+          </>
         )}
       </div>
     </section>

@@ -79,6 +79,7 @@ export default function Portal() {
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState<string | null>(null);
   const [accountAccess, setAccountAccess] = useState<AccountAccessState>({});
+  const [onboardingInvite, setOnboardingInvite] = useState<{ token: string; completed: boolean } | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionState>({
     id: null,
     status: null,
@@ -123,6 +124,7 @@ export default function Portal() {
       setSubmittedAt(data.submittedAt);
       setContactEmail(data.contactEmail);
       setAccountAccess(data.accountAccess ?? {});
+      setOnboardingInvite(data.onboardingInvite ?? null);
       if (data.subscription) {
         setSubscription({
           id: data.subscription.id ?? null,
@@ -352,6 +354,8 @@ export default function Portal() {
   const tierLabel = client.tier === "growth" ? "Growth" : "Launch";
   const isBrandKitDone = !!submittedAt;
   const isBrandKitActive = node?.key === "brand_kit" && !isBrandKitDone;
+  const showOnboardingCard =
+    node?.key === "intake" && !!onboardingInvite && !onboardingInvite.completed;
 
   return (
     <div className="crm-shell">
@@ -435,6 +439,47 @@ export default function Portal() {
               >
                 Watch delivery video →
               </a>
+            </section>
+          )}
+
+          {/* Onboarding (Brand Voice) chat — required during intake */}
+          {showOnboardingCard && (
+            <section
+              id="portal-onboarding-chat"
+              className="portal-node-card"
+              style={{ scrollMarginTop: 24 }}
+            >
+              <div className="portal-node-card__head">
+                <div
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: "0.35em",
+                    textTransform: "uppercase",
+                    color: "hsl(36 22% 60%)",
+                    marginBottom: 10,
+                  }}
+                >
+                  Action Required · Step 01
+                </div>
+                <h2 className="portal-node-card__title">
+                  Brand Voice <em>chat</em>.
+                </h2>
+                <p className="portal-node-card__desc">
+                  A short, guided conversation that captures your voice, audience, and goals.
+                  This is the foundation for everything we build — please complete it before
+                  your build kicks off.
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 4 }}>
+                <a
+                  href={`/onboarding?invite=${onboardingInvite!.token}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="crm-btn crm-btn--bronze crm-btn--sm"
+                >
+                  Open Brand Voice chat →
+                </a>
+              </div>
             </section>
           )}
 
