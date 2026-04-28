@@ -116,9 +116,21 @@ Deno.serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
-    const cleanedMessages = messages
-      .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    let cleanedMessages = messages
+      .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim().length > 0)
       .map((m: any) => ({ role: m.role, content: m.content }));
+
+    // Anthropic requires at least one message. On the initial "Begin" click the
+    // client sends an empty array to elicit the opening greeting — inject a
+    // neutral kickoff user message so the assistant can respond.
+    if (cleanedMessages.length === 0) {
+      cleanedMessages = [{ role: "user", content: "Hi, I'm ready to begin." }];
+    }
+
+    // Anthropic also requires the first message to be from the user.
+    if (cleanedMessages[0].role !== "user") {
+      cleanedMessages.unshift({ role: "user", content: "Hi, I'm ready to begin." });
+    }
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
