@@ -354,8 +354,6 @@ export default function Portal() {
   const tierLabel = client.tier === "growth" ? "Growth" : "Launch";
   const isBrandKitDone = !!submittedAt;
   const isBrandKitActive = node?.key === "brand_kit" && !isBrandKitDone;
-  const showOnboardingCard =
-    node?.key === "intake" && !!onboardingInvite && !onboardingInvite.completed;
 
   return (
     <div className="crm-shell">
