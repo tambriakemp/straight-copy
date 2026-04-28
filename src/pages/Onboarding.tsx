@@ -706,6 +706,78 @@ const Onboarding = () => {
                 <p style={{ fontSize: 11, color: "#A89F94", marginTop: 10 }}>
                   Press Enter to send · Shift+Enter for new line
                 </p>
+
+                {finalizeError && (
+                  <div
+                    style={{
+                      marginTop: 14,
+                      padding: "12px 16px",
+                      background: "rgba(180, 70, 70, 0.08)",
+                      border: "1px solid rgba(180, 70, 70, 0.3)",
+                      borderLeft: "2px solid #b44646",
+                      fontSize: 12,
+                      color: "#E8C8C8",
+                      lineHeight: 1.6,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                    }}
+                  >
+                    <span>We couldn't save just yet. Your conversation is safe — try again.</span>
+                    <button
+                      onClick={() => finalize(messages)}
+                      disabled={savingFinal}
+                      style={{
+                        background: "transparent",
+                        border: "1px solid rgba(232,200,200,0.4)",
+                        color: "#F5F2EE",
+                        fontSize: 11,
+                        letterSpacing: "0.2em",
+                        textTransform: "uppercase",
+                        padding: "8px 14px",
+                        cursor: savingFinal ? "not-allowed" : "pointer",
+                        opacity: savingFinal ? 0.5 : 1,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {savingFinal ? "Retrying…" : "Retry"}
+                    </button>
+                  </div>
+                )}
+
+                {stage >= 6 && !savingFinal && !finalizeError && messages.length > 6 && (
+                  <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      onClick={() => finalize(messages)}
+                      disabled={isStreaming || savingFinal}
+                      style={{
+                        background: "transparent",
+                        border: "1px solid rgba(139,115,85,0.5)",
+                        color: "#C8C0B4",
+                        fontSize: 11,
+                        letterSpacing: "0.25em",
+                        textTransform: "uppercase",
+                        padding: "10px 18px",
+                        cursor: isStreaming ? "not-allowed" : "pointer",
+                        opacity: isStreaming ? 0.4 : 1,
+                        transition: "all 0.2s",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isStreaming) {
+                          e.currentTarget.style.background = "rgba(139,115,85,0.12)";
+                          e.currentTarget.style.color = "#F5F2EE";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.color = "#C8C0B4";
+                      }}
+                    >
+                      Wrap up & generate my brand voice
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}
