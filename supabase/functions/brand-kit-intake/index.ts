@@ -211,9 +211,32 @@ Deno.serve(async (req) => {
       }
       const { data: row } = await supabase
         .from("clients")
-        .select("brand_kit_conversation, brand_kit_intake_submitted_at, contact_email, client_account_access, surecart_subscription_id, subscription_status, subscription_canceled_at, subscription_current_period_end, subscription_cancel_at_period_end")
+        .select("brand_kit_conversation, brand_kit_intake_submitted_at, contact_email, client_account_access, surecart_subscription_id, subscription_status, subscription_canceled_at, subscription_current_period_end, subscription_cancel_at_period_end, onboarding_submission_id")
         .eq("id", clientId)
         .maybeSingle();
+
+      // Look up the active onboarding (Brand Voice) chat invite tied to this client.
+      // Used by the portal to render a "complete the onboarding chat" card on intake.
+      let onboardingInvite: { token: string; completed: boolean } | null = null;
+      if (row?.onboarding_submission_id) {
+        const { data: inv } = await supabase
+          .from("onboarding_invites")
+          .select("token, revoked, completed_at")
+          .eq("submission_id", row.onboarding_submission_id)
+          .maybeSingle();
+        if (inv && !inv.revoked) onboardingInvite = { token: inv.token, completed: !!inv.completed_at };
+      }
+      if (!onboardingInvite && row?.contact_email) {
+        const { data: invByEmail } = await supabase
+          .from("onboarding_invites")
+          .select("token, revoked, completed_at")
+          .eq("contact_email", row.contact_email)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        const cand = invByEmail?.[0];
+        if (cand && !cand.revoked) onboardingInvite = { token: cand.token, completed: !!cand.completed_at };
+      }
+
       return new Response(
         JSON.stringify({
           client: portalData,
@@ -221,6 +244,7 @@ Deno.serve(async (req) => {
           conversation: row?.brand_kit_conversation ?? [],
           submittedAt: row?.brand_kit_intake_submitted_at ?? null,
           accountAccess: row?.client_account_access ?? {},
+          onboardingInvite,
           subscription: {
             id: row?.surecart_subscription_id ?? null,
             status: row?.subscription_status ?? null,
