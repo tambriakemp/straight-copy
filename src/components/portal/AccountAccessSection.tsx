@@ -140,7 +140,11 @@ export default function AccountAccessSection({
   const isGrowth = tier === "growth";
   const accounts = useMemo(() => ACCOUNTS_BASE.filter((a) => !a.growthOnly || isGrowth), [isGrowth]);
 
-  const [open, setOpen] = useState(true);
+  const initialRequiredKeys = isGrowth
+    ? ["surecontact", "ottokit", "copost", "website", "heygen", "claude"]
+    : ["surecontact", "ottokit", "copost", "website"];
+  const initialAllDone = initialRequiredKeys.every((k) => !!initial?.checks?.[k]);
+  const [open, setOpen] = useState(!initialAllDone);
   const [checks, setChecks] = useState<AccountChecks>(initial?.checks ?? {});
   const [notes, setNotes] = useState<string>(initial?.notes ?? "");
   const [files, setFiles] = useState<FileEntry[]>(initial?.files ?? []);
