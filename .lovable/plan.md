@@ -1,63 +1,50 @@
-## What's wrong
+## Root cause (confirmed via edge function logs)
 
-**1. The save silently failed.**
-Inspecting the most recent submission shows 36 messages, `completed=false`, no summary, last message is the client's "Growth" tier answer. The AI never emitted the `[[ONBOARDING_COMPLETE]]` sentinel, so `finalize()` was never called and the brand voice doc was never generated. The client thought they finished — the system thought they were mid-conversation.
+Logs show: `complete update failed: column "stage" of relation "clients" does not exist`.
 
-Two contributing causes:
-- The system prompt's completion gate is strict (19 required fields). If even one feels thin, the AI keeps asking and never emits the sentinel — but the client has run out of patience and stops typing.
-- There is no "wrap up now" fallback. No client-side detector that says "we've covered enough — let's close it."
-- No retry/visible error if the `complete` call fails. Right now if `finalize()` fails, the user just sees a toast and a blank summary.
+The `create_client_from_onboarding` Postgres trigger on `onboarding_submissions` tries to `INSERT INTO public.clients (..., stage, ...)` but the `clients` table has no `stage` column (it has `pipeline_stage`). When the user finished the chat, the AI did emit `[[ONBOARDING_COMPLETE]]` and `onboarding-session` did call `action: complete` — but the trigger raised, rolling back the whole `UPDATE onboarding_submissions … SET completed=true` statement. That's why the submission shows `completed=false` with no summary, and why no brand-voice doc was generated.
 
-**2. The conversation reads like a checklist.**
-The current prompt tells the AI to ask "ONE QUESTION AT A TIME" with "1 short reflection" — which is exactly what produced the dry "Got it. So what does Cre8 Visions actually do?" tone. There is no instruction to:
-- Give context for *why* a question matters
-- Offer examples when an answer is vague
-- Adapt depth based on whether the answer was rich or one-word
-- Reframe abstract questions in concrete terms
+The dryness of the conversation is a separate (real) issue with the system prompt.
 
 ## Plan
 
-### A. Fix completion reliability (`onboarding-session` + `Onboarding.tsx` + `onboarding-chat`)
+### 1. Fix the trigger (DB migration)
 
-1. **Server-side safety net.** In `onboarding-chat/index.ts`, after the stream completes, if the assistant text contains a "wrap" signal (covered all 6 stages and asked tier) but no `[[ONBOARDING_COMPLETE]]`, log it. More importantly:
+Drop `stage` from the `INSERT` in `create_client_from_onboarding`. The `clients` table uses `pipeline_stage` (default `'intake_submitted'`), so we just remove the bad column. Replace the function with the same logic minus that one column.
 
-2. **Add an explicit "Finish" affordance in the UI.** Once `stage >= 6` (Goals stage reached) AND the user has answered at least one question in stage 6, show a subtle "Wrap up & generate my brand voice" button below the input. Clicking it calls a new `force_complete` path that:
-   - Sends the existing transcript to `onboarding-session` with `action: "complete"` even without the sentinel
-   - The server-side summary extractor (Claude tool-call) already tolerates partial data — it returns "Not specified" / `[]` for missing fields
+### 2. Recover the existing stuck submission
 
-3. **Loosen the AI's completion gate.** Change the system prompt: the AI may emit `[[ONBOARDING_COMPLETE]]` when it has *substantive* answers for the **core** fields (name, business, what_they_do, primary_offer, tone_words, ideal_customer, customer_struggles, biggest_time_drain, 90_day_goal, tier) — others are nice-to-have, not blockers. This prevents the AI from getting stuck in an interrogation loop.
+After the trigger is fixed, run a one-shot SQL update toggling `completed=false → true` on submission `d02b978d-…` to fire the trigger fresh. The `onboarding-session` `complete` path also calls `triggerBrandVoiceGeneration` only from the edge function, so for recovery we'll instead call the existing edge function directly with the saved conversation. Simpler: re-invoke `onboarding-session` `complete` for that token. We'll do that from the admin once deployed (or run a one-shot via the migration's edge invocation). I'll verify the submission lands `completed=true` with a summary, then a client row appears and brand voice generation kicks off.
 
-4. **Surface save failures clearly.** In `Onboarding.tsx` `finalize()`, replace the silent toast with a retry button on the summary view if save fails, and keep the conversation view alive until save succeeds.
+### 3. Rewrite the AI prompt for warmth + context + adaptation
 
-### B. Rewrite the AI personality and questioning style (`onboarding-chat/index.ts`)
+Replace `SYSTEM_PROMPT` in `supabase/functions/onboarding-chat/index.ts` so the AI:
 
-Replace the current `SYSTEM_PROMPT` with one that instructs the AI to:
+- **Pairs every new question with one sentence of context** explaining why it matters for their brand voice doc.
+- **Always offers 2 concrete examples** when introducing an abstract topic (tone words, ideal customer, etc.). Examples are short and varied — e.g. tone words: *"things like 'warm and direct,' 'playful but precise,' or 'no-nonsense Southern' — what fits Cre8 Visions?"*
+- **Reads the previous answer's substance.** If <8 words or generic ("we help small businesses"), ask one targeted follow-up using their own words. If ≥15 words and specific, move forward.
+- **Echoes the client's vocabulary back** ("howdy" → use it in the next prompt; "automation + documentation" → reference it).
+- **Varies openers** — rotate reflections, observations, or just dive in. No more "Got it." / "Perfect —" every turn.
+- **Bridges between stages** with a one-sentence transition: *"That gives me a clear picture of who you are. Let's talk about who you serve."*
+- **Repairs gracefully** — if the user pushes back, rephrase with a different example instead of repeating.
+- **Loosens the completion gate** — emit `[[ONBOARDING_COMPLETE]]` once *core* fields have substantive answers (name, business, what_they_do, primary_offer, tone_words, ideal_customer, customer_struggles, biggest_time_drain, 90_day_goal, tier). Don't loop forever on nice-to-haves.
 
-- **Always pair a question with one sentence of context** — "I'm asking because the brand voice doc uses this to..."
-- **Always offer a concrete example** when introducing a new topic — e.g., for tone words: "Things like 'warm and direct' or 'playful but precise' — what fits you?"
-- **Read the previous answer for richness.** If the answer is ≥15 words and specific, move on. If it's <8 words or generic ("we help small businesses"), ask exactly one targeted follow-up before advancing.
-- **Use the client's own words back to them.** When they say "howdy" or "automation + documentation," weave those into the next question.
-- **Vary openers.** Stop starting every reply with "Got it." / "Perfect —". Rotate through reflections, gentle observations, or just diving in.
-- **Soften the stage transitions.** Add a one-sentence bridge when moving stages: "Okay — that gives me a clear picture of *who you are*. Let's talk about who you serve."
-- **Conversational repair.** If the user seems confused or pushes back ("what do you mean?"), rephrase the question with a different example instead of repeating it.
+Concrete prompt example:
+> *"Now I want to capture how you actually sound — this becomes the heartbeat of every email and caption your AI writes. Think 2-3 words that feel like you on a good day. For some folks it's 'warm and direct,' others 'playful but precise,' or even 'no-nonsense Southern.' What fits?"*
 
-Concrete example for the "tone words" question:
-> Current: "what are 2-3 words that describe your tone? Not what you *want* to be — what feels natural to you right now."
->
-> New: "Now I want to capture how you actually *sound*. This becomes the heartbeat of every email and caption your AI writes for you. Think of two or three words that feel like you on a good day — not aspirational, just true. For some people it's 'warm and direct,' for others 'playful but precise,' or even 'no-nonsense Southern.' What fits Cre8 Visions?"
+### 4. Add a safety net "Wrap up & generate" button (`Onboarding.tsx`)
 
-### C. Verify the brand voice doc actually generates after a successful complete
+Once `stage >= 6` (Goals stage reached), show a subtle "Wrap up & generate my brand voice" button beneath the input. Clicking it calls `finalize(messages)` directly. This way, even if the AI hesitates to emit the completion sentinel, the client always has a way out.
 
-Once `finalize()` succeeds for the existing 36-message submission, the `triggerBrandVoiceGeneration` helper should fire. We'll add a retry path in admin: a "Re-generate brand voice" button on the existing client detail (already present in some form) — or, simpler, add a one-time recovery that on `force_complete` re-invokes `generate-brand-voice` if the existing client row has `brand_voice_status != 'complete'`.
+Also: improve `finalize()` failure UX — instead of dumping to an empty summary view on error, keep the chat alive and show an inline retry banner.
 
 ## Technical notes
 
 **Files to edit:**
-- `supabase/functions/onboarding-chat/index.ts` — replace `SYSTEM_PROMPT` (warmer, context+examples, adaptive); relax completion criteria.
-- `supabase/functions/onboarding-session/index.ts` — accept the existing `action: "complete"` as a force-complete path (already does; just confirm Claude summary extractor handles partial transcripts → it does, returns "Not specified").
-- `src/pages/Onboarding.tsx` — add "Wrap up & generate" button visible once `stage >= 6`; on click, call `finalize(messages)`. On `finalize()` failure, show inline retry instead of moving to summary view.
+- DB migration: replace `create_client_from_onboarding` function — drop `stage` from INSERT column list.
+- `supabase/functions/onboarding-chat/index.ts` — replace `SYSTEM_PROMPT` (warmer, contextual, example-driven, adaptive, looser completion gate).
+- `src/pages/Onboarding.tsx` — add "Wrap up & generate" CTA visible at `stage >= 6`; tighten `finalize()` error handling with retry.
 
-**Recovery for existing stuck submission `d02b978d`:**
-After deploy, we can manually re-trigger via the admin client detail page (or a one-shot script) to run `complete` against this submission so the user's brand voice doc is generated without them re-doing the chat.
+**Recovery for submission `d02b978d-604e-46d5-9012-7b935938a2ab`:** After the trigger fix deploys, manually toggle `completed` on that row (UPDATE … SET completed=false then true) so the now-fixed trigger materializes the client. Then call `generate-brand-voice` for that client. I'll run these as ad-hoc steps after the migration applies.
 
-**No DB migrations needed.** The submissions table already supports partial data; the summary extractor already tolerates missing fields.
+**No prompt changes are required to fix the save bug** — it was purely a DB schema mismatch. The prompt rewrite addresses the separate "dry conversation" complaint.
