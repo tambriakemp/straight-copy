@@ -7,10 +7,12 @@ const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 type AccountChecks = Record<string, boolean>;
 type FileEntry = { path: string; name: string; size: number };
+type AccountFields = Record<string, string>;
 export type AccountAccessState = {
   checks?: AccountChecks;
   notes?: string;
   files?: FileEntry[];
+  fields?: AccountFields;
   submitted_at?: string | null;
   updated_at?: string;
 };
@@ -101,7 +103,20 @@ const ACCOUNTS_BASE: Array<{
       </>
     ),
   },
-  { key: "heygen", label: "HeyGen", desc: "This is where your AI avatar will be created and managed.", growthOnly: true },
+  {
+    key: "heygen",
+    label: "HeyGen",
+    desc: (
+      <>
+        This is where your AI avatar will be created and managed. Once you've set up your HeyGen account, please paste your <strong>API key</strong> in the field below and click <strong>Save</strong> so we can connect it to your automations.
+        <br /><br />
+        <em>Prefer to use an MCP server instead?</em> Check the box below. Going the MCP route is the most cost-effective option because it doesn't require purchasing API credits — but it does require a <strong>dedicated computer</strong> that can run the automation. The computer will need to be powered on at least <strong>once a month</strong> for the automation to run. If you check the MCP box, the API key field will hide.
+        <br /><br />
+        Once you've either saved your API key or selected MCP, check this item off so the team knows it's complete.
+      </>
+    ),
+    growthOnly: true,
+  },
   { key: "claude", label: "Claude Account", desc: "This is where your Business Brain will live. A Pro account is required.", growthOnly: true },
 ];
 
@@ -129,6 +144,8 @@ export default function AccountAccessSection({
   const [checks, setChecks] = useState<AccountChecks>(initial?.checks ?? {});
   const [notes, setNotes] = useState<string>(initial?.notes ?? "");
   const [files, setFiles] = useState<FileEntry[]>(initial?.files ?? []);
+  const [fields, setFields] = useState<AccountFields>(initial?.fields ?? {});
+  const [heygenKeyDraft, setHeygenKeyDraft] = useState<string>(initial?.fields?.heygen_api_key ?? "");
   const [submittedAt, setSubmittedAt] = useState<string | null>(initial?.submitted_at ?? null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -155,7 +172,7 @@ export default function AccountAccessSection({
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checks, notes, files]);
+  }, [checks, notes, files, fields]);
 
   const persist = async () => {
     setSaving(true);
@@ -166,7 +183,7 @@ export default function AccountAccessSection({
         body: JSON.stringify({
           clientId,
           action: "account-access-save",
-          accountAccess: { checks, notes, files },
+          accountAccess: { checks, notes, files, fields },
         }),
       });
       const data = await resp.json();
@@ -304,6 +321,46 @@ export default function AccountAccessSection({
                           <span>{p.label}</span>
                         </label>
                       ))}
+                    </div>
+                  )}
+
+                  {a.key === "heygen" && (
+                    <div className="portal-access__subs" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <label className="portal-access__sub">
+                        <input
+                          type="checkbox"
+                          checked={!!checks.heygen_use_mcp}
+                          onChange={() =>
+                            setChecks((prev) => ({ ...prev, heygen_use_mcp: !prev.heygen_use_mcp }))
+                          }
+                        />
+                        <span>I prefer to use an MCP server (no API key needed)</span>
+                      </label>
+
+                      {!checks.heygen_use_mcp && (
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <input
+                            type="text"
+                            className="portal-access__textarea"
+                            style={{ flex: 1, minWidth: 220, padding: "8px 12px", fontFamily: "monospace", fontSize: 13 }}
+                            placeholder="Paste your HeyGen API key…"
+                            value={heygenKeyDraft}
+                            onChange={(e) => setHeygenKeyDraft(e.target.value)}
+                            autoComplete="off"
+                            spellCheck={false}
+                          />
+                          <button
+                            type="button"
+                            className="crm-btn crm-btn--bronze crm-btn--sm"
+                            onClick={() =>
+                              setFields((prev) => ({ ...prev, heygen_api_key: heygenKeyDraft.trim() }))
+                            }
+                            disabled={!heygenKeyDraft.trim() || heygenKeyDraft.trim() === fields.heygen_api_key}
+                          >
+                            {fields.heygen_api_key && fields.heygen_api_key === heygenKeyDraft.trim() ? "Saved" : "Save"}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </li>
