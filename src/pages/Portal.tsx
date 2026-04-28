@@ -124,6 +124,7 @@ export default function Portal() {
       setSubmittedAt(data.submittedAt);
       setContactEmail(data.contactEmail);
       setAccountAccess(data.accountAccess ?? {});
+      setOnboardingInvite(data.onboardingInvite ?? null);
       if (data.subscription) {
         setSubscription({
           id: data.subscription.id ?? null,
