@@ -505,6 +505,60 @@ export default function Portal() {
 
 // ---------- Sub-components ----------
 
+function BrandVoiceAccordion({ token, completed }: { token: string; completed: boolean }) {
+  const [open, setOpen] = useState(!completed);
+  return (
+    <section
+      id="portal-onboarding-chat"
+      className={`portal-access ${open ? "is-open" : "is-closed"}`}
+      style={{ scrollMarginTop: 24 }}
+    >
+      <button
+        type="button"
+        className="portal-access__toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <div className="portal-access__toggle-left">
+          <div className="portal-access__eyebrow">Node 01 · Intake</div>
+          <h2 className="portal-access__title">
+            Brand <em>Voice</em> Chat.
+          </h2>
+        </div>
+        <div className="portal-access__toggle-right">
+          <span className={`portal-access__status ${completed ? "is-done" : ""}`}>
+            {completed ? "Completed" : "Action required"}
+          </span>
+          <span className={`portal-access__chev ${open ? "is-open" : ""}`}>›</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="portal-access__body">
+          <p className="portal-access__intro">
+            A short, guided conversation that captures your voice, audience, and goals. This is
+            the foundation for everything we build — please complete it before your build kicks off.
+          </p>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
+            {completed ? (
+              <span className="portal-access__badge">✓ Submitted to your CRE8 team</span>
+            ) : (
+              <a
+                href={`/onboarding?invite=${token}`}
+                target="_blank"
+                rel="noreferrer"
+                className="crm-btn crm-btn--bronze crm-btn--sm"
+              >
+                Open Brand Voice chat →
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function BrandKitChat({
   node, stage, messages, input, setInput, isStreaming, readyToSubmit, submitting,
   onSend, onSubmit, scrollRef,
