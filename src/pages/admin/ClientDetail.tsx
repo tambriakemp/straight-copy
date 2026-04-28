@@ -1463,6 +1463,41 @@ function EmailTrackingPanel({ client, onReload }: { client: Client; onReload: ()
           : `Auto-checked every 15 min – 12 hr (tier-based). ${lastChecked ? `Last checked ${format(new Date(lastChecked), "MMM d, h:mm a")}.` : "Not checked yet."}`}
       </p>
 
+      <div
+        style={{
+          padding: "10px 12px",
+          border: "1px solid hsl(30 8% 22%)",
+          borderRadius: 4,
+          marginBottom: 10,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+        }}
+      >
+        <div style={{ fontSize: 12, color: "hsl(40 20% 90%)" }}>
+          <div style={{ letterSpacing: "0.2em", textTransform: "uppercase", fontSize: 10, color: "hsl(30 8% 62%)", marginBottom: 4 }}>
+            Kickoff webhook
+          </div>
+          {client.kickoff_webhook_confirmed_at
+            ? `Confirmed sent ${format(new Date(client.kickoff_webhook_confirmed_at), "MMM d, h:mm a")}`
+            : client.kickoff_webhook_fired_at
+            ? `Fired ${format(new Date(client.kickoff_webhook_fired_at), "MMM d, h:mm a")} — awaiting SureContact send confirmation`
+            : "Will fire automatically when all other intake items are checked off"}
+        </div>
+        <button
+          className="crm-btn crm-btn--ghost crm-btn--sm"
+          onClick={() => fireKickoff(!!client.kickoff_webhook_fired_at)}
+          disabled={firingKickoff}
+        >
+          {firingKickoff
+            ? "Firing…"
+            : client.kickoff_webhook_fired_at
+            ? "Re-fire"
+            : "Fire now"}
+        </button>
+      </div>
+
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {rows.map((r) => (
           <div
