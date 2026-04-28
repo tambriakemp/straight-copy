@@ -82,6 +82,7 @@ interface Client {
   email_tracking_paused_at?: string | null;
   email_tracking_paused_reason?: string | null;
   client_account_access?: Record<string, unknown> | null;
+  onboarding_submission_id?: string | null;
 }
 
 // ---------- S-curve geometry ----------
