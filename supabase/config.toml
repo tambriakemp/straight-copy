@@ -50,3 +50,6 @@ verify_jwt = true
 
 [functions.poll-email-status]
 verify_jwt = false
+
+[functions.trigger-kickoff-webhook]
+verify_jwt = false

@@ -330,6 +330,8 @@ export type Database = {
           id: string
           intake_data: Json | null
           intake_summary: string | null
+          kickoff_webhook_confirmed_at: string | null
+          kickoff_webhook_fired_at: string | null
           notes: string | null
           onboarding_submission_id: string | null
           pipeline_stage: string
@@ -380,6 +382,8 @@ export type Database = {
           id?: string
           intake_data?: Json | null
           intake_summary?: string | null
+          kickoff_webhook_confirmed_at?: string | null
+          kickoff_webhook_fired_at?: string | null
           notes?: string | null
           onboarding_submission_id?: string | null
           pipeline_stage?: string
@@ -430,6 +434,8 @@ export type Database = {
           id?: string
           intake_data?: Json | null
           intake_summary?: string | null
+          kickoff_webhook_confirmed_at?: string | null
+          kickoff_webhook_fired_at?: string | null
           notes?: string | null
           onboarding_submission_id?: string | null
           pipeline_stage?: string
@@ -842,6 +848,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      fire_kickoff_webhook: { Args: { _client_id: string }; Returns: undefined }
       fire_surecontact_sync: {
         Args: { _client_id: string }
         Returns: undefined
