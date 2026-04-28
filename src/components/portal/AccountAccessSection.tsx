@@ -137,7 +137,7 @@ export default function AccountAccessSection({
 
   // Required keys (account-level only — social_media counts when at least one sub is checked)
   const requiredKeys = useMemo(() => {
-    const k = ["surecontact", "ottokit", "copost", "social_media", "website"];
+    const k = ["surecontact", "ottokit", "copost", "website"];
     if (isGrowth) k.push("heygen", "claude");
     return k;
   }, [isGrowth]);
