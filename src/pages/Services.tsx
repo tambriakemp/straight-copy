@@ -48,15 +48,14 @@ const automations = [
     num: "01",
     label: "Foundation Automation",
     titleA: "Lead Capture +",
-    titleB: "Client Onboarding",
+    titleB: "Customer Nurturing",
     tags: ["Lead Nurture", "Onboarding", "Follow-Up", "AI Response"],
-    desc: "The complete revenue journey — from first inquiry to fully onboarded client — running without you touching it. Every lead gets a response. Every new client gets a seamless experience. Nothing falls through the cracks.",
+    desc: "The complete revenue journey — from first inquiry to fully nurtured customer — running without you touching it. Every lead gets a response. Every new customer gets a seamless experience. Nothing falls through the cracks.",
     steps: [
       "New inquiry triggers an AI-written, personalized response in your brand voice",
       "Qualified leads enter an automated follow-up sequence — no manual chasing",
       "On conversion, a welcome sequence fires immediately",
       "Automated check-ins at day 3 and day 7 keep the relationship warm",
-      "Built on your existing tools — no new software required",
     ],
   },
   {
