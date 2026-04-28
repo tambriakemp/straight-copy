@@ -746,7 +746,7 @@ const Onboarding = () => {
                   </div>
                 )}
 
-                {stage >= 6 && !savingFinal && !finalizeError && messages.length > 6 && (
+                {!savingFinal && !finalizeError && messages.length >= 8 && (
                   <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
                     <button
                       onClick={() => finalize(messages)}
