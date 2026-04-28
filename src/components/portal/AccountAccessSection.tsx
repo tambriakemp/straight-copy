@@ -103,7 +103,20 @@ const ACCOUNTS_BASE: Array<{
       </>
     ),
   },
-  { key: "heygen", label: "HeyGen", desc: "This is where your AI avatar will be created and managed.", growthOnly: true },
+  {
+    key: "heygen",
+    label: "HeyGen",
+    desc: (
+      <>
+        This is where your AI avatar will be created and managed. Once you've set up your HeyGen account, please paste your <strong>API key</strong> in the field below and click <strong>Save</strong> so we can connect it to your automations.
+        <br /><br />
+        <em>Prefer to use an MCP server instead?</em> Check the box below. Going the MCP route is the most cost-effective option because it doesn't require purchasing API credits — but it does require a <strong>dedicated computer</strong> that can run the automation. The computer will need to be powered on at least <strong>once a month</strong> for the automation to run. If you check the MCP box, the API key field will hide.
+        <br /><br />
+        Once you've either saved your API key or selected MCP, check this item off so the team knows it's complete.
+      </>
+    ),
+    growthOnly: true,
+  },
   { key: "claude", label: "Claude Account", desc: "This is where your Business Brain will live. A Pro account is required.", growthOnly: true },
 ];
 
