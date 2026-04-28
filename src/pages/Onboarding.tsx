@@ -28,6 +28,7 @@ const Onboarding = () => {
   const [stage, setStage] = useState(1);
   const [summary, setSummary] = useState<Record<string, any> | null>(null);
   const [savingFinal, setSavingFinal] = useState(false);
+  const [finalizeError, setFinalizeError] = useState<string | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [inviteContact, setInviteContact] = useState<{
     contact_name?: string | null;
@@ -241,6 +242,7 @@ const Onboarding = () => {
 
   const finalize = async (convo: Msg[]) => {
     setSavingFinal(true);
+    setFinalizeError(null);
     // Flush any pending save
     if (saveTimer.current) {
       window.clearTimeout(saveTimer.current);
@@ -253,6 +255,7 @@ const Onboarding = () => {
         : { conversation: convo };
       const { data, error } = await supabase.functions.invoke(fnName, { body });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       setSummary(data?.summary || null);
       if (inviteToken && data?.summary) {
         try {
@@ -265,12 +268,15 @@ const Onboarding = () => {
       setStage(7);
       setTimeout(() => setView("summary"), 1200);
     } catch (e) {
-      console.error(e);
+      console.error("finalize failed:", e);
+      const msg = e instanceof Error ? e.message : "Could not save. Please retry.";
+      setFinalizeError(msg);
       toast({
-        title: "Saved locally",
-        description: "We hit a snag saving your conversation, but your summary is shown below.",
+        title: "Couldn't save",
+        description: "We hit a snag generating your brand voice. Tap Retry below.",
+        variant: "destructive",
       });
-      setView("summary");
+      // Stay in chat view so the user can retry
     } finally {
       setSavingFinal(false);
     }
