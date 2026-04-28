@@ -323,6 +323,46 @@ export default function AccountAccessSection({
                       ))}
                     </div>
                   )}
+
+                  {a.key === "heygen" && (
+                    <div className="portal-access__subs" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <label className="portal-access__sub">
+                        <input
+                          type="checkbox"
+                          checked={!!checks.heygen_use_mcp}
+                          onChange={() =>
+                            setChecks((prev) => ({ ...prev, heygen_use_mcp: !prev.heygen_use_mcp }))
+                          }
+                        />
+                        <span>I prefer to use an MCP server (no API key needed)</span>
+                      </label>
+
+                      {!checks.heygen_use_mcp && (
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <input
+                            type="text"
+                            className="portal-access__textarea"
+                            style={{ flex: 1, minWidth: 220, padding: "8px 12px", fontFamily: "monospace", fontSize: 13 }}
+                            placeholder="Paste your HeyGen API key…"
+                            value={heygenKeyDraft}
+                            onChange={(e) => setHeygenKeyDraft(e.target.value)}
+                            autoComplete="off"
+                            spellCheck={false}
+                          />
+                          <button
+                            type="button"
+                            className="crm-btn crm-btn--bronze crm-btn--sm"
+                            onClick={() =>
+                              setFields((prev) => ({ ...prev, heygen_api_key: heygenKeyDraft.trim() }))
+                            }
+                            disabled={!heygenKeyDraft.trim() || heygenKeyDraft.trim() === fields.heygen_api_key}
+                          >
+                            {fields.heygen_api_key && fields.heygen_api_key === heygenKeyDraft.trim() ? "Saved" : "Save"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             })}
