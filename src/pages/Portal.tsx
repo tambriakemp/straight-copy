@@ -79,6 +79,7 @@ export default function Portal() {
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState<string | null>(null);
   const [accountAccess, setAccountAccess] = useState<AccountAccessState>({});
+  const [onboardingInvite, setOnboardingInvite] = useState<{ token: string; completed: boolean } | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionState>({
     id: null,
     status: null,
