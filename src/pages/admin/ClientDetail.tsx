@@ -876,6 +876,7 @@ function StageModal({
 
             {node.key === "intake" && (
               <>
+                <OnboardingChatLinkPanel client={client} />
                 <EmailTrackingPanel client={client} onReload={onReload} />
                 <BuildSchedulePanel client={client} onReload={onReload} />
               </>
