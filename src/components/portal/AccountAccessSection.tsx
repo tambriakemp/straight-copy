@@ -88,8 +88,19 @@ const ACCOUNTS_BASE: Array<{
       </>
     ),
   },
-  { key: "social_media", label: "Social Media Accounts", desc: "We'll need admin access to whichever platforms you want to publish content on." },
-  { key: "website", label: "Website Access", desc: "We'll need login access to your website to connect your lead capture system." },
+  {
+    key: "website",
+    label: "Website Access",
+    desc: (
+      <>
+        We'll need access to your website so we can connect your lead capture system and any on-site automations. Log in to your website's admin dashboard and add{" "}
+        <a href="mailto:info@cre8visions.com" className="portal-access__link">
+          info@cre8visions.com
+        </a>{" "}
+        as a user, then grant <strong>Editor</strong> or <strong>Admin</strong> rights (Admin is preferred so we can install and configure everything we need). Once that's done, check this item off so the team knows it's complete.
+      </>
+    ),
+  },
   { key: "heygen", label: "HeyGen", desc: "This is where your AI avatar will be created and managed.", growthOnly: true },
   { key: "claude", label: "Claude Account", desc: "This is where your Business Brain will live. A Pro account is required.", growthOnly: true },
 ];
