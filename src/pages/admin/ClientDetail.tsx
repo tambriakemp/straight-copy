@@ -81,6 +81,7 @@ interface Client {
   email_tracking_complete_at?: string | null;
   email_tracking_paused_at?: string | null;
   email_tracking_paused_reason?: string | null;
+  client_account_access?: Record<string, unknown> | null;
 }
 
 // ---------- S-curve geometry ----------
@@ -620,6 +621,8 @@ export default function ClientDetail() {
         </div>
 
         <AdminContractSection clientId={client.id} />
+
+        <HeyGenKeyPanel client={client} />
       </div>
 
       {openNode && (
@@ -1598,6 +1601,88 @@ function ClientFieldEditor({
         <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={save} disabled={saving || value === initial}>
           {saving ? "Saving…" : "Save"}
         </button>
+      </div>
+    </section>
+  );
+}
+
+// ---------- HeyGen API key reveal/copy (admin only) ----------
+function HeyGenKeyPanel({ client }: { client: Client }) {
+  const [revealed, setRevealed] = useState(false);
+  const access = (client.client_account_access ?? {}) as {
+    fields?: { heygen_api_key?: string };
+    checks?: { heygen_use_mcp?: boolean };
+  };
+  const apiKey = access.fields?.heygen_api_key ?? "";
+  const useMcp = !!access.checks?.heygen_use_mcp;
+
+  if (client.tier !== "growth") return null;
+
+  const masked = apiKey ? `${"•".repeat(Math.min(apiKey.length, 24))}` : "";
+
+  const copy = async () => {
+    if (!apiKey) return;
+    try {
+      await navigator.clipboard.writeText(apiKey);
+      toast.success("HeyGen API key copied");
+    } catch {
+      toast.error("Copy failed");
+    }
+  };
+
+  return (
+    <section className="crm-card" style={{ marginTop: 16 }}>
+      <div className="crm-card__head">
+        <div className="crm-card__title">HeyGen Access</div>
+      </div>
+      <div className="crm-card__body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {useMcp ? (
+          <div style={{ fontSize: 13, color: "hsl(30 8% 70%)" }}>
+            Client opted to use an <strong>MCP server</strong> instead of an API key.
+          </div>
+        ) : apiKey ? (
+          <>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <code
+                style={{
+                  flex: 1,
+                  minWidth: 220,
+                  padding: "8px 12px",
+                  background: "rgba(0,0,0,0.25)",
+                  border: "1px solid hsl(30 8% 28%)",
+                  borderRadius: 4,
+                  fontFamily: "monospace",
+                  fontSize: 13,
+                  wordBreak: "break-all",
+                  color: "hsl(40 20% 92%)",
+                }}
+              >
+                {revealed ? apiKey : masked}
+              </code>
+              <button
+                type="button"
+                className="crm-btn crm-btn--ghost crm-btn--sm"
+                onClick={() => setRevealed((v) => !v)}
+              >
+                {revealed ? "Hide" : "Reveal"}
+              </button>
+              <button
+                type="button"
+                className="crm-btn crm-btn--bronze crm-btn--sm"
+                onClick={copy}
+              >
+                Copy
+              </button>
+            </div>
+            <div style={{ fontSize: 12, color: "hsl(30 8% 60%)" }}>
+              Length: {apiKey.length} characters
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 13, color: "hsl(30 8% 70%)" }}>
+            Client hasn't submitted a HeyGen API key yet.
+          </div>
+        )}
       </div>
     </section>
   );

@@ -340,9 +340,19 @@ export default function AccountAccessSection({
                       {!checks.heygen_use_mcp && (
                         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                           <input
-                            type="text"
-                            className="portal-access__textarea"
-                            style={{ flex: 1, minWidth: 220, padding: "8px 12px", fontFamily: "monospace", fontSize: 13 }}
+                            type="password"
+                            style={{
+                              flex: 1,
+                              minWidth: 220,
+                              height: 38,
+                              padding: "0 12px",
+                              fontFamily: "monospace",
+                              fontSize: 13,
+                              background: "rgba(0,0,0,0.25)",
+                              border: "1px solid hsl(30 8% 28%)",
+                              borderRadius: 4,
+                              color: "hsl(40 20% 92%)",
+                            }}
                             placeholder="Paste your HeyGen API key…"
                             value={heygenKeyDraft}
                             onChange={(e) => setHeygenKeyDraft(e.target.value)}
