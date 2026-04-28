@@ -183,7 +183,7 @@ export default function AccountAccessSection({
         body: JSON.stringify({
           clientId,
           action: "account-access-save",
-          accountAccess: { checks, notes, files },
+          accountAccess: { checks, notes, files, fields },
         }),
       });
       const data = await resp.json();
