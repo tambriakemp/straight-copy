@@ -66,6 +66,28 @@ const ACCOUNTS_BASE: Array<{
       </>
     ),
   },
+  {
+    key: "copost",
+    label: "CoPost",
+    desc: (
+      <>
+        This is your social media content scheduler — where all your linked social accounts live so content can be published through your automations. You can sign up{" "}
+        <a
+          href="https://copost.com"
+          target="_blank"
+          rel="noreferrer"
+          className="portal-access__link"
+        >
+          here
+        </a>
+        . CoPost is currently offering a lifetime deal — we recommend the <strong>Teams</strong> plan (also a one-time payment) so the whole team can collaborate. Once you've signed up, click <strong>Settings → Team</strong> and add{" "}
+        <a href="mailto:info@cre8visions.com" className="portal-access__link">
+          info@cre8visions.com
+        </a>{" "}
+        as a team member. Then click <strong>Socials</strong> and connect up to four social media accounts. <em>Note: for Launch plans, YouTube is not included.</em> Once your accounts are connected, check this item off so the team knows it's complete. If you already use a different content scheduler and want to keep it, email us first to see if we can integrate with it.
+      </>
+    ),
+  },
   { key: "social_media", label: "Social Media Accounts", desc: "We'll need admin access to whichever platforms you want to publish content on." },
   { key: "website", label: "Website Access", desc: "We'll need login access to your website to connect your lead capture system." },
   { key: "heygen", label: "HeyGen", desc: "This is where your AI avatar will be created and managed.", growthOnly: true },
