@@ -81,6 +81,8 @@ interface Client {
   email_tracking_complete_at?: string | null;
   email_tracking_paused_at?: string | null;
   email_tracking_paused_reason?: string | null;
+  kickoff_webhook_fired_at?: string | null;
+  kickoff_webhook_confirmed_at?: string | null;
   client_account_access?: Record<string, unknown> | null;
   onboarding_submission_id?: string | null;
 }
