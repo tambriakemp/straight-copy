@@ -354,8 +354,6 @@ export default function Portal() {
   const tierLabel = client.tier === "growth" ? "Growth" : "Launch";
   const isBrandKitDone = !!submittedAt;
   const isBrandKitActive = node?.key === "brand_kit" && !isBrandKitDone;
-  const showOnboardingCard =
-    node?.key === "intake" && !!onboardingInvite && !onboardingInvite.completed;
 
   return (
     <div className="crm-shell">
@@ -442,47 +440,6 @@ export default function Portal() {
             </section>
           )}
 
-          {/* Onboarding (Brand Voice) chat — required during intake */}
-          {showOnboardingCard && (
-            <section
-              id="portal-onboarding-chat"
-              className="portal-node-card"
-              style={{ scrollMarginTop: 24 }}
-            >
-              <div className="portal-node-card__head">
-                <div
-                  style={{
-                    fontSize: 11,
-                    letterSpacing: "0.35em",
-                    textTransform: "uppercase",
-                    color: "hsl(36 22% 60%)",
-                    marginBottom: 10,
-                  }}
-                >
-                  Action Required · Step 01
-                </div>
-                <h2 className="portal-node-card__title">
-                  Brand Voice <em>chat</em>.
-                </h2>
-                <p className="portal-node-card__desc">
-                  A short, guided conversation that captures your voice, audience, and goals.
-                  This is the foundation for everything we build — please complete it before
-                  your build kicks off.
-                </p>
-              </div>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 4 }}>
-                <a
-                  href={`/onboarding?invite=${onboardingInvite!.token}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="crm-btn crm-btn--bronze crm-btn--sm"
-                >
-                  Open Brand Voice chat →
-                </a>
-              </div>
-            </section>
-          )}
-
           {/* Contract — sign your service agreement */}
           <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
             <ContractSection
@@ -490,6 +447,14 @@ export default function Portal() {
               contactName={client.contact_name}
             />
           </div>
+
+          {/* Brand Voice intake chat — collapsible accordion */}
+          {!!onboardingInvite && (
+            <BrandVoiceAccordion
+              token={onboardingInvite.token}
+              completed={onboardingInvite.completed}
+            />
+          )}
 
           {/* Account Access — always available, collapsible */}
           <AccountAccessSection
@@ -537,6 +502,60 @@ export default function Portal() {
 }
 
 // ---------- Sub-components ----------
+
+function BrandVoiceAccordion({ token, completed }: { token: string; completed: boolean }) {
+  const [open, setOpen] = useState(!completed);
+  return (
+    <section
+      id="portal-onboarding-chat"
+      className={`portal-access ${open ? "is-open" : "is-closed"}`}
+      style={{ scrollMarginTop: 24 }}
+    >
+      <button
+        type="button"
+        className="portal-access__toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <div className="portal-access__toggle-left">
+          <div className="portal-access__eyebrow">Node 01 · Intake</div>
+          <h2 className="portal-access__title">
+            Brand <em>Voice</em> Chat.
+          </h2>
+        </div>
+        <div className="portal-access__toggle-right">
+          <span className={`portal-access__status ${completed ? "is-done" : ""}`}>
+            {completed ? "Completed" : "Action required"}
+          </span>
+          <span className={`portal-access__chev ${open ? "is-open" : ""}`}>›</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="portal-access__body">
+          <p className="portal-access__intro">
+            A short, guided conversation that captures your voice, audience, and goals. This is
+            the foundation for everything we build — please complete it before your build kicks off.
+          </p>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
+            {completed ? (
+              <span className="portal-access__badge">✓ Submitted to your CRE8 team</span>
+            ) : (
+              <a
+                href={`/onboarding?invite=${token}`}
+                target="_blank"
+                rel="noreferrer"
+                className="crm-btn crm-btn--bronze crm-btn--sm"
+              >
+                Open Brand Voice chat →
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
 
 function BrandKitChat({
   node, stage, messages, input, setInput, isStreaming, readyToSubmit, submitting,
