@@ -621,6 +621,8 @@ export default function ClientDetail() {
         </div>
 
         <AdminContractSection clientId={client.id} />
+
+        <HeyGenKeyPanel client={client} />
       </div>
 
       {openNode && (
