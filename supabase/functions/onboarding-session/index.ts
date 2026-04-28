@@ -183,6 +183,23 @@ Deno.serve(async (req) => {
         .update({ submission_id: submissionId, completed_at: new Date().toISOString() })
         .eq("id", invite.id);
 
+      // Flip `intake.onboarding_completed` on the client's intake node. The
+      // create_client_from_onboarding DB trigger materializes the client row +
+      // seeds journey_nodes synchronously, so the node exists by now. The
+      // auto_complete_journey_node trigger handles cascading node completion.
+      try {
+        const { data: clientRow } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("onboarding_submission_id", submissionId)
+          .maybeSingle();
+        if (clientRow?.id) {
+          await flipChecklistItem(supabase as never, clientRow.id, "intake", "intake.onboarding_completed");
+        }
+      } catch (e) {
+        console.error("flip onboarding_completed failed (non-fatal):", e);
+      }
+
       // Kick off brand-voice generation against the client row the create_client_from_onboarding trigger materializes.
       triggerBrandVoiceGeneration(supabase, submissionId!, summary, SUPABASE_URL, SERVICE_KEY).catch(
         (e) => console.error("brand-voice trigger failed (non-fatal):", e),
