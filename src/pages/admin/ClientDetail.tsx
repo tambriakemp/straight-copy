@@ -1396,6 +1396,30 @@ function EmailTrackingPanel({ client, onReload }: { client: Client; onReload: ()
     }
   };
 
+  const [firingKickoff, setFiringKickoff] = useState(false);
+  const fireKickoff = async (force = false) => {
+    setFiringKickoff(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("trigger-kickoff-webhook", {
+        body: { clientId: client.id, force },
+      });
+      if (error) {
+        toast.error(error.message || "Webhook failed");
+      } else if (data?.success && data?.fired) {
+        toast.success("Kickoff webhook fired to SureContact");
+        onReload();
+      } else if (data?.skipped === "already_fired") {
+        toast.info("Kickoff webhook already fired");
+      } else if (data?.skipped === "gating_not_met") {
+        toast.error("Check off all other intake items first (or use Force re-fire)");
+      } else {
+        toast.error(data?.error || "Webhook failed");
+      }
+    } finally {
+      setFiringKickoff(false);
+    }
+  };
+
   const togglePause = async () => {
     const next = paused
       ? { email_tracking_paused_at: null, email_tracking_paused_reason: null }
