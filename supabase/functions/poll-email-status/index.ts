@@ -242,6 +242,12 @@ async function pollOneClient(
     email_tracking_last_polled_at: now.toISOString(),
   };
 
+  // Stamp kickoff webhook confirmation the first time we see a kickoff sent activity.
+  // Idempotent: poll-email-status overwrites with the same value on re-runs.
+  if (tracking.kickoff_sent_at) {
+    updates.kickoff_webhook_confirmed_at = tracking.kickoff_sent_at;
+  }
+
   if (allSentAndOpened) {
     updates.email_tracking_complete_at = now.toISOString();
   } else if (c.delivery_date) {
