@@ -1,50 +1,88 @@
-## Root cause (confirmed via edge function logs)
+## Goal
 
-Logs show: `complete update failed: column "stage" of relation "clients" does not exist`.
+When every Node 1 (intake) checklist item except `intake.kickoff_confirmation_sent` is complete, automatically POST to the SureContact incoming webhook:
 
-The `create_client_from_onboarding` Postgres trigger on `onboarding_submissions` tries to `INSERT INTO public.clients (..., stage, ...)` but the `clients` table has no `stage` column (it has `pipeline_stage`). When the user finished the chat, the AI did emit `[[ONBOARDING_COMPLETE]]` and `onboarding-session` did call `action: complete` — but the trigger raised, rolling back the whole `UPDATE onboarding_submissions … SET completed=true` statement. That's why the submission shows `completed=false` with no summary, and why no brand-voice doc was generated.
+`https://api.surecontact.com/incoming-webhooks/89ce06f6-cd92-44a6-a8b2-31a01820fc1f`
 
-The dryness of the conversation is a separate (real) issue with the system prompt.
+This fires the kickoff email automation in SureContact. Then poll SureContact's contact activity log until we see the kickoff "sent" event, at which point we flip `intake.kickoff_confirmation_sent` — which (via the existing `auto_complete_journey_node` trigger) closes Node 1 and advances to Node 2.
 
-## Plan
+## How it will work
 
-### 1. Fix the trigger (DB migration)
+### 1. New edge function: `trigger-kickoff-webhook`
 
-Drop `stage` from the `INSERT` in `create_client_from_onboarding`. The `clients` table uses `pipeline_stage` (default `'intake_submitted'`), so we just remove the bad column. Replace the function with the same logic minus that one column.
+- `verify_jwt = false` (called from a DB trigger via `pg_net`, same pattern as `sync-client-to-surecontact`).
+- Input: `{ clientId }`.
+- Loads the client (must be unarchived, has `contact_email`).
+- Loads the `intake` node and verifies the gating condition:
+  - All items except `intake.kickoff_confirmation_sent` are `done`.
+  - `intake.kickoff_confirmation_sent` is NOT yet `done`.
+  - `kickoff_webhook_fired_at` is NULL on the client (idempotency guard).
+- POSTs JSON to the SureContact incoming webhook URL with the contact's identifying data (email, name, business name, client_id, portal URL, etc.) so the SureContact automation can match the contact and send the kickoff template.
+- On success: stamps `clients.kickoff_webhook_fired_at = now()` so we never fire twice.
+- Logs to `email_send_log` with `template_name = 'kickoff-confirmation'`, `status = 'webhook_fired'` for visibility.
 
-### 2. Recover the existing stuck submission
+### 2. New DB columns + trigger
 
-After the trigger is fixed, run a one-shot SQL update toggling `completed=false → true` on submission `d02b978d-…` to fire the trigger fresh. The `onboarding-session` `complete` path also calls `triggerBrandVoiceGeneration` only from the edge function, so for recovery we'll instead call the existing edge function directly with the saved conversation. Simpler: re-invoke `onboarding-session` `complete` for that token. We'll do that from the admin once deployed (or run a one-shot via the migration's edge invocation). I'll verify the submission lands `completed=true` with a summary, then a client row appears and brand voice generation kicks off.
+Migration adds two columns to `clients`:
+- `kickoff_webhook_fired_at timestamptz`
+- `kickoff_webhook_confirmed_at timestamptz` (set when poller sees the SureContact "sent" activity)
 
-### 3. Rewrite the AI prompt for warmth + context + adaptation
+Update the existing `auto_complete_journey_node()` function so that, on every checklist write to the intake node, after computing `done_items` it also evaluates a new condition:
 
-Replace `SYSTEM_PROMPT` in `supabase/functions/onboarding-chat/index.ts` so the AI:
+> all items except `intake.kickoff_confirmation_sent` are done AND kickoff item is not done AND `clients.kickoff_webhook_fired_at IS NULL`
 
-- **Pairs every new question with one sentence of context** explaining why it matters for their brand voice doc.
-- **Always offers 2 concrete examples** when introducing an abstract topic (tone words, ideal customer, etc.). Examples are short and varied — e.g. tone words: *"things like 'warm and direct,' 'playful but precise,' or 'no-nonsense Southern' — what fits Cre8 Visions?"*
-- **Reads the previous answer's substance.** If <8 words or generic ("we help small businesses"), ask one targeted follow-up using their own words. If ≥15 words and specific, move forward.
-- **Echoes the client's vocabulary back** ("howdy" → use it in the next prompt; "automation + documentation" → reference it).
-- **Varies openers** — rotate reflections, observations, or just dive in. No more "Got it." / "Perfect —" every turn.
-- **Bridges between stages** with a one-sentence transition: *"That gives me a clear picture of who you are. Let's talk about who you serve."*
-- **Repairs gracefully** — if the user pushes back, rephrase with a different example instead of repeating.
-- **Loosens the completion gate** — emit `[[ONBOARDING_COMPLETE]]` once *core* fields have substantive answers (name, business, what_they_do, primary_offer, tone_words, ideal_customer, customer_struggles, biggest_time_drain, 90_day_goal, tier). Don't loop forever on nice-to-haves.
+When true, it calls a new helper `fire_kickoff_webhook(client_id)` (mirrors `fire_surecontact_sync` — uses `net.http_post` to invoke the new edge function). This keeps the gating logic atomic with the checklist write.
 
-Concrete prompt example:
-> *"Now I want to capture how you actually sound — this becomes the heartbeat of every email and caption your AI writes. Think 2-3 words that feel like you on a good day. For some folks it's 'warm and direct,' others 'playful but precise,' or even 'no-nonsense Southern.' What fits?"*
+Note: the existing trigger already handles cascading node completion when ALL items are done — we don't need to change that. The kickoff item will be flipped later by the poller, which will then satisfy that path naturally.
 
-### 4. Add a safety net "Wrap up & generate" button (`Onboarding.tsx`)
+### 3. Extend `poll-email-status` to confirm the kickoff send
 
-Once `stage >= 6` (Goals stage reached), show a subtle "Wrap up & generate my brand voice" button beneath the input. Clicking it calls `finalize(messages)` directly. This way, even if the AI hesitates to emit the completion sentinel, the client always has a way out.
+`poll-email-status` already polls SureContact's `email_sent` and `email_opened` activities every 2h (≤48h old) or 12h (older), and matches them by description phrase. The kickoff matcher is already wired:
 
-Also: improve `finalize()` failure UX — instead of dumping to an empty summary view on error, keep the chat alive and show an inline retry banner.
+```
+{ key: "kickoff", phrase: "build has officially started",
+  intakeItemKey: "intake.kickoff_confirmation_sent" }
+```
 
-## Technical notes
+So as soon as SureContact records the kickoff `email_sent` activity, the poller already calls `flipChecklistItem(client, "intake", "intake.kickoff_confirmation_sent")` — which flips the item to done. The existing `auto_complete_journey_node` trigger then sees all 11 items done and closes Node 1 + advances Node 2. **No changes needed here** beyond stamping `kickoff_webhook_confirmed_at` when the kickoff `sent_at` first appears, for admin visibility.
 
-**Files to edit:**
-- DB migration: replace `create_client_from_onboarding` function — drop `stage` from INSERT column list.
-- `supabase/functions/onboarding-chat/index.ts` — replace `SYSTEM_PROMPT` (warmer, contextual, example-driven, adaptive, looser completion gate).
-- `src/pages/Onboarding.tsx` — add "Wrap up & generate" CTA visible at `stage >= 6`; tighten `finalize()` error handling with retry.
+To make the poller responsive after the webhook fires (default cadence could be 2h), the new edge function will also enqueue an immediate `poll-email-status` invocation for that client right after firing the webhook, and again every ~5 min for the next 30 min via a lightweight loop (or simply rely on the next scheduled tick — see open question below).
 
-**Recovery for submission `d02b978d-604e-46d5-9012-7b935938a2ab`:** After the trigger fix deploys, manually toggle `completed` on that row (UPDATE … SET completed=false then true) so the now-fixed trigger materializes the client. Then call `generate-brand-voice` for that client. I'll run these as ad-hoc steps after the migration applies.
+### 4. UI surface (ClientDetail intake panel)
 
-**No prompt changes are required to fix the save bug** — it was purely a DB schema mismatch. The prompt rewrite addresses the separate "dry conversation" complaint.
+Small additions so admins can see what's happening:
+- Show "Kickoff webhook fired at <timestamp>" once `kickoff_webhook_fired_at` is set.
+- Show "Confirmed sent at <timestamp>" once `kickoff_webhook_confirmed_at` is set.
+- Add a manual "Re-fire kickoff webhook" admin action (calls the edge function directly, bypassing the idempotency guard) for recovery.
+
+## Technical details
+
+- **Webhook payload shape** — SureContact incoming webhooks typically accept arbitrary JSON keyed by email. Proposed body:
+  ```json
+  {
+    "email": "...",
+    "first_name": "...",
+    "last_name": "...",
+    "company": "...",
+    "client_id": "...",
+    "portal_url": "...",
+    "trigger": "kickoff_confirmation",
+    "tier": "Launch"
+  }
+  ```
+- **Idempotency**: gated by `clients.kickoff_webhook_fired_at IS NULL` in both the DB trigger AND the edge function (defense in depth).
+- **Failure handling**: if the POST fails (non-2xx), do NOT stamp `kickoff_webhook_fired_at`, log the error to `email_send_log` with `status = 'failed'`, and let the trigger try again on the next checklist write. If no further writes happen, the manual "Re-fire" button covers it.
+- **Files touched**:
+  - new: `supabase/functions/trigger-kickoff-webhook/index.ts` + `deno.json`
+  - new migration: adds columns + `fire_kickoff_webhook()` + updates `auto_complete_journey_node()`
+  - edit: `supabase/config.toml` — add `[functions.trigger-kickoff-webhook] verify_jwt = false`
+  - edit: `supabase/functions/poll-email-status/index.ts` — stamp `kickoff_webhook_confirmed_at` when kickoff `sent_at` first detected
+  - edit: `src/pages/admin/ClientDetail.tsx` — show webhook status + manual re-fire button
+
+## Open question
+
+After the webhook fires, the poller's normal cadence (2h within 48h of client creation) could delay auto-completion by up to 2 hours. Options:
+- **(a)** Accept the 2h worst-case delay — simplest, no extra infra.
+- **(b)** Have the trigger function kick off an immediate `poll-email-status` invoke right after the webhook fires, then schedule one more retry ~5 min later via a one-off pg_cron entry. More moving parts but typically completes within 5–10 min.
+
+I'd recommend **(b)** for a snappier UX. Let me know which you'd like before I implement.
