@@ -144,6 +144,8 @@ export default function AccountAccessSection({
   const [checks, setChecks] = useState<AccountChecks>(initial?.checks ?? {});
   const [notes, setNotes] = useState<string>(initial?.notes ?? "");
   const [files, setFiles] = useState<FileEntry[]>(initial?.files ?? []);
+  const [fields, setFields] = useState<AccountFields>(initial?.fields ?? {});
+  const [heygenKeyDraft, setHeygenKeyDraft] = useState<string>(initial?.fields?.heygen_api_key ?? "");
   const [submittedAt, setSubmittedAt] = useState<string | null>(initial?.submitted_at ?? null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -170,7 +172,7 @@ export default function AccountAccessSection({
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checks, notes, files]);
+  }, [checks, notes, files, fields]);
 
   const persist = async () => {
     setSaving(true);
