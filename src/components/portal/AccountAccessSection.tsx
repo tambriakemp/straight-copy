@@ -7,10 +7,12 @@ const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 type AccountChecks = Record<string, boolean>;
 type FileEntry = { path: string; name: string; size: number };
+type AccountFields = Record<string, string>;
 export type AccountAccessState = {
   checks?: AccountChecks;
   notes?: string;
   files?: FileEntry[];
+  fields?: AccountFields;
   submitted_at?: string | null;
   updated_at?: string;
 };
