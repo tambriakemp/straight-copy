@@ -216,6 +216,13 @@ Deno.serve(async (req) => {
 
     if (!path) path = project.entry_path;
 
+    // Special path: serve the injected feedback widget
+    if (path === "__pf_widget.js") {
+      return new Response(FEEDBACK_WIDGET_JS, {
+        headers: { ...corsHeaders, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "public, max-age=300" },
+      });
+    }
+
     // Reject path traversal
     if (path.includes("..")) return new Response("bad path", { status: 400, headers: corsHeaders });
 
