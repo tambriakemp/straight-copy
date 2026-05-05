@@ -205,6 +205,7 @@ export default function PreviewDetail() {
 
   return (
     <AdminLayout>
+      <div style={{ padding: "48px 52px 96px", maxWidth: 1400, margin: "0 auto", width: "100%", overflowY: "auto", flex: 1 }}>
       {/* Header */}
       <div style={{ marginBottom: 14 }}>
         <Link to="/admin/previews" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase" }}>
