@@ -429,7 +429,9 @@ export default function PreviewDetail() {
           </div>
         )}
       </section>
+        </TabsContent>
 
+        <TabsContent value="feedback">
       {/* Feedback Kanban */}
       <section>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
