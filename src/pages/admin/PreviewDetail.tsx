@@ -344,6 +344,12 @@ export default function PreviewDetail() {
             </div>
           </div>
         )}
+      </section>
+        </TabsContent>
+
+        <TabsContent value="files">
+      <section style={{ marginBottom: 28 }}>
+        <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: "0 0 14px" }}>Assets & Missing References</h2>
 
         {/* Assets (collapsible) */}
         {assets.length > 0 && (
