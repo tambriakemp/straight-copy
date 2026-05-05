@@ -84,41 +84,35 @@ export default function PreviewDetail() {
   };
 
   const setStatus = async (commentId: string, status: string) => {
-    await supabase.functions.invoke("preview-admin?action=comment", {
-      method: "PATCH", body: { id: commentId, status },
-    });
+    await supabase.functions.invoke("preview-admin", { body: { action: "comment_status", id: commentId, status } });
     load();
   };
 
   const deleteComment = async (commentId: string) => {
     if (!confirm("Delete this comment?")) return;
-    await supabase.functions.invoke("preview-admin?action=comment", {
-      method: "DELETE", body: { id: commentId },
-    });
+    await supabase.functions.invoke("preview-admin", { body: { action: "comment_delete", id: commentId } });
     load();
   };
 
   const sendReply = async (commentId: string) => {
     const body = (replyText[commentId] || "").trim();
     if (!body) return;
-    await supabase.functions.invoke("preview-admin?action=reply", {
-      method: "POST", body: { comment_id: commentId, body },
-    });
+    await supabase.functions.invoke("preview-admin", { body: { action: "reply", comment_id: commentId, body } });
     setReplyText((s) => ({ ...s, [commentId]: "" }));
     load();
   };
 
   const toggleFeedback = async () => {
-    const { data } = await supabase.functions.invoke("preview-admin?action=update", {
-      method: "PATCH", body: { id: project.id, feedback_enabled: !project.feedback_enabled },
+    const { data } = await supabase.functions.invoke("preview-admin", {
+      body: { action: "update", id: project.id, feedback_enabled: !project.feedback_enabled },
     });
     if (data?.project) setProject(data.project);
   };
 
   const archiveProject = async () => {
-    if (!confirm("Archive this preview? Clients will get 404.")) return;
-    await supabase.functions.invoke("preview-admin?action=update", {
-      method: "PATCH", body: { id: project.id, archived: !project.archived },
+    if (!confirm(project.archived ? "Unarchive this preview?" : "Archive this preview? Clients will get 404.")) return;
+    await supabase.functions.invoke("preview-admin", {
+      body: { action: "update", id: project.id, archived: !project.archived },
     });
     load();
   };
