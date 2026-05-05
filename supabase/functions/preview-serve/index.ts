@@ -12,11 +12,17 @@ const corsHeaders = {
 };
 
 const FEEDBACK_WIDGET_JS = `(() => {
-  const params = new URLSearchParams(location.search);
   const SLUG = window.__PREVIEW_SLUG__;
   const PAGE = window.__PREVIEW_PAGE__;
   const API = window.__PREVIEW_API__;
   if (!SLUG || !API) return;
+
+  // ---- Local edit-token store (per browser, per pin/reply) ----
+  const TKEY = "pf-tokens-" + SLUG;
+  function tokens(){ try { return JSON.parse(localStorage.getItem(TKEY) || "{}"); } catch(e){ return {}; } }
+  function setToken(kind, id, tok){ const t = tokens(); t[kind+":"+id] = tok; localStorage.setItem(TKEY, JSON.stringify(t)); }
+  function getToken(kind, id){ return tokens()[kind+":"+id]; }
+  function removeToken(kind, id){ const t = tokens(); delete t[kind+":"+id]; localStorage.setItem(TKEY, JSON.stringify(t)); }
 
   const styles = \`
     #pf-toggle{position:fixed;bottom:20px;right:20px;z-index:2147483646;background:#0F172A;color:#fff;font:600 13px/1 system-ui,sans-serif;padding:12px 16px;border-radius:999px;border:0;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.25);letter-spacing:.04em}
@@ -25,15 +31,21 @@ const FEEDBACK_WIDGET_JS = `(() => {
     .pf-pin.resolved{background:#16a34a}
     #pf-modal{position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;font-family:system-ui,sans-serif}
     #pf-modal.show{display:flex}
-    .pf-card{background:#fff;border-radius:12px;padding:20px;width:min(420px,90vw);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+    .pf-card{background:#fff;border-radius:12px;padding:20px;width:min(460px,90vw);max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)}
     .pf-card h3{margin:0 0 14px;font:600 16px system-ui;color:#0F172A}
     .pf-card label{display:block;font:500 12px system-ui;color:#475569;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.06em}
     .pf-card input,.pf-card textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:10px;font:14px system-ui;box-sizing:border-box;color:#0F172A;background:#fff}
-    .pf-card textarea{min-height:90px;resize:vertical}
-    .pf-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
-    .pf-btn{border:0;border-radius:8px;padding:10px 16px;font:600 13px system-ui;cursor:pointer}
+    .pf-card textarea{min-height:80px;resize:vertical}
+    .pf-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
+    .pf-btn{border:0;border-radius:8px;padding:9px 14px;font:600 12px system-ui;cursor:pointer}
     .pf-btn.primary{background:#0F172A;color:#fff}
     .pf-btn.ghost{background:#e2e8f0;color:#0F172A}
+    .pf-btn.danger{background:#fee2e2;color:#b91c1c}
+    .pf-msg{padding:10px 12px;border-radius:8px;font:13px system-ui;margin-bottom:8px;background:#f1f5f9;color:#0F172A;position:relative}
+    .pf-msg.admin{background:#0F172A;color:#fff}
+    .pf-msg .pf-meta{font-size:11px;opacity:.7;margin-bottom:4px}
+    .pf-msg .pf-mine-actions{margin-top:6px;display:flex;gap:6px}
+    .pf-msg .pf-mine-actions button{background:transparent;border:0;font:500 11px system-ui;cursor:pointer;color:inherit;opacity:.7;text-decoration:underline;padding:0}
     body.pf-pick *{cursor:crosshair !important}
   \`;
   const style = document.createElement("style"); style.textContent = styles; document.head.appendChild(style);
