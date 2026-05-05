@@ -274,44 +274,17 @@ export default function PreviewDetail() {
         </TabsList>
 
         <TabsContent value="pages">
-      {/* Files */}
+      {/* Pages list */}
       <section style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
           <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Pages</h2>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input ref={fileInput} type="file" multiple
-              // @ts-expect-error nonstandard
-              webkitdirectory=""
-              style={{ display: "none" }} onChange={(e) => uploadFiles(e.target.files, false)} />
-            <input ref={zipInput} type="file" accept=".zip" style={{ display: "none" }} onChange={(e) => uploadFiles(e.target.files, true)} />
-            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => fileInput.current?.click()} disabled={uploading}>
-              <Upload size={12} /> Folder
-            </button>
-            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => zipInput.current?.click()} disabled={uploading}>
-              <Upload size={12} /> .zip
-            </button>
-          </div>
         </div>
 
-        {/* Dropzone */}
-        <div
-          ref={dropzone}
-          onDragOver={(e) => { e.preventDefault(); dropzone.current?.classList.add("is-drag"); }}
-          onDragLeave={() => dropzone.current?.classList.remove("is-drag")}
-          onDrop={onDrop}
-          style={{
-            border: "1px dashed var(--crm-border-dark)",
-            borderRadius: 10,
-            padding: "18px 16px",
-            textAlign: "center",
-            color: "var(--crm-taupe)",
-            fontSize: 14,
-            marginBottom: 16,
-            transition: "border-color 200ms",
-          }}
-        >
-          {uploading ? "Uploading…" : "Drop files, a folder, or a .zip here to upload"}
-        </div>
+        {pages.length === 0 && (
+          <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 14, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
+            No pages yet. Upload HTML files from the <strong style={{ color: "var(--crm-warm-white)" }}>Files</strong> tab.
+          </div>
+        )}
 
         {/* Pages */}
         {pages.length > 0 && (
