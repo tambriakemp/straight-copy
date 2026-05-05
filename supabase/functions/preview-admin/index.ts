@@ -143,6 +143,31 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
 
+      case "file_rename": {
+        // Rename/move an uploaded file to a new path so HTML references resolve.
+        const { project_id, from_path, to_path } = payload;
+        if (!project_id || !from_path || !to_path) return json({ error: "missing fields" }, 400);
+        const clean = String(to_path).replace(/^\/+/, "").replace(/\.\.+/g, "");
+        if (!clean) return json({ error: "bad target" }, 400);
+        const { data: proj } = await admin
+          .from("preview_projects").select("storage_prefix").eq("id", project_id).single();
+        if (!proj) return json({ error: "project not found" }, 404);
+        // Move within the bucket
+        const src = `${proj.storage_prefix}${from_path}`;
+        const dst = `${proj.storage_prefix}${clean}`;
+        const mv = await admin.storage.from("preview-sites").move(src, dst);
+        if (mv.error) {
+          // Fallback: copy + delete
+          const cp = await admin.storage.from("preview-sites").copy(src, dst);
+          if (cp.error) return json({ error: cp.error.message }, 400);
+          await admin.storage.from("preview-sites").remove([src]);
+        }
+        // If a row already exists at dst, remove it
+        await admin.from("preview_files").delete().eq("project_id", project_id).eq("path", clean);
+        await admin.from("preview_files").update({ path: clean }).eq("project_id", project_id).eq("path", from_path);
+        return json({ ok: true, path: clean });
+      }
+
       case "missing_assets": {
         // Parse all HTML files for src/href/url() refs and report any that don't
         // exist in preview_files (by exact normalized path or basename).
