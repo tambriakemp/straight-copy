@@ -51,6 +51,7 @@ export default function PreviewDetail() {
   const [replyText, setReplyText] = useState("");
   const [pageFilter, setPageFilter] = useState<string>("__all__");
   const [dragOver, setDragOver] = useState<Status | null>(null);
+  const [aiEditPath, setAiEditPath] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const zipInput = useRef<HTMLInputElement>(null);
   const dropzone = useRef<HTMLDivElement>(null);
