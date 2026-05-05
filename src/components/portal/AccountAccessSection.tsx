@@ -351,7 +351,7 @@ export default function AccountAccessSection({
                               height: 38,
                               padding: "0 12px",
                               fontFamily: "monospace",
-                              fontSize: 13,
+                              fontSize: 15,
                               background: "rgba(0,0,0,0.25)",
                               border: "1px solid hsl(30 8% 28%)",
                               borderRadius: 4,

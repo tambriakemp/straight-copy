@@ -1,98 +1,81 @@
-# Preview Sandbox — SureFeedback-style overhaul
+# Typography scale-up
 
-Three problems to solve, plus a foundational improvement:
-1. Page header looks empty (project name invisible against white card).
-2. File list gets messy as projects grow.
-3. Feedback is a flat list — needs a kanban board (Open / In Progress / Resolved).
-4. Asset references in uploaded HTML don't resolve when filenames don't match (e.g. HTML expects `assets/logo.png`, upload contains `Magna Logo.png`).
+Right now the body sits at 16.5px and the admin/CRM surfaces (Previews, Preview Detail, Client Detail, Dashboard, Profile, Tokens, Invites) lean heavily on 10–13px text — fine on a 4K screen, cramped at 1440px. We'll raise the floor everywhere without breaking the editorial rhythm (Cormorant serif headlines, Karla body, uppercase 0.35em micro-labels).
 
-## 1. Detail page header redesign
+## Goals
+- Lift the smallest readable text from 10–11px to 12–13px.
+- Push body copy from 13–14px to 15–16px in admin surfaces.
+- Keep large serif headlines roughly the same — they already read well.
+- Preserve uppercase tracking labels but at a slightly larger size so they're scannable.
+- Update the project memory so future work follows the new scale.
 
-Replace the flat white share-link card with an editorial header block:
-
-```text
-┌──────────────────────────────────────────────────────────┐
-│ ← Back to previews                                       │
-│                                                          │
-│ MAGNA TAX RELIEF                       [Open] [Archive]  │
-│ Client · Single page · 9 files · 3 open comments         │
-│                                                          │
-│ ┌─ Share link ──────────────────────────────────────┐   │
-│ │ https://…/p/lfwbf…   [copy]  [open ↗]            │   │
-│ └───────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────┘
-```
-
-- Project name in Cormorant Garamond, large, ink color (matches site aesthetic).
-- Subtitle in 11px uppercase tracked label style.
-- Stats row shows file count and open feedback count.
-- Share-link block sits below as a distinct module, not inline.
-
-## 2. Files section redesign
-
-Group files by folder, collapse heavy lists:
-
-- **Pages** (HTML files) shown first as cards with a Preview button + "Set as entry" star toggle.
-- **Assets** (images, CSS, JS, fonts) collapsed into a single expandable group with file counts per type (e.g. "6 images, 1 script").
-- Drag-and-drop dropzone replaces the two upload buttons (still keeps folder/zip pickers as secondary).
-- Per-file delete action.
+## New scale (semantic)
 
 ```text
-PAGES
-┌────────────────────────────────────────────┐
-│ ★  Magna Tax Relief Home Page.html         │
-│    Entry page · 64 KB         [Preview ↗]  │
-├────────────────────────────────────────────┤
-│    about.html                              │
-│    12 KB              [Set entry] [Preview]│
-└────────────────────────────────────────────┘
-
-ASSETS (8)  ▾
-  Images (6) · Scripts (1) · Other (1)
+Micro / eyebrow (uppercase 0.3em)   10  -> 12
+Caption / meta                      11  -> 13
+Body small                          12  -> 14
+Body                                13  -> 15
+Body large                          14  -> 16
+Subhead                             15-16 -> 17-18
+Section title (serif)               20-22 -> 24-26
+H1 page title (serif clamp)         (kept; already 38-72)
 ```
 
-## 3. Kanban feedback board
+Base `body` font-size in `src/index.css` goes from `16.5px` to `17px`.
 
-Replace the flat comment list with three columns: **Open**, **In Progress**, **Resolved**.
+## Files to update
 
-- Add new comment status: `in_progress` (DB currently allows free-text status, no migration needed beyond updating the widget/admin to use it).
-- Drag-and-drop between columns to change status (using HTML5 drag events — no extra deps).
-- Each card shows: pin #, author, page, snippet of comment, reply count, age.
-- Click card → opens a side drawer with full comment, replies, and reply input.
-- Filter bar above board: by page (dropdown of distinct `page_path` values), by author.
+### Global stylesheet — `src/index.css`
+- `body` 16.5 -> 17.
+- `.crm-shell` everywhere: bump every `font-size: 10px/11px/12px/13px/14px/15px` rule one tier per the table above. Specifically:
+  - Top nav items, sign-out, eyebrows, labels, table headers, badges: 10/11 -> 12/13.
+  - `.crm-btn` 11 -> 13; `.crm-btn--sm` 10 -> 12.
+  - `.roster__sub` 14 -> 16; `.roster__name` 20 -> 22; `.roster__email` 12 -> 14; `.roster__stage` 16 -> 18; `.roster__days` 28 -> 32.
+  - `.detail__client-name` 22 -> 26; meta 10 -> 12; `.detail__progress-fraction` 30 -> 34.
+  - `.crm-checkitem__label` 13 -> 15; `.crm-notes-area` 13 -> 15; placeholders 14 -> 16.
+  - `.crm-modal__desc` 14 -> 16; `.crm-modal__meta-item .val` 18 -> 20.
+  - Mobile media query overrides updated proportionally.
+- Tracking on uppercase labels stays the same (looks correct).
+- Serif clamp titles (`roster__title`, `crm-modal__title`, etc.) stay as-is.
 
-```text
-OPEN (3)         IN PROGRESS (1)     RESOLVED (5)
-┌──────────┐    ┌──────────┐        ┌──────────┐
-│ #4 Logo  │    │ #2 Hero  │        │ #1 Color │
-│ too big  │    │ copy …   │        │ tweak    │
-│ home · 2h│    │ home · 1d│        │ home · 3d│
-└──────────┘    └──────────┘        └──────────┘
-```
+### Admin screens with inline `fontSize` (~100 occurrences)
+Sweep these and bump each numeric to the new scale per the mapping table:
+- `src/pages/admin/PreviewDetail.tsx`
+- `src/pages/admin/Previews.tsx`
+- `src/pages/admin/ClientDetail.tsx`
+- `src/pages/admin/Dashboard.tsx`
+- `src/pages/admin/Profile.tsx`
+- `src/pages/admin/Tokens.tsx`
+- `src/pages/admin/Invites.tsx`
+- `src/pages/admin/ResetPassword.tsx`
+- `src/pages/admin/AdminLogin.tsx`
+- `src/components/admin/AdminLayout.tsx`
+- Portal admin sub-components (`AccountAccessSection`, `ContractSection`, `SubscriptionSection`, `AdminContractSection`).
 
-## 4. Asset resolution: basename fallback
+Rule of thumb applied:
+- 9 -> 11, 10 -> 12, 11 -> 13, 12 -> 14, 13 -> 15, 14 -> 16, 15 -> 17, 16 -> 18, 18 -> 20, 20 -> 22, 22 -> 26, 24 -> 28, 28 -> 32.
+- Anything ≥ 38 (page H1s) left alone.
 
-When `preview-serve` can't find a file at the resolved path, fall back to matching by **basename** across all files in the project (case-insensitive). Logged for debugging via response header `X-Preview-Resolved-Via: basename`.
+### Public marketing site (light pass)
+The marketing site already breathes well at the new 17px base, but a few hardcoded small bits get nudged for parity:
+- Footer links / legal copy 12 -> 13.
+- Form helper text 12 -> 14.
+- No changes to hero serifs, marquee, or service cards.
 
-This fixes the Magna Tax Relief case where the HTML references `assets/logo-full-cropped.png` but the upload only contains `Magna Tax Relief Logo.png` etc. — admin can rename uploaded files to match, OR we surface a "missing assets" warning in the admin UI listing the references that couldn't be resolved.
+### Preview feedback widget — `supabase/functions/preview-serve/index.ts`
+The injected pin/feedback modal lives in client sites, so we'll bump it too:
+- Form labels 12 -> 13, inputs 14 -> 15, buttons 13 -> 14, pin number 13 -> 14.
 
-Also add: a **"Missing assets"** panel in admin showing references parsed out of HTML files that have no matching upload (basename or path), so you know what to upload/rename.
+## Memory update
+Update the Core memory line in `mem://index.md`:
+- "Base font 17px. Editorial body 15px. Subheadings 12px uppercase (0.35em tracking)."
+- Refresh `mem://style/typography-details` with the new scale table.
 
-## 5. Multi-page support polish
+## Out of scope
+- No color, spacing, or layout changes.
+- Shadcn primitives (`src/components/ui/*`) untouched — they inherit from body.
+- No new design tokens; this is a values-only sweep.
 
-`is_multi_page` already exists on the schema. With the new Pages section, multi-page projects work naturally — each HTML becomes a page. Also:
-
-- Toggle "Set as entry" per page (writes `entry_path` via `preview-admin`).
-- Page navigator in the public viewer: a small floating page-switcher pill in the bottom-left corner of the iframe parent (alongside the feedback toggle) listing all HTML files when `is_multi_page` is true. This requires the viewer to know the file list — fetched from a new public `preview-admin` action `pages` (returns just `[{path, is_entry}]`).
-
-## Technical notes
-
-- **Files edited**: `src/pages/admin/PreviewDetail.tsx` (full rewrite of layout), `supabase/functions/preview-serve/index.ts` (basename fallback + missing-asset reporter via `?path=__pf_missing` JSON endpoint), `supabase/functions/preview-admin/index.ts` (new `pages` and `missing_assets` actions, accept `entry_path` in `update`), `src/pages/PreviewViewer.tsx` (page switcher overlay for multi-page projects).
-- **No DB migration required** — `status` is free-text and `entry_path`/`is_multi_page` already exist. Comment status drag uses existing `comment_status` action.
-- **No new dependencies** — drag-drop with native HTML5, drawer with existing shadcn `Sheet` component.
-- **Styling** uses existing `crm-*` classes plus design tokens (cream/stone/ink) per project memory; no inline color literals.
-
-## Out of scope for this pass
-- Email notifications when new feedback lands (can add later).
-- Per-page screenshots/thumbnails.
-- Client-side login for commenters (stays anonymous-with-name).
+## QA
+After the sweep, walk the app at 1440 viewport: Previews list, Preview Detail (both tabs), Dashboard, a Client Detail page, marketing home, and the public preview viewer. Confirm nothing wraps awkwardly or breaks alignment in the editorial header areas.

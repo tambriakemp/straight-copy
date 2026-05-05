@@ -39,7 +39,7 @@ export default function Profile() {
       <div style={{ maxWidth: 560, padding: "32px 0" }}>
         <div
           style={{
-            fontSize: 11,
+            fontSize: 13,
             letterSpacing: "0.35em",
             textTransform: "uppercase",
             color: "hsl(30 10% 78%)",
@@ -80,7 +80,7 @@ export default function Profile() {
           }}
         >
           <div className="crm-label">Signed in as</div>
-          <div style={{ color: "hsl(40 20% 97%)", fontSize: 14 }}>
+          <div style={{ color: "hsl(40 20% 97%)", fontSize: 16 }}>
             {user?.email ?? "—"}
           </div>
         </div>
@@ -96,7 +96,7 @@ export default function Profile() {
             style={{
               fontFamily: "Cormorant Garamond, serif",
               fontWeight: 300,
-              fontSize: 24,
+              fontSize: 28,
               color: "hsl(40 20% 97%)",
               margin: "0 0 20px 0",
             }}

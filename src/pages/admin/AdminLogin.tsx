@@ -78,7 +78,7 @@ export default function AdminLogin() {
             padding: "48px 40px",
           }}
         >
-          <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase", color: "hsl(30 10% 78%)", marginBottom: 16 }}>
+          <div style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "hsl(30 10% 78%)", marginBottom: 16 }}>
             Cre8 · CRM
           </div>
           <h1
@@ -95,7 +95,7 @@ export default function AdminLogin() {
             {title}
           </h1>
           <hr style={{ width: 48, height: 1, background: "hsl(30 25% 44%)", border: 0, margin: "0 0 24px 0" }} />
-          <p style={{ color: "hsl(30 8% 62%)", fontSize: 13, marginBottom: 28 }}>{subtitle}</p>
+          <p style={{ color: "hsl(30 8% 62%)", fontSize: 15, marginBottom: 28 }}>{subtitle}</p>
 
           <form onSubmit={handle} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
@@ -128,7 +128,7 @@ export default function AdminLogin() {
                   alignSelf: "flex-start",
                   background: "transparent", border: 0, padding: 0,
                   color: "hsl(30 10% 78%)",
-                  fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+                  fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase",
                   cursor: "pointer",
                   fontFamily: "Karla, sans-serif",
                   marginTop: -4,
@@ -157,7 +157,7 @@ export default function AdminLogin() {
               marginTop: 20,
               background: "transparent", border: 0,
               color: "hsl(30 10% 78%)",
-              fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+              fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase",
               cursor: "pointer",
               fontFamily: "Karla, sans-serif",
             }}
