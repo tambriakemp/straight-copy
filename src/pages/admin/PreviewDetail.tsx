@@ -170,12 +170,26 @@ export default function PreviewDetail() {
           {uploading && <span style={{ alignSelf: "center", color: "hsl(30 8% 50%)" }}>Uploading…</span>}
         </div>
         {files.length > 0 && (
-          <ul style={{ marginTop: 12, fontSize: 13, fontFamily: "monospace", maxHeight: 240, overflowY: "auto" }}>
-            {files.map((f) => (
-              <li key={f.id} style={{ padding: "4px 0", color: f.path === project.entry_path ? "hsl(150 35% 30%)" : undefined }}>
-                {f.path === project.entry_path && "★ "}{f.path} <span style={{ color: "hsl(30 8% 60%)" }}>({Math.ceil((f.size_bytes ?? 0) / 1024)} KB)</span>
-              </li>
-            ))}
+          <ul style={{ marginTop: 12, fontSize: 13, fontFamily: "monospace", maxHeight: 280, overflowY: "auto", listStyle: "none", padding: 0 }}>
+            {files.map((f) => {
+              const isEntry = f.path === project.entry_path;
+              const isHtml = /\.html?$/i.test(f.path);
+              const fileUrl = `${base}/p/${project.slug}/${encodeURI(f.path)}`;
+              return (
+                <li key={f.id} style={{ padding: "4px 0", display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ width: 14, color: "hsl(150 35% 40%)" }}>{isEntry ? "★" : ""}</span>
+                  {isHtml ? (
+                    <a href={fileUrl} target="_blank" rel="noreferrer"
+                       style={{ color: isEntry ? "hsl(150 35% 40%)" : "hsl(210 80% 55%)", textDecoration: "underline", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {f.path}
+                    </a>
+                  ) : (
+                    <span style={{ color: "hsl(30 10% 35%)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.path}</span>
+                  )}
+                  <span style={{ color: "hsl(30 8% 55%)", flexShrink: 0 }}>{Math.ceil((f.size_bytes ?? 0) / 1024)} KB</span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
