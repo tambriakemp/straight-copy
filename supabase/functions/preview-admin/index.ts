@@ -213,6 +213,28 @@ Deno.serve(async (req) => {
         return json({ missing });
       }
 
+      case "file_upload_single": {
+        // Upload a single file (base64) into the project's storage prefix and upsert preview_files row.
+        const { project_id, path, content_base64, mime } = payload;
+        if (!project_id || !path || !content_base64) return json({ error: "missing fields" }, 400);
+        const clean = String(path).replace(/^\/+/, "").replace(/\.\.+/g, "");
+        if (!clean) return json({ error: "bad path" }, 400);
+        const { data: proj } = await admin
+          .from("preview_projects").select("storage_prefix").eq("id", project_id).single();
+        if (!proj) return json({ error: "project not found" }, 404);
+        const bin = Uint8Array.from(atob(content_base64), (c) => c.charCodeAt(0));
+        const contentType = mime || "application/octet-stream";
+        const up = await admin.storage.from("preview-sites").upload(
+          `${proj.storage_prefix}${clean}`, bin,
+          { contentType, upsert: true },
+        );
+        if (up.error) return json({ error: up.error.message }, 400);
+        await admin.from("preview_files").upsert({
+          project_id, path: clean, size_bytes: bin.byteLength, content_type: contentType,
+        }, { onConflict: "project_id,path" });
+        return json({ ok: true, path: clean, size: bin.byteLength });
+      }
+
       default:
         return json({ error: "unknown action" }, 400);
     }
