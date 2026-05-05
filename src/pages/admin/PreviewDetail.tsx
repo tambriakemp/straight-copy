@@ -232,22 +232,35 @@ export default function PreviewDetail() {
               {project.archived && <span style={{ color: "hsl(0 60% 60%)" }}>· Archived</span>}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="crm-btn crm-btn--ghost" onClick={toggleFeedback}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button
+              className="crm-btn crm-btn--ghost crm-btn--sm"
+              onClick={copy}
+              title={`Copy share link: ${shareUrl}`}
+              aria-label="Copy share link"
+              style={{ padding: 8 }}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+            <a
+              className="crm-btn crm-btn--ghost crm-btn--sm"
+              href={shareUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Open preview in new tab"
+              aria-label="Open preview"
+              style={{ padding: 8 }}
+            >
+              <ExternalLink size={14} />
+            </a>
+            <span style={{ width: 1, height: 22, background: "var(--crm-border-dark)", margin: "0 4px" }} />
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={toggleFeedback} title="Toggle client feedback">
               Feedback: {project.feedback_enabled ? "On" : "Off"}
             </button>
-            <button className="crm-btn crm-btn--ghost" onClick={archiveProject}>
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={archiveProject} title={project.archived ? "Unarchive" : "Archive"}>
               {project.archived ? "Unarchive" : "Archive"}
             </button>
           </div>
-        </div>
-
-        {/* Share link strip */}
-        <div style={{ marginTop: 18, padding: "12px 14px", background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 10, display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Share</span>
-          <code style={{ flex: 1, fontFamily: "monospace", fontSize: 15, color: "var(--crm-warm-white)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shareUrl}</code>
-          <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={copy}>{copied ? <Check size={12} /> : <Copy size={12} />} {copied ? "Copied" : "Copy"}</button>
-          <a className="crm-btn crm-btn--primary crm-btn--sm" href={shareUrl} target="_blank" rel="noreferrer"><ExternalLink size={12} /> Open</a>
         </div>
       </header>
 
@@ -261,44 +274,17 @@ export default function PreviewDetail() {
         </TabsList>
 
         <TabsContent value="pages">
-      {/* Files */}
+      {/* Pages list */}
       <section style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
           <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Pages</h2>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input ref={fileInput} type="file" multiple
-              // @ts-expect-error nonstandard
-              webkitdirectory=""
-              style={{ display: "none" }} onChange={(e) => uploadFiles(e.target.files, false)} />
-            <input ref={zipInput} type="file" accept=".zip" style={{ display: "none" }} onChange={(e) => uploadFiles(e.target.files, true)} />
-            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => fileInput.current?.click()} disabled={uploading}>
-              <Upload size={12} /> Folder
-            </button>
-            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => zipInput.current?.click()} disabled={uploading}>
-              <Upload size={12} /> .zip
-            </button>
-          </div>
         </div>
 
-        {/* Dropzone */}
-        <div
-          ref={dropzone}
-          onDragOver={(e) => { e.preventDefault(); dropzone.current?.classList.add("is-drag"); }}
-          onDragLeave={() => dropzone.current?.classList.remove("is-drag")}
-          onDrop={onDrop}
-          style={{
-            border: "1px dashed var(--crm-border-dark)",
-            borderRadius: 10,
-            padding: "18px 16px",
-            textAlign: "center",
-            color: "var(--crm-taupe)",
-            fontSize: 14,
-            marginBottom: 16,
-            transition: "border-color 200ms",
-          }}
-        >
-          {uploading ? "Uploading…" : "Drop files, a folder, or a .zip here to upload"}
-        </div>
+        {pages.length === 0 && (
+          <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 14, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
+            No pages yet. Upload HTML files from the <strong style={{ color: "var(--crm-warm-white)" }}>Files</strong> tab.
+          </div>
+        )}
 
         {/* Pages */}
         {pages.length > 0 && (
@@ -349,6 +335,43 @@ export default function PreviewDetail() {
 
         <TabsContent value="files">
       <section style={{ marginBottom: 28 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
+          <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Upload Files</h2>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input ref={fileInput} type="file" multiple
+              // @ts-expect-error nonstandard
+              webkitdirectory=""
+              style={{ display: "none" }} onChange={(e) => uploadFiles(e.target.files, false)} />
+            <input ref={zipInput} type="file" accept=".zip" style={{ display: "none" }} onChange={(e) => uploadFiles(e.target.files, true)} />
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => fileInput.current?.click()} disabled={uploading}>
+              <Upload size={12} /> Folder
+            </button>
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => zipInput.current?.click()} disabled={uploading}>
+              <Upload size={12} /> .zip
+            </button>
+          </div>
+        </div>
+
+        {/* Dropzone */}
+        <div
+          ref={dropzone}
+          onDragOver={(e) => { e.preventDefault(); dropzone.current?.classList.add("is-drag"); }}
+          onDragLeave={() => dropzone.current?.classList.remove("is-drag")}
+          onDrop={onDrop}
+          style={{
+            border: "1px dashed var(--crm-border-dark)",
+            borderRadius: 10,
+            padding: "18px 16px",
+            textAlign: "center",
+            color: "var(--crm-taupe)",
+            fontSize: 14,
+            marginBottom: 22,
+            transition: "border-color 200ms",
+          }}
+        >
+          {uploading ? "Uploading…" : "Drop files, a folder, or a .zip here to upload"}
+        </div>
+
         <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: "0 0 14px" }}>Assets & Missing References</h2>
 
         {/* Assets (collapsible) */}
