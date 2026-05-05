@@ -526,6 +526,9 @@ export default function PreviewDetail() {
           </div>
         )}
       </section>
+        </TabsContent>
+      </Tabs>
+      </div>
 
       {/* Comment drawer */}
       {activeComment && (
