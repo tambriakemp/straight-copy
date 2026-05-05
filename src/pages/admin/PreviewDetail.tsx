@@ -635,6 +635,14 @@ export default function PreviewDetail() {
           </aside>
         </div>
       )}
+
+      <AiEditDialog
+        open={!!aiEditPath}
+        onOpenChange={(v) => { if (!v) setAiEditPath(null); }}
+        projectId={project.id}
+        pagePath={aiEditPath ?? ""}
+        onApplied={load}
+      />
     </AdminLayout>
   );
 }
