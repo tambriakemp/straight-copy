@@ -264,7 +264,7 @@ export default function PreviewDetail() {
       {/* Files */}
       <section style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-          <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Files</h2>
+          <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Pages</h2>
           <div style={{ display: "flex", gap: 8 }}>
             <input ref={fileInput} type="file" multiple
               // @ts-expect-error nonstandard
