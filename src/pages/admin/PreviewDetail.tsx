@@ -24,7 +24,7 @@ export default function PreviewDetail() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.functions.invoke(`preview-admin?action=get&id=${id}`, { method: "GET" });
+    const { data, error } = await supabase.functions.invoke("preview-admin", { body: { action: "get", id } });
     if (error) toast.error(error.message);
     else {
       setProject(data?.project);
