@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       case "update": {
         const { id, ...patch } = payload;
         const allowed: any = {};
-        for (const k of ["name", "client_label", "feedback_enabled", "archived", "entry_path"]) {
+        for (const k of ["name", "client_label", "feedback_enabled", "archived", "entry_path", "is_multi_page"]) {
           if (k in patch) allowed[k] = patch[k];
         }
         const { data, error } = await admin
