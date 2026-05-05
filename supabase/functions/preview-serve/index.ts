@@ -238,10 +238,48 @@ Deno.serve(async (req) => {
 
     if (isHtml) {
       let html = await file.text();
-      // Rewrite root-absolute asset URLs (/foo.png -> ?path=foo.png via this same function)
       const base = `${FN_BASE}/preview-serve?slug=${encodeURIComponent(slug)}&path=`;
-      html = html.replace(/(src|href)=["']\/(?!\/)([^"']+)["']/g, (_m, attr, p) => `${attr}="${base}${encodeURIComponent(p)}"`);
-      html = html.replace(/url\(["']?\/(?!\/)([^"')]+)["']?\)/g, (_m, p) => `url("${base}${encodeURIComponent(p)}")`);
+      // Resolve a (possibly relative) asset reference against the current HTML path
+      const resolveRef = (ref: string): string => {
+        // Skip protocol-absolute, data, mailto, tel, anchor, js
+        if (/^(https?:|\/\/|data:|mailto:|tel:|#|javascript:|blob:)/i.test(ref)) return ref;
+        let target = ref.replace(/[?#].*$/, "");
+        const tail = ref.slice(target.length);
+        if (target.startsWith("/")) {
+          target = target.replace(/^\/+/, "");
+        } else {
+          // Resolve relative to current page's directory
+          const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
+          target = dir + target;
+          // Normalize ./ and ../ segments
+          const parts: string[] = [];
+          for (const seg of target.split("/")) {
+            if (seg === "" || seg === ".") continue;
+            if (seg === "..") parts.pop();
+            else parts.push(seg);
+          }
+          target = parts.join("/");
+        }
+        return `${base}${encodeURIComponent(target)}${tail}`;
+      };
+      // Rewrite src/href on any tag
+      html = html.replace(/(\s(?:src|href|poster|data-src))=("|')([^"']+)\2/gi,
+        (_m, attr, q, p) => `${attr}=${q}${resolveRef(p)}${q}`);
+      // Rewrite srcset (comma-separated list with optional descriptors)
+      html = html.replace(/(\ssrcset)=("|')([^"']+)\2/gi, (_m, attr, q, list) => {
+        const rewritten = list.split(",").map((part: string) => {
+          const t = part.trim();
+          if (!t) return "";
+          const sp = t.indexOf(" ");
+          const url = sp === -1 ? t : t.slice(0, sp);
+          const desc = sp === -1 ? "" : t.slice(sp);
+          return resolveRef(url) + desc;
+        }).filter(Boolean).join(", ");
+        return `${attr}=${q}${rewritten}${q}`;
+      });
+      // Rewrite url(...) in inline <style>/style attributes
+      html = html.replace(/url\(\s*(["']?)([^)"']+)\1\s*\)/gi,
+        (_m, q, p) => `url(${q}${resolveRef(p)}${q})`);
 
       // Inject feedback bootstrap before </body>
       const inject = project.feedback_enabled
