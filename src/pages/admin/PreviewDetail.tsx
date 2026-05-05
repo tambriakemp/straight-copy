@@ -335,6 +335,43 @@ export default function PreviewDetail() {
 
         <TabsContent value="files">
       <section style={{ marginBottom: 28 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
+          <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Upload Files</h2>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input ref={fileInput} type="file" multiple
+              // @ts-expect-error nonstandard
+              webkitdirectory=""
+              style={{ display: "none" }} onChange={(e) => uploadFiles(e.target.files, false)} />
+            <input ref={zipInput} type="file" accept=".zip" style={{ display: "none" }} onChange={(e) => uploadFiles(e.target.files, true)} />
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => fileInput.current?.click()} disabled={uploading}>
+              <Upload size={12} /> Folder
+            </button>
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => zipInput.current?.click()} disabled={uploading}>
+              <Upload size={12} /> .zip
+            </button>
+          </div>
+        </div>
+
+        {/* Dropzone */}
+        <div
+          ref={dropzone}
+          onDragOver={(e) => { e.preventDefault(); dropzone.current?.classList.add("is-drag"); }}
+          onDragLeave={() => dropzone.current?.classList.remove("is-drag")}
+          onDrop={onDrop}
+          style={{
+            border: "1px dashed var(--crm-border-dark)",
+            borderRadius: 10,
+            padding: "18px 16px",
+            textAlign: "center",
+            color: "var(--crm-taupe)",
+            fontSize: 14,
+            marginBottom: 22,
+            transition: "border-color 200ms",
+          }}
+        >
+          {uploading ? "Uploading…" : "Drop files, a folder, or a .zip here to upload"}
+        </div>
+
         <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: "0 0 14px" }}>Assets & Missing References</h2>
 
         {/* Assets (collapsible) */}
