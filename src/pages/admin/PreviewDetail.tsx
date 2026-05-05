@@ -310,6 +310,9 @@ export default function PreviewDetail() {
                         {isEntry ? "Entry page · " : ""}{Math.ceil((f.size_bytes ?? 0) / 1024)} KB
                       </div>
                     </div>
+                    <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setAiEditPath(f.path)} title="Edit page with AI">
+                      <Sparkles size={12} /> AI Edit
+                    </button>
                     <a className="crm-btn crm-btn--ghost crm-btn--sm" href={url} target="_blank" rel="noreferrer">
                       <ExternalLink size={12} /> Preview
                     </a>
