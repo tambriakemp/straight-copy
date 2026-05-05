@@ -5,9 +5,10 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Copy, Check, ExternalLink, Upload, Trash2, ArrowLeft, Star,
-  ChevronDown, ChevronRight, FileText, Image as ImageIcon, Code2, Box, AlertTriangle,
+  ChevronDown, ChevronRight, FileText, Image as ImageIcon, Code2, Box, AlertTriangle, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import AiEditDialog from "@/components/admin/preview/AiEditDialog";
 
 type Project = any; type FileRow = any; type Comment = any; type Reply = any;
 type Status = "open" | "in_progress" | "resolved";
@@ -50,6 +51,7 @@ export default function PreviewDetail() {
   const [replyText, setReplyText] = useState("");
   const [pageFilter, setPageFilter] = useState<string>("__all__");
   const [dragOver, setDragOver] = useState<Status | null>(null);
+  const [aiEditPath, setAiEditPath] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const zipInput = useRef<HTMLInputElement>(null);
   const dropzone = useRef<HTMLDivElement>(null);
@@ -310,6 +312,9 @@ export default function PreviewDetail() {
                         {isEntry ? "Entry page · " : ""}{Math.ceil((f.size_bytes ?? 0) / 1024)} KB
                       </div>
                     </div>
+                    <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setAiEditPath(f.path)} title="Edit page with AI">
+                      <Sparkles size={12} /> AI Edit
+                    </button>
                     <a className="crm-btn crm-btn--ghost crm-btn--sm" href={url} target="_blank" rel="noreferrer">
                       <ExternalLink size={12} /> Preview
                     </a>
@@ -630,6 +635,14 @@ export default function PreviewDetail() {
           </aside>
         </div>
       )}
+
+      <AiEditDialog
+        open={!!aiEditPath}
+        onOpenChange={(v) => { if (!v) setAiEditPath(null); }}
+        projectId={project.id}
+        pagePath={aiEditPath ?? ""}
+        onApplied={load}
+      />
     </AdminLayout>
   );
 }
