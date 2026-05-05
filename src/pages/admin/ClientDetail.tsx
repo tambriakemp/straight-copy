@@ -1027,7 +1027,7 @@ function BrandVoicePanel({
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
         <span className={`crm-pill ${statusPill.cls}`}>● {statusPill.label}</span>
         {generatedAt && (
-          <span style={{ fontSize: 11, color: "hsl(30 8% 62%)", letterSpacing: "0.04em" }}>
+          <span style={{ fontSize: 13, color: "hsl(30 8% 62%)", letterSpacing: "0.04em" }}>
             Generated {format(new Date(generatedAt), "MMM d, yyyy · h:mm a")}
           </span>
         )}
@@ -1036,7 +1036,7 @@ function BrandVoicePanel({
       {client.brand_voice_error && status === "failed" && (
         <div
           style={{
-            fontSize: 11,
+            fontSize: 13,
             color: "hsl(10 60% 70%)",
             background: "hsl(10 30% 20% / 0.4)",
             border: "1px solid hsl(10 30% 35% / 0.5)",
@@ -1095,7 +1095,7 @@ function BrandVoicePanel({
                 maxHeight: 360,
                 overflowY: "auto",
                 fontFamily: "var(--crm-font-serif), serif",
-                fontSize: 13,
+                fontSize: 15,
                 lineHeight: 1.7,
                 color: "hsl(40 20% 97%)",
                 whiteSpace: "pre-wrap",
@@ -1131,7 +1131,7 @@ function BrandKitPanel({ client }: { client: Client }) {
       <div className="crm-modal__section-head">
         <div className="crm-modal__section-title">Brand Kit Intake</div>
         {submitted && (
-          <span className="crm-pill crm-pill--complete" style={{ fontSize: 10 }}>
+          <span className="crm-pill crm-pill--complete" style={{ fontSize: 12 }}>
             ● Submitted {format(new Date(client.brand_kit_intake_submitted_at!), "MMM d")}
           </span>
         )}
@@ -1152,7 +1152,7 @@ function BrandKitPanel({ client }: { client: Client }) {
         <span
           style={{
             fontFamily: "var(--crm-font-sans), sans-serif",
-            fontSize: 10,
+            fontSize: 12,
             letterSpacing: "0.35em",
             textTransform: "uppercase",
             color: "hsl(30 8% 62%)",
@@ -1163,7 +1163,7 @@ function BrandKitPanel({ client }: { client: Client }) {
         <span
           style={{
             fontFamily: "var(--crm-font-sans), monospace",
-            fontSize: 11,
+            fontSize: 13,
             color: "hsl(40 20% 97%)",
             wordBreak: "break-all",
           }}
@@ -1171,7 +1171,7 @@ function BrandKitPanel({ client }: { client: Client }) {
           {portalUrl}
         </span>
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          <button className="crm-btn crm-btn--ghost" onClick={copyPortal} style={{ fontSize: 11 }}>
+          <button className="crm-btn crm-btn--ghost" onClick={copyPortal} style={{ fontSize: 13 }}>
             Copy link
           </button>
           <a
@@ -1179,7 +1179,7 @@ function BrandKitPanel({ client }: { client: Client }) {
             href={`${portalUrl}?as=admin`}
             target="_blank"
             rel="noreferrer"
-            style={{ fontSize: 11, textDecoration: "none" }}
+            style={{ fontSize: 13, textDecoration: "none" }}
             title="Open as an admin preview (your admin session is unchanged)"
           >
             Open as client ↗
@@ -1192,7 +1192,7 @@ function BrandKitPanel({ client }: { client: Client }) {
           <summary
             style={{
               fontFamily: "var(--crm-font-sans), sans-serif",
-              fontSize: 10,
+              fontSize: 12,
               letterSpacing: "0.35em",
               textTransform: "uppercase",
               color: "hsl(30 8% 62%)",
@@ -1211,7 +1211,7 @@ function BrandKitPanel({ client }: { client: Client }) {
               borderRadius: 6,
               maxHeight: 280,
               overflow: "auto",
-              fontSize: 11,
+              fontSize: 13,
               lineHeight: 1.5,
               color: "hsl(40 20% 92%)",
               whiteSpace: "pre-wrap",
@@ -1241,7 +1241,7 @@ function NodeChecklist({
         <div className="crm-modal__section-head">
           <div className="crm-modal__section-title">Checklist</div>
         </div>
-        <div style={{ fontSize: 12, color: "hsl(30 8% 62%)", fontStyle: "italic", fontFamily: "var(--crm-font-serif), serif" }}>
+        <div style={{ fontSize: 14, color: "hsl(30 8% 62%)", fontStyle: "italic", fontFamily: "var(--crm-font-serif), serif" }}>
           No checklist items defined for this stage yet.
         </div>
       </section>
@@ -1455,7 +1455,7 @@ function EmailTrackingPanel({ client, onReload }: { client: Client; onReload: ()
         </div>
       </div>
 
-      <p style={{ fontSize: 12, color: "hsl(30 8% 62%)", margin: "0 0 10px" }}>
+      <p style={{ fontSize: 14, color: "hsl(30 8% 62%)", margin: "0 0 10px" }}>
         {completeAt
           ? `All five emails confirmed sent + opened on ${format(new Date(completeAt), "MMM d, yyyy")} — polling stopped.`
           : paused
@@ -1475,8 +1475,8 @@ function EmailTrackingPanel({ client, onReload }: { client: Client; onReload: ()
           gap: 12,
         }}
       >
-        <div style={{ fontSize: 12, color: "hsl(40 20% 90%)" }}>
-          <div style={{ letterSpacing: "0.2em", textTransform: "uppercase", fontSize: 10, color: "hsl(30 8% 62%)", marginBottom: 4 }}>
+        <div style={{ fontSize: 14, color: "hsl(40 20% 90%)" }}>
+          <div style={{ letterSpacing: "0.2em", textTransform: "uppercase", fontSize: 12, color: "hsl(30 8% 62%)", marginBottom: 4 }}>
             Kickoff webhook
           </div>
           {client.kickoff_webhook_confirmed_at
@@ -1510,20 +1510,20 @@ function EmailTrackingPanel({ client, onReload }: { client: Client; onReload: ()
               padding: "8px 10px",
               border: "1px solid hsl(30 8% 22%)",
               borderRadius: 4,
-              fontSize: 12,
+              fontSize: 14,
             }}
           >
             <span style={{ color: "hsl(40 20% 90%)" }}>{EMAIL_LABELS[r.key]}</span>
-            <span style={{ color: r.sent ? "hsl(140 40% 65%)" : "hsl(30 8% 50%)", letterSpacing: "0.15em", textTransform: "uppercase", fontSize: 10 }}>
+            <span style={{ color: r.sent ? "hsl(140 40% 65%)" : "hsl(30 8% 50%)", letterSpacing: "0.15em", textTransform: "uppercase", fontSize: 12 }}>
               {r.sent ? `Sent ${format(new Date(r.sent), "MMM d")}` : "Not sent"}
             </span>
-            <span style={{ color: r.opened ? "hsl(40 60% 70%)" : "hsl(30 8% 40%)", letterSpacing: "0.15em", textTransform: "uppercase", fontSize: 10 }}>
+            <span style={{ color: r.opened ? "hsl(40 60% 70%)" : "hsl(30 8% 40%)", letterSpacing: "0.15em", textTransform: "uppercase", fontSize: 12 }}>
               {r.opened ? "Opened" : "—"}
             </span>
           </div>
         ))}
         {loading && !tracking && (
-          <div style={{ fontSize: 11, color: "hsl(30 8% 50%)" }}>Loading cached status…</div>
+          <div style={{ fontSize: 13, color: "hsl(30 8% 50%)" }}>Loading cached status…</div>
         )}
       </div>
     </section>
@@ -1562,15 +1562,15 @@ function BuildSchedulePanel({ client, onReload }: { client: Client; onReload: ()
       <div className="crm-modal__section-head">
         <div className="crm-modal__section-title">Build &amp; Delivery</div>
       </div>
-      <p style={{ fontSize: 12, color: "hsl(30 8% 62%)", margin: "0 0 12px" }}>
+      <p style={{ fontSize: 14, color: "hsl(30 8% 62%)", margin: "0 0 12px" }}>
         Auto-set the day after intake completes (next-day EST), with delivery 8 days later. Adjust if needed.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
           Build start
           <input type="date" className="crm-input" value={buildStart} onChange={(e) => setBuildStart(e.target.value)} />
         </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
           Delivery
           <input type="date" className="crm-input" value={delivery} onChange={(e) => setDelivery(e.target.value)} />
         </label>
@@ -1621,9 +1621,9 @@ function ClientFieldEditor({
         <div className="crm-modal__section-title">{title}</div>
       </div>
       {helpText && (
-        <p style={{ fontSize: 12, color: "hsl(30 8% 62%)", margin: "0 0 10px" }}>{helpText}</p>
+        <p style={{ fontSize: 14, color: "hsl(30 8% 62%)", margin: "0 0 10px" }}>{helpText}</p>
       )}
-      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
+      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
         {label}
         {multiline ? (
           <textarea
@@ -1681,7 +1681,7 @@ function HeyGenKeyPanel({ client }: { client: Client }) {
       </div>
       <div className="crm-card__body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {useMcp ? (
-          <div style={{ fontSize: 13, color: "hsl(30 8% 70%)" }}>
+          <div style={{ fontSize: 15, color: "hsl(30 8% 70%)" }}>
             Client opted to use an <strong>MCP server</strong> instead of an API key.
           </div>
         ) : apiKey ? (
@@ -1696,7 +1696,7 @@ function HeyGenKeyPanel({ client }: { client: Client }) {
                   border: "1px solid hsl(30 8% 28%)",
                   borderRadius: 4,
                   fontFamily: "monospace",
-                  fontSize: 13,
+                  fontSize: 15,
                   wordBreak: "break-all",
                   color: "hsl(40 20% 92%)",
                 }}
@@ -1718,12 +1718,12 @@ function HeyGenKeyPanel({ client }: { client: Client }) {
                 Copy
               </button>
             </div>
-            <div style={{ fontSize: 12, color: "hsl(30 8% 60%)" }}>
+            <div style={{ fontSize: 14, color: "hsl(30 8% 60%)" }}>
               Length: {apiKey.length} characters
             </div>
           </>
         ) : (
-          <div style={{ fontSize: 13, color: "hsl(30 8% 70%)" }}>
+          <div style={{ fontSize: 15, color: "hsl(30 8% 70%)" }}>
             Client hasn't submitted a HeyGen API key yet.
           </div>
         )}
@@ -1828,7 +1828,7 @@ function OnboardingChatLinkPanel({ client }: { client: Client }) {
       <div className="crm-modal__section-head">
         <div className="crm-modal__section-title">Brand Voice Intake Chat</div>
         {!loading && token && (
-          <span className={`crm-pill ${pill.cls}`} style={{ fontSize: 10 }}>● {pill.label}</span>
+          <span className={`crm-pill ${pill.cls}`} style={{ fontSize: 12 }}>● {pill.label}</span>
         )}
       </div>
 
@@ -1842,14 +1842,14 @@ function OnboardingChatLinkPanel({ client }: { client: Client }) {
           borderRadius: 6,
         }}
       >
-        <div style={{ fontSize: 12, color: "hsl(30 8% 70%)", lineHeight: 1.55 }}>
+        <div style={{ fontSize: 14, color: "hsl(30 8% 70%)", lineHeight: 1.55 }}>
           A unique link to the client's onboarding chat. Send this so they can complete the intake
           that powers the Brand Voice doc. Marks <em>Onboarding chat completed</em> automatically
           on submit.
         </div>
 
         {loading ? (
-          <div style={{ fontSize: 12, color: "hsl(30 8% 60%)" }}>Loading…</div>
+          <div style={{ fontSize: 14, color: "hsl(30 8% 60%)" }}>Loading…</div>
         ) : (
           <>
             {token && (
@@ -1858,7 +1858,7 @@ function OnboardingChatLinkPanel({ client }: { client: Client }) {
                 value={url}
                 onFocus={(e) => e.currentTarget.select()}
                 className="crm-input"
-                style={{ fontSize: 12, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+                style={{ fontSize: 14, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
               />
             )}
             <div style={{ display: "flex", gap: 8 }}>

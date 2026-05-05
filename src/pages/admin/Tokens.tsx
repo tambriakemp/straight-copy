@@ -73,7 +73,7 @@ export default function Tokens() {
             <hr className="roster__rule" />
             <p className="roster__sub">
               Bearer tokens for the public REST API. Endpoint:{" "}
-              <code style={{ fontFamily: "monospace", fontSize: 12, color: "hsl(40 20% 97%)", background: "hsl(36 5% 16%)", padding: "2px 6px" }}>
+              <code style={{ fontFamily: "monospace", fontSize: 14, color: "hsl(40 20% 97%)", background: "hsl(36 5% 16%)", padding: "2px 6px" }}>
                 {apiUrl}
               </code>
             </p>
@@ -117,17 +117,17 @@ export default function Tokens() {
                   className="roster__row"
                   style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1.2fr", cursor: "default" }}
                 >
-                  <div className="roster__name" style={{ fontSize: 16 }}>{t.label}</div>
-                  <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
+                  <div className="roster__name" style={{ fontSize: 18 }}>{t.label}</div>
+                  <div style={{ fontSize: 13, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
                     {format(new Date(t.created_at), "MMM d, yyyy")}
                   </div>
-                  <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
+                  <div style={{ fontSize: 13, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
                     {t.last_used_at ? format(new Date(t.last_used_at), "MMM d, HH:mm") : "—"}
                   </div>
                   <div>
                     <span style={{
                       display: "inline-flex", alignItems: "center", gap: 8,
-                      fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase",
+                      fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase",
                       color: t.revoked ? "hsl(8 55% 70%)" : "hsl(150 35% 70%)",
                     }}>
                       <span style={{
@@ -158,7 +158,7 @@ export default function Tokens() {
             <DialogHeader>
               <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Your new token</DialogTitle>
             </DialogHeader>
-            <p style={{ fontSize: 13, color: "hsl(30 8% 62%)", margin: "8px 0" }}>
+            <p style={{ fontSize: 15, color: "hsl(30 8% 62%)", margin: "8px 0" }}>
               Copy this now. You won't see it again.
             </p>
             <div style={{
@@ -166,7 +166,7 @@ export default function Tokens() {
               color: "hsl(40 20% 97%)",
               padding: 14,
               fontFamily: "monospace",
-              fontSize: 12,
+              fontSize: 14,
               wordBreak: "break-all",
               border: "1px solid hsl(40 20% 97% / 0.08)",
             }}>

@@ -208,7 +208,7 @@ export default function PreviewDetail() {
       <div style={{ padding: "48px 52px 96px", maxWidth: 1400, margin: "0 auto", width: "100%", overflowY: "auto", flex: 1 }}>
       {/* Header */}
       <div style={{ marginBottom: 14 }}>
-        <Link to="/admin/previews" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+        <Link to="/admin/previews" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 14, letterSpacing: "0.06em", textTransform: "uppercase" }}>
           <ArrowLeft size={14} /> Back to previews
         </Link>
       </div>
@@ -216,13 +216,13 @@ export default function PreviewDetail() {
       <header style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid var(--crm-border-dark)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
+            <div style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
               Preview Project
             </div>
             <h1 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 38, lineHeight: 1.1, color: "var(--crm-warm-white)", margin: 0 }}>
               {project.name}
             </h1>
-            <div style={{ marginTop: 10, color: "var(--crm-stone)", fontSize: 13, display: "flex", gap: 16, flexWrap: "wrap" }}>
+            <div style={{ marginTop: 10, color: "var(--crm-stone)", fontSize: 15, display: "flex", gap: 16, flexWrap: "wrap" }}>
               {project.client_label && <span>{project.client_label}</span>}
               <span>{pages.length} {pages.length === 1 ? "page" : "pages"}</span>
               <span>{assets.length} assets</span>
@@ -244,8 +244,8 @@ export default function PreviewDetail() {
 
         {/* Share link strip */}
         <div style={{ marginTop: 18, padding: "12px 14px", background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 10, display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Share</span>
-          <code style={{ flex: 1, fontFamily: "monospace", fontSize: 13, color: "var(--crm-warm-white)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shareUrl}</code>
+          <span style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Share</span>
+          <code style={{ flex: 1, fontFamily: "monospace", fontSize: 15, color: "var(--crm-warm-white)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shareUrl}</code>
           <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={copy}>{copied ? <Check size={12} /> : <Copy size={12} />} {copied ? "Copied" : "Copy"}</button>
           <a className="crm-btn crm-btn--primary crm-btn--sm" href={shareUrl} target="_blank" rel="noreferrer"><ExternalLink size={12} /> Open</a>
         </div>
@@ -253,8 +253,8 @@ export default function PreviewDetail() {
 
       <Tabs defaultValue="pages" className="w-full">
         <TabsList style={{ background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 8, marginBottom: 18 }}>
-          <TabsTrigger value="pages" style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>Pages & Files</TabsTrigger>
-          <TabsTrigger value="feedback" style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+          <TabsTrigger value="pages" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Pages & Files</TabsTrigger>
+          <TabsTrigger value="feedback" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
             Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
           </TabsTrigger>
         </TabsList>
@@ -263,7 +263,7 @@ export default function PreviewDetail() {
       {/* Files */}
       <section style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-          <h2 style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Files</h2>
+          <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Files</h2>
           <div style={{ display: "flex", gap: 8 }}>
             <input ref={fileInput} type="file" multiple
               // @ts-expect-error nonstandard
@@ -291,7 +291,7 @@ export default function PreviewDetail() {
             padding: "18px 16px",
             textAlign: "center",
             color: "var(--crm-taupe)",
-            fontSize: 12,
+            fontSize: 14,
             marginBottom: 16,
             transition: "border-color 200ms",
           }}
@@ -302,7 +302,7 @@ export default function PreviewDetail() {
         {/* Pages */}
         {pages.length > 0 && (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
               Pages ({pages.length})
             </div>
             <div style={{ display: "grid", gap: 8 }}>
@@ -326,8 +326,8 @@ export default function PreviewDetail() {
                     </button>
                     <FileText size={14} style={{ color: "var(--crm-stone)", flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: "var(--crm-warm-white)", fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.path}</div>
-                      <div style={{ color: "var(--crm-taupe)", fontSize: 11, marginTop: 2 }}>
+                      <div style={{ color: "var(--crm-warm-white)", fontSize: 15, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.path}</div>
+                      <div style={{ color: "var(--crm-taupe)", fontSize: 13, marginTop: 2 }}>
                         {isEntry ? "Entry page · " : ""}{Math.ceil((f.size_bytes ?? 0) / 1024)} KB
                       </div>
                     </div>
@@ -357,8 +357,8 @@ export default function PreviewDetail() {
             >
               {assetsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <Box size={14} style={{ color: "var(--crm-taupe)" }} />
-              <span style={{ fontSize: 13 }}>Assets ({assets.length})</span>
-              <span style={{ marginLeft: "auto", color: "var(--crm-taupe)", fontSize: 11 }}>
+              <span style={{ fontSize: 15 }}>Assets ({assets.length})</span>
+              <span style={{ marginLeft: "auto", color: "var(--crm-taupe)", fontSize: 13 }}>
                 {Object.entries(assetCounts).map(([k, n]) => `${n} ${k}${n > 1 ? "s" : ""}`).join(" · ")}
               </span>
             </button>
@@ -368,7 +368,7 @@ export default function PreviewDetail() {
                   const cls = classify(f.path);
                   const Icon = cls === "image" ? ImageIcon : cls === "script" || cls === "style" ? Code2 : Box;
                   return (
-                    <li key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", fontSize: 12, color: "var(--crm-stone)", borderRadius: 6 }}>
+                    <li key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", fontSize: 14, color: "var(--crm-stone)", borderRadius: 6 }}>
                       <Icon size={12} style={{ color: "var(--crm-taupe)", flexShrink: 0 }} />
                       <span style={{ flex: 1, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.path}</span>
                       <span style={{ color: "var(--crm-taupe)", flexShrink: 0 }}>{Math.ceil((f.size_bytes ?? 0) / 1024)} KB</span>
@@ -386,17 +386,17 @@ export default function PreviewDetail() {
         {/* Missing assets warning */}
         {missing.length > 0 && (
           <div style={{ marginTop: 14, padding: "12px 14px", background: "hsl(30 60% 50% / 0.08)", border: "1px solid hsl(30 60% 50% / 0.3)", borderRadius: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "hsl(30 80% 70%)", fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "hsl(30 80% 70%)", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
               <AlertTriangle size={14} /> {missing.length} missing asset reference{missing.length > 1 ? "s" : ""}
             </div>
-            <div style={{ fontSize: 11, color: "var(--crm-stone)", marginBottom: 8 }}>
+            <div style={{ fontSize: 13, color: "var(--crm-stone)", marginBottom: 8 }}>
               These files are referenced in your HTML but missing. Map each one to an uploaded file to rename it so the page resolves.
             </div>
             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6, maxHeight: 280, overflowY: "auto" }}>
               {missing.slice(0, 50).map((m, i) => {
                 const expected = m.ref.replace(/[?#].*$/, "").replace(/^\/+/, "");
                 return (
-                  <li key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, fontFamily: "monospace", color: "var(--crm-stone)", flexWrap: "wrap" }}>
+                  <li key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontFamily: "monospace", color: "var(--crm-stone)", flexWrap: "wrap" }}>
                     <span style={{ color: "hsl(30 80% 70%)" }}>{m.ref}</span>
                     <span style={{ color: "var(--crm-taupe)" }}>· in {m.in_page}</span>
                     <select
@@ -414,7 +414,7 @@ export default function PreviewDetail() {
                         await load();
                         await loadMissing();
                       }}
-                      style={{ fontSize: 11, padding: "4px 6px", marginLeft: "auto", maxWidth: 280 }}
+                      style={{ fontSize: 13, padding: "4px 6px", marginLeft: "auto", maxWidth: 280 }}
                     >
                       <option value="">Map to uploaded file…</option>
                       {files.map((f: any) => (
@@ -424,7 +424,7 @@ export default function PreviewDetail() {
                   </li>
                 );
               })}
-              {missing.length > 50 && <li style={{ fontSize: 11, color: "var(--crm-taupe)" }}>+{missing.length - 50} more…</li>}
+              {missing.length > 50 && <li style={{ fontSize: 13, color: "var(--crm-taupe)" }}>+{missing.length - 50} more…</li>}
             </ul>
           </div>
         )}
@@ -435,7 +435,7 @@ export default function PreviewDetail() {
       {/* Feedback Kanban */}
       <section>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
-          <h2 style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>
+          <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>
             Feedback Board
           </h2>
           {distinctPages.length > 1 && (
@@ -443,7 +443,7 @@ export default function PreviewDetail() {
               className="crm-input"
               value={pageFilter}
               onChange={(e) => setPageFilter(e.target.value)}
-              style={{ width: 240, fontSize: 12, padding: "6px 10px" }}
+              style={{ width: 240, fontSize: 14, padding: "6px 10px" }}
             >
               <option value="__all__">All pages ({comments.length})</option>
               {distinctPages.map((p) => (
@@ -454,7 +454,7 @@ export default function PreviewDetail() {
         </div>
 
         {comments.length === 0 ? (
-          <div style={{ padding: 32, textAlign: "center", color: "var(--crm-taupe)", border: "1px dashed var(--crm-border-dark)", borderRadius: 10, fontSize: 13 }}>
+          <div style={{ padding: 32, textAlign: "center", color: "var(--crm-taupe)", border: "1px dashed var(--crm-border-dark)", borderRadius: 10, fontSize: 15 }}>
             No feedback yet. Share the link above so your client can leave pin comments.
           </div>
         ) : (
@@ -480,8 +480,8 @@ export default function PreviewDetail() {
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <span style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-warm-white)" }}>{col.title}</span>
-                  <span style={{ fontSize: 11, color: "var(--crm-taupe)" }}>{cardsByStatus[col.key].length}</span>
+                  <span style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-warm-white)" }}>{col.title}</span>
+                  <span style={{ fontSize: 13, color: "var(--crm-taupe)" }}>{cardsByStatus[col.key].length}</span>
                 </div>
                 <div style={{ display: "grid", gap: 8 }}>
                   {cardsByStatus[col.key].map((c) => {
@@ -502,13 +502,13 @@ export default function PreviewDetail() {
                         }}
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <span style={{ fontSize: 10, color: "var(--crm-accent)", fontWeight: 600, letterSpacing: "0.05em" }}>#{c.pin_number}</span>
-                          <span style={{ fontSize: 10, color: "var(--crm-taupe)" }}>{timeAgo(c.created_at)}</span>
+                          <span style={{ fontSize: 12, color: "var(--crm-accent)", fontWeight: 600, letterSpacing: "0.05em" }}>#{c.pin_number}</span>
+                          <span style={{ fontSize: 12, color: "var(--crm-taupe)" }}>{timeAgo(c.created_at)}</span>
                         </div>
-                        <div style={{ fontSize: 12, color: "var(--crm-warm-white)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        <div style={{ fontSize: 14, color: "var(--crm-warm-white)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                           {c.body}
                         </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, fontSize: 10, color: "var(--crm-taupe)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, fontSize: 12, color: "var(--crm-taupe)" }}>
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "60%" }}>
                             {c.author_name || "Guest"} · {c.page_path}
                           </span>
@@ -518,7 +518,7 @@ export default function PreviewDetail() {
                     );
                   })}
                   {cardsByStatus[col.key].length === 0 && (
-                    <div style={{ fontSize: 11, color: "var(--crm-taupe)", textAlign: "center", padding: "20px 0" }}>—</div>
+                    <div style={{ fontSize: 13, color: "var(--crm-taupe)", textAlign: "center", padding: "20px 0" }}>—</div>
                   )}
                 </div>
               </div>
@@ -546,10 +546,10 @@ export default function PreviewDetail() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)" }}>
+                <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)" }}>
                   Pin #{activeComment.pin_number}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 2 }}>
+                <div style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 2 }}>
                   {activeComment.author_name || "Guest"} · {activeComment.page_path} · {new Date(activeComment.created_at).toLocaleString()}
                 </div>
               </div>
@@ -574,18 +574,18 @@ export default function PreviewDetail() {
               </button>
             </div>
 
-            <div style={{ background: "hsl(40 20% 97% / 0.04)", borderRadius: 8, padding: 14, fontSize: 14, color: "var(--crm-warm-white)", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+            <div style={{ background: "hsl(40 20% 97% / 0.04)", borderRadius: 8, padding: 14, fontSize: 16, color: "var(--crm-warm-white)", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
               {activeComment.body}
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {(repliesByComment[activeComment.id] || []).map((r) => (
                 <div key={r.id} style={{
-                  padding: "10px 12px", borderRadius: 8, fontSize: 13,
+                  padding: "10px 12px", borderRadius: 8, fontSize: 15,
                   background: r.is_admin ? "var(--crm-accent)" : "hsl(40 20% 97% / 0.06)",
                   color: r.is_admin ? "var(--crm-warm-white)" : "var(--crm-stone)",
                 }}>
-                  <div style={{ fontSize: 10, opacity: 0.75, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     {r.author_name || (r.is_admin ? "Admin" : "Guest")}
                   </div>
                   <div style={{ whiteSpace: "pre-wrap" }}>{r.body}</div>

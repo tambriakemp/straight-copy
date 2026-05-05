@@ -256,30 +256,30 @@ export default function Invites() {
                     style={{ gridTemplateColumns: "2fr 1.4fr 1fr 0.9fr 0.9fr 1.2fr", cursor: "default" }}
                   >
                     <div className="roster__client">
-                      <div className="roster__name" style={{ fontSize: 16 }}>
+                      <div className="roster__name" style={{ fontSize: 18 }}>
                         {inv.contact_name || "—"}
                       </div>
                       <div className="roster__email">{inv.contact_email || "—"}</div>
                       {inv.source_order_id && (
-                        <div style={{ fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 25% 44%)", marginTop: 4 }}>
+                        <div style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 25% 44%)", marginTop: 4 }}>
                           via SureCart · #{inv.source_order_id.slice(-8)}
                           {inv.tier ? ` · ${inv.tier}` : ""}
                         </div>
                       )}
                     </div>
-                    <div className="roster__next" style={{ fontSize: 13 }}>
+                    <div className="roster__next" style={{ fontSize: 15 }}>
                       {inv.business_name || "—"}
                     </div>
                     <div>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: s.tone }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: s.tone }}>
                         <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: s.tone }} />
                         {s.label}
                       </span>
                     </div>
-                    <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
+                    <div style={{ fontSize: 13, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
                       {fmtDate(inv.created_at)}
                     </div>
-                    <div style={{ fontSize: 11, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
+                    <div style={{ fontSize: 13, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
                       {fmtDate(inv.last_opened_at)}
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
