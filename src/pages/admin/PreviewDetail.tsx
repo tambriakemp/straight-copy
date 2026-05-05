@@ -379,16 +379,41 @@ export default function PreviewDetail() {
               <AlertTriangle size={14} /> {missing.length} missing asset reference{missing.length > 1 ? "s" : ""}
             </div>
             <div style={{ fontSize: 11, color: "var(--crm-stone)", marginBottom: 8 }}>
-              These files are referenced in your HTML but not in the upload. The viewer will fall back to basename matching where possible.
+              These files are referenced in your HTML but missing. Map each one to an uploaded file to rename it so the page resolves.
             </div>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 4, maxHeight: 160, overflowY: "auto" }}>
-              {missing.slice(0, 25).map((m, i) => (
-                <li key={i} style={{ fontSize: 11, fontFamily: "monospace", color: "var(--crm-stone)" }}>
-                  <span style={{ color: "hsl(30 80% 70%)" }}>{m.ref}</span>
-                  <span style={{ color: "var(--crm-taupe)" }}> · in {m.in_page}</span>
-                </li>
-              ))}
-              {missing.length > 25 && <li style={{ fontSize: 11, color: "var(--crm-taupe)" }}>+{missing.length - 25} more…</li>}
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6, maxHeight: 280, overflowY: "auto" }}>
+              {missing.slice(0, 50).map((m, i) => {
+                const expected = m.ref.replace(/[?#].*$/, "").replace(/^\/+/, "");
+                return (
+                  <li key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, fontFamily: "monospace", color: "var(--crm-stone)", flexWrap: "wrap" }}>
+                    <span style={{ color: "hsl(30 80% 70%)" }}>{m.ref}</span>
+                    <span style={{ color: "var(--crm-taupe)" }}>· in {m.in_page}</span>
+                    <select
+                      className="crm-input"
+                      defaultValue=""
+                      onChange={async (e) => {
+                        const from = e.target.value;
+                        if (!from) return;
+                        e.target.value = "";
+                        const { error } = await supabase.functions.invoke("preview-admin", {
+                          body: { action: "file_rename", project_id: id, from_path: from, to_path: expected },
+                        });
+                        if (error) { toast.error(error.message); return; }
+                        toast.success(`Renamed to ${expected}`);
+                        await load();
+                        await loadMissing();
+                      }}
+                      style={{ fontSize: 11, padding: "4px 6px", marginLeft: "auto", maxWidth: 280 }}
+                    >
+                      <option value="">Map to uploaded file…</option>
+                      {files.map((f: any) => (
+                        <option key={f.path} value={f.path}>{f.path}</option>
+                      ))}
+                    </select>
+                  </li>
+                );
+              })}
+              {missing.length > 50 && <li style={{ fontSize: 11, color: "var(--crm-taupe)" }}>+{missing.length - 50} more…</li>}
             </ul>
           </div>
         )}
