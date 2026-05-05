@@ -181,7 +181,7 @@ export default function PreviewDetail() {
     load();
   };
 
-  if (loading || !project) return <AdminLayout><div style={{ padding: 24 }}>Loading…</div></AdminLayout>;
+  if (loading || !project) return <AdminLayout><div style={{ padding: "48px 52px" }}>Loading…</div></AdminLayout>;
 
   const pages = files.filter((f) => /\.html?$/i.test(f.path));
   const assets = files.filter((f) => !/\.html?$/i.test(f.path));
