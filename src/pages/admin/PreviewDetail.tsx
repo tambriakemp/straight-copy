@@ -276,22 +276,14 @@ export default function PreviewDetail() {
         <TabsContent value="pages">
       {/* Pages list */}
       <section style={{ marginBottom: 28 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-          <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Pages</h2>
-        </div>
-
         {pages.length === 0 && (
           <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 14, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
             No pages yet. Upload HTML files from the <strong style={{ color: "var(--crm-warm-white)" }}>Files</strong> tab.
           </div>
         )}
 
-        {/* Pages */}
         {pages.length > 0 && (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
-              Pages ({pages.length})
-            </div>
             <div style={{ display: "grid", gap: 8 }}>
               {pages.map((f) => {
                 const isEntry = f.path === project.entry_path;
