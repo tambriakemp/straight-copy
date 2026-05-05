@@ -21,6 +21,9 @@ import Dashboard from "./pages/admin/Dashboard.tsx";
 import ClientDetail from "./pages/admin/ClientDetail.tsx";
 import Tokens from "./pages/admin/Tokens.tsx";
 import Invites from "./pages/admin/Invites.tsx";
+import Previews from "./pages/admin/Previews.tsx";
+import PreviewDetail from "./pages/admin/PreviewDetail.tsx";
+import PreviewViewer from "./pages/PreviewViewer.tsx";
 import RequireAdmin from "./components/admin/RequireAdmin.tsx";
 
 const queryClient = new QueryClient();
@@ -49,6 +52,9 @@ const App = () => (
           <Route path="/admin/clients/:id" element={<RequireAdmin><ClientDetail /></RequireAdmin>} />
           <Route path="/admin/tokens" element={<RequireAdmin><Tokens /></RequireAdmin>} />
           <Route path="/admin/invites" element={<RequireAdmin><Invites /></RequireAdmin>} />
+          <Route path="/admin/previews" element={<RequireAdmin><Previews /></RequireAdmin>} />
+          <Route path="/admin/previews/:id" element={<RequireAdmin><PreviewDetail /></RequireAdmin>} />
+          <Route path="/p/:slug/*" element={<PreviewViewer />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

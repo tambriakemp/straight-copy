@@ -755,6 +755,174 @@ export type Database = {
         }
         Relationships: []
       }
+      preview_comment_replies: {
+        Row: {
+          author_name: string | null
+          body: string
+          comment_id: string
+          created_at: string
+          id: string
+          is_admin: boolean
+        }
+        Insert: {
+          author_name?: string | null
+          body: string
+          comment_id: string
+          created_at?: string
+          id?: string
+          is_admin?: boolean
+        }
+        Update: {
+          author_name?: string | null
+          body?: string
+          comment_id?: string
+          created_at?: string
+          id?: string
+          is_admin?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preview_comment_replies_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "preview_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preview_comments: {
+        Row: {
+          author_name: string | null
+          body: string
+          created_at: string
+          id: string
+          page_path: string
+          pin_number: number
+          project_id: string
+          selector: string
+          status: string
+          updated_at: string
+          viewport_width: number | null
+          x_pct: number
+          y_pct: number
+        }
+        Insert: {
+          author_name?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          page_path?: string
+          pin_number: number
+          project_id: string
+          selector: string
+          status?: string
+          updated_at?: string
+          viewport_width?: number | null
+          x_pct?: number
+          y_pct?: number
+        }
+        Update: {
+          author_name?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          page_path?: string
+          pin_number?: number
+          project_id?: string
+          selector?: string
+          status?: string
+          updated_at?: string
+          viewport_width?: number | null
+          x_pct?: number
+          y_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preview_comments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "preview_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preview_files: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          id: string
+          path: string
+          project_id: string
+          size_bytes: number | null
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          id?: string
+          path: string
+          project_id: string
+          size_bytes?: number | null
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          id?: string
+          path?: string
+          project_id?: string
+          size_bytes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preview_files_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "preview_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preview_projects: {
+        Row: {
+          archived: boolean
+          client_label: string | null
+          created_at: string
+          entry_path: string
+          feedback_enabled: boolean
+          id: string
+          is_multi_page: boolean
+          name: string
+          slug: string
+          storage_prefix: string
+          updated_at: string
+        }
+        Insert: {
+          archived?: boolean
+          client_label?: string | null
+          created_at?: string
+          entry_path?: string
+          feedback_enabled?: boolean
+          id?: string
+          is_multi_page?: boolean
+          name: string
+          slug: string
+          storage_prefix: string
+          updated_at?: string
+        }
+        Update: {
+          archived?: boolean
+          client_label?: string | null
+          created_at?: string
+          entry_path?: string
+          feedback_enabled?: boolean
+          id?: string
+          is_multi_page?: boolean
+          name?: string
+          slug?: string
+          storage_prefix?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -864,6 +1032,7 @@ export type Database = {
         }
         Returns: number
       }
+      next_preview_pin: { Args: { _project_id: string }; Returns: number }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
