@@ -62,7 +62,7 @@ const FEEDBACK_WIDGET_JS = `(() => {
       <div id="pf-form">
         <label>Your name</label>
         <input id="pf-name" placeholder="Your name" />
-        <label>Comment</label>
+        <label id="pf-body-label">Comment</label>
         <textarea id="pf-body" placeholder="What would you like to change?"></textarea>
         <div class="pf-actions">
           <button class="pf-btn ghost" id="pf-cancel">Cancel</button>
@@ -70,16 +70,25 @@ const FEEDBACK_WIDGET_JS = `(() => {
         </div>
       </div>
       <div id="pf-view" style="display:none">
-        <div id="pf-view-meta" style="font:12px system-ui;color:#64748b;margin-bottom:6px"></div>
-        <div id="pf-view-body" style="font:14px system-ui;color:#0F172A;white-space:pre-wrap"></div>
-        <div id="pf-replies" style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px;display:flex;flex-direction:column;gap:8px"></div>
-        <div class="pf-actions"><button class="pf-btn primary" id="pf-close">Close</button></div>
+        <div id="pf-view-body" class="pf-msg" style="background:#f8fafc"></div>
+        <div id="pf-replies" style="margin-top:12px;display:flex;flex-direction:column;gap:8px"></div>
+        <div id="pf-reply-box" style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px">
+          <label>Reply</label>
+          <input id="pf-reply-name" placeholder="Your name" style="margin-bottom:6px" />
+          <textarea id="pf-reply-body" placeholder="Write a reply…"></textarea>
+          <div class="pf-actions">
+            <button class="pf-btn ghost" id="pf-close">Close</button>
+            <button class="pf-btn primary" id="pf-reply-send">Reply</button>
+          </div>
+        </div>
       </div>
     </div>\`;
   document.body.appendChild(modal);
 
   let pickMode = false;
   let pendingSelector = null, pendingX = 0, pendingY = 0;
+  let editingComment = null;
+  let viewingPin = null;
 
   function uniqueSelector(el){
     if (!el || el === document.body) return "body";
@@ -98,6 +107,18 @@ const FEEDBACK_WIDGET_JS = `(() => {
     return "body > " + path.join(" > ");
   }
 
+  function showForm(title){
+    document.getElementById("pf-title").textContent = title;
+    document.getElementById("pf-form").style.display = "block";
+    document.getElementById("pf-view").style.display = "none";
+    modal.classList.add("show");
+  }
+  function showView(){
+    document.getElementById("pf-form").style.display = "none";
+    document.getElementById("pf-view").style.display = "block";
+    modal.classList.add("show");
+  }
+
   toggle.onclick = () => {
     pickMode = !pickMode;
     toggle.classList.toggle("on", pickMode);
@@ -114,12 +135,10 @@ const FEEDBACK_WIDGET_JS = `(() => {
     pendingSelector = uniqueSelector(el);
     pendingX = ((ev.clientX - rect.left) / Math.max(rect.width,1)) * 100;
     pendingY = ((ev.clientY - rect.top) / Math.max(rect.height,1)) * 100;
-    document.getElementById("pf-form").style.display = "block";
-    document.getElementById("pf-view").style.display = "none";
-    document.getElementById("pf-title").textContent = "Leave feedback";
+    editingComment = null;
     document.getElementById("pf-name").value = localStorage.getItem("pf-name") || "";
     document.getElementById("pf-body").value = "";
-    modal.classList.add("show");
+    showForm("Leave feedback");
     pickMode = false; toggle.classList.remove("on");
     toggle.textContent = "💬 Leave feedback";
     document.body.classList.remove("pf-pick");
@@ -133,13 +152,49 @@ const FEEDBACK_WIDGET_JS = `(() => {
     const body = document.getElementById("pf-body").value.trim();
     if (!body) return;
     if (name) localStorage.setItem("pf-name", name);
+    if (editingComment) {
+      const tok = getToken("comment", editingComment.id);
+      const res = await fetch(API + "/preview-comments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "comment", id: editingComment.id, edit_token: tok, body })
+      });
+      if (res.ok) { editingComment = null; modal.classList.remove("show"); await loadPins(); }
+      else alert("Could not update comment");
+      return;
+    }
     const res = await fetch(API + "/preview-comments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slug: SLUG, page_path: PAGE, selector: pendingSelector, x_pct: pendingX, y_pct: pendingY, viewport_width: window.innerWidth, author_name: name || "Guest", body })
     });
-    if (res.ok) { modal.classList.remove("show"); await loadPins(); }
-    else { alert("Could not save comment"); }
+    if (res.ok) {
+      const data = await res.json();
+      if (data.comment && data.edit_token) setToken("comment", data.comment.id, data.edit_token);
+      modal.classList.remove("show");
+      await loadPins();
+    } else { alert("Could not save comment"); }
+  };
+
+  document.getElementById("pf-reply-send").onclick = async () => {
+    if (!viewingPin) return;
+    const name = document.getElementById("pf-reply-name").value.trim();
+    const body = document.getElementById("pf-reply-body").value.trim();
+    if (!body) return;
+    if (name) localStorage.setItem("pf-name", name);
+    const res = await fetch(API + "/preview-comments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reply", comment_id: viewingPin.id, body, author_name: name || "Guest" })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.reply && data.edit_token) setToken("reply", data.reply.id, data.edit_token);
+      document.getElementById("pf-reply-body").value = "";
+      await loadPins();
+      const fresh = pins.find(p => p.id === viewingPin.id);
+      if (fresh) openPin(fresh);
+    } else { alert("Could not reply"); }
   };
 
   let pins = [];
@@ -169,20 +224,52 @@ const FEEDBACK_WIDGET_JS = `(() => {
     });
   }
 
+  function escapeHtml(s){ return String(s).replace(/[&<>\"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}[c])); }
+
   function openPin(p){
-    document.getElementById("pf-form").style.display = "none";
-    document.getElementById("pf-view").style.display = "block";
+    viewingPin = p;
     document.getElementById("pf-title").textContent = "Pin #" + p.pin_number + (p.status==="resolved" ? " (resolved)" : "");
-    document.getElementById("pf-view-meta").textContent = (p.author_name || "Guest") + " · " + new Date(p.created_at).toLocaleString();
-    document.getElementById("pf-view-body").textContent = p.body;
+    const main = document.getElementById("pf-view-body");
+    const myTok = getToken("comment", p.id);
+    main.innerHTML = "<div class='pf-meta'>" + escapeHtml(p.author_name || "Guest") + " · " + new Date(p.created_at).toLocaleString() + "</div><div style='white-space:pre-wrap'>" + escapeHtml(p.body) + "</div>" +
+      (myTok ? "<div class='pf-mine-actions'><button data-act='edit'>Edit</button><button data-act='delete'>Delete</button></div>" : "");
+    main.querySelectorAll("button[data-act]").forEach(b => {
+      b.onclick = async () => {
+        const act = b.getAttribute("data-act");
+        if (act === "edit") {
+          editingComment = p;
+          document.getElementById("pf-name").value = p.author_name || "";
+          document.getElementById("pf-body").value = p.body;
+          showForm("Edit pin #" + p.pin_number);
+        } else if (act === "delete") {
+          if (!confirm("Delete this comment?")) return;
+          const res = await fetch(API + "/preview-comments?kind=comment&id=" + p.id + "&edit_token=" + encodeURIComponent(myTok), { method: "DELETE" });
+          if (res.ok) { removeToken("comment", p.id); modal.classList.remove("show"); await loadPins(); }
+          else alert("Could not delete");
+        }
+      };
+    });
+
     const r = document.getElementById("pf-replies"); r.innerHTML = "";
     (p.replies || []).forEach(rep => {
       const d = document.createElement("div");
-      d.style.cssText = "background:" + (rep.is_admin ? "#0F172A" : "#f1f5f9") + ";color:" + (rep.is_admin ? "#fff" : "#0F172A") + ";padding:8px 10px;border-radius:8px;font:13px system-ui";
-      d.innerHTML = "<div style='font-size:11px;opacity:.7;margin-bottom:4px'>" + (rep.author_name || (rep.is_admin?"Admin":"Guest")) + "</div>" + rep.body.replace(/</g,"&lt;");
+      d.className = "pf-msg" + (rep.is_admin ? " admin" : "");
+      const myRTok = getToken("reply", rep.id);
+      d.innerHTML = "<div class='pf-meta'>" + escapeHtml(rep.author_name || (rep.is_admin?"Admin":"Guest")) + " · " + new Date(rep.created_at).toLocaleString() + "</div><div style='white-space:pre-wrap'>" + escapeHtml(rep.body) + "</div>" +
+        (myRTok ? "<div class='pf-mine-actions'><button data-act='delete-reply'>Delete</button></div>" : "");
+      d.querySelectorAll("button[data-act='delete-reply']").forEach(b => {
+        b.onclick = async () => {
+          if (!confirm("Delete this reply?")) return;
+          const res = await fetch(API + "/preview-comments?kind=reply&id=" + rep.id + "&edit_token=" + encodeURIComponent(myRTok), { method: "DELETE" });
+          if (res.ok) { removeToken("reply", rep.id); await loadPins(); const fresh = pins.find(x => x.id === p.id); if (fresh) openPin(fresh); }
+          else alert("Could not delete");
+        };
+      });
       r.appendChild(d);
     });
-    modal.classList.add("show");
+    document.getElementById("pf-reply-name").value = localStorage.getItem("pf-name") || "";
+    document.getElementById("pf-reply-body").value = "";
+    showView();
   }
 
   window.addEventListener("resize", renderPins);
