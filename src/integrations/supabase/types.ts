@@ -761,6 +761,7 @@ export type Database = {
           body: string
           comment_id: string
           created_at: string
+          edit_token: string | null
           id: string
           is_admin: boolean
         }
@@ -769,6 +770,7 @@ export type Database = {
           body: string
           comment_id: string
           created_at?: string
+          edit_token?: string | null
           id?: string
           is_admin?: boolean
         }
@@ -777,6 +779,7 @@ export type Database = {
           body?: string
           comment_id?: string
           created_at?: string
+          edit_token?: string | null
           id?: string
           is_admin?: boolean
         }
@@ -795,6 +798,7 @@ export type Database = {
           author_name: string | null
           body: string
           created_at: string
+          edit_token: string | null
           id: string
           page_path: string
           pin_number: number
@@ -810,6 +814,7 @@ export type Database = {
           author_name?: string | null
           body: string
           created_at?: string
+          edit_token?: string | null
           id?: string
           page_path?: string
           pin_number: number
@@ -825,6 +830,7 @@ export type Database = {
           author_name?: string | null
           body?: string
           created_at?: string
+          edit_token?: string | null
           id?: string
           page_path?: string
           pin_number?: number

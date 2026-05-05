@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Copy, Check, ExternalLink, Upload, Trash2, ArrowLeft, Star,
   ChevronDown, ChevronRight, FileText, Image as ImageIcon, Code2, Box, AlertTriangle,
@@ -180,7 +181,7 @@ export default function PreviewDetail() {
     load();
   };
 
-  if (loading || !project) return <AdminLayout><div style={{ padding: 24 }}>Loading…</div></AdminLayout>;
+  if (loading || !project) return <AdminLayout><div style={{ padding: "48px 52px" }}>Loading…</div></AdminLayout>;
 
   const pages = files.filter((f) => /\.html?$/i.test(f.path));
   const assets = files.filter((f) => !/\.html?$/i.test(f.path));
@@ -204,6 +205,7 @@ export default function PreviewDetail() {
 
   return (
     <AdminLayout>
+      <div style={{ padding: "48px 52px 96px", maxWidth: 1400, margin: "0 auto", width: "100%", overflowY: "auto", flex: 1 }}>
       {/* Header */}
       <div style={{ marginBottom: 14 }}>
         <Link to="/admin/previews" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase" }}>
@@ -249,6 +251,15 @@ export default function PreviewDetail() {
         </div>
       </header>
 
+      <Tabs defaultValue="pages" className="w-full">
+        <TabsList style={{ background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 8, marginBottom: 18 }}>
+          <TabsTrigger value="pages" style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>Pages & Files</TabsTrigger>
+          <TabsTrigger value="feedback" style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+            Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pages">
       {/* Files */}
       <section style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
@@ -418,7 +429,9 @@ export default function PreviewDetail() {
           </div>
         )}
       </section>
+        </TabsContent>
 
+        <TabsContent value="feedback">
       {/* Feedback Kanban */}
       <section>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
@@ -513,6 +526,9 @@ export default function PreviewDetail() {
           </div>
         )}
       </section>
+        </TabsContent>
+      </Tabs>
+      </div>
 
       {/* Comment drawer */}
       {activeComment && (

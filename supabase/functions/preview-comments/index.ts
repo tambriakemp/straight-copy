@@ -1,10 +1,12 @@
 // Public: anonymous client posts feedback comments. GET returns existing comments for a page.
+// PATCH/DELETE allow the original author to edit/remove their comment via edit_token.
+// POST replies via action=reply.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -53,6 +55,28 @@ Deno.serve(async (req) => {
 
     if (req.method === "POST") {
       const body = await req.json();
+      // ----- Reply path -----
+      if (body.action === "reply") {
+        const { comment_id, body: text, author_name } = body;
+        if (!comment_id || !text) return json({ error: "missing fields" }, 400);
+        if (String(text).length > 4000) return json({ error: "too long" }, 400);
+        const editToken = crypto.randomUUID();
+        const { data, error } = await admin
+          .from("preview_comment_replies")
+          .insert({
+            comment_id,
+            body: text,
+            author_name: author_name || "Guest",
+            is_admin: false,
+            edit_token: editToken,
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        return json({ ok: true, reply: data, edit_token: editToken });
+      }
+
+      // ----- New comment -----
       const { slug, page_path, selector, x_pct, y_pct, viewport_width, author_name, body: text } = body;
       if (!slug || !selector || !text) return json({ error: "missing fields" }, 400);
       if (String(text).length > 4000) return json({ error: "too long" }, 400);
@@ -65,6 +89,7 @@ Deno.serve(async (req) => {
       if (!project || project.archived || !project.feedback_enabled) return json({ error: "not found" }, 404);
 
       const { data: pinNum } = await admin.rpc("next_preview_pin", { _project_id: project.id });
+      const editToken = crypto.randomUUID();
 
       const { data: inserted, error } = await admin
         .from("preview_comments")
@@ -78,11 +103,38 @@ Deno.serve(async (req) => {
           author_name: author_name || "Guest",
           body: text,
           pin_number: pinNum,
+          edit_token: editToken,
         })
         .select("id,pin_number")
         .single();
       if (error) throw error;
-      return json({ ok: true, comment: inserted });
+      return json({ ok: true, comment: inserted, edit_token: editToken });
+    }
+
+    if (req.method === "PATCH") {
+      const body = await req.json();
+      const { kind, id, edit_token, body: text } = body;
+      if (!id || !edit_token || !text) return json({ error: "missing fields" }, 400);
+      const table = kind === "reply" ? "preview_comment_replies" : "preview_comments";
+      const { data: row } = await admin.from(table).select("id,edit_token").eq("id", id).single();
+      if (!row || row.edit_token !== edit_token) return json({ error: "forbidden" }, 403);
+      const { error } = await admin.from(table).update({ body: text }).eq("id", id);
+      if (error) throw error;
+      return json({ ok: true });
+    }
+
+    if (req.method === "DELETE") {
+      const url = new URL(req.url);
+      const id = url.searchParams.get("id");
+      const editToken = url.searchParams.get("edit_token");
+      const kind = url.searchParams.get("kind");
+      if (!id || !editToken) return json({ error: "missing fields" }, 400);
+      const table = kind === "reply" ? "preview_comment_replies" : "preview_comments";
+      const { data: row } = await admin.from(table).select("id,edit_token").eq("id", id).single();
+      if (!row || row.edit_token !== editToken) return json({ error: "forbidden" }, 403);
+      const { error } = await admin.from(table).delete().eq("id", id);
+      if (error) throw error;
+      return json({ ok: true });
     }
 
     return json({ error: "method not allowed" }, 405);
