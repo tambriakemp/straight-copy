@@ -52,6 +52,9 @@ const App = () => (
           <Route path="/admin/clients/:id" element={<RequireAdmin><ClientDetail /></RequireAdmin>} />
           <Route path="/admin/tokens" element={<RequireAdmin><Tokens /></RequireAdmin>} />
           <Route path="/admin/invites" element={<RequireAdmin><Invites /></RequireAdmin>} />
+          <Route path="/admin/previews" element={<RequireAdmin><Previews /></RequireAdmin>} />
+          <Route path="/admin/previews/:id" element={<RequireAdmin><PreviewDetail /></RequireAdmin>} />
+          <Route path="/p/:slug/*" element={<PreviewViewer />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
