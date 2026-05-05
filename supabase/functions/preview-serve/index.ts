@@ -226,11 +226,28 @@ Deno.serve(async (req) => {
     // Reject path traversal
     if (path.includes("..")) return new Response("bad path", { status: 400, headers: corsHeaders });
 
-    const { data: file, error: dlErr } = await admin.storage
+    let { data: file, error: dlErr } = await admin.storage
       .from("preview-sites")
       .download(`${project.storage_prefix}${path}`);
+    let resolvedVia = "exact";
     if (dlErr || !file) {
-      return new Response("Not found", { status: 404, headers: corsHeaders });
+      // Fallback: match by basename across all project files (case-insensitive)
+      const want = path.split("/").pop()?.toLowerCase() ?? "";
+      if (want) {
+        const { data: rows } = await admin
+          .from("preview_files").select("path").eq("project_id", project.id);
+        const hit = (rows ?? []).find((r: any) => r.path.split("/").pop()?.toLowerCase() === want);
+        if (hit) {
+          const second = await admin.storage.from("preview-sites").download(`${project.storage_prefix}${hit.path}`);
+          if (!second.error && second.data) {
+            file = second.data;
+            path = hit.path;
+            dlErr = null as any;
+            resolvedVia = "basename";
+          }
+        }
+      }
+      if (!file) return new Response("Not found", { status: 404, headers: corsHeaders });
     }
 
     const ct = contentTypeFor(path);

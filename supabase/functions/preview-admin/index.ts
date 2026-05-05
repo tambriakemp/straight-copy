@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       case "update": {
         const { id, ...patch } = payload;
         const allowed: any = {};
-        for (const k of ["name", "client_label", "feedback_enabled", "archived", "entry_path"]) {
+        for (const k of ["name", "client_label", "feedback_enabled", "archived", "entry_path", "is_multi_page"]) {
           if (k in patch) allowed[k] = patch[k];
         }
         const { data, error } = await admin
@@ -130,6 +130,62 @@ Deno.serve(async (req) => {
         const { error } = await admin.from("preview_projects").delete().eq("id", id);
         if (error) throw error;
         return json({ ok: true });
+      }
+
+      case "file_delete": {
+        const { project_id, path } = payload;
+        const { data: proj } = await admin
+          .from("preview_projects").select("storage_prefix").eq("id", project_id).single();
+        if (proj) {
+          await admin.storage.from("preview-sites").remove([`${proj.storage_prefix}${path}`]);
+        }
+        await admin.from("preview_files").delete().eq("project_id", project_id).eq("path", path);
+        return json({ ok: true });
+      }
+
+      case "missing_assets": {
+        // Parse all HTML files for src/href/url() refs and report any that don't
+        // exist in preview_files (by exact normalized path or basename).
+        const { id } = payload;
+        const { data: proj } = await admin
+          .from("preview_projects").select("storage_prefix").eq("id", id).single();
+        const { data: files } = await admin.from("preview_files").select("path").eq("project_id", id);
+        if (!proj || !files) return json({ missing: [] });
+        const allPaths = new Set(files.map((f: any) => f.path));
+        const allBasenames = new Set(files.map((f: any) => f.path.split("/").pop()?.toLowerCase()));
+        const htmls = files.filter((f: any) => /\.html?$/i.test(f.path));
+        const missing: { ref: string; in_page: string }[] = [];
+        const seen = new Set<string>();
+        for (const h of htmls) {
+          const dl = await admin.storage.from("preview-sites").download(`${proj.storage_prefix}${h.path}`);
+          if (dl.error || !dl.data) continue;
+          const text = await dl.data.text();
+          const refs: string[] = [];
+          const re = /(?:src|href|poster|data-src)=["']([^"']+)["']|url\(\s*["']?([^)"']+)["']?\s*\)/gi;
+          let m: RegExpExecArray | null;
+          while ((m = re.exec(text))) refs.push(m[1] || m[2]);
+          for (const r of refs) {
+            if (/^(https?:|\/\/|data:|mailto:|tel:|#|javascript:|blob:)/i.test(r)) continue;
+            const clean = r.replace(/[?#].*$/, "");
+            if (!clean) continue;
+            // Resolve relative to page dir
+            const dir = h.path.includes("/") ? h.path.slice(0, h.path.lastIndexOf("/") + 1) : "";
+            let target = clean.startsWith("/") ? clean.replace(/^\/+/, "") : dir + clean;
+            const parts: string[] = [];
+            for (const seg of target.split("/")) {
+              if (seg === "" || seg === ".") continue;
+              if (seg === "..") parts.pop(); else parts.push(seg);
+            }
+            target = parts.join("/");
+            if (allPaths.has(target)) continue;
+            if (allBasenames.has(target.split("/").pop()?.toLowerCase())) continue;
+            const k = `${h.path}::${clean}`;
+            if (seen.has(k)) continue;
+            seen.add(k);
+            missing.push({ ref: clean, in_page: h.path });
+          }
+        }
+        return json({ missing });
       }
 
       default:
