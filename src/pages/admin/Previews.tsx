@@ -32,7 +32,7 @@ export default function Previews() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.functions.invoke("preview-admin?action=list", { method: "GET" });
+    const { data, error } = await supabase.functions.invoke("preview-admin", { body: { action: "list" } });
     if (error) toast.error(error.message);
     else setProjects(data?.projects ?? []);
     setLoading(false);
@@ -43,9 +43,8 @@ export default function Previews() {
   const create = async () => {
     if (!name.trim()) return toast.error("Name required");
     setCreating(true);
-    const { data, error } = await supabase.functions.invoke("preview-admin?action=create", {
-      method: "POST",
-      body: { name: name.trim(), client_label: clientLabel.trim() || null },
+    const { data, error } = await supabase.functions.invoke("preview-admin", {
+      body: { action: "create", name: name.trim(), client_label: clientLabel.trim() || null },
     });
     setCreating(false);
     if (error || !data?.project) return toast.error(error?.message || "Failed");
