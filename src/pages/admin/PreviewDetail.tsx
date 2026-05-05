@@ -253,17 +253,18 @@ export default function PreviewDetail() {
 
       <Tabs defaultValue="pages" className="w-full">
         <TabsList style={{ background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 8, marginBottom: 18 }}>
-          <TabsTrigger value="pages" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Pages & Files</TabsTrigger>
+          <TabsTrigger value="pages" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Pages</TabsTrigger>
           <TabsTrigger value="feedback" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
             Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
           </TabsTrigger>
+          <TabsTrigger value="files" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Files</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pages">
       {/* Files */}
       <section style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-          <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Files</h2>
+          <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Pages</h2>
           <div style={{ display: "flex", gap: 8 }}>
             <input ref={fileInput} type="file" multiple
               // @ts-expect-error nonstandard
@@ -343,6 +344,12 @@ export default function PreviewDetail() {
             </div>
           </div>
         )}
+      </section>
+        </TabsContent>
+
+        <TabsContent value="files">
+      <section style={{ marginBottom: 28 }}>
+        <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: "0 0 14px" }}>Assets & Missing References</h2>
 
         {/* Assets (collapsible) */}
         {assets.length > 0 && (
