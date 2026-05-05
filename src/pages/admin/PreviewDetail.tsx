@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Copy, Check, ExternalLink, Upload, Trash2, ArrowLeft, Star,
   ChevronDown, ChevronRight, FileText, Image as ImageIcon, Code2, Box, AlertTriangle,
