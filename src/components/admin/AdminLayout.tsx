@@ -9,6 +9,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const nav = [
     { to: "/admin", label: "▦ Clients", exact: true },
     { to: "/admin/invites", label: "✉ Invites" },
+    { to: "/admin/previews", label: "▤ Previews" },
     { to: "/admin/tokens", label: "⌁ API Tokens" },
     { to: "/admin/profile", label: "◐ Profile" },
   ];
