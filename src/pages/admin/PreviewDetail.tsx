@@ -251,6 +251,15 @@ export default function PreviewDetail() {
         </div>
       </header>
 
+      <Tabs defaultValue="pages" className="w-full">
+        <TabsList style={{ background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 8, marginBottom: 18 }}>
+          <TabsTrigger value="pages" style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>Pages & Files</TabsTrigger>
+          <TabsTrigger value="feedback" style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+            Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pages">
       {/* Files */}
       <section style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
