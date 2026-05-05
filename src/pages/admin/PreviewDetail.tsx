@@ -232,22 +232,35 @@ export default function PreviewDetail() {
               {project.archived && <span style={{ color: "hsl(0 60% 60%)" }}>· Archived</span>}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="crm-btn crm-btn--ghost" onClick={toggleFeedback}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button
+              className="crm-btn crm-btn--ghost crm-btn--sm"
+              onClick={copy}
+              title={`Copy share link: ${shareUrl}`}
+              aria-label="Copy share link"
+              style={{ padding: 8 }}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+            <a
+              className="crm-btn crm-btn--ghost crm-btn--sm"
+              href={shareUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Open preview in new tab"
+              aria-label="Open preview"
+              style={{ padding: 8 }}
+            >
+              <ExternalLink size={14} />
+            </a>
+            <span style={{ width: 1, height: 22, background: "var(--crm-border-dark)", margin: "0 4px" }} />
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={toggleFeedback} title="Toggle client feedback">
               Feedback: {project.feedback_enabled ? "On" : "Off"}
             </button>
-            <button className="crm-btn crm-btn--ghost" onClick={archiveProject}>
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={archiveProject} title={project.archived ? "Unarchive" : "Archive"}>
               {project.archived ? "Unarchive" : "Archive"}
             </button>
           </div>
-        </div>
-
-        {/* Share link strip */}
-        <div style={{ marginTop: 18, padding: "12px 14px", background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 10, display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Share</span>
-          <code style={{ flex: 1, fontFamily: "monospace", fontSize: 15, color: "var(--crm-warm-white)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shareUrl}</code>
-          <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={copy}>{copied ? <Check size={12} /> : <Copy size={12} />} {copied ? "Copied" : "Copy"}</button>
-          <a className="crm-btn crm-btn--primary crm-btn--sm" href={shareUrl} target="_blank" rel="noreferrer"><ExternalLink size={12} /> Open</a>
         </div>
       </header>
 
