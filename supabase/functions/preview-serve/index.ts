@@ -403,8 +403,18 @@ Deno.serve(async (req) => {
         (_m, q, p) => `url(${q}${resolveRef(p)}${q})`);
 
       // Inject feedback bootstrap before </body>
+      let authorName = "";
+      if (project.feedback_enabled && project.client_project_id) {
+        const { data: cp } = await admin
+          .from("client_projects").select("client_id").eq("id", project.client_project_id).maybeSingle();
+        if (cp?.client_id) {
+          const { data: client } = await admin
+            .from("clients").select("contact_name").eq("id", cp.client_id).maybeSingle();
+          authorName = client?.contact_name || "";
+        }
+      }
       const inject = project.feedback_enabled
-        ? `<script>window.__PREVIEW_SLUG__=${JSON.stringify(slug)};window.__PREVIEW_PAGE__=${JSON.stringify(path)};window.__PREVIEW_API__=${JSON.stringify(FN_BASE)};</script><script src="${FN_BASE}/preview-serve?slug=${encodeURIComponent(slug)}&path=__pf_widget.js"></script>`
+        ? `<script>window.__PREVIEW_SLUG__=${JSON.stringify(slug)};window.__PREVIEW_PAGE__=${JSON.stringify(path)};window.__PREVIEW_API__=${JSON.stringify(FN_BASE)};window.__PREVIEW_AUTHOR__=${JSON.stringify(authorName)};</script><script src="${FN_BASE}/preview-serve?slug=${encodeURIComponent(slug)}&path=__pf_widget.js"></script>`
         : "";
       if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, inject + "</body>");
       else html += inject;
