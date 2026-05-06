@@ -3,10 +3,11 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink } from "lucide-react";
+import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
+import ProjectResourcesSheet from "@/components/admin/ProjectResourcesSheet";
 
 type Client = {
   id: string;
@@ -54,6 +55,7 @@ export default function ClientDetail() {
   const [tier, setTier] = useState<"launch" | "growth">("launch");
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [resourceProject, setResourceProject] = useState<Project | null>(null);
 
   const base = useMemo(() => window.location.origin, []);
 
@@ -276,11 +278,20 @@ export default function ClientDetail() {
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)" }}>
                       <Icon size={12} /> {TYPE_LABEL[p.type]}
                     </span>
-                    {isBuild ? (
-                      <span className={`roster__tier roster__tier--${tierForCard.toLowerCase()}`}>{tierLabel(tierForCard)}</span>
-                    ) : (
-                      <span style={{ fontSize: 12, color: "var(--crm-taupe)", textTransform: "uppercase", letterSpacing: "0.2em" }}>{p.status}</span>
-                    )}
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      {isBuild ? (
+                        <span className={`roster__tier roster__tier--${tierForCard.toLowerCase()}`}>{tierLabel(tierForCard)}</span>
+                      ) : (
+                        <span style={{ fontSize: 12, color: "var(--crm-taupe)", textTransform: "uppercase", letterSpacing: "0.2em" }}>{p.status}</span>
+                      )}
+                      <button
+                        className="crm-btn crm-btn--ghost crm-btn--sm"
+                        onClick={(e) => { e.stopPropagation(); setResourceProject(p); }}
+                        title="Links & notes"
+                      >
+                        <FolderOpen size={12} />
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 24, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
@@ -336,6 +347,12 @@ export default function ClientDetail() {
           </div>
         )}
       </div>
+      <ProjectResourcesSheet
+        projectId={resourceProject?.id ?? null}
+        projectName={resourceProject?.name}
+        open={!!resourceProject}
+        onOpenChange={(v) => { if (!v) setResourceProject(null); }}
+      />
     </AdminLayout>
   );
 }
