@@ -251,14 +251,16 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
 
   const save = async () => {
     if (!doc.title?.trim()) { toast.error("Title is required"); return; }
-    if (!doc.content?.trim() || doc.content === "<p></p>") { toast.error("Content is required"); return; }
+    const finalContent = isSop ? serializeSopSections(sopSections) : (doc.content || "");
+    const stripped = finalContent.replace(/<[^>]+>/g, "").trim();
+    if (!stripped) { toast.error("Content is required"); return; }
     setSaving(true);
     const tags = tagsText.split(",").map(t => t.trim()).filter(Boolean);
     const payload = {
       title: doc.title!.trim(),
       department: doc.department!,
       doc_type: doc.doc_type!,
-      content: doc.content!,
+      content: finalContent,
       owner: doc.owner || null,
       status: doc.status!,
       access_level: doc.access_level!,
