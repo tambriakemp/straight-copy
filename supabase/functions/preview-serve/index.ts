@@ -145,10 +145,8 @@ const FEEDBACK_WIDGET_JS = `(() => {
   document.getElementById("pf-close").onclick = () => modal.classList.remove("show");
 
   document.getElementById("pf-save").onclick = async () => {
-    const name = document.getElementById("pf-name").value.trim();
     const body = document.getElementById("pf-body").value.trim();
     if (!body) return;
-    if (name) localStorage.setItem("pf-name", name);
     if (editingComment) {
       const res = await fetch(API + "/preview-comments", {
         method: "PATCH",
@@ -162,7 +160,7 @@ const FEEDBACK_WIDGET_JS = `(() => {
     const res = await fetch(API + "/preview-comments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: SLUG, page_path: PAGE, selector: pendingSelector, x_pct: pendingX, y_pct: pendingY, viewport_width: window.innerWidth, author_name: name || "Guest", body })
+      body: JSON.stringify({ slug: SLUG, page_path: PAGE, selector: pendingSelector, x_pct: pendingX, y_pct: pendingY, viewport_width: window.innerWidth, author_name: AUTHOR || "Client", body })
     });
     if (res.ok) {
       const data = await res.json();
@@ -174,14 +172,12 @@ const FEEDBACK_WIDGET_JS = `(() => {
 
   document.getElementById("pf-reply-send").onclick = async () => {
     if (!viewingPin) return;
-    const name = document.getElementById("pf-reply-name").value.trim();
     const body = document.getElementById("pf-reply-body").value.trim();
     if (!body) return;
-    if (name) localStorage.setItem("pf-name", name);
     const res = await fetch(API + "/preview-comments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "reply", comment_id: viewingPin.id, body, author_name: name || "Guest" })
+      body: JSON.stringify({ action: "reply", comment_id: viewingPin.id, body, author_name: AUTHOR || "Client" })
     });
     if (res.ok) {
       const data = await res.json();
