@@ -1,114 +1,85 @@
-## Goal
-When a SureCart Launch/Growth purchase results in a new client (via the onboarding completion trigger), automatically create an `automation_build` project under that client and seed its journey nodes from the matching tier template — without bringing back the unwanted "auto-create on every client insert" behavior that we just removed for manual client creation.
+## Context
 
-## Why a plain trigger won't do
-We deliberately dropped `clients_seed_journey` so that admins clicking "+ New Client" on the dashboard get an empty client with no projects. We need a way to distinguish "client born from a paid onboarding" from "client created manually by an admin."
+SureContact's **public API does not have** a "list email templates" or a "send template to contact" endpoint. The only way to trigger a templated email to a single contact via API is through **Automations**:
 
-The clean signal we already have: `clients.onboarding_submission_id is not null` means the row came from `create_client_from_onboarding`. Manual admin inserts leave that null.
+- `GET /api/v1/public/automations` — list all automations in the workspace (this is the closest thing to "list templates" — each kickoff/welcome/etc. email lives inside an automation in SureContact)
+- `POST /api/v1/public/contacts/{contact_uuid}/automations/{automation_uuid}/start` — manually enroll a contact into an active automation
 
-## Changes
+So the migration path is: **replace the incoming-webhook fire with a "start automation" API call**, using a kickoff-specific automation UUID stored as a secret.
 
-### 1. New migration: seed-on-onboarding trigger
-Create a dedicated trigger that fires only on the onboarding path, not on every client insert.
+## Currently webhook-triggered (in this codebase)
 
-```sql
-create or replace function public.seed_project_from_onboarding()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  proj_id uuid;
-begin
-  -- Only act when the row was created from an onboarding submission and has a tier
-  if new.onboarding_submission_id is null then return new; end if;
-  if new.tier is null then return new; end if;
+Searching the repo for `incoming-webhooks` / `surecontact.com/incoming-webhooks` shows **only one** SureContact incoming-webhook fire:
 
-  -- Idempotency: skip if an automation_build project already exists for this client
-  if exists (
-    select 1 from public.client_projects
-     where client_id = new.id and type = 'automation_build'
-  ) then
-    return new;
-  end if;
+- `supabase/functions/trigger-kickoff-webhook/index.ts` → kickoff confirmation
 
-  insert into public.client_projects (client_id, type, name, status)
-  values (
-    new.id,
-    'automation_build',
-    coalesce(nullif(new.business_name,'') || ' — ' || initcap(new.tier) || ' build',
-             initcap(new.tier) || ' build'),
-    'active'
-  )
-  returning id into proj_id;
+(All other transactional sends are already API-based — `submit-contact`, `sync-client-to-surecontact`, `send-transactional-email`, etc.)
 
-  insert into public.journey_nodes
-    (client_id, client_project_id, template_id, key, label, order_index, checklist)
-  select new.id, proj_id, t.id, t.key, t.label, t.order_index, t.checklist
-    from public.journey_templates t
-   where t.tier = new.tier
-  on conflict (client_id, key) do nothing;
+So "kickoff" is the only one to migrate right now.
 
-  return new;
-end;
-$$;
+## Plan
 
-drop trigger if exists clients_seed_project_from_onboarding on public.clients;
-create trigger clients_seed_project_from_onboarding
-after insert on public.clients
-for each row
-execute function public.seed_project_from_onboarding();
-```
+### 1. Add a small admin tool to list available SureContact automations
 
-Notes:
-- `AFTER INSERT` only — manual admin inserts (no `onboarding_submission_id`) are skipped.
-- Idempotent — re-running or future webhook retries won't double-seed.
-- Also covers the existing-client path: `create_client_from_onboarding` UPDATEs an existing client when it matches by subscription/email, so we should also fire on UPDATE when `onboarding_submission_id` transitions from NULL → not-NULL. Add a second `AFTER UPDATE OF onboarding_submission_id` trigger that calls the same function (the idempotency guard makes this safe).
+So you can pick the kickoff automation UUID without leaving the app.
 
-### 2. One-time backfill in the same migration
-For any existing clients that already came from onboarding but have no automation_build project (e.g. clients created in the window after we dropped the seed trigger), seed them now:
+- New edge function `list-surecontact-automations` (`verify_jwt = false`, gated by admin check via Supabase auth in the function — same pattern the other admin endpoints use):
+  - Calls `GET https://api.surecontact.com/api/v1/public/automations` with `X-API-Key: SURECONTACT_API_KEY`
+  - Returns `[{ uuid, name, status }, ...]`
+- Surface this in the existing admin UI as a small "SureContact Automations" panel inside `src/pages/admin/Profile.tsx` (or a new minimal `Integrations` section), with a copy-to-clipboard button on each UUID.
 
-```sql
-do $$
-declare r record; proj_id uuid;
-begin
-  for r in
-    select c.* from public.clients c
-    where c.onboarding_submission_id is not null
-      and c.tier is not null
-      and not exists (
-        select 1 from public.client_projects p
-         where p.client_id = c.id and p.type = 'automation_build'
-      )
-  loop
-    insert into public.client_projects (client_id, type, name, status)
-    values (r.id, 'automation_build',
-            coalesce(nullif(r.business_name,'') || ' — ' || initcap(r.tier) || ' build',
-                     initcap(r.tier) || ' build'),
-            'active')
-    returning id into proj_id;
+### 2. Store the kickoff automation UUID as a secret
 
-    insert into public.journey_nodes
-      (client_id, client_project_id, template_id, key, label, order_index, checklist)
-    select r.id, proj_id, t.id, t.key, t.label, t.order_index, t.checklist
-      from public.journey_templates t
-     where t.tier = r.tier
-    on conflict (client_id, key) do nothing;
-  end loop;
-end $$;
-```
+Add `SURECONTACT_KICKOFF_AUTOMATION_UUID` via the secrets tool. You'll paste the UUID after using the listing tool above.
 
-### 3. No code changes needed elsewhere
-- `surecart-webhook` already sets the right `tier` on the invite and on the client (when matching by email).
-- `create_client_from_onboarding` already copies `tier` from the invite onto the new client.
-- `ClientDetail` "+ New Project" flow still works for adding additional projects later; its seeding stays unchanged.
+### 3. Rewrite `trigger-kickoff-webhook` to use the Automation API
 
-## Verification steps after deploy
-1. Pick an existing onboarding-created client with no project; confirm the backfill created one and the journey nodes match the tier.
-2. Simulate a new SureCart paid order against a test email, complete onboarding, and confirm the resulting client has exactly one `automation_build` project plus journey nodes.
-3. Click "+ New Client" from the dashboard and confirm it still creates an empty client with zero projects (manual path unaffected).
+Keep the function name (so the DB trigger `fire_kickoff_webhook` and admin "re-fire" buttons keep working unchanged), but swap the body:
 
-## Files touched
-- New: `supabase/migrations/<ts>_seed_project_from_onboarding.sql` (function + 2 triggers + backfill)
-- No edits to edge functions or React code.
+1. Look up client (same as today) + gating + idempotency check on `clients.kickoff_webhook_fired_at`.
+2. **Upsert contact** in SureContact via the existing `upsertSureContact` shared helper — guarantees the contact exists and tags/custom fields are current. Capture the returned `contact_uuid` from the upsert response (SureContact returns the contact in the response).
+3. **Start automation**: `POST /api/v1/public/contacts/{contact_uuid}/automations/{SURECONTACT_KICKOFF_AUTOMATION_UUID}/start` with `X-API-Key`.
+4. On success:
+   - Stamp `clients.kickoff_webhook_fired_at = now()` (unchanged).
+   - Insert into `email_send_log`:
+     ```
+     template_name: 'kickoff-confirmation'
+     recipient_email: client.contact_email
+     status: 'api_triggered'   // (new status string, parallel to 'webhook_fired')
+     metadata: { client_id, automation_uuid, contact_uuid, surecontact_response }
+     ```
+   - Keep the existing `schedulePollRetries(...)` background polling so `intake.kickoff_confirmation_sent` still flips when SureContact records the actual send activity.
+5. On failure: log to `email_send_log` with `status: 'failed'`, return 502 with the SureContact error body — same shape as today, so the admin UI's existing error display keeps working.
+
+### 4. Update `_shared/surecontact.ts`
+
+Extract the contact UUID from SureContact's upsert response (it's in `data.contact.uuid` / `data.data.uuid` depending on shape — function will check both). Add a small helper `extractContactUuid(result)` so the kickoff function and any future automation-trigger functions can reuse it.
+
+### 5. Leave alone (per your scope)
+
+- Welcome sequence (still tag-driven) — no change.
+- `sync-client-to-surecontact` stage tags — still written for segmentation; no automation trigger added.
+- Other transactional emails already going through the API.
+
+## Technical notes
+
+- SureContact requires the **automation to be in `active` status** or the start call returns 422 — surface that error message verbatim in the admin "re-fire" toast so you know to flip it on in SureContact.
+- The new `list-surecontact-automations` function reuses the existing `SURECONTACT_API_KEY` secret — no new secrets needed for the listing tool. Only the kickoff UUID secret is new.
+- DB trigger `fire_kickoff_webhook` and `auto_complete_journey_node` gating logic are unchanged — they still call the same edge function name, just with a new internal implementation.
+- Idempotency marker (`kickoff_webhook_fired_at`) keeps its current name; treat it as "kickoff API-triggered at" going forward — no migration needed.
+
+## Files
+
+- **New**: `supabase/functions/list-surecontact-automations/index.ts` (+ `deno.json`, + `config.toml` entry with `verify_jwt = false`)
+- **Edit**: `supabase/functions/trigger-kickoff-webhook/index.ts` — swap webhook fetch for upsert + start-automation calls
+- **Edit**: `supabase/functions/_shared/surecontact.ts` — add `extractContactUuid` helper
+- **Edit**: `src/pages/admin/Profile.tsx` (or new section) — list automations with copy-UUID buttons
+- **Secret request**: `SURECONTACT_KICKOFF_AUTOMATION_UUID`
+
+## Order of operations after approval
+
+1. Build the listing function + admin UI panel and deploy.
+2. You open the panel, copy the kickoff automation UUID.
+3. I prompt you to add `SURECONTACT_KICKOFF_AUTOMATION_UUID` as a secret.
+4. Once the secret is in, I rewrite `trigger-kickoff-webhook` and deploy.
+5. Test on a client (the existing "Re-fire kickoff" admin action will exercise the new path).
