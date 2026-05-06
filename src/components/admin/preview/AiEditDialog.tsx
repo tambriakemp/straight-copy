@@ -40,6 +40,62 @@ async function fileToBase64(file: File): Promise<string> {
   return btoa(binary);
 }
 
+async function invokeAiEdit(body: Record<string, unknown>) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) throw new Error("Sign in again to use AI edit");
+
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/preview-ai-edit`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `AI edit failed (${response.status})`);
+  }
+  if (!contentType.includes("text/event-stream") || !response.body) {
+    const data = await response.json();
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let lastEvent = "message";
+  let result: any = null;
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let boundary: number;
+    while ((boundary = buffer.indexOf("\n\n")) !== -1) {
+      const chunk = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      for (const line of chunk.split("\n")) {
+        if (line.startsWith("event: ")) lastEvent = line.slice(7).trim();
+        if (!line.startsWith("data: ")) continue;
+        const payload = JSON.parse(line.slice(6));
+        if (lastEvent === "error") throw new Error(payload?.error || "AI edit failed");
+        if (lastEvent === "done") result = payload;
+      }
+      lastEvent = "message";
+    }
+  }
+
+  if (!result?.ok) throw new Error("AI edit did not finish");
+  return result;
+}
+
 export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, onApplied }: Props) {
   const [prompt, setPrompt] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -115,17 +171,13 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
       }
 
       // 3. Call AI edit
-      const { data, error } = await supabase.functions.invoke("preview-ai-edit", {
-        body: {
-          project_id: projectId,
-          page_path: pagePath,
-          prompt: prompt.trim(),
-          new_assets: newAssets,
-          vision_attachments: visionAttachments,
-        },
+      await invokeAiEdit({
+        project_id: projectId,
+        page_path: pagePath,
+        prompt: prompt.trim(),
+        new_assets: newAssets,
+        vision_attachments: visionAttachments,
       });
-      if (error) throw new Error(error.message);
-      if ((data as any)?.error) throw new Error((data as any).error);
 
       toast.success("Page updated");
       onOpenChange(false);
