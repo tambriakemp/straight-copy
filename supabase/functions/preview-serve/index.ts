@@ -229,7 +229,6 @@ const FEEDBACK_WIDGET_JS = `(() => {
         const act = b.getAttribute("data-act");
         if (act === "edit") {
           editingComment = p;
-          document.getElementById("pf-name").value = p.author_name || "";
           document.getElementById("pf-body").value = p.body;
           showForm("Edit pin #" + p.pin_number);
         } else if (act === "delete") {
