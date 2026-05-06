@@ -23,6 +23,7 @@ import Tokens from "./pages/admin/Tokens.tsx";
 import Invites from "./pages/admin/Invites.tsx";
 import Previews from "./pages/admin/Previews.tsx";
 import PreviewDetail from "./pages/admin/PreviewDetail.tsx";
+import ProjectDetail from "./pages/admin/ProjectDetail.tsx";
 import PreviewViewer from "./pages/PreviewViewer.tsx";
 import RequireAdmin from "./components/admin/RequireAdmin.tsx";
 
@@ -54,6 +55,7 @@ const App = () => (
           <Route path="/admin/invites" element={<RequireAdmin><Invites /></RequireAdmin>} />
           <Route path="/admin/previews" element={<RequireAdmin><Previews /></RequireAdmin>} />
           <Route path="/admin/previews/:id" element={<RequireAdmin><PreviewDetail /></RequireAdmin>} />
+          <Route path="/admin/clients/:id/projects/:projectId" element={<RequireAdmin><ProjectDetail /></RequireAdmin>} />
           <Route path="/p/:slug/*" element={<PreviewViewer />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
