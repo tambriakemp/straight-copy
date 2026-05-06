@@ -274,7 +274,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
         finalSlug = `${baseSlug}-${i}`;
       }
       const { data, error } = await supabase.from("wiki_documents")
-        .insert({ ...payload, slug: finalSlug, created_by: user?.id ?? null })
+        .insert({ ...payload, slug: finalSlug, created_by: user?.id ?? null, last_reviewed_at: new Date().toISOString() })
         .select().single();
       setSaving(false);
       if (error) { toast.error(error.message); return; }
