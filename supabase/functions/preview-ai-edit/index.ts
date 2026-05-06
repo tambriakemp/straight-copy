@@ -143,6 +143,7 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
       ? [{ type: "text", text: userText }, ...visionParts]
       : userText;
 
+    send("progress", { message: "Contacting AI" });
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
