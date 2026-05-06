@@ -311,7 +311,7 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: project, error } = await admin
       .from("preview_projects")
-      .select("id,slug,storage_prefix,entry_path,feedback_enabled,archived")
+      .select("id,slug,storage_prefix,entry_path,feedback_enabled,archived,client_project_id")
       .eq("slug", slug)
       .single();
     if (error || !project || project.archived) {
