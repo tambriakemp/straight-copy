@@ -4,10 +4,16 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
 import { toast } from "sonner";
-import { ExternalLink, Trash2, Plus } from "lucide-react";
+import { ExternalLink, Trash2, Plus, Link2, StickyNote } from "lucide-react";
 
-type Link = { id: string; label: string; url: string; created_at: string };
+type LinkRow = { id: string; label: string; url: string; created_at: string };
 type Note = { id: string; body: string; created_at: string; updated_at: string };
+
+const INK = "hsl(36 5% 16%)";
+const CREAM = "hsl(40 20% 97%)";
+const TAUPE = "hsl(40 10% 70%)";
+const BORDER = "hsl(40 20% 97% / 0.10)";
+const SURFACE = "hsl(40 20% 97% / 0.04)";
 
 export default function ProjectResourcesSheet({
   projectId,
@@ -20,7 +26,7 @@ export default function ProjectResourcesSheet({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const [links, setLinks] = useState<Link[]>([]);
+  const [links, setLinks] = useState<LinkRow[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(false);
   const [newLabel, setNewLabel] = useState("");
@@ -36,7 +42,7 @@ export default function ProjectResourcesSheet({
       supabase.from("project_links").select("*").eq("client_project_id", projectId).order("created_at", { ascending: false }),
       supabase.from("project_notes").select("*").eq("client_project_id", projectId).order("created_at", { ascending: false }),
     ]);
-    setLinks((l.data as Link[]) ?? []);
+    setLinks((l.data as LinkRow[]) ?? []);
     setNotes((n.data as Note[]) ?? []);
     setLoading(false);
   };
@@ -83,81 +89,148 @@ export default function ProjectResourcesSheet({
     setNotes(prev => prev.filter(x => x.id !== id));
   };
 
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    background: "transparent",
+    border: `1px solid ${BORDER}`,
+    borderRadius: 6,
+    padding: "10px 12px",
+    color: CREAM,
+    fontSize: 14,
+    fontFamily: "inherit",
+    outline: "none",
+  };
+
+  const sectionLabel: React.CSSProperties = {
+    fontSize: 11,
+    letterSpacing: "0.3em",
+    textTransform: "uppercase",
+    color: TAUPE,
+    marginBottom: 14,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="!bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] sm:!max-w-lg w-full overflow-y-auto"
+        style={{ background: INK, color: CREAM, borderColor: BORDER }}
+        className="!w-full sm:!max-w-md overflow-y-auto p-0"
       >
-        <SheetHeader>
-          <SheetTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">
-            Project resources
-          </SheetTitle>
-          {projectName && (
-            <SheetDescription className="text-[hsl(40_10%_70%)]">{projectName}</SheetDescription>
-          )}
-        </SheetHeader>
+        <div style={{ padding: "32px 28px 40px" }}>
+          <SheetHeader>
+            <SheetTitle
+              style={{
+                fontFamily: "var(--crm-font-serif, 'Cormorant Garamond', serif)",
+                fontStyle: "italic",
+                fontWeight: 300,
+                fontSize: 32,
+                color: CREAM,
+                lineHeight: 1.1,
+              }}
+            >
+              Project resources
+            </SheetTitle>
+            {projectName && (
+              <SheetDescription style={{ color: TAUPE, fontSize: 13, marginTop: 4 }}>
+                {projectName}
+              </SheetDescription>
+            )}
+          </SheetHeader>
 
-        <div className="mt-6 space-y-8">
+          <div style={{ height: 1, background: BORDER, margin: "24px 0 28px" }} />
+
           {/* Links */}
-          <section>
-            <div className="text-[11px] tracking-[0.3em] uppercase text-[hsl(40_10%_70%)] mb-3">Links</div>
-            <div className="space-y-2 mb-4">
+          <section style={{ marginBottom: 36 }}>
+            <div style={sectionLabel}><Link2 size={12} /> Links</div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
               <input
-                className="crm-input"
+                style={inputStyle}
                 placeholder="Label (e.g. Shared Drive)"
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
               />
               <input
-                className="crm-input"
+                style={inputStyle}
                 placeholder="https://..."
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") addLink(); }}
               />
-              <button className="crm-btn crm-btn--primary" onClick={addLink} disabled={savingLink}>
-                <Plus size={14} /> {savingLink ? "Adding…" : "Add link"}
+              <button
+                onClick={addLink}
+                disabled={savingLink}
+                style={{
+                  alignSelf: "flex-start",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 14px",
+                  border: `1px solid ${BORDER}`,
+                  background: "transparent",
+                  color: CREAM,
+                  fontSize: 12,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  borderRadius: 4,
+                  cursor: savingLink ? "default" : "pointer",
+                  opacity: savingLink ? 0.6 : 1,
+                }}
+              >
+                <Plus size={12} /> {savingLink ? "Adding…" : "Add link"}
               </button>
             </div>
 
             {loading ? (
-              <div className="text-sm text-[hsl(40_10%_70%)]">Loading…</div>
+              <div style={{ fontSize: 13, color: TAUPE }}>Loading…</div>
             ) : links.length === 0 ? (
-              <div className="text-sm text-[hsl(40_10%_70%)] italic">No links yet.</div>
+              <div style={{ fontSize: 13, color: TAUPE, fontStyle: "italic" }}>No links yet.</div>
             ) : (
-              <ul className="space-y-2">
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
                 {links.map((l) => (
                   <li
                     key={l.id}
-                    className="flex items-center gap-3 p-3 rounded border border-[hsl(40_20%_97%/0.08)] bg-[hsl(40_20%_97%/0.03)]"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: 12,
+                      borderRadius: 6,
+                      border: `1px solid ${BORDER}`,
+                      background: SURFACE,
+                    }}
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{l.label}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, color: CREAM, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {l.label}
+                      </div>
                       <a
                         href={l.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs text-[hsl(40_10%_70%)] hover:text-[hsl(40_20%_97%)] truncate block"
+                        style={{ display: "block", fontSize: 12, color: TAUPE, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                       >
                         {l.url}
                       </a>
                     </div>
                     <a
-                      className="crm-btn crm-btn--ghost crm-btn--sm"
                       href={l.url}
                       target="_blank"
                       rel="noreferrer"
                       title="Open"
+                      style={{ color: TAUPE, padding: 6, display: "inline-flex" }}
                     >
-                      <ExternalLink size={12} />
+                      <ExternalLink size={14} />
                     </a>
                     <button
-                      className="crm-btn crm-btn--ghost crm-btn--sm"
                       onClick={() => removeLink(l.id)}
                       title="Delete"
+                      style={{ background: "transparent", border: "none", color: TAUPE, padding: 6, cursor: "pointer", display: "inline-flex" }}
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={14} />
                     </button>
                   </li>
                 ))}
@@ -167,40 +240,67 @@ export default function ProjectResourcesSheet({
 
           {/* Notes */}
           <section>
-            <div className="text-[11px] tracking-[0.3em] uppercase text-[hsl(40_10%_70%)] mb-3">Notes</div>
-            <div className="space-y-2 mb-4">
+            <div style={sectionLabel}><StickyNote size={12} /> Notes</div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
               <textarea
-                className="crm-input"
+                style={{ ...inputStyle, resize: "vertical", minHeight: 90 }}
                 rows={4}
                 placeholder="Write a note…"
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
               />
-              <button className="crm-btn crm-btn--primary" onClick={addNote} disabled={savingNote}>
-                <Plus size={14} /> {savingNote ? "Adding…" : "Add note"}
+              <button
+                onClick={addNote}
+                disabled={savingNote}
+                style={{
+                  alignSelf: "flex-start",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 14px",
+                  border: `1px solid ${BORDER}`,
+                  background: "transparent",
+                  color: CREAM,
+                  fontSize: 12,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  borderRadius: 4,
+                  cursor: savingNote ? "default" : "pointer",
+                  opacity: savingNote ? 0.6 : 1,
+                }}
+              >
+                <Plus size={12} /> {savingNote ? "Adding…" : "Add note"}
               </button>
             </div>
 
             {loading ? null : notes.length === 0 ? (
-              <div className="text-sm text-[hsl(40_10%_70%)] italic">No notes yet.</div>
+              <div style={{ fontSize: 13, color: TAUPE, fontStyle: "italic" }}>No notes yet.</div>
             ) : (
-              <ul className="space-y-3">
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                 {notes.map((n) => (
                   <li
                     key={n.id}
-                    className="p-3 rounded border border-[hsl(40_20%_97%/0.08)] bg-[hsl(40_20%_97%/0.03)]"
+                    style={{
+                      padding: 14,
+                      borderRadius: 6,
+                      border: `1px solid ${BORDER}`,
+                      background: SURFACE,
+                    }}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="text-sm whitespace-pre-wrap flex-1">{n.body}</div>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                      <div style={{ flex: 1, fontSize: 14, color: CREAM, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
+                        {n.body}
+                      </div>
                       <button
-                        className="crm-btn crm-btn--ghost crm-btn--sm"
                         onClick={() => removeNote(n.id)}
                         title="Delete"
+                        style={{ background: "transparent", border: "none", color: TAUPE, padding: 4, cursor: "pointer", display: "inline-flex" }}
                       >
-                        <Trash2 size={12} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
-                    <div className="mt-2 text-[11px] uppercase tracking-[0.2em] text-[hsl(40_10%_60%)]">
+                    <div style={{ marginTop: 10, fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(40 10% 55%)" }}>
                       {new Date(n.created_at).toLocaleString()}
                     </div>
                   </li>
