@@ -170,6 +170,99 @@ export default function Profile() {
             </button>
           </form>
         </div>
+
+        <div
+          style={{
+            background: "hsl(36 5% 16%)",
+            border: "1px solid hsl(40 20% 97% / 0.08)",
+            padding: "32px 36px",
+            marginTop: 24,
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: "Cormorant Garamond, serif",
+              fontWeight: 300,
+              fontSize: 28,
+              color: "hsl(40 20% 97%)",
+              margin: "0 0 8px 0",
+            }}
+          >
+            SureContact <em style={{ color: "hsl(30 25% 44%)" }}>automations</em>
+          </h2>
+          <p style={{ color: "hsl(30 10% 70%)", fontSize: 14, margin: "0 0 18px 0" }}>
+            List your SureContact automations and copy their UUIDs (used for API-triggered emails).
+          </p>
+          <button
+            type="button"
+            className="crm-btn crm-btn--primary"
+            onClick={loadAutomations}
+            disabled={loadingAutos}
+          >
+            {loadingAutos ? "Loading…" : automations ? "Refresh" : "Load automations"}
+          </button>
+
+          {automations && (
+            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+              {automations.length === 0 && (
+                <div style={{ color: "hsl(30 10% 70%)", fontSize: 14 }}>No automations found.</div>
+              )}
+              {automations.map((a) => (
+                <div
+                  key={a.uuid ?? a.name}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    background: "hsl(36 5% 12%)",
+                    border: "1px solid hsl(40 20% 97% / 0.06)",
+                    padding: "12px 14px",
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ color: "hsl(40 20% 97%)", fontSize: 15, marginBottom: 4 }}>
+                      {a.name}{" "}
+                      {a.status && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            letterSpacing: "0.2em",
+                            textTransform: "uppercase",
+                            color:
+                              a.status === "active"
+                                ? "hsl(140 40% 60%)"
+                                : "hsl(30 10% 60%)",
+                            marginLeft: 8,
+                          }}
+                        >
+                          {a.status}
+                        </span>
+                      )}
+                    </div>
+                    <code
+                      style={{
+                        fontSize: 12,
+                        color: "hsl(30 10% 70%)",
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      {a.uuid ?? "(no uuid)"}
+                    </code>
+                  </div>
+                  <button
+                    type="button"
+                    className="crm-btn"
+                    onClick={() => copyUuid(a.uuid)}
+                    disabled={!a.uuid}
+                  >
+                    Copy
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </AdminLayout>
   );
