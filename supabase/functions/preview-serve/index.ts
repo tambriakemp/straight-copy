@@ -273,7 +273,6 @@ const FEEDBACK_WIDGET_JS = `(() => {
       };
       r.appendChild(d);
     });
-    document.getElementById("pf-reply-name").value = localStorage.getItem("pf-name") || "";
     document.getElementById("pf-reply-body").value = "";
     showView();
   }
