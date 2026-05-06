@@ -220,36 +220,28 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
   const { isFounder, loading } = useWikiRole();
   const { user } = useAdminAuth();
   const [doc, setDoc] = useState<Partial<WikiDocument>>({
-    title: "", department: "Other", doc_type: "SOP", content: mode === "new" ? SOP_TEMPLATE : "",
+    title: "", department: "Other", doc_type: "SOP", content: "",
     owner: "", status: "Draft", access_level: "All Staff", tags: [],
   });
+  const [sopSections, setSopSections] = useState<Record<string, string>>(emptySopSections());
   const [origDoc, setOrigDoc] = useState<WikiDocument | null>(null);
   const [tagsText, setTagsText] = useState("");
   const [changeNote, setChangeNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingDoc, setLoadingDoc] = useState(mode === "edit");
 
-  // When user toggles doc_type on a brand-new doc, swap content scaffold if untouched
-  const isUntouchedScaffold = (c: string | undefined) =>
-    !c || c.trim() === "" || c === "<p></p>" || c === SOP_TEMPLATE;
-
-  const onTypeChange = (t: string) => {
-    setDoc(d => {
-      if (mode === "new" && isUntouchedScaffold(d.content)) {
-        return { ...d, doc_type: t as any, content: t === "SOP" ? SOP_TEMPLATE : "" };
-      }
-      return { ...d, doc_type: t as any };
-    });
-  };
+  const isSop = doc.doc_type === "SOP";
 
   useEffect(() => {
     if (mode !== "edit" || !slug) return;
     (async () => {
       const { data, error } = await supabase.from("wiki_documents").select("*").eq("slug", slug).maybeSingle();
       if (error || !data) { toast.error("Not found"); nav("/admin/wiki"); return; }
-      setDoc(data as WikiDocument);
-      setOrigDoc(data as WikiDocument);
-      setTagsText(((data as WikiDocument).tags || []).join(", "));
+      const d = data as WikiDocument;
+      setDoc(d);
+      setOrigDoc(d);
+      setTagsText((d.tags || []).join(", "));
+      if (d.doc_type === "SOP") setSopSections(parseSopSections(d.content || ""));
       setLoadingDoc(false);
     })();
   }, [mode, slug, nav]);
