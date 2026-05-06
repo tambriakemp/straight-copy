@@ -229,7 +229,7 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
               }}
             />
             <div style={{ marginTop: 6, fontSize: 12, color: "var(--crm-taupe)" }}>
-              The AI rewrites the HTML directly — no JavaScript will be added unless you ask.
+              Tip: attach a screenshot of the area you want changed — the AI will see it. Edits are HTML-only unless you ask for JS.
             </div>
           </div>
 
