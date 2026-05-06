@@ -4,11 +4,42 @@ import { toast } from "sonner";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 
+type Automation = { uuid: string | null; name: string; status: string | null };
+
 export default function Profile() {
   const { user } = useAdminAuth();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
+  const [automations, setAutomations] = useState<Automation[] | null>(null);
+  const [loadingAutos, setLoadingAutos] = useState(false);
+
+  const loadAutomations = async () => {
+    setLoadingAutos(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "list-surecontact-automations",
+      );
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setAutomations((data as any).automations || []);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to load automations");
+    } finally {
+      setLoadingAutos(false);
+    }
+  };
+
+  const copyUuid = async (uuid: string | null) => {
+    if (!uuid) return;
+    try {
+      await navigator.clipboard.writeText(uuid);
+      toast.success("UUID copied");
+    } catch {
+      toast.error("Copy failed");
+    }
+  };
+
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
