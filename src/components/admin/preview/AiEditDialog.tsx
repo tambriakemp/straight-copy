@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Upload, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -130,19 +131,20 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
   return (
     <Dialog open={open} onOpenChange={(v) => !busy && onOpenChange(v)}>
       <DialogContent
+        className="crm-shell"
         style={{
           maxWidth: 720,
-          background: "var(--crm-ink, #1a1814)",
-          border: "1px solid var(--crm-border-dark)",
-          color: "var(--crm-warm-white)",
+          background: "hsl(40 8% 10%)",
+          border: "1px solid hsl(40 20% 97% / 0.08)",
+          color: "hsl(40 20% 97%)",
         }}
       >
         <DialogHeader>
-          <DialogTitle style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 24 }}>
-            <Sparkles size={18} style={{ color: "var(--crm-accent)" }} />
+          <DialogTitle style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: "'Cormorant Garamond', Georgia, serif", fontWeight: 300, fontSize: 24, color: "hsl(40 20% 97%)" }}>
+            <Sparkles size={18} style={{ color: "hsl(30 25% 44%)" }} />
             Edit page with AI
           </DialogTitle>
-          <div style={{ fontSize: 13, color: "var(--crm-taupe)", fontFamily: "monospace", marginTop: 4 }}>{pagePath}</div>
+          <DialogDescription style={{ fontSize: 13, color: "hsl(30 8% 62%)", fontFamily: "monospace", marginTop: 4 }}>{pagePath}</DialogDescription>
         </DialogHeader>
 
         <div style={{ display: "grid", gap: 16, marginTop: 8 }}>
@@ -203,16 +205,18 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="e.g. Replace the 'Drop a hero photo' placeholder with the attached team photo, cropped to fill the frame."
               rows={5}
+              autoFocus
               style={{
                 width: "100%",
                 background: "hsl(40 20% 97% / 0.03)",
-                border: "1px solid var(--crm-border-dark)",
+                border: "1px solid hsl(40 20% 97% / 0.08)",
                 borderRadius: 8,
                 padding: "12px 14px",
-                color: "var(--crm-warm-white)",
+                color: "hsl(40 20% 97%)",
                 fontSize: 15,
                 fontFamily: "inherit",
                 resize: "vertical",
+                outline: "none",
               }}
             />
             <div style={{ marginTop: 6, fontSize: 12, color: "var(--crm-taupe)" }}>
