@@ -39,16 +39,6 @@ const TYPE_LABEL: Record<Project["type"], string> = {
 
 const tierLabel = (t: string) => (t === "growth" ? "Growth" : "Launch");
 
-type StageVM = {
-  tier: string;
-  currentStage: string;
-  currentIndex: number;
-  total: number;
-  completes: number;
-  nextAction: string;
-  status: "new" | "progress" | "stale" | "complete";
-  daysSince: number;
-};
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
