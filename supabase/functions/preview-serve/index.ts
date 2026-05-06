@@ -15,6 +15,7 @@ const FEEDBACK_WIDGET_JS = `(() => {
   const SLUG = window.__PREVIEW_SLUG__;
   const PAGE = window.__PREVIEW_PAGE__;
   const API = window.__PREVIEW_API__;
+  const AUTHOR = window.__PREVIEW_AUTHOR__ || "";
   if (!SLUG || !API) return;
 
   // ---- Local edit-token store (per browser, per pin/reply) ----
