@@ -182,7 +182,15 @@ export default function ClientDetail() {
                 <div>
                   <label className="crm-label">Project name *</label>
                   <input className="crm-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === "site_preview" ? "Home v1" : "Launch build"} />
-                </div>
+                {type === "automation_build" && (
+                  <div>
+                    <label className="crm-label">Tier</label>
+                    <select className="crm-input" value={tier} onChange={(e) => setTier(e.target.value as "launch" | "growth")}>
+                      <option value="launch">Launch</option>
+                      <option value="growth">Growth</option>
+                    </select>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <button className="crm-btn crm-btn--ghost" onClick={() => setOpenNew(false)}>Cancel</button>
