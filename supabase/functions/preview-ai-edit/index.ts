@@ -102,11 +102,11 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-pro",
         stream: true,
         messages: [
           { role: "system", content: system },
-          { role: "user", content: user },
+          { role: "user", content: userContent },
         ],
       }),
     });
