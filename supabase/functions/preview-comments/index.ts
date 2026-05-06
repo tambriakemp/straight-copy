@@ -113,11 +113,10 @@ Deno.serve(async (req) => {
 
     if (req.method === "PATCH") {
       const body = await req.json();
-      const { kind, id, edit_token, body: text } = body;
-      if (!id || !edit_token || !text) return json({ error: "missing fields" }, 400);
+      const { kind, id, body: text } = body;
+      if (!id || !text) return json({ error: "missing fields" }, 400);
+      if (String(text).length > 4000) return json({ error: "too long" }, 400);
       const table = kind === "reply" ? "preview_comment_replies" : "preview_comments";
-      const { data: row } = await admin.from(table).select("id,edit_token").eq("id", id).single();
-      if (!row || row.edit_token !== edit_token) return json({ error: "forbidden" }, 403);
       const { error } = await admin.from(table).update({ body: text }).eq("id", id);
       if (error) throw error;
       return json({ ok: true });
@@ -126,12 +125,9 @@ Deno.serve(async (req) => {
     if (req.method === "DELETE") {
       const url = new URL(req.url);
       const id = url.searchParams.get("id");
-      const editToken = url.searchParams.get("edit_token");
       const kind = url.searchParams.get("kind");
-      if (!id || !editToken) return json({ error: "missing fields" }, 400);
+      if (!id) return json({ error: "missing fields" }, 400);
       const table = kind === "reply" ? "preview_comment_replies" : "preview_comments";
-      const { data: row } = await admin.from(table).select("id,edit_token").eq("id", id).single();
-      if (!row || row.edit_token !== editToken) return json({ error: "forbidden" }, 403);
       const { error } = await admin.from(table).delete().eq("id", id);
       if (error) throw error;
       return json({ ok: true });
