@@ -90,17 +90,17 @@ export function WikiList() {
     });
   }, [docs, q, dept, type, status]);
 
-  if (loading) return <AdminLayout><div style={page}>Loading…</div></AdminLayout>;
-  if (!hasAccess) return <AdminLayout><div style={page}>
+  if (loading) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
+  if (!hasAccess) return <AdminLayout><div style={pageScroll}><div style={page}>
     <p style={eyebrow}>Knowledge Base</p>
     <h1 style={title}>No <em style={titleEm}>access</em></h1>
     <hr style={rule} />
     <p style={sub}>You don't have access to the Knowledge Base. Ask the founder to add you.</p>
-  </div></AdminLayout>;
+  </div></div></AdminLayout>;
 
   return (
     <AdminLayout>
-      <div style={page}>
+      <div style={pageScroll}><div style={page}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24 }}>
           <div>
             <p style={eyebrow}>Knowledge Base</p>
@@ -171,7 +171,7 @@ export function WikiList() {
           ))}
         </div>
       </div>
-    </AdminLayout>
+    </div></AdminLayout>
   );
 }
 
@@ -203,8 +203,8 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
     })();
   }, [mode, slug, nav]);
 
-  if (loading || loadingDoc) return <AdminLayout><div style={page}>Loading…</div></AdminLayout>;
-  if (!isFounder) return <AdminLayout><div style={page}>Founder only.</div></AdminLayout>;
+  if (loading || loadingDoc) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
+  if (!isFounder) return <AdminLayout><div style={pageScroll}><div style={page}>Founder only.</div></div></AdminLayout>;
 
   const save = async () => {
     if (!doc.title?.trim()) { toast.error("Title is required"); return; }
@@ -259,7 +259,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
 
   return (
     <AdminLayout>
-      <div style={page}>
+      <div style={pageScroll}><div style={page}>
         <Link to={mode === "edit" && origDoc ? `/admin/wiki/${origDoc.slug}` : "/admin/wiki"} style={{ ...btn, textDecoration: "none", marginBottom: 24 }}>
           <ArrowLeft size={14} /> Back
         </Link>
@@ -319,7 +319,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
           <Link to={mode === "edit" && origDoc ? `/admin/wiki/${origDoc.slug}` : "/admin/wiki"} style={{ ...btn, textDecoration: "none" }}>Cancel</Link>
         </div>
       </div>
-    </AdminLayout>
+    </div></AdminLayout>
   );
 }
 
@@ -339,9 +339,9 @@ export function WikiDetail() {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [slug]);
 
-  if (loading || loadingDoc) return <AdminLayout><div style={page}>Loading…</div></AdminLayout>;
-  if (!hasAccess) return <AdminLayout><div style={page}>No access.</div></AdminLayout>;
-  if (!doc) return <AdminLayout><div style={page}>Not found.</div></AdminLayout>;
+  if (loading || loadingDoc) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
+  if (!hasAccess) return <AdminLayout><div style={pageScroll}><div style={page}>No access.</div></div></AdminLayout>;
+  if (!doc) return <AdminLayout><div style={pageScroll}><div style={page}>Not found.</div></div></AdminLayout>;
 
   const markReviewed = async () => {
     const { error } = await supabase.from("wiki_documents").update({ last_reviewed_at: new Date().toISOString() }).eq("id", doc.id);
@@ -358,7 +358,7 @@ export function WikiDetail() {
 
   return (
     <AdminLayout>
-      <div style={page}>
+      <div style={pageScroll}><div style={page}>
         <Link to="/admin/wiki" style={{ ...btn, textDecoration: "none", marginBottom: 24 }}>
           <ArrowLeft size={14} /> Knowledge Base
         </Link>
@@ -440,7 +440,7 @@ export function WikiDetail() {
           </aside>
         </div>
       </div>
-    </AdminLayout>
+    </div></AdminLayout>
   );
 }
 
@@ -480,13 +480,13 @@ export function WikiHistory() {
     window.location.href = `/admin/wiki/${doc.slug}`;
   };
 
-  if (loading || loadingRevs) return <AdminLayout><div style={page}>Loading…</div></AdminLayout>;
-  if (!hasAccess) return <AdminLayout><div style={page}>No access.</div></AdminLayout>;
-  if (!doc) return <AdminLayout><div style={page}>Not found.</div></AdminLayout>;
+  if (loading || loadingRevs) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
+  if (!hasAccess) return <AdminLayout><div style={pageScroll}><div style={page}>No access.</div></div></AdminLayout>;
+  if (!doc) return <AdminLayout><div style={pageScroll}><div style={page}>Not found.</div></div></AdminLayout>;
 
   return (
     <AdminLayout>
-      <div style={page}>
+      <div style={pageScroll}><div style={page}>
         <Link to={`/admin/wiki/${doc.slug}`} style={{ ...btn, textDecoration: "none", marginBottom: 24 }}>
           <ArrowLeft size={14} /> {doc.title}
         </Link>
@@ -528,7 +528,7 @@ export function WikiHistory() {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </div></AdminLayout>
   );
 }
 
@@ -545,8 +545,8 @@ export function WikiUsers() {
   };
   useEffect(() => { if (!loading && isFounder) load(); }, [loading, isFounder]);
 
-  if (loading) return <AdminLayout><div style={page}>Loading…</div></AdminLayout>;
-  if (!isFounder) return <AdminLayout><div style={page}>Founder only.</div></AdminLayout>;
+  if (loading) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
+  if (!isFounder) return <AdminLayout><div style={pageScroll}><div style={page}>Founder only.</div></div></AdminLayout>;
 
   const add = async () => {
     if (!form.user_id || !form.email || !form.name) { toast.error("All fields required"); return; }
@@ -570,7 +570,7 @@ export function WikiUsers() {
 
   return (
     <AdminLayout>
-      <div style={page}>
+      <div style={pageScroll}><div style={page}>
         <Link to="/admin/wiki" style={{ ...btn, textDecoration: "none", marginBottom: 24 }}>
           <ArrowLeft size={14} /> Knowledge Base
         </Link>
@@ -611,7 +611,7 @@ export function WikiUsers() {
           ))}
         </div>
       </div>
-    </AdminLayout>
+    </div></AdminLayout>
   );
 }
 
@@ -620,8 +620,8 @@ export function WikiExport() {
   const { isFounder, loading } = useWikiRole();
   const [busy, setBusy] = useState(false);
 
-  if (loading) return <AdminLayout><div style={page}>Loading…</div></AdminLayout>;
-  if (!isFounder) return <AdminLayout><div style={page}>Founder only.</div></AdminLayout>;
+  if (loading) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
+  if (!isFounder) return <AdminLayout><div style={pageScroll}><div style={page}>Founder only.</div></div></AdminLayout>;
 
   const run = async () => {
     setBusy(true);
@@ -675,7 +675,7 @@ export function WikiExport() {
 
   return (
     <AdminLayout>
-      <div style={page}>
+      <div style={pageScroll}><div style={page}>
         <Link to="/admin/wiki" style={{ ...btn, textDecoration: "none", marginBottom: 24 }}>
           <ArrowLeft size={14} /> Knowledge Base
         </Link>
@@ -689,6 +689,6 @@ export function WikiExport() {
           </button>
         </div>
       </div>
-    </AdminLayout>
+    </div></AdminLayout>
   );
 }
