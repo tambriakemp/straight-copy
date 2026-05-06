@@ -74,6 +74,13 @@ Deno.serve(async (req) => {
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
 
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "invalid request body" }, 400);
+  }
+
   return streamJson(async (send) => {
     const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: auth } },
@@ -85,7 +92,7 @@ Deno.serve(async (req) => {
     const { data: isAdmin } = await admin.rpc("is_admin", { _user_id: userRes.user.id });
     if (!isAdmin) throw new Error("forbidden");
 
-    const { project_id, page_path, prompt, new_assets, vision_attachments } = await req.json();
+    const { project_id, page_path, prompt, new_assets, vision_attachments } = body;
     if (!project_id || !page_path || !prompt) throw new Error("missing fields");
 
     const { data: proj } = await admin
