@@ -15,6 +15,7 @@ const FEEDBACK_WIDGET_JS = `(() => {
   const SLUG = window.__PREVIEW_SLUG__;
   const PAGE = window.__PREVIEW_PAGE__;
   const API = window.__PREVIEW_API__;
+  const AUTHOR = window.__PREVIEW_AUTHOR__ || "";
   if (!SLUG || !API) return;
 
   // ---- Local edit-token store (per browser, per pin/reply) ----
@@ -60,8 +61,6 @@ const FEEDBACK_WIDGET_JS = `(() => {
     <div class="pf-card">
       <h3 id="pf-title">Leave feedback</h3>
       <div id="pf-form">
-        <label>Your name</label>
-        <input id="pf-name" placeholder="Your name" />
         <label id="pf-body-label">Comment</label>
         <textarea id="pf-body" placeholder="What would you like to change?"></textarea>
         <div class="pf-actions">
@@ -74,7 +73,6 @@ const FEEDBACK_WIDGET_JS = `(() => {
         <div id="pf-replies" style="margin-top:12px;display:flex;flex-direction:column;gap:8px"></div>
         <div id="pf-reply-box" style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px">
           <label>Reply</label>
-          <input id="pf-reply-name" placeholder="Your name" style="margin-bottom:6px" />
           <textarea id="pf-reply-body" placeholder="Write a reply…"></textarea>
           <div class="pf-actions">
             <button class="pf-btn ghost" id="pf-close">Close</button>
@@ -136,7 +134,6 @@ const FEEDBACK_WIDGET_JS = `(() => {
     pendingX = ((ev.clientX - rect.left) / Math.max(rect.width,1)) * 100;
     pendingY = ((ev.clientY - rect.top) / Math.max(rect.height,1)) * 100;
     editingComment = null;
-    document.getElementById("pf-name").value = localStorage.getItem("pf-name") || "";
     document.getElementById("pf-body").value = "";
     showForm("Leave feedback");
     pickMode = false; toggle.classList.remove("on");
@@ -148,10 +145,8 @@ const FEEDBACK_WIDGET_JS = `(() => {
   document.getElementById("pf-close").onclick = () => modal.classList.remove("show");
 
   document.getElementById("pf-save").onclick = async () => {
-    const name = document.getElementById("pf-name").value.trim();
     const body = document.getElementById("pf-body").value.trim();
     if (!body) return;
-    if (name) localStorage.setItem("pf-name", name);
     if (editingComment) {
       const res = await fetch(API + "/preview-comments", {
         method: "PATCH",
@@ -165,7 +160,7 @@ const FEEDBACK_WIDGET_JS = `(() => {
     const res = await fetch(API + "/preview-comments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: SLUG, page_path: PAGE, selector: pendingSelector, x_pct: pendingX, y_pct: pendingY, viewport_width: window.innerWidth, author_name: name || "Guest", body })
+      body: JSON.stringify({ slug: SLUG, page_path: PAGE, selector: pendingSelector, x_pct: pendingX, y_pct: pendingY, viewport_width: window.innerWidth, author_name: AUTHOR || "Client", body })
     });
     if (res.ok) {
       const data = await res.json();
@@ -177,14 +172,12 @@ const FEEDBACK_WIDGET_JS = `(() => {
 
   document.getElementById("pf-reply-send").onclick = async () => {
     if (!viewingPin) return;
-    const name = document.getElementById("pf-reply-name").value.trim();
     const body = document.getElementById("pf-reply-body").value.trim();
     if (!body) return;
-    if (name) localStorage.setItem("pf-name", name);
     const res = await fetch(API + "/preview-comments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "reply", comment_id: viewingPin.id, body, author_name: name || "Guest" })
+      body: JSON.stringify({ action: "reply", comment_id: viewingPin.id, body, author_name: AUTHOR || "Client" })
     });
     if (res.ok) {
       const data = await res.json();
@@ -236,7 +229,6 @@ const FEEDBACK_WIDGET_JS = `(() => {
         const act = b.getAttribute("data-act");
         if (act === "edit") {
           editingComment = p;
-          document.getElementById("pf-name").value = p.author_name || "";
           document.getElementById("pf-body").value = p.body;
           showForm("Edit pin #" + p.pin_number);
         } else if (act === "delete") {
@@ -281,7 +273,6 @@ const FEEDBACK_WIDGET_JS = `(() => {
       };
       r.appendChild(d);
     });
-    document.getElementById("pf-reply-name").value = localStorage.getItem("pf-name") || "";
     document.getElementById("pf-reply-body").value = "";
     showView();
   }
@@ -320,7 +311,7 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: project, error } = await admin
       .from("preview_projects")
-      .select("id,slug,storage_prefix,entry_path,feedback_enabled,archived")
+      .select("id,slug,storage_prefix,entry_path,feedback_enabled,archived,client_project_id")
       .eq("slug", slug)
       .single();
     if (error || !project || project.archived) {
@@ -412,8 +403,18 @@ Deno.serve(async (req) => {
         (_m, q, p) => `url(${q}${resolveRef(p)}${q})`);
 
       // Inject feedback bootstrap before </body>
+      let authorName = "";
+      if (project.feedback_enabled && project.client_project_id) {
+        const { data: cp } = await admin
+          .from("client_projects").select("client_id").eq("id", project.client_project_id).maybeSingle();
+        if (cp?.client_id) {
+          const { data: client } = await admin
+            .from("clients").select("contact_name").eq("id", cp.client_id).maybeSingle();
+          authorName = client?.contact_name || "";
+        }
+      }
       const inject = project.feedback_enabled
-        ? `<script>window.__PREVIEW_SLUG__=${JSON.stringify(slug)};window.__PREVIEW_PAGE__=${JSON.stringify(path)};window.__PREVIEW_API__=${JSON.stringify(FN_BASE)};</script><script src="${FN_BASE}/preview-serve?slug=${encodeURIComponent(slug)}&path=__pf_widget.js"></script>`
+        ? `<script>window.__PREVIEW_SLUG__=${JSON.stringify(slug)};window.__PREVIEW_PAGE__=${JSON.stringify(path)};window.__PREVIEW_API__=${JSON.stringify(FN_BASE)};window.__PREVIEW_AUTHOR__=${JSON.stringify(authorName)};</script><script src="${FN_BASE}/preview-serve?slug=${encodeURIComponent(slug)}&path=__pf_widget.js"></script>`
         : "";
       if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, inject + "</body>");
       else html += inject;
