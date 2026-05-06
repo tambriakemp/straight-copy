@@ -30,10 +30,24 @@ type Project = {
 };
 
 type PreviewLink = { id: string; slug: string; client_project_id: string | null };
+type NodeRow = { client_project_id: string | null; label: string; status: "pending" | "in_progress" | "complete"; order_index: number };
 
 const TYPE_LABEL: Record<Project["type"], string> = {
   automation_build: "Automation Build",
   site_preview: "Site Preview",
+};
+
+const tierLabel = (t: string) => (t === "growth" ? "Growth" : "Launch");
+
+type StageVM = {
+  tier: string;
+  currentStage: string;
+  currentIndex: number;
+  total: number;
+  completes: number;
+  nextAction: string;
+  status: "new" | "progress" | "stale" | "complete";
+  daysSince: number;
 };
 
 export default function ClientDetail() {
