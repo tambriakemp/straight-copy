@@ -36,8 +36,9 @@ function timeAgo(iso: string): string {
   return `${Math.floor(s/86400)}d`;
 }
 
-export default function PreviewDetail() {
-  const { id } = useParams();
+export default function PreviewDetail({ overrideId, backTo }: { overrideId?: string; backTo?: string } = {}) {
+  const params = useParams();
+  const id = overrideId ?? params.id;
   const [project, setProject] = useState<Project | null>(null);
   const [files, setFiles] = useState<FileRow[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
