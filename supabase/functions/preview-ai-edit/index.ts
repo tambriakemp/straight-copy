@@ -72,27 +72,27 @@ Deno.serve(async (req) => {
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
 
-  const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    global: { headers: { Authorization: auth } },
-  });
-  const { data: userRes } = await userClient.auth.getUser();
-  if (!userRes.user) return json({ error: "unauthorized" }, 401);
+  return streamJson(async (send) => {
+    const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: auth } },
+    });
+    const { data: userRes } = await userClient.auth.getUser();
+    if (!userRes.user) throw new Error("unauthorized");
 
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-  const { data: isAdmin } = await admin.rpc("is_admin", { _user_id: userRes.user.id });
-  if (!isAdmin) return json({ error: "forbidden" }, 403);
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { data: isAdmin } = await admin.rpc("is_admin", { _user_id: userRes.user.id });
+    if (!isAdmin) throw new Error("forbidden");
 
-  try {
     const { project_id, page_path, prompt, new_assets, vision_attachments } = await req.json();
-    if (!project_id || !page_path || !prompt) return json({ error: "missing fields" }, 400);
+    if (!project_id || !page_path || !prompt) throw new Error("missing fields");
 
     const { data: proj } = await admin
       .from("preview_projects").select("storage_prefix").eq("id", project_id).single();
-    if (!proj) return json({ error: "project not found" }, 404);
+    if (!proj) throw new Error("project not found");
 
     // Load the HTML
     const dl = await admin.storage.from("preview-sites").download(`${proj.storage_prefix}${page_path}`);
-    if (dl.error || !dl.data) return json({ error: "page not found" }, 404);
+    if (dl.error || !dl.data) throw new Error("page not found");
     const originalHtml = await dl.data.text();
 
     // Load asset list for context
@@ -153,12 +153,13 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
     if (!aiResp.ok || !aiResp.body) {
       const errText = aiResp.body ? await aiResp.text() : "";
       console.error("AI gateway error:", aiResp.status, errText);
-      if (aiResp.status === 429) return json({ error: "Rate limit exceeded. Please wait and try again." }, 429);
-      if (aiResp.status === 402) return json({ error: "AI credits exhausted. Add credits in workspace settings." }, 402);
-      return json({ error: "AI request failed" }, 500);
+      if (aiResp.status === 429) throw new Error("Rate limit exceeded. Please wait and try again.");
+      if (aiResp.status === 402) throw new Error("AI credits exhausted. Add credits in workspace settings.");
+      throw new Error("AI request failed");
     }
 
     // Stream and accumulate to keep the connection alive (avoids 150s idle timeout)
+    send("progress", { message: "AI is editing the page" });
     const reader = aiResp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
