@@ -1162,6 +1162,131 @@ export type Database = {
           },
         ]
       }
+      wiki_documents: {
+        Row: {
+          access_level: Database["public"]["Enums"]["wiki_access_level"]
+          content: string
+          created_at: string
+          created_by: string | null
+          department: string
+          doc_type: string
+          id: string
+          last_reviewed_at: string | null
+          owner: string | null
+          slug: string
+          status: Database["public"]["Enums"]["wiki_doc_status"]
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          access_level?: Database["public"]["Enums"]["wiki_access_level"]
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          department: string
+          doc_type: string
+          id?: string
+          last_reviewed_at?: string | null
+          owner?: string | null
+          slug: string
+          status?: Database["public"]["Enums"]["wiki_doc_status"]
+          tags?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          access_level?: Database["public"]["Enums"]["wiki_access_level"]
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          department?: string
+          doc_type?: string
+          id?: string
+          last_reviewed_at?: string | null
+          owner?: string | null
+          slug?: string
+          status?: Database["public"]["Enums"]["wiki_doc_status"]
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      wiki_revisions: {
+        Row: {
+          change_note: string | null
+          content: string
+          document_id: string
+          edited_at: string
+          edited_by: string | null
+          edited_by_name: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          change_note?: string | null
+          content: string
+          document_id: string
+          edited_at?: string
+          edited_by?: string | null
+          edited_by_name?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          change_note?: string | null
+          content?: string
+          document_id?: string
+          edited_at?: string
+          edited_by?: string | null
+          edited_by_name?: string | null
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wiki_revisions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "wiki_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wiki_user_roles: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string
+          id: string
+          name: string
+          role: Database["public"]["Enums"]["wiki_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          role?: Database["public"]["Enums"]["wiki_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: Database["public"]["Enums"]["wiki_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1181,7 +1306,9 @@ export type Database = {
         Returns: undefined
       }
       get_portal_client: { Args: { _client_id: string }; Returns: Json }
+      has_wiki_access: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_wiki_founder: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -1202,7 +1329,9 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      wiki_access_level: "Founder Only" | "All Staff"
+      wiki_doc_status: "Draft" | "Active" | "Archived"
+      wiki_role: "founder" | "intern" | "contractor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1329,6 +1458,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      wiki_access_level: ["Founder Only", "All Staff"],
+      wiki_doc_status: ["Draft", "Active", "Archived"],
+      wiki_role: ["founder", "intern", "contractor"],
+    },
   },
 } as const

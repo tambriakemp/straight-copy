@@ -25,7 +25,9 @@ import Previews from "./pages/admin/Previews.tsx";
 import PreviewDetail from "./pages/admin/PreviewDetail.tsx";
 import ProjectDetail from "./pages/admin/ProjectDetail.tsx";
 import PreviewViewer from "./pages/PreviewViewer.tsx";
+import { WikiList, WikiEdit, WikiDetail, WikiHistory, WikiUsers, WikiExport } from "./pages/admin/Wiki.tsx";
 import RequireAdmin from "./components/admin/RequireAdmin.tsx";
+import RequireWiki from "./components/admin/RequireWiki.tsx";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +58,13 @@ const App = () => (
           <Route path="/admin/previews" element={<RequireAdmin><Previews /></RequireAdmin>} />
           <Route path="/admin/previews/:id" element={<RequireAdmin><PreviewDetail /></RequireAdmin>} />
           <Route path="/admin/clients/:id/projects/:projectId" element={<RequireAdmin><ProjectDetail /></RequireAdmin>} />
+          <Route path="/admin/wiki" element={<RequireWiki><WikiList /></RequireWiki>} />
+          <Route path="/admin/wiki/new" element={<RequireWiki><WikiEdit mode="new" /></RequireWiki>} />
+          <Route path="/admin/wiki/admin/users" element={<RequireWiki><WikiUsers /></RequireWiki>} />
+          <Route path="/admin/wiki/admin/export" element={<RequireWiki><WikiExport /></RequireWiki>} />
+          <Route path="/admin/wiki/:slug" element={<RequireWiki><WikiDetail /></RequireWiki>} />
+          <Route path="/admin/wiki/:slug/edit" element={<RequireWiki><WikiEdit mode="edit" /></RequireWiki>} />
+          <Route path="/admin/wiki/:slug/history" element={<RequireWiki><WikiHistory /></RequireWiki>} />
           <Route path="/p/:slug/*" element={<PreviewViewer />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
