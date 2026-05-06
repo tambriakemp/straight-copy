@@ -35,23 +35,25 @@ function streamJson(work: (send: (type: string, data?: unknown) => void) => Prom
   const encoder = new TextEncoder();
   return new Response(
     new ReadableStream({
-      async start(controller) {
+      start(controller) {
         const send = (type: string, data: unknown = {}) => {
           controller.enqueue(encoder.encode(sse(type, data)));
         };
         const heartbeat = setInterval(() => send("ping", { t: Date.now() }), 15000);
 
-        try {
-          send("progress", { message: "Starting AI edit" });
-          const result = await work(send);
-          send("done", result);
-        } catch (e: any) {
-          console.error(e);
-          send("error", { error: e?.message || String(e) });
-        } finally {
-          clearInterval(heartbeat);
-          controller.close();
-        }
+        send("progress", { message: "Starting AI edit" });
+        void (async () => {
+          try {
+            const result = await work(send);
+            send("done", result);
+          } catch (e: any) {
+            console.error(e);
+            send("error", { error: e?.message || String(e) });
+          } finally {
+            clearInterval(heartbeat);
+            controller.close();
+          }
+        })();
       },
     }),
     {
@@ -72,6 +74,13 @@ Deno.serve(async (req) => {
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
 
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "invalid request body" }, 400);
+  }
+
   return streamJson(async (send) => {
     const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: auth } },
@@ -83,7 +92,7 @@ Deno.serve(async (req) => {
     const { data: isAdmin } = await admin.rpc("is_admin", { _user_id: userRes.user.id });
     if (!isAdmin) throw new Error("forbidden");
 
-    const { project_id, page_path, prompt, new_assets, vision_attachments } = await req.json();
+    const { project_id, page_path, prompt, new_assets, vision_attachments } = body;
     if (!project_id || !page_path || !prompt) throw new Error("missing fields");
 
     const { data: proj } = await admin
@@ -134,6 +143,7 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
       ? [{ type: "text", text: userText }, ...visionParts]
       : userText;
 
+    send("progress", { message: "Contacting AI" });
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
