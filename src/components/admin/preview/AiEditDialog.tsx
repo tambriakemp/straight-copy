@@ -205,16 +205,18 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="e.g. Replace the 'Drop a hero photo' placeholder with the attached team photo, cropped to fill the frame."
               rows={5}
+              autoFocus
               style={{
                 width: "100%",
                 background: "hsl(40 20% 97% / 0.03)",
-                border: "1px solid var(--crm-border-dark)",
+                border: "1px solid hsl(40 20% 97% / 0.08)",
                 borderRadius: 8,
                 padding: "12px 14px",
-                color: "var(--crm-warm-white)",
+                color: "hsl(40 20% 97%)",
                 fontSize: 15,
                 fontFamily: "inherit",
                 resize: "vertical",
+                outline: "none",
               }}
             />
             <div style={{ marginTop: 6, fontSize: 12, color: "var(--crm-taupe)" }}>
