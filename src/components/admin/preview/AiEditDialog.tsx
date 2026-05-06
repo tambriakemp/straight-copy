@@ -131,19 +131,20 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
   return (
     <Dialog open={open} onOpenChange={(v) => !busy && onOpenChange(v)}>
       <DialogContent
+        className="crm-shell"
         style={{
           maxWidth: 720,
-          background: "var(--crm-ink, #1a1814)",
-          border: "1px solid var(--crm-border-dark)",
-          color: "var(--crm-warm-white)",
+          background: "hsl(40 8% 10%)",
+          border: "1px solid hsl(40 20% 97% / 0.08)",
+          color: "hsl(40 20% 97%)",
         }}
       >
         <DialogHeader>
-          <DialogTitle style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 24 }}>
-            <Sparkles size={18} style={{ color: "var(--crm-accent)" }} />
+          <DialogTitle style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: "'Cormorant Garamond', Georgia, serif", fontWeight: 300, fontSize: 24, color: "hsl(40 20% 97%)" }}>
+            <Sparkles size={18} style={{ color: "hsl(30 25% 44%)" }} />
             Edit page with AI
           </DialogTitle>
-          <div style={{ fontSize: 13, color: "var(--crm-taupe)", fontFamily: "monospace", marginTop: 4 }}>{pagePath}</div>
+          <DialogDescription style={{ fontSize: 13, color: "hsl(30 8% 62%)", fontFamily: "monospace", marginTop: 4 }}>{pagePath}</DialogDescription>
         </DialogHeader>
 
         <div style={{ display: "grid", gap: 16, marginTop: 8 }}>
