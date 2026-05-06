@@ -27,33 +27,72 @@ function stripFences(text: string): string {
   return t.trim();
 }
 
+function sse(type: string, data: unknown) {
+  return `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+function streamJson(work: (send: (type: string, data?: unknown) => void) => Promise<unknown>) {
+  const encoder = new TextEncoder();
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        const send = (type: string, data: unknown = {}) => {
+          controller.enqueue(encoder.encode(sse(type, data)));
+        };
+        const heartbeat = setInterval(() => send("ping", { t: Date.now() }), 15000);
+
+        try {
+          send("progress", { message: "Starting AI edit" });
+          const result = await work(send);
+          send("done", result);
+        } catch (e: any) {
+          console.error(e);
+          send("error", { error: e?.message || String(e) });
+        } finally {
+          clearInterval(heartbeat);
+          controller.close();
+        }
+      },
+    }),
+    {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    },
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
 
-  const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    global: { headers: { Authorization: auth } },
-  });
-  const { data: userRes } = await userClient.auth.getUser();
-  if (!userRes.user) return json({ error: "unauthorized" }, 401);
+  return streamJson(async (send) => {
+    const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: auth } },
+    });
+    const { data: userRes } = await userClient.auth.getUser();
+    if (!userRes.user) throw new Error("unauthorized");
 
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-  const { data: isAdmin } = await admin.rpc("is_admin", { _user_id: userRes.user.id });
-  if (!isAdmin) return json({ error: "forbidden" }, 403);
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { data: isAdmin } = await admin.rpc("is_admin", { _user_id: userRes.user.id });
+    if (!isAdmin) throw new Error("forbidden");
 
-  try {
     const { project_id, page_path, prompt, new_assets, vision_attachments } = await req.json();
-    if (!project_id || !page_path || !prompt) return json({ error: "missing fields" }, 400);
+    if (!project_id || !page_path || !prompt) throw new Error("missing fields");
 
     const { data: proj } = await admin
       .from("preview_projects").select("storage_prefix").eq("id", project_id).single();
-    if (!proj) return json({ error: "project not found" }, 404);
+    if (!proj) throw new Error("project not found");
 
     // Load the HTML
     const dl = await admin.storage.from("preview-sites").download(`${proj.storage_prefix}${page_path}`);
-    if (dl.error || !dl.data) return json({ error: "page not found" }, 404);
+    if (dl.error || !dl.data) throw new Error("page not found");
     const originalHtml = await dl.data.text();
 
     // Load asset list for context
@@ -114,12 +153,13 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
     if (!aiResp.ok || !aiResp.body) {
       const errText = aiResp.body ? await aiResp.text() : "";
       console.error("AI gateway error:", aiResp.status, errText);
-      if (aiResp.status === 429) return json({ error: "Rate limit exceeded. Please wait and try again." }, 429);
-      if (aiResp.status === 402) return json({ error: "AI credits exhausted. Add credits in workspace settings." }, 402);
-      return json({ error: "AI request failed" }, 500);
+      if (aiResp.status === 429) throw new Error("Rate limit exceeded. Please wait and try again.");
+      if (aiResp.status === 402) throw new Error("AI credits exhausted. Add credits in workspace settings.");
+      throw new Error("AI request failed");
     }
 
     // Stream and accumulate to keep the connection alive (avoids 150s idle timeout)
+    send("progress", { message: "AI is editing the page" });
     const reader = aiResp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -128,6 +168,7 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
     while (!done) {
       const { value, done: d } = await reader.read();
       if (d) break;
+      send("progress", { message: "Receiving AI changes" });
       buffer += decoder.decode(value, { stream: true });
       let idx: number;
       while ((idx = buffer.indexOf("\n")) !== -1) {
@@ -144,11 +185,11 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
         } catch { buffer = line + "\n" + buffer; break; }
       }
     }
-    if (!raw) return json({ error: "AI returned empty response" }, 500);
+    if (!raw) throw new Error("AI returned empty response");
 
     const newHtml = stripFences(raw);
     if (!/<html[\s>]|<!doctype/i.test(newHtml.slice(0, 200))) {
-      return json({ error: "AI did not return a valid HTML document", preview: newHtml.slice(0, 300) }, 500);
+      throw new Error(`AI did not return a valid HTML document: ${newHtml.slice(0, 300)}`);
     }
 
     // Save back
@@ -157,14 +198,11 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
       `${proj.storage_prefix}${page_path}`, bytes,
       { contentType: "text/html; charset=utf-8", upsert: true },
     );
-    if (up.error) return json({ error: up.error.message }, 500);
+    if (up.error) throw new Error(up.error.message);
 
     await admin.from("preview_files").update({ size_bytes: bytes.byteLength })
       .eq("project_id", project_id).eq("path", page_path);
 
-    return json({ ok: true, bytes: bytes.byteLength });
-  } catch (e: any) {
-    console.error(e);
-    return json({ error: e?.message || String(e) }, 500);
-  }
+    return { ok: true, bytes: bytes.byteLength };
+  });
 });
