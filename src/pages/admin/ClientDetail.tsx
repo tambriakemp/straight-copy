@@ -30,11 +30,15 @@ type Project = {
 };
 
 type PreviewLink = { id: string; slug: string; client_project_id: string | null };
+type NodeRow = { client_project_id: string | null; label: string; status: "pending" | "in_progress" | "complete"; order_index: number };
 
 const TYPE_LABEL: Record<Project["type"], string> = {
   automation_build: "Automation Build",
   site_preview: "Site Preview",
 };
+
+const tierLabel = (t: string) => (t === "growth" ? "Growth" : "Launch");
+
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +46,7 @@ export default function ClientDetail() {
   const [client, setClient] = useState<Client | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [previews, setPreviews] = useState<Record<string, PreviewLink>>({});
+  const [nodesByProject, setNodesByProject] = useState<Record<string, NodeRow[]>>({});
   const [loading, setLoading] = useState(true);
   const [openNew, setOpenNew] = useState(false);
   const [type, setType] = useState<Project["type"]>("automation_build");
@@ -72,6 +77,20 @@ export default function ClientDetail() {
       const map: Record<string, PreviewLink> = {};
       (pps ?? []).forEach((pp: any) => { if (pp.client_project_id) map[pp.client_project_id] = pp; });
       setPreviews(map);
+    }
+    const buildIds = projs.filter(x => x.type === "automation_build").map(x => x.id);
+    if (buildIds.length) {
+      const { data: nodes } = await supabase
+        .from("journey_nodes")
+        .select("client_project_id,label,status,order_index")
+        .in("client_project_id", buildIds);
+      const grouped: Record<string, NodeRow[]> = {};
+      (nodes ?? []).forEach((n: any) => {
+        if (!n.client_project_id) return;
+        (grouped[n.client_project_id] ||= []).push(n);
+      });
+      Object.values(grouped).forEach(arr => arr.sort((a, b) => a.order_index - b.order_index));
+      setNodesByProject(grouped);
     }
     setLoading(false);
   };
@@ -148,7 +167,7 @@ export default function ClientDetail() {
 
         <div className="roster__head">
           <div className="roster__title-block">
-            <div className="roster__eyebrow">{client.tier === "growth" ? "Growth" : "Launch"} client</div>
+            <div className="roster__eyebrow">Client</div>
             <h1 className="roster__title">
               {client.business_name || <em>Unnamed</em>}
             </h1>
@@ -213,6 +232,30 @@ export default function ClientDetail() {
             {projects.map((p) => {
               const preview = previews[p.id];
               const Icon = p.type === "site_preview" ? MonitorSmartphone : Workflow;
+              const isBuild = p.type === "automation_build";
+              const cn = isBuild ? (nodesByProject[p.id] ?? []) : [];
+              const total = cn.length;
+              const completes = cn.filter(x => x.status === "complete").length;
+              const inProg = cn.find(x => x.status === "in_progress");
+              const firstPending = cn.find(x => x.status === "pending");
+              const stageNode = inProg ?? firstPending ?? [...cn].reverse().find(x => x.status === "complete") ?? cn[0];
+              const stageLabel = stageNode?.label ?? "—";
+              const stageIdx = stageNode ? stageNode.order_index + 1 : 0;
+              const nextAction = inProg ? `Finish ${inProg.label}` : firstPending ? `Start ${firstPending.label}` : total > 0 ? "All complete" : "Not started";
+              const daysSince = Math.max(0, Math.floor((Date.now() - new Date(p.created_at).getTime()) / 86400000));
+              const allDone = total > 0 && completes === total;
+              const stageStatus: "new" | "progress" | "stale" | "complete" = allDone
+                ? "complete"
+                : inProg
+                ? "progress"
+                : daysSince > 60 || (daysSince > 14 && completes === 0)
+                ? "stale"
+                : completes === 0
+                ? "new"
+                : "progress";
+              const statusText = { new: "New", progress: "In Progress", stale: "Stale", complete: "Complete" }[stageStatus];
+              const tierForCard = (client?.tier ?? "launch");
+
               return (
                 <div
                   key={p.id}
@@ -233,16 +276,47 @@ export default function ClientDetail() {
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)" }}>
                       <Icon size={12} /> {TYPE_LABEL[p.type]}
                     </span>
-                    <span style={{ fontSize: 12, color: "var(--crm-taupe)", textTransform: "uppercase", letterSpacing: "0.2em" }}>{p.status}</span>
+                    {isBuild ? (
+                      <span className={`roster__tier roster__tier--${tierForCard.toLowerCase()}`}>{tierLabel(tierForCard)}</span>
+                    ) : (
+                      <span style={{ fontSize: 12, color: "var(--crm-taupe)", textTransform: "uppercase", letterSpacing: "0.2em" }}>{p.status}</span>
+                    )}
                   </div>
                   <div>
                     <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 24, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
                       {p.name}
                     </h3>
+                  </div>
+
+                  {isBuild && (
+                    <>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "end", paddingTop: 4 }}>
+                        <div>
+                          <div className="roster__stage" style={{ fontSize: 16, lineHeight: 1.2 }}>{stageLabel}</div>
+                          <span className="roster__stage-hint">
+                            {String(stageIdx).padStart(2, "0")} / {String(total || 0).padStart(2, "0")}
+                          </span>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div className="roster__days" style={{ fontSize: 24 }}>{daysSince}d</div>
+                          <span className="roster__days-date">since start</span>
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: "var(--crm-font-serif)", fontStyle: "italic", color: "var(--crm-stone)", fontSize: 14 }}>
+                        {nextAction}
+                      </div>
+                      <div className="roster__status" style={{ fontSize: 11 }}>
+                        <span className={`status-dot status-dot--${stageStatus}`} /> {statusText}
+                      </div>
+                    </>
+                  )}
+
+                  {!isBuild && (
                     <div style={{ marginTop: 6, fontSize: 13, color: "var(--crm-stone)" }}>
                       Updated {new Date(p.updated_at).toLocaleDateString()}
                     </div>
-                  </div>
+                  )}
+
                   {preview && (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 8, borderTop: "1px solid var(--crm-border-dark)" }}>
                       <code style={{ flex: 1, fontSize: 13, color: "var(--crm-taupe)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
