@@ -153,11 +153,10 @@ const FEEDBACK_WIDGET_JS = `(() => {
     if (!body) return;
     if (name) localStorage.setItem("pf-name", name);
     if (editingComment) {
-      const tok = getToken("comment", editingComment.id);
       const res = await fetch(API + "/preview-comments", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "comment", id: editingComment.id, edit_token: tok, body })
+        body: JSON.stringify({ kind: "comment", id: editingComment.id, body })
       });
       if (res.ok) { editingComment = null; modal.classList.remove("show"); await loadPins(); }
       else alert("Could not update comment");
