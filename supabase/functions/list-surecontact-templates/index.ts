@@ -1,5 +1,5 @@
-// Lists all SureContact automations in the workspace so the admin can pick a
-// UUID for the kickoff (or any other) automation. Admin-gated via Supabase JWT.
+// Lists all SureContact email templates in the workspace so the admin can pick
+// a template UUID for API-triggered transactional sends. Admin-gated.
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
@@ -45,16 +45,9 @@ Deno.serve(async (req) => {
     if (!apiKey) return json({ error: "SURECONTACT_API_KEY not configured" }, 500);
 
     const resp = await fetch(
-      "https://api.surecontact.com/api/v1/public/automations",
-      {
-        method: "GET",
-        headers: {
-          "X-API-Key": apiKey,
-          Accept: "application/json",
-        },
-      },
+      "https://api.surecontact.com/api/v1/public/email-templates?per_page=100",
+      { headers: { "X-API-Key": apiKey, Accept: "application/json" } },
     );
-
     const data = await resp.json().catch(() => null);
     if (!resp.ok) {
       return json(
@@ -63,24 +56,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Normalize: SureContact returns { success, data: [...] } typically.
-    const items: any[] = Array.isArray(data)
-      ? data
-      : Array.isArray(data?.data)
-        ? data.data
-        : Array.isArray(data?.automations)
-          ? data.automations
-          : [];
-
-    const automations = items.map((a: any) => ({
-      uuid: a.uuid ?? a.id ?? null,
-      name: a.name ?? a.title ?? "(untitled)",
-      status: a.status ?? null,
+    const items: any[] = Array.isArray(data?.data) ? data.data : [];
+    const templates = items.map((t: any) => ({
+      uuid: t.uuid ?? null,
+      name: t.name ?? "(untitled)",
+      subject: t.subject ?? null,
+      type: t.type ?? null,
     }));
 
-    return json({ automations });
+    return json({ templates });
   } catch (e) {
-    console.error("[list-surecontact-automations]", e);
+    console.error("[list-surecontact-templates]", e);
     return json(
       { error: e instanceof Error ? e.message : "Server error" },
       500,
