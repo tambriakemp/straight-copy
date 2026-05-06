@@ -322,7 +322,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
           </div>
           <div>
             <div style={sectionLabel}>Type</div>
-            <select value={doc.doc_type} onChange={e => setDoc({ ...doc, doc_type: e.target.value as any })} style={select}>
+            <select value={doc.doc_type} onChange={e => onTypeChange(e.target.value)} style={select}>
               {WIKI_DOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
