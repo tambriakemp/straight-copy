@@ -56,6 +56,7 @@ export default function ClientDetail() {
   const [client, setClient] = useState<Client | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [previews, setPreviews] = useState<Record<string, PreviewLink>>({});
+  const [nodesByProject, setNodesByProject] = useState<Record<string, NodeRow[]>>({});
   const [loading, setLoading] = useState(true);
   const [openNew, setOpenNew] = useState(false);
   const [type, setType] = useState<Project["type"]>("automation_build");
@@ -86,6 +87,20 @@ export default function ClientDetail() {
       const map: Record<string, PreviewLink> = {};
       (pps ?? []).forEach((pp: any) => { if (pp.client_project_id) map[pp.client_project_id] = pp; });
       setPreviews(map);
+    }
+    const buildIds = projs.filter(x => x.type === "automation_build").map(x => x.id);
+    if (buildIds.length) {
+      const { data: nodes } = await supabase
+        .from("journey_nodes")
+        .select("client_project_id,label,status,order_index")
+        .in("client_project_id", buildIds);
+      const grouped: Record<string, NodeRow[]> = {};
+      (nodes ?? []).forEach((n: any) => {
+        if (!n.client_project_id) return;
+        (grouped[n.client_project_id] ||= []).push(n);
+      });
+      Object.values(grouped).forEach(arr => arr.sort((a, b) => a.order_index - b.order_index));
+      setNodesByProject(grouped);
     }
     setLoading(false);
   };
