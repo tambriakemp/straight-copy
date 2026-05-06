@@ -168,7 +168,7 @@ function buildPartial(nodes: { x: number; y: number }[], k: number) {
 }
 
 // ---------- Page ----------
-export default function ClientDetail() {
+export default function AutomationBuildView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
