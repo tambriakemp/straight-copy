@@ -188,28 +188,28 @@ export default function Profile() {
               margin: "0 0 8px 0",
             }}
           >
-            SureContact <em style={{ color: "hsl(30 25% 44%)" }}>automations</em>
+            SureContact <em style={{ color: "hsl(30 25% 44%)" }}>templates</em>
           </h2>
           <p style={{ color: "hsl(30 10% 70%)", fontSize: 14, margin: "0 0 18px 0" }}>
-            List your SureContact automations and copy their UUIDs (used for API-triggered emails).
+            List your SureContact email templates and copy their UUIDs (used for API-triggered transactional sends).
           </p>
           <button
             type="button"
             className="crm-btn crm-btn--primary"
-            onClick={loadAutomations}
-            disabled={loadingAutos}
+            onClick={loadTemplates}
+            disabled={loadingTpl}
           >
-            {loadingAutos ? "Loading…" : automations ? "Refresh" : "Load automations"}
+            {loadingTpl ? "Loading…" : templates ? "Refresh" : "Load templates"}
           </button>
 
-          {automations && (
+          {templates && (
             <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8 }}>
-              {automations.length === 0 && (
-                <div style={{ color: "hsl(30 10% 70%)", fontSize: 14 }}>No automations found.</div>
+              {templates.length === 0 && (
+                <div style={{ color: "hsl(30 10% 70%)", fontSize: 14 }}>No templates found.</div>
               )}
-              {automations.map((a) => (
+              {templates.map((t) => (
                 <div
-                  key={a.uuid ?? a.name}
+                  key={t.uuid ?? t.name}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -222,39 +222,28 @@ export default function Profile() {
                 >
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ color: "hsl(40 20% 97%)", fontSize: 15, marginBottom: 4 }}>
-                      {a.name}{" "}
-                      {a.status && (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            letterSpacing: "0.2em",
-                            textTransform: "uppercase",
-                            color:
-                              a.status === "active"
-                                ? "hsl(140 40% 60%)"
-                                : "hsl(30 10% 60%)",
-                            marginLeft: 8,
-                          }}
-                        >
-                          {a.status}
-                        </span>
-                      )}
+                      {t.name}
                     </div>
+                    {t.subject && (
+                      <div style={{ color: "hsl(30 10% 70%)", fontSize: 12, marginBottom: 4 }}>
+                        {t.subject}
+                      </div>
+                    )}
                     <code
                       style={{
                         fontSize: 12,
-                        color: "hsl(30 10% 70%)",
+                        color: "hsl(30 10% 60%)",
                         wordBreak: "break-all",
                       }}
                     >
-                      {a.uuid ?? "(no uuid)"}
+                      {t.uuid ?? "(no uuid)"}
                     </code>
                   </div>
                   <button
                     type="button"
                     className="crm-btn"
-                    onClick={() => copyUuid(a.uuid)}
-                    disabled={!a.uuid}
+                    onClick={() => copyUuid(t.uuid)}
+                    disabled={!t.uuid}
                   >
                     Copy
                   </button>
