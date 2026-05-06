@@ -5,7 +5,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Copy, Check, ExternalLink, Upload, Trash2, ArrowLeft, Star,
-  ChevronDown, ChevronRight, FileText, Image as ImageIcon, Code2, Box, AlertTriangle, Sparkles,
+  ChevronDown, ChevronRight, FileText, Image as ImageIcon, Code2, Box, AlertTriangle, Sparkles, Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 import AiEditDialog from "@/components/admin/preview/AiEditDialog";
