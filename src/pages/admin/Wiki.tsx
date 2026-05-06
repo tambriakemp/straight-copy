@@ -175,34 +175,43 @@ export function WikiList() {
   );
 }
 
-// SOP scaffold (TipTap-friendly HTML)
-const SOP_TEMPLATE = `
-<h2>1. Purpose</h2>
-<p><em>One or two sentences. Why does this SOP exist? What outcome does it produce? If you can't explain why this SOP matters in two sentences, the SOP isn't ready to be written yet.</em></p>
-<h2>2. When to Run This SOP</h2>
-<p><em>The trigger. Be specific: a calendar date, a recurring cadence, a threshold being crossed, or an event happening. Avoid vague triggers like "as needed."</em></p>
-<h2>3. Inputs Required</h2>
-<p><em>What you need on hand before you start. Data, access, prior documents, information from other people.</em></p>
-<ul><li>Input 1</li><li>Input 2</li><li>Input 3</li></ul>
-<h2>4. Tools / Systems Used</h2>
-<p><em>Every app, file, or platform touched during execution. Include links where helpful.</em></p>
-<ul><li>Tool 1 — what it's used for in this SOP</li><li>Tool 2 — what it's used for in this SOP</li></ul>
-<h2>5. Step-by-Step Process</h2>
-<p><em>Numbered steps. Each step is one discrete action. Be specific enough that someone unfamiliar with the task could follow it. If a step requires judgment, say what the judgment criteria are.</em></p>
-<ol><li><strong>Action verb + what to do.</strong> Detail on how to do it. Include any specific settings, naming conventions, or where to save outputs.</li><li><strong>Next action.</strong> Detail.</li><li><strong>Next action.</strong> Detail.</li></ol>
-<h2>6. Outputs / Deliverables</h2>
-<p><em>What exists at the end that didn't exist at the beginning. A file, an updated dashboard, a sent email, a published post, a decision logged somewhere.</em></p>
-<ul><li>Output 1</li><li>Output 2</li></ul>
-<h2>7. Definition of Done</h2>
-<p><em>Checklist that confirms the SOP was actually completed correctly.</em></p>
-<ul><li>[ ] Check 1</li><li>[ ] Check 2</li><li>[ ] Check 3</li></ul>
-<h2>8. Common Pitfalls</h2>
-<p><em>Mistakes that have been made before, or that are easy to make.</em></p>
-<ul><li>Pitfall 1 — and how to avoid it</li><li>Pitfall 2 — and how to avoid it</li></ul>
-<h2>9. Notes / Revision Log</h2>
-<p><em>Date-stamped notes when the SOP changes or gets refined. Newest entries at the top.</em></p>
-<ul><li><strong>${new Date().toISOString().slice(0,10)} — Created.</strong> Initial version.</li></ul>
-`.trim();
+// SOP sections — each rendered as its own editor
+const SOP_SECTIONS: { key: string; heading: string; placeholder: string }[] = [
+  { key: "purpose", heading: "1. Purpose", placeholder: "One or two sentences. Why does this SOP exist? What outcome does it produce? If you can't explain why this SOP matters in two sentences, the SOP isn't ready to be written yet." },
+  { key: "when", heading: "2. When to Run This SOP", placeholder: "The trigger. Be specific: a calendar date, a recurring cadence, a threshold being crossed, or an event happening. Avoid vague triggers like \"as needed.\"" },
+  { key: "inputs", heading: "3. Inputs Required", placeholder: "What you need on hand before you start. Data, access, prior documents, information from other people. List as bullets." },
+  { key: "tools", heading: "4. Tools / Systems Used", placeholder: "Every app, file, or platform touched during execution. Include links where helpful." },
+  { key: "steps", heading: "5. Step-by-Step Process", placeholder: "Numbered steps. Each step is one discrete action. Be specific enough that someone unfamiliar with the task could follow it. If a step requires judgment, say what the judgment criteria are." },
+  { key: "outputs", heading: "6. Outputs / Deliverables", placeholder: "What exists at the end that didn't exist at the beginning. A file, an updated dashboard, a sent email, a published post, a decision logged somewhere." },
+  { key: "done", heading: "7. Definition of Done", placeholder: "Checklist that confirms the SOP was actually completed correctly. This is what someone reviewing the work would check." },
+  { key: "pitfalls", heading: "8. Common Pitfalls", placeholder: "Mistakes that have been made before, or that are easy to make. Save future-you and future-interns the pain." },
+];
+
+function emptySopSections(): Record<string, string> {
+  return SOP_SECTIONS.reduce((a, s) => ({ ...a, [s.key]: "" }), {} as Record<string, string>);
+}
+
+function serializeSopSections(sections: Record<string, string>): string {
+  return SOP_SECTIONS
+    .map(s => `<h2>${s.heading}</h2>\n${(sections[s.key] || "").trim() || "<p></p>"}`)
+    .join("\n");
+}
+
+function parseSopSections(html: string): Record<string, string> {
+  const out = emptySopSections();
+  if (!html) return out;
+  const re = /<h2[^>]*>([\s\S]*?)<\/h2>([\s\S]*?)(?=<h2[^>]*>|$)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    const headingText = m[1].replace(/<[^>]+>/g, "").trim();
+    const body = m[2].trim();
+    const num = headingText.match(/^(\d+)/)?.[1];
+    const sec = SOP_SECTIONS.find(s => num && s.heading.startsWith(`${num}.`));
+    if (sec) out[sec.key] = body;
+  }
+  return out;
+}
+
 
 // ===== EDITOR (new + edit) =====
 export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
