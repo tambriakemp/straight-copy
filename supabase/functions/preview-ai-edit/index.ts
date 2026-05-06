@@ -168,6 +168,7 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
     while (!done) {
       const { value, done: d } = await reader.read();
       if (d) break;
+      send("progress", { message: "Receiving AI changes" });
       buffer += decoder.decode(value, { stream: true });
       let idx: number;
       while ((idx = buffer.indexOf("\n")) !== -1) {
@@ -184,11 +185,11 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
         } catch { buffer = line + "\n" + buffer; break; }
       }
     }
-    if (!raw) return json({ error: "AI returned empty response" }, 500);
+    if (!raw) throw new Error("AI returned empty response");
 
     const newHtml = stripFences(raw);
     if (!/<html[\s>]|<!doctype/i.test(newHtml.slice(0, 200))) {
-      return json({ error: "AI did not return a valid HTML document", preview: newHtml.slice(0, 300) }, 500);
+      throw new Error(`AI did not return a valid HTML document: ${newHtml.slice(0, 300)}`);
     }
 
     // Save back
@@ -197,14 +198,11 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
       `${proj.storage_prefix}${page_path}`, bytes,
       { contentType: "text/html; charset=utf-8", upsert: true },
     );
-    if (up.error) return json({ error: up.error.message }, 500);
+    if (up.error) throw new Error(up.error.message);
 
     await admin.from("preview_files").update({ size_bytes: bytes.byteLength })
       .eq("project_id", project_id).eq("path", page_path);
 
-    return json({ ok: true, bytes: bytes.byteLength });
-  } catch (e: any) {
-    console.error(e);
-    return json({ error: e?.message || String(e) }, 500);
-  }
+    return { ok: true, bytes: bytes.byteLength };
+  });
 });
