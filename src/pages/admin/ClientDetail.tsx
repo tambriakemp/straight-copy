@@ -3,10 +3,11 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink } from "lucide-react";
+import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
+import ProjectResourcesSheet from "@/components/admin/ProjectResourcesSheet";
 
 type Client = {
   id: string;
