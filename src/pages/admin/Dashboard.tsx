@@ -166,7 +166,6 @@ export default function Dashboard() {
       business_name: form.business_name.trim(),
       contact_name: form.contact_name.trim() || null,
       contact_email: form.contact_email.trim() || null,
-      tier: form.tier,
       purchased_at: new Date().toISOString(),
     });
     if (error) {
@@ -247,17 +246,6 @@ export default function Dashboard() {
                       value={form.contact_email}
                       onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
                     />
-                  </div>
-                  <div>
-                    <label className="crm-label">Tier</label>
-                    <select
-                      className="crm-input"
-                      value={form.tier}
-                      onChange={(e) => setForm({ ...form, tier: e.target.value })}
-                    >
-                      <option value="launch">Launch</option>
-                      <option value="growth">Growth</option>
-                    </select>
                   </div>
                 </div>
                 <DialogFooter className="mt-2">
