@@ -106,13 +106,22 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
         newAssets.push({ path: data?.path || a.targetPath, mime: a.file.type });
       }
 
-      // 2. Call AI edit
+      // 2. Build vision attachments (data URLs) so the model can SEE the images
+      const visionAttachments: { data_url: string; mime: string }[] = [];
+      for (const a of attachments) {
+        if (a.file.size > 4 * 1024 * 1024) continue; // skip >4MB
+        const b64 = await fileToBase64(a.file);
+        visionAttachments.push({ data_url: `data:${a.file.type};base64,${b64}`, mime: a.file.type });
+      }
+
+      // 3. Call AI edit
       const { data, error } = await supabase.functions.invoke("preview-ai-edit", {
         body: {
           project_id: projectId,
           page_path: pagePath,
           prompt: prompt.trim(),
           new_assets: newAssets,
+          vision_attachments: visionAttachments,
         },
       });
       if (error) throw new Error(error.message);
@@ -220,7 +229,7 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
               }}
             />
             <div style={{ marginTop: 6, fontSize: 12, color: "var(--crm-taupe)" }}>
-              The AI rewrites the HTML directly — no JavaScript will be added unless you ask.
+              Tip: attach a screenshot of the area you want changed — the AI will see it. Edits are HTML-only unless you ask for JS.
             </div>
           </div>
 

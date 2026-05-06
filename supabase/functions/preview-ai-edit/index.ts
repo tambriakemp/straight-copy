@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
   if (!isAdmin) return json({ error: "forbidden" }, 403);
 
   try {
-    const { project_id, page_path, prompt, new_assets } = await req.json();
+    const { project_id, page_path, prompt, new_assets, vision_attachments } = await req.json();
     if (!project_id || !page_path || !prompt) return json({ error: "missing fields" }, 400);
 
     const { data: proj } = await admin
@@ -71,17 +71,29 @@ Deno.serve(async (req) => {
 
 RULES:
 - Return ONLY the full updated HTML document. No code fences, no commentary, no explanations.
-- Preserve ALL unrelated markup, structure, scripts, and styles.
+- Preserve ALL unrelated markup, structure, scripts, styles, and whitespace exactly.
 - Make the smallest change required to satisfy the user's instruction.
+- STRUCTURAL UNITS: Before adding any separator, bullet, or repeating decoration, identify the existing repeating element in the DOM (e.g. <span>, <li>, <div> children of a track). The "items" are those elements — NEVER split a text node on whitespace and treat each word as an item.
+- For marquees, ticker strips, breadcrumbs, and any inline scrolling list: each direct child element of the track/container is one item. Insert separators only BETWEEN those existing children, never between words inside a child's text.
+- If the user asks to change spacing or alignment of separators (dots, dashes, bullets), prefer CSS adjustments (margin, padding, gap, justify-content) on the existing item/separator elements rather than restructuring markup.
 - When inserting images, use plain <img> tags (or CSS background-image) with proper width/height/alt and object-fit:cover when filling a frame.
 - Use relative URLs for assets in this project. The page lives at "${page_path}" so a sibling file "images/foo.jpg" is referenced as "${pageDir ? "../".repeat(pageDir.split("/").length - 1) : ""}images/foo.jpg" (or just "images/foo.jpg" if pageDir is empty). Prefer paths relative to the page.
 - Do NOT add new <script> tags unless the user explicitly asks for JavaScript behavior. Prefer pure HTML/CSS solutions.
 - Keep existing classes and IDs intact unless the change requires renaming them.
+- If the user attaches a screenshot, treat it as a visual reference of the area they want changed (not necessarily content to embed). Use it to locate the relevant element in the HTML.
 
 Available asset paths in this project:
 ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
 
-    const user = `User instruction:\n${prompt}\n\nCurrent HTML of "${page_path}":\n\n${originalHtml}`;
+    const userText = `User instruction:\n${prompt}\n\nCurrent HTML of "${page_path}":\n\n${originalHtml}`;
+    const visionParts = Array.isArray(vision_attachments)
+      ? vision_attachments
+          .filter((v: any) => v?.data_url)
+          .map((v: any) => ({ type: "image_url", image_url: { url: v.data_url } }))
+      : [];
+    const userContent = visionParts.length
+      ? [{ type: "text", text: userText }, ...visionParts]
+      : userText;
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -90,11 +102,11 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-pro",
         stream: true,
         messages: [
           { role: "system", content: system },
-          { role: "user", content: user },
+          { role: "user", content: userContent },
         ],
       }),
     });
