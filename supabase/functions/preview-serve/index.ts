@@ -61,8 +61,6 @@ const FEEDBACK_WIDGET_JS = `(() => {
     <div class="pf-card">
       <h3 id="pf-title">Leave feedback</h3>
       <div id="pf-form">
-        <label>Your name</label>
-        <input id="pf-name" placeholder="Your name" />
         <label id="pf-body-label">Comment</label>
         <textarea id="pf-body" placeholder="What would you like to change?"></textarea>
         <div class="pf-actions">
@@ -75,7 +73,6 @@ const FEEDBACK_WIDGET_JS = `(() => {
         <div id="pf-replies" style="margin-top:12px;display:flex;flex-direction:column;gap:8px"></div>
         <div id="pf-reply-box" style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px">
           <label>Reply</label>
-          <input id="pf-reply-name" placeholder="Your name" style="margin-bottom:6px" />
           <textarea id="pf-reply-body" placeholder="Write a reply…"></textarea>
           <div class="pf-actions">
             <button class="pf-btn ghost" id="pf-close">Close</button>
