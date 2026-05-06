@@ -39,6 +39,9 @@ verify_jwt = false
 [functions.sync-client-to-surecontact]
 verify_jwt = false
 
+[functions.list-surecontact-automations]
+verify_jwt = false
+
 [functions.surecontact-webhook]
 verify_jwt = false
 
