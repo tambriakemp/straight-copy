@@ -177,7 +177,7 @@ export default function ClientDetail() {
 
         <div className="roster__head">
           <div className="roster__title-block">
-            <div className="roster__eyebrow">{client.tier === "growth" ? "Growth" : "Launch"} client</div>
+            <div className="roster__eyebrow">Client</div>
             <h1 className="roster__title">
               {client.business_name || <em>Unnamed</em>}
             </h1>
