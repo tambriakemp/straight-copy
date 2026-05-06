@@ -91,6 +91,7 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
+        stream: true,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
@@ -98,16 +99,39 @@ ${allPaths.map((p) => `- ${p}`).join("\n")}${newAssetsList}`;
       }),
     });
 
-    if (!aiResp.ok) {
-      const errText = await aiResp.text();
+    if (!aiResp.ok || !aiResp.body) {
+      const errText = aiResp.body ? await aiResp.text() : "";
       console.error("AI gateway error:", aiResp.status, errText);
       if (aiResp.status === 429) return json({ error: "Rate limit exceeded. Please wait and try again." }, 429);
       if (aiResp.status === 402) return json({ error: "AI credits exhausted. Add credits in workspace settings." }, 402);
       return json({ error: "AI request failed" }, 500);
     }
 
-    const aiJson = await aiResp.json();
-    const raw = aiJson?.choices?.[0]?.message?.content as string | undefined;
+    // Stream and accumulate to keep the connection alive (avoids 150s idle timeout)
+    const reader = aiResp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let raw = "";
+    let done = false;
+    while (!done) {
+      const { value, done: d } = await reader.read();
+      if (d) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buffer.indexOf("\n")) !== -1) {
+        let line = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") { done = true; break; }
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed?.choices?.[0]?.delta?.content;
+          if (delta) raw += delta;
+        } catch { buffer = line + "\n" + buffer; break; }
+      }
+    }
     if (!raw) return json({ error: "AI returned empty response" }, 500);
 
     const newHtml = stripFences(raw);
