@@ -46,6 +46,7 @@ export default function ClientDetail() {
   const [openNew, setOpenNew] = useState(false);
   const [type, setType] = useState<Project["type"]>("automation_build");
   const [name, setName] = useState("");
+  const [tier, setTier] = useState<"launch" | "growth">("launch");
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -89,13 +90,36 @@ export default function ClientDetail() {
         toast.success("Preview project created");
         navigate(`/admin/clients/${id}/projects/${data.client_project_id}`);
       } else {
-        const { data, error } = await supabase
+        // Automation build: set client tier (drives journey templates), create project, seed journey nodes from templates
+        if (client && client.tier !== tier) {
+          await supabase.from("clients").update({ tier }).eq("id", id);
+        }
+        const { data: proj, error } = await supabase
           .from("client_projects")
           .insert({ client_id: id, type, name: name.trim() })
           .select("*").single();
         if (error) throw error;
+
+        const { data: tpls } = await supabase
+          .from("journey_templates")
+          .select("id,key,label,order_index,checklist")
+          .eq("tier", tier)
+          .order("order_index");
+        if (tpls && tpls.length) {
+          await supabase.from("journey_nodes").insert(
+            tpls.map((t: any) => ({
+              client_id: id,
+              client_project_id: proj.id,
+              template_id: t.id,
+              key: t.key,
+              label: t.label,
+              order_index: t.order_index,
+              checklist: t.checklist,
+            }))
+          );
+        }
         toast.success("Project created");
-        navigate(`/admin/clients/${id}/projects/${data.id}`);
+        navigate(`/admin/clients/${id}/projects/${proj.id}`);
       }
     } catch (e: any) {
       toast.error(e?.message || "Failed");
@@ -159,6 +183,15 @@ export default function ClientDetail() {
                   <label className="crm-label">Project name *</label>
                   <input className="crm-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === "site_preview" ? "Home v1" : "Launch build"} />
                 </div>
+                {type === "automation_build" && (
+                  <div>
+                    <label className="crm-label">Tier</label>
+                    <select className="crm-input" value={tier} onChange={(e) => setTier(e.target.value as "launch" | "growth")}>
+                      <option value="launch">Launch</option>
+                      <option value="growth">Growth</option>
+                    </select>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <button className="crm-btn crm-btn--ghost" onClick={() => setOpenNew(false)}>Cancel</button>
