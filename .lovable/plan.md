@@ -1,153 +1,114 @@
-# Clients → Projects restructure
+## Goal
+When a SureCart Launch/Growth purchase results in a new client (via the onboarding completion trigger), automatically create an `automation_build` project under that client and seed its journey nodes from the matching tier template — without bringing back the unwanted "auto-create on every client insert" behavior that we just removed for manual client creation.
 
-Today, "Previews" lives at the top nav and the giant journey/onboarding/contract/brand-voice flow lives directly on the client. We will reframe those as **Projects** belonging to a client. A client can have many projects of two types:
+## Why a plain trigger won't do
+We deliberately dropped `clients_seed_journey` so that admins clicking "+ New Client" on the dashboard get an empty client with no projects. We need a way to distinguish "client born from a paid onboarding" from "client created manually by an admin."
 
-- **Automation Build** — the existing Launch/Growth journey (intake → contract → brand voice → build → delivery), one per engagement.
-- **Site Preview** — the existing preview-sandbox project (uploaded HTML + pin-feedback Kanban).
+The clean signal we already have: `clients.onboarding_submission_id is not null` means the row came from `create_client_from_onboarding`. Manual admin inserts leave that null.
 
-Top-level "Previews" goes away. Everything is reached from a client.
+## Changes
 
----
+### 1. New migration: seed-on-onboarding trigger
+Create a dedicated trigger that fires only on the onboarding path, not on every client insert.
 
-## 1. Data model changes
+```sql
+create or replace function public.seed_project_from_onboarding()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  proj_id uuid;
+begin
+  -- Only act when the row was created from an onboarding submission and has a tier
+  if new.onboarding_submission_id is null then return new; end if;
+  if new.tier is null then return new; end if;
 
-### New: `client_projects`
-A single table that represents any project under a client.
+  -- Idempotency: skip if an automation_build project already exists for this client
+  if exists (
+    select 1 from public.client_projects
+     where client_id = new.id and type = 'automation_build'
+  ) then
+    return new;
+  end if;
 
-```text
-client_projects
-  id              uuid pk
-  client_id       uuid not null  -> clients.id
-  type            text not null  ('automation_build' | 'site_preview')
-  name            text not null
-  status          text not null  ('active' | 'paused' | 'complete' | 'archived')  default 'active'
-  notes           text
-  created_at      timestamptz default now()
-  updated_at      timestamptz default now()
+  insert into public.client_projects (client_id, type, name, status)
+  values (
+    new.id,
+    'automation_build',
+    coalesce(nullif(new.business_name,'') || ' — ' || initcap(new.tier) || ' build',
+             initcap(new.tier) || ' build'),
+    'active'
+  )
+  returning id into proj_id;
+
+  insert into public.journey_nodes
+    (client_id, client_project_id, template_id, key, label, order_index, checklist)
+  select new.id, proj_id, t.id, t.key, t.label, t.order_index, t.checklist
+    from public.journey_templates t
+   where t.tier = new.tier
+  on conflict (client_id, key) do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists clients_seed_project_from_onboarding on public.clients;
+create trigger clients_seed_project_from_onboarding
+after insert on public.clients
+for each row
+execute function public.seed_project_from_onboarding();
 ```
 
-RLS: admins manage; service role manages (mirror existing client tables).
+Notes:
+- `AFTER INSERT` only — manual admin inserts (no `onboarding_submission_id`) are skipped.
+- Idempotent — re-running or future webhook retries won't double-seed.
+- Also covers the existing-client path: `create_client_from_onboarding` UPDATEs an existing client when it matches by subscription/email, so we should also fire on UPDATE when `onboarding_submission_id` transitions from NULL → not-NULL. Add a second `AFTER UPDATE OF onboarding_submission_id` trigger that calls the same function (the idempotency guard makes this safe).
 
-### Link existing rows to a project (don't migrate data shapes — just add a pointer)
+### 2. One-time backfill in the same migration
+For any existing clients that already came from onboarding but have no automation_build project (e.g. clients created in the window after we dropped the seed trigger), seed them now:
 
-- `preview_projects.client_project_id uuid` (nullable initially, then required for new ones).
-- `journey_nodes.client_project_id uuid` (nullable). One Automation Build project owns a set of journey_nodes.
-- `client_contracts.client_project_id uuid`, `client_deliveries.client_project_id uuid`, `client_checklist_items.client_project_id uuid`, `client_automations.client_project_id uuid` — all nullable, scope each artifact to a specific build project.
+```sql
+do $$
+declare r record; proj_id uuid;
+begin
+  for r in
+    select c.* from public.clients c
+    where c.onboarding_submission_id is not null
+      and c.tier is not null
+      and not exists (
+        select 1 from public.client_projects p
+         where p.client_id = c.id and p.type = 'automation_build'
+      )
+  loop
+    insert into public.client_projects (client_id, type, name, status)
+    values (r.id, 'automation_build',
+            coalesce(nullif(r.business_name,'') || ' — ' || initcap(r.tier) || ' build',
+                     initcap(r.tier) || ' build'),
+            'active')
+    returning id into proj_id;
 
-### Backfill (one-time SQL in the same migration)
-
-For every existing client:
-1. Create one `client_projects` row of type `automation_build`, name = `"<tier> build"`, status derived from journey completion (active vs complete).
-2. `UPDATE journey_nodes / contracts / deliveries / checklist_items / client_automations SET client_project_id = <that project's id> WHERE client_id = <client>`.
-
-For every existing `preview_projects` row that has a `client_label` matching a client's `business_name`, create a `site_preview` project under that client and set `preview_projects.client_project_id`. Orphan previews (no match) become projects on a synthetic "Unassigned" client OR stay unlinked and surface in an admin "Unassigned previews" view (we'll do the latter — simpler).
-
-### Trigger updates
-
-- `seed_journey_nodes_for_client()` currently fires on client insert. Change so it also stamps the new nodes with the project_id of the auto-created automation_build project. We'll create that default project in the same trigger (or a sibling trigger) when a client is inserted.
-
----
-
-## 2. Routing & navigation
-
-### Top nav (`AdminLayout.tsx`)
-Remove **Previews**. New nav: Clients · Invites · API Tokens · Profile.
-
-### New routes
-```text
-/admin                                       Clients list (unchanged shell)
-/admin/clients/:id                           Client overview — Projects-first
-/admin/clients/:id/projects/:projectId       Project detail (renders by type)
+    insert into public.journey_nodes
+      (client_id, client_project_id, template_id, key, label, order_index, checklist)
+    select r.id, proj_id, t.id, t.key, t.label, t.order_index, t.checklist
+      from public.journey_templates t
+     where t.tier = r.tier
+    on conflict (client_id, key) do nothing;
+  end loop;
+end $$;
 ```
 
-Old routes redirect:
-- `/admin/previews` → `/admin` (with a toast: "Previews now live under each client")
-- `/admin/previews/:id` → `/admin/clients/:clientId/projects/:projectId` (lookup by `preview_projects.client_project_id`)
+### 3. No code changes needed elsewhere
+- `surecart-webhook` already sets the right `tier` on the invite and on the client (when matching by email).
+- `create_client_from_onboarding` already copies `tier` from the invite onto the new client.
+- `ClientDetail` "+ New Project" flow still works for adding additional projects later; its seeding stays unchanged.
 
----
+## Verification steps after deploy
+1. Pick an existing onboarding-created client with no project; confirm the backfill created one and the journey nodes match the tier.
+2. Simulate a new SureCart paid order against a test email, complete onboarding, and confirm the resulting client has exactly one `automation_build` project plus journey nodes.
+3. Click "+ New Client" from the dashboard and confirm it still creates an empty client with zero projects (manual path unaffected).
 
-## 3. Client detail page (Projects-first redesign)
-
-Replace the current `ClientDetail.tsx` top section with:
-
-- **Header**: business name, contact, tier, archive toggle (kept).
-- **Projects grid**: cards styled like the existing Previews cards (reuse the markup pattern from `Previews.tsx`). Each card shows: type badge ("Automation Build" / "Site Preview"), name, status, last updated, quick actions (open, copy share link for previews).
-- **"+ New project"** button → dialog asking type + name (+ tier for automation builds).
-- **Secondary "Client info" tab** below the grid: contact details, account access, subscription/SureCart info, brand kit intake — i.e. the bits that aren't tied to a specific build.
-
-The huge journey/contract/brand-voice/delivery UI moves OUT of the client page and INTO the Automation Build project detail page (see §4).
-
----
-
-## 4. Project detail pages
-
-`/admin/clients/:id/projects/:projectId` renders one of two views based on `client_projects.type`:
-
-### `automation_build` view
-Hosts everything currently on `ClientDetail.tsx` that's tied to a single engagement:
-- Journey/pipeline (journey_nodes filtered by `client_project_id`)
-- AdminContractSection
-- Brand voice generation + PDF
-- Build start / delivery date / delivery video / build update note
-- Checklist items, client_automations, deliveries
-- Email tracking panel
-- Kickoff webhook status
-
-We will refactor `ClientDetail.tsx` by extracting those blocks into a new `AutomationBuildProject.tsx` and have it accept `projectId` + `clientId`.
-
-### `site_preview` view
-Hosts everything currently on `PreviewDetail.tsx`:
-- File uploads, page list, share link
-- Comments Kanban + replies
-- AI Edit dialog
-The component is moved/renamed to `SitePreviewProject.tsx` and looked up by `client_project_id` instead of preview project id directly (the underlying `preview_projects` row is still the source of truth for slug/storage).
-
----
-
-## 5. Edge function adjustments
-
-- `preview-admin`:
-  - `create` action now requires `client_id` and creates both a `client_projects` row (type `site_preview`) and the `preview_projects` row, linked.
-  - `list` action accepts optional `client_id` to scope to a single client.
-- `crm-api` / any client-fetch endpoints: include `projects` array on client responses.
-- No changes needed to `preview-serve`, `preview-comments`, `preview-upload`, `preview-ai-edit` — they keep using `preview_projects.id`.
-
----
-
-## 6. Files touched (high level)
-
-**New**
-- `supabase/migrations/<ts>_client_projects.sql` — table, FKs, RLS, backfill.
-- `src/pages/admin/ProjectDetail.tsx` — router shim by project type.
-- `src/components/admin/projects/AutomationBuildProject.tsx` — extracted journey/contract/brand-voice UI.
-- `src/components/admin/projects/SitePreviewProject.tsx` — extracted preview UI.
-- `src/components/admin/projects/ProjectsGrid.tsx` — reusable card grid (shared style with old Previews page).
-- `src/components/admin/projects/NewProjectDialog.tsx`.
-
-**Edited**
-- `src/App.tsx` — new routes, redirects for old preview routes.
-- `src/components/admin/AdminLayout.tsx` — remove Previews nav item.
-- `src/pages/admin/ClientDetail.tsx` — slim down to header + ProjectsGrid + Client info tab.
-- `src/pages/admin/PreviewDetail.tsx` — re-export / redirect through new ProjectDetail.
-- `src/pages/admin/Previews.tsx` — delete (or leave as redirect).
-- `supabase/functions/preview-admin/index.ts` — accept `client_id` on create/list.
-
-**Deleted later** (after we confirm migration): `src/pages/admin/Previews.tsx`.
-
----
-
-## 7. Rollout order
-
-1. Migration: add `client_projects`, add `client_project_id` columns, backfill, update seed trigger.
-2. Update `preview-admin` edge function to require/accept `client_id`.
-3. Build `ProjectsGrid` + `NewProjectDialog`, wire into `ClientDetail`.
-4. Extract `AutomationBuildProject` and `SitePreviewProject`, add `ProjectDetail` route.
-5. Remove top-level Previews nav + redirects.
-6. QA: open an existing client, confirm one Automation Build project exists with the full journey intact; confirm legacy preview links still resolve via redirect.
-
----
-
-## Open assumptions (flag if wrong)
-- Each existing client gets exactly one auto-created Automation Build project (matches today's 1:1 client↔journey reality).
-- Orphan previews (no matching client) stay unlinked for now and are surfaced via a small "Unassigned previews" link on the Clients list, not migrated to a placeholder client.
-- Status enum stays simple (`active | paused | complete | archived`); we can refine per-type later.
+## Files touched
+- New: `supabase/migrations/<ts>_seed_project_from_onboarding.sql` (function + 2 triggers + backfill)
+- No edits to edge functions or React code.
