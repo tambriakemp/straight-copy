@@ -134,7 +134,6 @@ const FEEDBACK_WIDGET_JS = `(() => {
     pendingX = ((ev.clientX - rect.left) / Math.max(rect.width,1)) * 100;
     pendingY = ((ev.clientY - rect.top) / Math.max(rect.height,1)) * 100;
     editingComment = null;
-    document.getElementById("pf-name").value = localStorage.getItem("pf-name") || "";
     document.getElementById("pf-body").value = "";
     showForm("Leave feedback");
     pickMode = false; toggle.classList.remove("on");
