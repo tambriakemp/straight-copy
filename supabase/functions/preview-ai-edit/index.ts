@@ -27,6 +27,45 @@ function stripFences(text: string): string {
   return t.trim();
 }
 
+function sse(type: string, data: unknown) {
+  return `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+function streamJson(work: (send: (type: string, data?: unknown) => void) => Promise<unknown>) {
+  const encoder = new TextEncoder();
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        const send = (type: string, data: unknown = {}) => {
+          controller.enqueue(encoder.encode(sse(type, data)));
+        };
+        const heartbeat = setInterval(() => send("ping", { t: Date.now() }), 15000);
+
+        try {
+          send("progress", { message: "Starting AI edit" });
+          const result = await work(send);
+          send("done", result);
+        } catch (e: any) {
+          console.error(e);
+          send("error", { error: e?.message || String(e) });
+        } finally {
+          clearInterval(heartbeat);
+          controller.close();
+        }
+      },
+    }),
+    {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    },
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
