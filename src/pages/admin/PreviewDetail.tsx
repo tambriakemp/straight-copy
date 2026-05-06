@@ -36,8 +36,9 @@ function timeAgo(iso: string): string {
   return `${Math.floor(s/86400)}d`;
 }
 
-export default function PreviewDetail() {
-  const { id } = useParams();
+export default function PreviewDetail({ overrideId, backTo }: { overrideId?: string; backTo?: string } = {}) {
+  const params = useParams();
+  const id = overrideId ?? params.id;
   const [project, setProject] = useState<Project | null>(null);
   const [files, setFiles] = useState<FileRow[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -210,8 +211,8 @@ export default function PreviewDetail() {
       <div style={{ padding: "48px 52px 96px", maxWidth: 1400, margin: "0 auto", width: "100%", overflowY: "auto", flex: 1 }}>
       {/* Header */}
       <div style={{ marginBottom: 14 }}>
-        <Link to="/admin/previews" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 14, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-          <ArrowLeft size={14} /> Back to previews
+        <Link to={backTo ?? "/admin"} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 14, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+          <ArrowLeft size={14} /> Back
         </Link>
       </div>
 

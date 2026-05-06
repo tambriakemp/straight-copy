@@ -64,10 +64,22 @@ Deno.serve(async (req) => {
       }
 
       case "create": {
-        const { name, client_label } = payload;
+        const { name, client_label, client_id } = payload;
         if (!name) return json({ error: "name required" }, 400);
         const slug = genSlug();
         const id = crypto.randomUUID();
+
+        // If linked to a client, create the client_projects row first
+        let client_project_id: string | null = null;
+        if (client_id) {
+          const { data: cp, error: cpErr } = await admin
+            .from("client_projects")
+            .insert({ client_id, type: "site_preview", name })
+            .select("id").single();
+          if (cpErr) throw cpErr;
+          client_project_id = cp.id;
+        }
+
         const { data, error } = await admin
           .from("preview_projects")
           .insert({
@@ -75,10 +87,11 @@ Deno.serve(async (req) => {
             client_label: client_label || null,
             slug,
             storage_prefix: `previews/${id}/`,
+            client_project_id,
           })
           .select("*").single();
         if (error) throw error;
-        return json({ project: data });
+        return json({ project: data, client_project_id });
       }
 
       case "update": {
