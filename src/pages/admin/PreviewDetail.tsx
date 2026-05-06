@@ -184,6 +184,28 @@ export default function PreviewDetail({ overrideId, backTo }: { overrideId?: str
     load();
   };
 
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const sendReviewEmail = async () => {
+    if (!project?.client_project_id) {
+      toast.error("Link this preview to a client first.");
+      return;
+    }
+    if (!confirm("Send the site preview review email to the client now?")) return;
+    setSendingEmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-preview-review-email", {
+        body: { preview_project_id: project.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Review email sent to ${data?.recipient ?? "client"}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to send email");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   if (loading || !project) return <AdminLayout><div style={{ padding: "48px 52px" }}>Loading…</div></AdminLayout>;
 
   const pages = files.filter((f) => /\.html?$/i.test(f.path));
