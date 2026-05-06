@@ -35,23 +35,25 @@ function streamJson(work: (send: (type: string, data?: unknown) => void) => Prom
   const encoder = new TextEncoder();
   return new Response(
     new ReadableStream({
-      async start(controller) {
+      start(controller) {
         const send = (type: string, data: unknown = {}) => {
           controller.enqueue(encoder.encode(sse(type, data)));
         };
         const heartbeat = setInterval(() => send("ping", { t: Date.now() }), 15000);
 
-        try {
-          send("progress", { message: "Starting AI edit" });
-          const result = await work(send);
-          send("done", result);
-        } catch (e: any) {
-          console.error(e);
-          send("error", { error: e?.message || String(e) });
-        } finally {
-          clearInterval(heartbeat);
-          controller.close();
-        }
+        send("progress", { message: "Starting AI edit" });
+        void (async () => {
+          try {
+            const result = await work(send);
+            send("done", result);
+          } catch (e: any) {
+            console.error(e);
+            send("error", { error: e?.message || String(e) });
+          } finally {
+            clearInterval(heartbeat);
+            controller.close();
+          }
+        })();
       },
     }),
     {
