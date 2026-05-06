@@ -1031,6 +1031,57 @@ export type Database = {
           },
         ]
       }
+      project_links: {
+        Row: {
+          client_project_id: string
+          created_at: string
+          id: string
+          label: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          client_project_id: string
+          created_at?: string
+          id?: string
+          label: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          client_project_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      project_notes: {
+        Row: {
+          body: string
+          client_project_id: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          client_project_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          client_project_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
