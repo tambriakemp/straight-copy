@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
   if (!isAdmin) return json({ error: "forbidden" }, 403);
 
   try {
-    const { project_id, page_path, prompt, new_assets } = await req.json();
+    const { project_id, page_path, prompt, new_assets, vision_attachments } = await req.json();
     if (!project_id || !page_path || !prompt) return json({ error: "missing fields" }, 400);
 
     const { data: proj } = await admin

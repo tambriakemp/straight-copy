@@ -1,61 +1,43 @@
-## Goal
+## Problem
 
-Add an "AI Edit" tool to each page in the Preview Detail screen that lets you:
+When you ask the AI editor to tweak the marquee strip (e.g. center the green dot between phrases), it's inserting a dot/separator between every individual word. The model can't actually see the rendered page — it only gets raw HTML text and has to guess what the user means by "the scroll bar" or "between the phrases." With CSS-driven marquees, the structural unit (a phrase like "Penalty Abatement") often isn't wrapped in its own element, so the model treats every whitespace-separated token as a "phrase."
 
-1. Type a natural-language prompt to modify the page's HTML directly (no JS injection — actual file rewrite).
-2. Optionally attach one or more images that get uploaded as project assets and embedded into the page where the prompt asks.
+## Fix
 
-Example: open `Magna Tax Relief Home Page.html`, attach the team photo, prompt "Replace the 'Drop a hero photo' placeholder with this image, cropped to fill the frame." → tool uploads the image to the project's storage prefix, calls Gemini with the page HTML + asset list + prompt, writes the returned HTML back to storage.
+Three changes to `preview-ai-edit` plus a small dialog tweak so the model has enough context to reason about visual layout.
 
-## UX
+### 1. Send attached images to the model as vision input
 
-In the Pages tab, each page row gets a new "Edit with AI" button (sparkles icon) next to Preview/Delete.
+Right now, images uploaded in the dialog are saved to storage and listed by filename in the prompt — the model never actually sees them. Change the request payload so each attachment is included as an `image_url` content part on the user message. This lets you drop in your screenshot of the broken marquee and say "fix the dot spacing shown here" and the model will understand.
 
-Clicking opens a modal:
-- Header: page filename
-- Image attachments dropzone (multi-image, optional). Shows thumbnails with the suggested filename it'll be saved as.
-- Prompt textarea
-- Recent attached/available assets list (collapsible) so the model knows what filenames it can reference
-- Buttons: "Preview diff" (optional, v2) / "Apply changes" / "Cancel"
+### 2. Tighten the system prompt for inline/marquee structures
 
-On Apply:
-1. Upload any attached images via existing `preview-upload` flow (or inline in new action) → stored at `images/<slug>.<ext>` under the project's prefix.
-2. Call new edge function `preview-ai-edit` with `{ project_id, page_path, prompt, new_assets: [{path, mime}] }`.
-3. Function returns updated HTML; client toasts success and reloads.
+Add explicit guidance:
+- Identify the smallest structural unit (the existing repeating element — `<span>`, `<li>`, etc.) before adding any separator.
+- Never insert separators between tokens that share the same parent element with no wrapper around each phrase.
+- For marquees and ticker strips, treat each direct child of the track as one item; do not split text nodes.
+- Preserve existing whitespace and inline structure exactly outside the changed region.
 
-## Backend: new edge function `preview-ai-edit`
+### 3. Switch back to `gemini-2.5-pro` for these edits
 
-- Auth: requires admin user (mirror `preview-admin` auth check).
-- Loads the page HTML from `preview-sites/<storage_prefix><page_path>`.
-- Loads the project's full file list (paths only) so the model knows what assets exist.
-- Calls Lovable AI Gateway (`google/gemini-2.5-pro`) with system prompt:
-  > "You edit a single HTML file for a static preview site. Return ONLY the full updated HTML, no fences, no commentary. Available asset paths (use relative URLs): {list}. Newly uploaded assets you SHOULD use when relevant: {new_assets}. User instruction: {prompt}. Preserve all unrelated markup. Do not add `<script>` tags unless explicitly requested. Prefer plain `<img>`, CSS background-image, and inline styles for visual changes."
-- Validates response starts with `<!doctype` or `<html` (strips ```html fences if present).
-- Uploads new HTML back to storage (overwrite, same content-type).
-- Updates `preview_files.size_bytes` for that row.
-- Returns `{ ok: true, bytes }`.
+We dropped to flash to dodge the 150s timeout, but streaming already solves that. Pro handles structural HTML reasoning (like correctly identifying marquee items) noticeably better. Keep flash as a fallback only if pro returns 429.
 
-Uses `LOVABLE_API_KEY` (already available via Lovable AI). No extra secrets.
+### 4. Dialog copy
 
-## Backend: image attachments
+Update the AiEditDialog hint under the prompt: "Attach a screenshot of the area you want changed — the AI will see it." So users know the attachment now doubles as visual reference, not just an asset to embed.
 
-Add an action `file_upload_single` to `preview-admin` (simpler than reusing the multipart preview-upload from a JSON flow): accepts `{ project_id, path, content_base64, mime }`, writes to storage + upserts `preview_files` row. Used by the modal to drop in attached images before calling `preview-ai-edit`.
+## Technical details
 
-## Frontend changes
+- `supabase/functions/preview-ai-edit/index.ts`:
+  - Accept attachments either as the existing `new_assets` (path-only) or as a new `vision_attachments: [{ data_url, mime }]` array. Client sends both: small images as data URLs for vision, plus the storage path for embedding.
+  - Build the user message as `content: [{ type: "text", text: "..." }, { type: "image_url", image_url: { url: dataUrl } }, ...]` when vision attachments exist.
+  - Update `model` to `google/gemini-2.5-pro`.
+  - Expand system prompt with the marquee/inline rules above.
+- `src/components/admin/preview/AiEditDialog.tsx`:
+  - When invoking `preview-ai-edit`, also pass `vision_attachments` built from the same files (data URL + mime). Skip files larger than ~4 MB to keep payload sane.
+  - Update helper text under the prompt textarea.
 
-- New component `src/components/admin/preview/AiEditDialog.tsx` — modal with dropzone, prompt textarea, asset list, submit handler.
-- `PreviewDetail.tsx`: add Sparkles button to each page row → opens dialog with that path.
-- After success, call existing `load()` so the file list and any size changes refresh.
+## Out of scope
 
-## Out of scope (future)
-
-- Diff preview before apply (v2).
-- Editing CSS/JS files (only HTML pages for now).
-- Multi-page edits in one prompt.
-
-## Files to create / edit
-
-- create `supabase/functions/preview-ai-edit/index.ts`
-- edit `supabase/functions/preview-admin/index.ts` (add `file_upload_single` action)
-- create `src/components/admin/preview/AiEditDialog.tsx`
-- edit `src/pages/admin/PreviewDetail.tsx` (add button + dialog wiring)
+- Auto-screenshotting the live preview server-side (would be ideal but adds a headless browser dependency — revisit later).
+- Diff preview before apply.
