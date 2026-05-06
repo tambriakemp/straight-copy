@@ -279,6 +279,14 @@ export default function PreviewDetail({ overrideId, backTo }: { overrideId?: str
               <ExternalLink size={14} />
             </a>
             <span style={{ width: 1, height: 22, background: "var(--crm-border-dark)", margin: "0 4px" }} />
+            <button
+              className="crm-btn crm-btn--ghost crm-btn--sm"
+              onClick={sendReviewEmail}
+              disabled={sendingEmail || !project.client_project_id}
+              title={project.client_project_id ? "Send review instructions to the client" : "Link to a client to enable"}
+            >
+              <Mail size={12} /> {sendingEmail ? "Sending…" : "Send Review Email"}
+            </button>
             <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={toggleFeedback} title="Toggle client feedback">
               Feedback: {project.feedback_enabled ? "On" : "Off"}
             </button>
