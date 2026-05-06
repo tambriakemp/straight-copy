@@ -20,6 +20,7 @@ const STONE = "hsl(40 8% 50%)";
 const BORDER = "hsl(40 20% 97% / 0.10)";
 const ACCENT = "hsl(28 30% 45%)";
 
+const pageScroll: React.CSSProperties = { flex: 1, minHeight: 0, overflowY: "auto", width: "100%" };
 const page: React.CSSProperties = { padding: "56px 52px 120px", maxWidth: 1280, margin: "0 auto", color: CREAM };
 const eyebrow: React.CSSProperties = { fontSize: 12, letterSpacing: "0.35em", textTransform: "uppercase", color: TAUPE, marginBottom: 16 };
 const title: React.CSSProperties = { fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontSize: 56, lineHeight: 1.05, margin: 0, letterSpacing: "-0.01em" };
@@ -89,17 +90,17 @@ export function WikiList() {
     });
   }, [docs, q, dept, type, status]);
 
-  if (loading) return <AdminLayout><div style={page}>Loading…</div></AdminLayout>;
-  if (!hasAccess) return <AdminLayout><div style={page}>
+  if (loading) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
+  if (!hasAccess) return <AdminLayout><div style={pageScroll}><div style={page}>
     <p style={eyebrow}>Knowledge Base</p>
     <h1 style={title}>No <em style={titleEm}>access</em></h1>
     <hr style={rule} />
     <p style={sub}>You don't have access to the Knowledge Base. Ask the founder to add you.</p>
-  </div></AdminLayout>;
+  </div></div></AdminLayout>;
 
   return (
     <AdminLayout>
-      <div style={page}>
+      <div style={pageScroll}><div style={page}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24 }}>
           <div>
             <p style={eyebrow}>Knowledge Base</p>
@@ -170,9 +171,38 @@ export function WikiList() {
           ))}
         </div>
       </div>
-    </AdminLayout>
+    </div></AdminLayout>
   );
 }
+
+// SOP scaffold (TipTap-friendly HTML)
+const SOP_TEMPLATE = `
+<h2>1. Purpose</h2>
+<p><em>One or two sentences. Why does this SOP exist? What outcome does it produce? If you can't explain why this SOP matters in two sentences, the SOP isn't ready to be written yet.</em></p>
+<h2>2. When to Run This SOP</h2>
+<p><em>The trigger. Be specific: a calendar date, a recurring cadence, a threshold being crossed, or an event happening. Avoid vague triggers like "as needed."</em></p>
+<h2>3. Inputs Required</h2>
+<p><em>What you need on hand before you start. Data, access, prior documents, information from other people.</em></p>
+<ul><li>Input 1</li><li>Input 2</li><li>Input 3</li></ul>
+<h2>4. Tools / Systems Used</h2>
+<p><em>Every app, file, or platform touched during execution. Include links where helpful.</em></p>
+<ul><li>Tool 1 — what it's used for in this SOP</li><li>Tool 2 — what it's used for in this SOP</li></ul>
+<h2>5. Step-by-Step Process</h2>
+<p><em>Numbered steps. Each step is one discrete action. Be specific enough that someone unfamiliar with the task could follow it. If a step requires judgment, say what the judgment criteria are.</em></p>
+<ol><li><strong>Action verb + what to do.</strong> Detail on how to do it. Include any specific settings, naming conventions, or where to save outputs.</li><li><strong>Next action.</strong> Detail.</li><li><strong>Next action.</strong> Detail.</li></ol>
+<h2>6. Outputs / Deliverables</h2>
+<p><em>What exists at the end that didn't exist at the beginning. A file, an updated dashboard, a sent email, a published post, a decision logged somewhere.</em></p>
+<ul><li>Output 1</li><li>Output 2</li></ul>
+<h2>7. Definition of Done</h2>
+<p><em>Checklist that confirms the SOP was actually completed correctly.</em></p>
+<ul><li>[ ] Check 1</li><li>[ ] Check 2</li><li>[ ] Check 3</li></ul>
+<h2>8. Common Pitfalls</h2>
+<p><em>Mistakes that have been made before, or that are easy to make.</em></p>
+<ul><li>Pitfall 1 — and how to avoid it</li><li>Pitfall 2 — and how to avoid it</li></ul>
+<h2>9. Notes / Revision Log</h2>
+<p><em>Date-stamped notes when the SOP changes or gets refined. Newest entries at the top.</em></p>
+<ul><li><strong>${new Date().toISOString().slice(0,10)} — Created.</strong> Initial version.</li></ul>
+`.trim();
 
 // ===== EDITOR (new + edit) =====
 export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
@@ -181,7 +211,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
   const { isFounder, loading } = useWikiRole();
   const { user } = useAdminAuth();
   const [doc, setDoc] = useState<Partial<WikiDocument>>({
-    title: "", department: "Other", doc_type: "SOP", content: "",
+    title: "", department: "Other", doc_type: "SOP", content: mode === "new" ? SOP_TEMPLATE : "",
     owner: "", status: "Draft", access_level: "All Staff", tags: [],
   });
   const [origDoc, setOrigDoc] = useState<WikiDocument | null>(null);
@@ -189,6 +219,19 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
   const [changeNote, setChangeNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingDoc, setLoadingDoc] = useState(mode === "edit");
+
+  // When user toggles doc_type on a brand-new doc, swap content scaffold if untouched
+  const isUntouchedScaffold = (c: string | undefined) =>
+    !c || c.trim() === "" || c === "<p></p>" || c === SOP_TEMPLATE;
+
+  const onTypeChange = (t: string) => {
+    setDoc(d => {
+      if (mode === "new" && isUntouchedScaffold(d.content)) {
+        return { ...d, doc_type: t as any, content: t === "SOP" ? SOP_TEMPLATE : "" };
+      }
+      return { ...d, doc_type: t as any };
+    });
+  };
 
   useEffect(() => {
     if (mode !== "edit" || !slug) return;
@@ -202,8 +245,8 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
     })();
   }, [mode, slug, nav]);
 
-  if (loading || loadingDoc) return <AdminLayout><div style={page}>Loading…</div></AdminLayout>;
-  if (!isFounder) return <AdminLayout><div style={page}>Founder only.</div></AdminLayout>;
+  if (loading || loadingDoc) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
+  if (!isFounder) return <AdminLayout><div style={pageScroll}><div style={page}>Founder only.</div></div></AdminLayout>;
 
   const save = async () => {
     if (!doc.title?.trim()) { toast.error("Title is required"); return; }
@@ -231,7 +274,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
         finalSlug = `${baseSlug}-${i}`;
       }
       const { data, error } = await supabase.from("wiki_documents")
-        .insert({ ...payload, slug: finalSlug, created_by: user?.id ?? null })
+        .insert({ ...payload, slug: finalSlug, created_by: user?.id ?? null, last_reviewed_at: new Date().toISOString() })
         .select().single();
       setSaving(false);
       if (error) { toast.error(error.message); return; }
@@ -258,7 +301,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
 
   return (
     <AdminLayout>
-      <div style={page}>
+      <div style={pageScroll}><div style={page}>
         <Link to={mode === "edit" && origDoc ? `/admin/wiki/${origDoc.slug}` : "/admin/wiki"} style={{ ...btn, textDecoration: "none", marginBottom: 24 }}>
           <ArrowLeft size={14} /> Back
         </Link>
@@ -279,7 +322,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
           </div>
           <div>
             <div style={sectionLabel}>Type</div>
-            <select value={doc.doc_type} onChange={e => setDoc({ ...doc, doc_type: e.target.value as any })} style={select}>
+            <select value={doc.doc_type} onChange={e => onTypeChange(e.target.value)} style={select}>
               {WIKI_DOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -318,7 +361,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
           <Link to={mode === "edit" && origDoc ? `/admin/wiki/${origDoc.slug}` : "/admin/wiki"} style={{ ...btn, textDecoration: "none" }}>Cancel</Link>
         </div>
       </div>
-    </AdminLayout>
+    </div></AdminLayout>
   );
 }
 
@@ -338,9 +381,9 @@ export function WikiDetail() {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [slug]);
 
-  if (loading || loadingDoc) return <AdminLayout><div style={page}>Loading…</div></AdminLayout>;
-  if (!hasAccess) return <AdminLayout><div style={page}>No access.</div></AdminLayout>;
-  if (!doc) return <AdminLayout><div style={page}>Not found.</div></AdminLayout>;
+  if (loading || loadingDoc) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
+  if (!hasAccess) return <AdminLayout><div style={pageScroll}><div style={page}>No access.</div></div></AdminLayout>;
+  if (!doc) return <AdminLayout><div style={pageScroll}><div style={page}>Not found.</div></div></AdminLayout>;
 
   const markReviewed = async () => {
     const { error } = await supabase.from("wiki_documents").update({ last_reviewed_at: new Date().toISOString() }).eq("id", doc.id);
@@ -357,7 +400,7 @@ export function WikiDetail() {
 
   return (
     <AdminLayout>
-      <div style={page}>
+      <div style={pageScroll}><div style={page}>
         <Link to="/admin/wiki" style={{ ...btn, textDecoration: "none", marginBottom: 24 }}>
           <ArrowLeft size={14} /> Knowledge Base
         </Link>
@@ -439,7 +482,7 @@ export function WikiDetail() {
           </aside>
         </div>
       </div>
-    </AdminLayout>
+    </div></AdminLayout>
   );
 }
 
@@ -479,13 +522,13 @@ export function WikiHistory() {
     window.location.href = `/admin/wiki/${doc.slug}`;
   };
 
-  if (loading || loadingRevs) return <AdminLayout><div style={page}>Loading…</div></AdminLayout>;
-  if (!hasAccess) return <AdminLayout><div style={page}>No access.</div></AdminLayout>;
-  if (!doc) return <AdminLayout><div style={page}>Not found.</div></AdminLayout>;
+  if (loading || loadingRevs) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
+  if (!hasAccess) return <AdminLayout><div style={pageScroll}><div style={page}>No access.</div></div></AdminLayout>;
+  if (!doc) return <AdminLayout><div style={pageScroll}><div style={page}>Not found.</div></div></AdminLayout>;
 
   return (
     <AdminLayout>
-      <div style={page}>
+      <div style={pageScroll}><div style={page}>
         <Link to={`/admin/wiki/${doc.slug}`} style={{ ...btn, textDecoration: "none", marginBottom: 24 }}>
           <ArrowLeft size={14} /> {doc.title}
         </Link>
@@ -527,7 +570,7 @@ export function WikiHistory() {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </div></AdminLayout>
   );
 }
 
@@ -544,8 +587,8 @@ export function WikiUsers() {
   };
   useEffect(() => { if (!loading && isFounder) load(); }, [loading, isFounder]);
 
-  if (loading) return <AdminLayout><div style={page}>Loading…</div></AdminLayout>;
-  if (!isFounder) return <AdminLayout><div style={page}>Founder only.</div></AdminLayout>;
+  if (loading) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
+  if (!isFounder) return <AdminLayout><div style={pageScroll}><div style={page}>Founder only.</div></div></AdminLayout>;
 
   const add = async () => {
     if (!form.user_id || !form.email || !form.name) { toast.error("All fields required"); return; }
@@ -569,7 +612,7 @@ export function WikiUsers() {
 
   return (
     <AdminLayout>
-      <div style={page}>
+      <div style={pageScroll}><div style={page}>
         <Link to="/admin/wiki" style={{ ...btn, textDecoration: "none", marginBottom: 24 }}>
           <ArrowLeft size={14} /> Knowledge Base
         </Link>
@@ -610,7 +653,7 @@ export function WikiUsers() {
           ))}
         </div>
       </div>
-    </AdminLayout>
+    </div></AdminLayout>
   );
 }
 
@@ -619,8 +662,8 @@ export function WikiExport() {
   const { isFounder, loading } = useWikiRole();
   const [busy, setBusy] = useState(false);
 
-  if (loading) return <AdminLayout><div style={page}>Loading…</div></AdminLayout>;
-  if (!isFounder) return <AdminLayout><div style={page}>Founder only.</div></AdminLayout>;
+  if (loading) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
+  if (!isFounder) return <AdminLayout><div style={pageScroll}><div style={page}>Founder only.</div></div></AdminLayout>;
 
   const run = async () => {
     setBusy(true);
@@ -674,7 +717,7 @@ export function WikiExport() {
 
   return (
     <AdminLayout>
-      <div style={page}>
+      <div style={pageScroll}><div style={page}>
         <Link to="/admin/wiki" style={{ ...btn, textDecoration: "none", marginBottom: 24 }}>
           <ArrowLeft size={14} /> Knowledge Base
         </Link>
@@ -688,6 +731,6 @@ export function WikiExport() {
           </button>
         </div>
       </div>
-    </AdminLayout>
+    </div></AdminLayout>
   );
 }
