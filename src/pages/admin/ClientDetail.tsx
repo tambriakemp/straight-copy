@@ -347,6 +347,12 @@ export default function ClientDetail() {
           </div>
         )}
       </div>
+      <ProjectResourcesSheet
+        projectId={resourceProject?.id ?? null}
+        projectName={resourceProject?.name}
+        open={!!resourceProject}
+        onOpenChange={(v) => { if (!v) setResourceProject(null); }}
+      />
     </AdminLayout>
   );
 }
