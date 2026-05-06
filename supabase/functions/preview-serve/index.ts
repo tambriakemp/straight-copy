@@ -229,9 +229,8 @@ const FEEDBACK_WIDGET_JS = `(() => {
     viewingPin = p;
     document.getElementById("pf-title").textContent = "Pin #" + p.pin_number + (p.status==="resolved" ? " (resolved)" : "");
     const main = document.getElementById("pf-view-body");
-    const myTok = getToken("comment", p.id);
     main.innerHTML = "<div class='pf-meta'>" + escapeHtml(p.author_name || "Guest") + " · " + new Date(p.created_at).toLocaleString() + "</div><div style='white-space:pre-wrap'>" + escapeHtml(p.body) + "</div>" +
-      (myTok ? "<div class='pf-mine-actions'><button data-act='edit'>Edit</button><button data-act='delete'>Delete</button></div>" : "");
+      "<div class='pf-mine-actions'><button data-act='edit'>Edit</button><button data-act='delete'>Delete</button></div>";
     main.querySelectorAll("button[data-act]").forEach(b => {
       b.onclick = async () => {
         const act = b.getAttribute("data-act");
@@ -242,7 +241,7 @@ const FEEDBACK_WIDGET_JS = `(() => {
           showForm("Edit pin #" + p.pin_number);
         } else if (act === "delete") {
           if (!confirm("Delete this comment?")) return;
-          const res = await fetch(API + "/preview-comments?kind=comment&id=" + p.id + "&edit_token=" + encodeURIComponent(myTok), { method: "DELETE" });
+          const res = await fetch(API + "/preview-comments?kind=comment&id=" + p.id, { method: "DELETE" });
           if (res.ok) { removeToken("comment", p.id); modal.classList.remove("show"); await loadPins(); }
           else alert("Could not delete");
         }
@@ -253,17 +252,33 @@ const FEEDBACK_WIDGET_JS = `(() => {
     (p.replies || []).forEach(rep => {
       const d = document.createElement("div");
       d.className = "pf-msg" + (rep.is_admin ? " admin" : "");
-      const myRTok = getToken("reply", rep.id);
-      d.innerHTML = "<div class='pf-meta'>" + escapeHtml(rep.author_name || (rep.is_admin?"Admin":"Guest")) + " · " + new Date(rep.created_at).toLocaleString() + "</div><div style='white-space:pre-wrap'>" + escapeHtml(rep.body) + "</div>" +
-        (myRTok ? "<div class='pf-mine-actions'><button data-act='delete-reply'>Delete</button></div>" : "");
-      d.querySelectorAll("button[data-act='delete-reply']").forEach(b => {
-        b.onclick = async () => {
-          if (!confirm("Delete this reply?")) return;
-          const res = await fetch(API + "/preview-comments?kind=reply&id=" + rep.id + "&edit_token=" + encodeURIComponent(myRTok), { method: "DELETE" });
-          if (res.ok) { removeToken("reply", rep.id); await loadPins(); const fresh = pins.find(x => x.id === p.id); if (fresh) openPin(fresh); }
-          else alert("Could not delete");
+      const repId = "pf-rep-" + rep.id;
+      d.innerHTML = "<div class='pf-meta'>" + escapeHtml(rep.author_name || (rep.is_admin?"Admin":"Guest")) + " · " + new Date(rep.created_at).toLocaleString() + "</div>" +
+        "<div id='" + repId + "-body' style='white-space:pre-wrap'>" + escapeHtml(rep.body) + "</div>" +
+        "<div class='pf-mine-actions'><button data-act='edit-reply'>Edit</button><button data-act='delete-reply'>Delete</button></div>";
+      d.querySelector("button[data-act='edit-reply']").onclick = () => {
+        const bodyDiv = d.querySelector("#" + repId + "-body");
+        const current = rep.body;
+        bodyDiv.innerHTML = "<textarea style='width:100%;min-height:70px;border:1px solid #cbd5e1;border-radius:6px;padding:8px;font:14px system-ui;box-sizing:border-box'>" + escapeHtml(current) + "</textarea><div style='display:flex;gap:6px;margin-top:6px'><button class='pf-btn ghost' data-cancel>Cancel</button><button class='pf-btn primary' data-save>Save</button></div>";
+        const ta = bodyDiv.querySelector("textarea");
+        bodyDiv.querySelector("[data-cancel]").onclick = () => openPin(p);
+        bodyDiv.querySelector("[data-save]").onclick = async () => {
+          const newBody = ta.value.trim();
+          if (!newBody) return;
+          const res = await fetch(API + "/preview-comments", {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kind: "reply", id: rep.id, body: newBody })
+          });
+          if (res.ok) { await loadPins(); const fresh = pins.find(x => x.id === p.id); if (fresh) openPin(fresh); }
+          else alert("Could not update reply");
         };
-      });
+      };
+      d.querySelector("button[data-act='delete-reply']").onclick = async () => {
+        if (!confirm("Delete this reply?")) return;
+        const res = await fetch(API + "/preview-comments?kind=reply&id=" + rep.id, { method: "DELETE" });
+        if (res.ok) { removeToken("reply", rep.id); await loadPins(); const fresh = pins.find(x => x.id === p.id); if (fresh) openPin(fresh); }
+        else alert("Could not delete");
+      };
       r.appendChild(d);
     });
     document.getElementById("pf-reply-name").value = localStorage.getItem("pf-name") || "";
