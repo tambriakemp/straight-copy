@@ -351,8 +351,28 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
           </div>
         </div>
 
-        <div style={sectionLabel}>Content</div>
-        <WikiEditor value={doc.content || ""} onChange={c => setDoc({ ...doc, content: c })} />
+        {isSop ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+            {SOP_SECTIONS.map(s => (
+              <div key={s.key}>
+                <div style={{ ...sectionLabel, marginBottom: 10, color: CREAM, fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 300, letterSpacing: 0, textTransform: "none" }}>
+                  {s.heading}
+                </div>
+                <WikiEditor
+                  value={sopSections[s.key] || ""}
+                  onChange={(c) => setSopSections(prev => ({ ...prev, [s.key]: c }))}
+                  placeholder={s.placeholder}
+                  minHeight={160}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <div style={sectionLabel}>Content</div>
+            <WikiEditor value={doc.content || ""} onChange={c => setDoc({ ...doc, content: c })} />
+          </>
+        )}
 
         <div style={{ marginTop: 24 }}>
           <div style={sectionLabel}>Change note (optional)</div>
