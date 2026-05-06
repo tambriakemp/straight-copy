@@ -55,6 +55,7 @@ export default function ClientDetail() {
   const [tier, setTier] = useState<"launch" | "growth">("launch");
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [resourceProject, setResourceProject] = useState<Project | null>(null);
 
   const base = useMemo(() => window.location.origin, []);
 
