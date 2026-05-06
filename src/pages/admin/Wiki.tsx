@@ -182,7 +182,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
   const { isFounder, loading } = useWikiRole();
   const { user } = useAdminAuth();
   const [doc, setDoc] = useState<Partial<WikiDocument>>({
-    title: "", department: "Other", doc_type: "SOP", content: "",
+    title: "", department: "Other", doc_type: "SOP", content: mode === "new" ? SOP_TEMPLATE : "",
     owner: "", status: "Draft", access_level: "All Staff", tags: [],
   });
   const [origDoc, setOrigDoc] = useState<WikiDocument | null>(null);
@@ -190,6 +190,19 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
   const [changeNote, setChangeNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingDoc, setLoadingDoc] = useState(mode === "edit");
+
+  // When user toggles doc_type on a brand-new doc, swap content scaffold if untouched
+  const isUntouchedScaffold = (c: string | undefined) =>
+    !c || c.trim() === "" || c === "<p></p>" || c === SOP_TEMPLATE;
+
+  const onTypeChange = (t: string) => {
+    setDoc(d => {
+      if (mode === "new" && isUntouchedScaffold(d.content)) {
+        return { ...d, doc_type: t as any, content: t === "SOP" ? SOP_TEMPLATE : "" };
+      }
+      return { ...d, doc_type: t as any };
+    });
+  };
 
   useEffect(() => {
     if (mode !== "edit" || !slug) return;
