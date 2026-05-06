@@ -20,6 +20,7 @@ const STONE = "hsl(40 8% 50%)";
 const BORDER = "hsl(40 20% 97% / 0.10)";
 const ACCENT = "hsl(28 30% 45%)";
 
+const pageScroll: React.CSSProperties = { flex: 1, minHeight: 0, overflowY: "auto", width: "100%" };
 const page: React.CSSProperties = { padding: "56px 52px 120px", maxWidth: 1280, margin: "0 auto", color: CREAM };
 const eyebrow: React.CSSProperties = { fontSize: 12, letterSpacing: "0.35em", textTransform: "uppercase", color: TAUPE, marginBottom: 16 };
 const title: React.CSSProperties = { fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontSize: 56, lineHeight: 1.05, margin: 0, letterSpacing: "-0.01em" };
