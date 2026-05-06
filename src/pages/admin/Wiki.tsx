@@ -175,6 +175,35 @@ export function WikiList() {
   );
 }
 
+// SOP scaffold (TipTap-friendly HTML)
+const SOP_TEMPLATE = `
+<h2>1. Purpose</h2>
+<p><em>One or two sentences. Why does this SOP exist? What outcome does it produce? If you can't explain why this SOP matters in two sentences, the SOP isn't ready to be written yet.</em></p>
+<h2>2. When to Run This SOP</h2>
+<p><em>The trigger. Be specific: a calendar date, a recurring cadence, a threshold being crossed, or an event happening. Avoid vague triggers like "as needed."</em></p>
+<h2>3. Inputs Required</h2>
+<p><em>What you need on hand before you start. Data, access, prior documents, information from other people.</em></p>
+<ul><li>Input 1</li><li>Input 2</li><li>Input 3</li></ul>
+<h2>4. Tools / Systems Used</h2>
+<p><em>Every app, file, or platform touched during execution. Include links where helpful.</em></p>
+<ul><li>Tool 1 — what it's used for in this SOP</li><li>Tool 2 — what it's used for in this SOP</li></ul>
+<h2>5. Step-by-Step Process</h2>
+<p><em>Numbered steps. Each step is one discrete action. Be specific enough that someone unfamiliar with the task could follow it. If a step requires judgment, say what the judgment criteria are.</em></p>
+<ol><li><strong>Action verb + what to do.</strong> Detail on how to do it. Include any specific settings, naming conventions, or where to save outputs.</li><li><strong>Next action.</strong> Detail.</li><li><strong>Next action.</strong> Detail.</li></ol>
+<h2>6. Outputs / Deliverables</h2>
+<p><em>What exists at the end that didn't exist at the beginning. A file, an updated dashboard, a sent email, a published post, a decision logged somewhere.</em></p>
+<ul><li>Output 1</li><li>Output 2</li></ul>
+<h2>7. Definition of Done</h2>
+<p><em>Checklist that confirms the SOP was actually completed correctly.</em></p>
+<ul><li>[ ] Check 1</li><li>[ ] Check 2</li><li>[ ] Check 3</li></ul>
+<h2>8. Common Pitfalls</h2>
+<p><em>Mistakes that have been made before, or that are easy to make.</em></p>
+<ul><li>Pitfall 1 — and how to avoid it</li><li>Pitfall 2 — and how to avoid it</li></ul>
+<h2>9. Notes / Revision Log</h2>
+<p><em>Date-stamped notes when the SOP changes or gets refined. Newest entries at the top.</em></p>
+<ul><li><strong>${new Date().toISOString().slice(0,10)} — Created.</strong> Initial version.</li></ul>
+`.trim();
+
 // ===== EDITOR (new + edit) =====
 export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
   const { slug } = useParams();
