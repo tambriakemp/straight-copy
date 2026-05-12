@@ -466,29 +466,33 @@ export default function Portal() {
             <InvoiceSection clientId={clientId!} />
           </div>
 
-          {/* Brand Voice intake chat — collapsible accordion */}
-          {!!onboardingInvite && (
+          {/* Brand Voice intake chat — only for journey clients */}
+          {hasJourneyProject && !!onboardingInvite && (
             <BrandVoiceAccordion
               token={onboardingInvite.token}
               completed={onboardingInvite.completed}
             />
           )}
 
-          {/* Account Access — always available, collapsible */}
-          <AccountAccessSection
-            clientId={clientId!}
-            tier={client.tier}
-            initial={accountAccess}
-          />
-
-          {/* Subscription — manage plan / cancel / resume */}
-          <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
-            <SubscriptionSection
+          {/* Account Access — only for journey clients */}
+          {hasJourneyProject && (
+            <AccountAccessSection
               clientId={clientId!}
               tier={client.tier}
-              initial={subscription}
+              initial={accountAccess}
             />
-          </div>
+          )}
+
+          {/* Subscription — only for journey clients */}
+          {hasJourneyProject && (
+            <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
+              <SubscriptionSection
+                clientId={clientId!}
+                tier={client.tier}
+                initial={subscription}
+              />
+            </div>
+          )}
 
           {/* Body — only render Brand Kit chat / confirmation. Other nodes are
               communicated via the header chip; no redundant placeholder card. */}
