@@ -234,9 +234,8 @@ export default function AutomationBuildView() {
     if (error) toast.error(error.message);
   };
 
-  const { svgNodes, fullPath, progressPath, currentIdx, completedCount, total, pct } = useMemo(() => {
+  const { currentIdx, completedCount, total, pct } = useMemo(() => {
     const total = nodes.length;
-    const { nodes: pts, d } = buildSCurve(size.w, size.h, total);
     const inProgIdx = nodes.findIndex((n) => n.status === "in_progress");
     const lastCompleteIdx = (() => {
       for (let i = nodes.length - 1; i >= 0; i--) {
@@ -246,27 +245,10 @@ export default function AutomationBuildView() {
     })();
     const allComplete = total > 0 && nodes.every((n) => n.status === "complete");
     const currentIdx = inProgIdx >= 0 ? inProgIdx : Math.min(total - 1, lastCompleteIdx + 1);
-    const completedIdx = allComplete ? total - 1 : lastCompleteIdx;
-    const progressPath = buildPartial(pts, completedIdx);
     const completedCount = allComplete ? total : Math.max(0, lastCompleteIdx + 1);
     const pct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
-    return { svgNodes: pts, fullPath: d, progressPath, currentIdx, completedCount, total, pct };
-  }, [nodes, size]);
-
-  const nodeSize = useMemo(() => {
-    if (svgNodes.length < 2) return 18;
-    let minD = Infinity;
-    for (let i = 0; i < svgNodes.length; i++) {
-      for (let j = i + 1; j < svgNodes.length; j++) {
-        const dx = svgNodes[i].x - svgNodes[j].x;
-        const dy = svgNodes[i].y - svgNodes[j].y;
-        const dist = Math.hypot(dx, dy);
-        if (dist < minD) minD = dist;
-      }
-    }
-    const max = Math.min(22, (minD / 2) * 0.55);
-    return Math.max(12, max);
-  }, [svgNodes]);
+    return { currentIdx, completedCount, total, pct };
+  }, [nodes]);
 
   const stateFor = (i: number): "complete" | "current" | "blocked" | "upcoming" => {
     const n = nodes[i];
@@ -280,8 +262,15 @@ export default function AutomationBuildView() {
   const ringC = 2 * Math.PI * 18;
   const ringOffset = ringC * (1 - pct / 100);
 
-  const openNode = nodes.find((n) => n.id === openNodeId) || null;
-  const openNodeIndex = openNode ? nodes.findIndex((n) => n.id === openNode.id) : -1;
+  // Auto-open the first in-progress (or first non-complete) node once nodes load.
+  useEffect(() => {
+    if (didInitOpen.current || nodes.length === 0) return;
+    const target =
+      nodes.find((n) => n.status === "in_progress") ??
+      nodes.find((n) => n.status !== "complete");
+    if (target) setOpenIds(new Set([target.id]));
+    didInitOpen.current = true;
+  }, [nodes]);
 
   if (loading || !client) {
     return (
