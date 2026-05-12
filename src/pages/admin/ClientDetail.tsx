@@ -207,11 +207,12 @@ export default function ClientDetail() {
                   <select className="crm-input" value={type} onChange={(e) => setType(e.target.value as Project["type"])}>
                     <option value="automation_build">Automation Build</option>
                     <option value="site_preview">Site Preview</option>
+                    <option value="app_development">App Development</option>
                   </select>
                 </div>
                 <div>
                   <label className="crm-label">Project name *</label>
-                  <input className="crm-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === "site_preview" ? "Home v1" : "Launch build"} />
+                  <input className="crm-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === "site_preview" ? "Home v1" : type === "app_development" ? "Mobile app v1" : "Launch build"} />
                 </div>
                 {type === "automation_build" && (
                   <div>
