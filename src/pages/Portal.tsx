@@ -446,13 +446,15 @@ export default function Portal() {
             </section>
           )}
 
-          {/* Contract — sign your service agreement */}
-          <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
-            <ContractSection
-              clientId={clientId!}
-              contactName={client.contact_name}
-            />
-          </div>
+          {/* Contract — only render for clients with a launch/growth journey project */}
+          {hasJourneyProject && (
+            <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
+              <ContractSection
+                clientId={clientId!}
+                contactName={client.contact_name}
+              />
+            </div>
+          )}
 
           {/* App Development proposals — render only if any exist */}
           <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
