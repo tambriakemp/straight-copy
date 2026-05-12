@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.proposal-sign]
 verify_jwt = false
+
+[functions.project-invoices]
+verify_jwt = false
