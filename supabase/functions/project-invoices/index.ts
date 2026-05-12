@@ -212,15 +212,9 @@ Deno.serve(async (req) => {
             checkoutBody.checkout.last_name = parts.slice(1).join(" ") || null;
           }
         }
-        const checkout = await surecart("/checkouts", {
-          method: "POST",
-          body: JSON.stringify(checkoutBody),
-        });
-
         const dueDate = input.dueDate ?? row.due_date;
         const invoiceBody: any = {
           invoice: {
-            checkout: checkout.id,
             notifications_enabled: true,
             metadata: {
               project_invoice_id: row.id,
@@ -236,6 +230,12 @@ Deno.serve(async (req) => {
           method: "POST",
           body: JSON.stringify(invoiceBody),
         });
+        const invoiceCheckoutId = checkoutIdFrom(invoice.checkout);
+        if (!invoiceCheckoutId) throw new Error("SureCart did not create an invoice checkout");
+        const checkout = await surecart(`/checkouts/${invoiceCheckoutId}`, {
+          method: "PATCH",
+          body: JSON.stringify(checkoutBody),
+        });
         const openedInvoice = await surecart(`/invoices/${invoice.id}/open`, {
           method: "PATCH",
         });
@@ -244,7 +244,7 @@ Deno.serve(async (req) => {
         const { error: upErr } = await supabase.from("project_invoices").update({
           status: "sent",
           sent_at: new Date().toISOString(),
-          surecart_checkout_id: checkoutIdFrom(openedInvoice.checkout) || checkout.id,
+          surecart_checkout_id: checkoutIdFrom(openedInvoice.checkout) || checkout.id || invoiceCheckoutId,
           surecart_invoice_id: openedInvoice.id || invoice.id,
           checkout_url: payUrl,
         }).eq("id", row.id);
