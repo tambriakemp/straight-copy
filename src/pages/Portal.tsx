@@ -371,7 +371,7 @@ export default function Portal() {
             <div className="portal-header__wordmark">Cre8<span className="dot">·</span>Portal</div>
           </div>
           <div className="portal-header__right">
-            {node && (
+            {hasJourneyProject && node && (
               <span className="portal-chip">
                 Step {String(node.order_index + 1).padStart(2, "0")} of 10 · {node.label}
               </span>
