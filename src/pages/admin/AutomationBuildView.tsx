@@ -165,23 +165,6 @@ export default function AutomationBuildView() {
   };
 
 
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ w: 1200, h: 700 });
-
-  useEffect(() => {
-    if (!wrapRef.current) return;
-    const el = wrapRef.current;
-    const ro = new ResizeObserver((entries) => {
-      for (const e of entries) {
-        const { width, height } = e.contentRect;
-        setSize({ w: Math.max(640, width), h: Math.max(420, height) });
-      }
-    });
-    ro.observe(el);
-    const r = el.getBoundingClientRect();
-    setSize({ w: Math.max(640, r.width), h: Math.max(420, r.height) });
-    return () => ro.disconnect();
-  }, [loading]);
 
   const load = useCallback(async () => {
     if (!id) return;
