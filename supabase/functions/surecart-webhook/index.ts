@@ -132,7 +132,8 @@ Deno.serve(async (req) => {
   const isPaid =
     eventType === 'order.paid' ||
     eventType === 'checkout.completed' ||
-    eventType === 'checkout.paid'
+    eventType === 'checkout.paid' ||
+    eventType === 'invoice.paid'
   const isSubscriptionEvent = eventType.startsWith('subscription.')
 
   // Subscription lifecycle events: keep clients.subscription_status in sync.
