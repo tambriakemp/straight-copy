@@ -109,20 +109,22 @@ export default function ProjectInvoicesCard({
   };
 
   const sendInvoice = async (inv: Invoice) => {
-    if (!confirm(`Send "${inv.label}" for ${fmtUSD(inv.amount_cents)} to the client via SureCart?`)) return;
     setBusy(inv.id);
+    const t = toast.loading(`Sending "${inv.label}" via SureCart…`);
     try {
       const r = await callFn({
         action: "send", clientId, invoiceId: inv.id,
         dueDate: inv.due_date,
       });
-      toast.success("Invoice sent");
       if (r.checkoutUrl) {
         try { await navigator.clipboard.writeText(r.checkoutUrl); } catch { /* ignore */ }
+        toast.success(`Invoice sent — pay link copied to clipboard`, { id: t });
+      } else {
+        toast.success("Invoice sent", { id: t });
       }
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Send failed");
+      toast.error(e instanceof Error ? e.message : "Send failed", { id: t });
     } finally { setBusy(null); }
   };
 
