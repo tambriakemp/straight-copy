@@ -233,6 +233,11 @@ Deno.serve(async (req) => {
         const invoiceCheckoutId = checkoutIdFrom(invoice.checkout);
         if (!invoiceCheckoutId) throw new Error("SureCart did not create an invoice checkout");
 
+        // Look up the project name to use as a description.
+        const { data: proj } = await supabase.from("client_projects")
+          .select("name").eq("id", row.client_project_id).maybeSingle();
+        const projectName = proj?.name || "Project";
+
         // 3. Add the ad-hoc line item to the invoice's checkout.
         await surecart("/line_items", {
           method: "POST",
@@ -242,6 +247,8 @@ Deno.serve(async (req) => {
               price: priceId,
               quantity: 1,
               ad_hoc_amount: row.amount_cents,
+              ad_hoc_name: row.label,
+              ad_hoc_description: `${projectName} — ${row.label}`,
             },
           }),
         });
