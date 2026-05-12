@@ -1100,6 +1100,72 @@ export type Database = {
           },
         ]
       }
+      project_invoices: {
+        Row: {
+          amount_cents: number
+          checkout_url: string | null
+          client_id: string
+          client_project_id: string
+          created_at: string
+          currency: string
+          due_date: string | null
+          id: string
+          label: string
+          notes: string | null
+          paid_at: string | null
+          sent_at: string | null
+          sequence: number
+          status: string
+          surecart_checkout_id: string | null
+          surecart_invoice_id: string | null
+          surecart_order_id: string | null
+          updated_at: string
+          voided_at: string | null
+        }
+        Insert: {
+          amount_cents: number
+          checkout_url?: string | null
+          client_id: string
+          client_project_id: string
+          created_at?: string
+          currency?: string
+          due_date?: string | null
+          id?: string
+          label: string
+          notes?: string | null
+          paid_at?: string | null
+          sent_at?: string | null
+          sequence?: number
+          status?: string
+          surecart_checkout_id?: string | null
+          surecart_invoice_id?: string | null
+          surecart_order_id?: string | null
+          updated_at?: string
+          voided_at?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          checkout_url?: string | null
+          client_id?: string
+          client_project_id?: string
+          created_at?: string
+          currency?: string
+          due_date?: string | null
+          id?: string
+          label?: string
+          notes?: string | null
+          paid_at?: string | null
+          sent_at?: string | null
+          sequence?: number
+          status?: string
+          surecart_checkout_id?: string | null
+          surecart_invoice_id?: string | null
+          surecart_order_id?: string | null
+          updated_at?: string
+          voided_at?: string | null
+        }
+        Relationships: []
+      }
       project_links: {
         Row: {
           client_project_id: string
