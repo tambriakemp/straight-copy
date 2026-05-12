@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
 import ContractSection from "@/components/portal/ContractSection";
 import ProposalsSection from "@/components/portal/ProposalsSection";
+import InvoiceSection from "@/components/portal/InvoiceSection";
 import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -452,6 +453,11 @@ export default function Portal() {
           {/* App Development proposals — render only if any exist */}
           <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
             <ProposalsSection clientId={clientId!} contactName={client.contact_name} />
+          </div>
+
+          {/* App Development active invoice — current only */}
+          <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
+            <InvoiceSection clientId={clientId!} />
           </div>
 
           {/* Brand Voice intake chat — collapsible accordion */}
