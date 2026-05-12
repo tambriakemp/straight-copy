@@ -450,77 +450,30 @@ export default function AutomationBuildView() {
           </div>
         </div>
 
-        <div className="canvas" ref={wrapRef}>
-          <div className="canvas__grid" />
-          <div className="canvas__ghost">Cre8</div>
-
-          {total > 0 && (
-            <svg className="canvas__svg" viewBox={`0 0 ${size.w} ${size.h}`} preserveAspectRatio="xMidYMid meet">
-              <path className="journey-path-bg" d={fullPath} />
-              <path className="journey-path-drift" d={fullPath} />
-              {progressPath && <path className="journey-path-progress" d={progressPath} />}
-
-              {svgNodes.map((p, i) => {
-                const node = nodes[i];
-                const state = stateFor(i);
-                const num = String(i + 1).padStart(2, "0");
-                return (
-                  <g
-                    key={node.id}
-                    className={`node node--${state}`}
-                    transform={`translate(${p.x}, ${p.y}) rotate(45)`}
-                    onClick={() => setOpenNodeId(node.id)}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    {state === "current" && (
-                      <rect
-                        className="node__halo"
-                        x={-nodeSize - 8} y={-nodeSize - 8}
-                        width={(nodeSize + 8) * 2} height={(nodeSize + 8) * 2}
-                      />
-                    )}
-                    <rect
-                      className="node__frame"
-                      x={-nodeSize} y={-nodeSize}
-                      width={nodeSize * 2} height={nodeSize * 2}
-                    />
-                    <g transform="rotate(-45)">
-                      <text className="node__num" y="1">{num}</text>
-                    </g>
-                    <g transform="rotate(-45)">
-                      <text className="node__label" y={nodeSize + 26}>{node.label}</text>
-                    </g>
-                  </g>
-                );
-              })}
-            </svg>
+        <div className="journey-cards">
+          {nodes.map((n, i) => (
+            <JourneyNodeCard
+              key={n.id}
+              client={client}
+              node={n}
+              index={i}
+              total={total}
+              state={stateFor(i)}
+              open={openIds.has(n.id)}
+              onToggle={() => toggleNode(n.id)}
+              onUpdate={(patch) => updateNode(n.id, patch)}
+              onReload={load}
+            />
+          ))}
+          {nodes.length === 0 && (
+            <div className="journey-cards__empty">No journey stages yet.</div>
           )}
-
-          <div className="canvas__legend">
-            <span className="canvas__legend-item"><span className="canvas__legend-swatch canvas__legend-swatch--complete" /> Complete</span>
-            <span className="canvas__legend-item"><span className="canvas__legend-swatch canvas__legend-swatch--current" /> In Progress</span>
-            <span className="canvas__legend-item"><span className="canvas__legend-swatch" /> Upcoming</span>
-          </div>
-          <div className="canvas__hint">Click any deliverable to update its status and notes.</div>
         </div>
 
         <AdminContractSection clientId={client.id} />
 
         <HeyGenKeyPanel client={client} />
       </div>
-
-      {openNode && (
-        <StageModal
-          client={client}
-          node={openNode}
-          index={openNodeIndex}
-          total={total}
-          onClose={() => setOpenNodeId(null)}
-          onUpdate={(patch) => updateNode(openNode.id, patch)}
-          onReload={load}
-        />
-      )}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-[480px]">
