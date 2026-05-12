@@ -244,6 +244,8 @@ export default function AppDevelopmentView() {
             })}
           </div>
         )}
+
+        <ProjectInvoicesCard clientId={clientId!} clientProjectId={projectId!} />
       </div>
 
       <Dialog open={openUpload} onOpenChange={(v) => { if (!uploading) setOpenUpload(v); }}>
