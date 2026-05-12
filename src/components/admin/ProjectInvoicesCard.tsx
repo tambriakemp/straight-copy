@@ -222,7 +222,7 @@ export default function ProjectInvoicesCard({
                   {(inv.status === "scheduled" || inv.status === "failed") && (
                     <>
                       <button className="crm-btn crm-btn--primary crm-btn--sm" disabled={busy === inv.id}
-                        onClick={() => setSendDialog({ inv, priceId: "" })} title="Send via SureCart">
+                        onClick={() => sendInvoice(inv)} title="Send via SureCart">
                         <Send size={12} /> Send
                       </button>
                       <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => deleteInvoice(inv)} disabled={busy === inv.id} title="Delete">
