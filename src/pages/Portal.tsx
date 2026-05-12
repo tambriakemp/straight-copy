@@ -496,7 +496,7 @@ export default function Portal() {
 
           {/* Body — only render Brand Kit chat / confirmation. Other nodes are
               communicated via the header chip; no redundant placeholder card. */}
-          {(isBrandKitDone || isBrandKitActive) && (
+          {hasJourneyProject && (isBrandKitDone || isBrandKitActive) && (
             <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
               {isBrandKitDone ? (
                 <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
