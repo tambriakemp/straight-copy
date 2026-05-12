@@ -57,12 +57,18 @@ const Schemas = z.discriminatedUnion("action", [
     priceId: z.string().trim().min(3).max(80).optional(),
     dueDate: z.string().nullable().optional(),
   }),
+  z.object({ action: z.literal("payment-link"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
   z.object({ action: z.literal("void"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
   z.object({ action: z.literal("delete"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
   z.object({ action: z.literal("portal-active"), clientId: z.string().uuid() }),
 ]);
 
-const ADMIN_ONLY = new Set(["list", "schedule", "send", "void", "delete"]);
+const ADMIN_ONLY = new Set(["list", "schedule", "send", "payment-link", "void", "delete"]);
+
+const checkoutIdFrom = (checkout: unknown) =>
+  typeof checkout === "string" ? checkout :
+  checkout && typeof checkout === "object" && "id" in checkout ? String((checkout as { id?: string }).id ?? "") || null :
+  null;
 
 async function surecart(path: string, init: RequestInit) {
   const token = Deno.env.get("SURECART_API_TOKEN");
@@ -206,15 +212,9 @@ Deno.serve(async (req) => {
             checkoutBody.checkout.last_name = parts.slice(1).join(" ") || null;
           }
         }
-        const checkout = await surecart("/checkouts", {
-          method: "POST",
-          body: JSON.stringify(checkoutBody),
-        });
-
         const dueDate = input.dueDate ?? row.due_date;
         const invoiceBody: any = {
           invoice: {
-            checkout: checkout.id,
             notifications_enabled: true,
             metadata: {
               project_invoice_id: row.id,
@@ -230,18 +230,27 @@ Deno.serve(async (req) => {
           method: "POST",
           body: JSON.stringify(invoiceBody),
         });
+        const invoiceCheckoutId = checkoutIdFrom(invoice.checkout);
+        if (!invoiceCheckoutId) throw new Error("SureCart did not create an invoice checkout");
+        const checkout = await surecart(`/checkouts/${invoiceCheckoutId}`, {
+          method: "PATCH",
+          body: JSON.stringify(checkoutBody),
+        });
+        const openedInvoice = await surecart(`/invoices/${invoice.id}/open`, {
+          method: "PATCH",
+        });
 
-        const payUrl = invoice.portal_url || checkout.portal_url || null;
+        const payUrl = openedInvoice.portal_url || invoice.portal_url || checkout.portal_url || null;
         const { error: upErr } = await supabase.from("project_invoices").update({
           status: "sent",
           sent_at: new Date().toISOString(),
-          surecart_checkout_id: checkout.id,
-          surecart_invoice_id: invoice.id,
+          surecart_checkout_id: checkoutIdFrom(openedInvoice.checkout) || checkout.id || invoiceCheckoutId,
+          surecart_invoice_id: openedInvoice.id || invoice.id,
           checkout_url: payUrl,
         }).eq("id", row.id);
         if (upErr) throw upErr;
 
-        return respond({ success: true, checkoutUrl: payUrl, invoiceId: invoice.id });
+        return respond({ success: true, checkoutUrl: payUrl, invoiceId: openedInvoice.id || invoice.id });
       } catch (e) {
         await supabase.from("project_invoices").update({
           status: "failed",
@@ -249,6 +258,28 @@ Deno.serve(async (req) => {
         }).eq("id", row.id);
         throw e;
       }
+    }
+
+    if (input.action === "payment-link") {
+      const { data: row, error } = await supabase.from("project_invoices").select(COLS)
+        .eq("id", input.invoiceId).eq("client_id", input.clientId).maybeSingle();
+      if (error) throw error;
+      if (!row) return respond({ error: "Invoice not found" }, 404);
+      if (!row.surecart_invoice_id) return respond({ checkoutUrl: row.checkout_url ?? null });
+
+      const currentInvoice = await surecart(`/invoices/${row.surecart_invoice_id}`, { method: "GET" });
+      const payableInvoice = currentInvoice.status === "draft"
+        ? await surecart(`/invoices/${row.surecart_invoice_id}/open`, { method: "PATCH" })
+        : currentInvoice;
+      const payUrl = payableInvoice.portal_url || row.checkout_url || null;
+      const checkoutId = checkoutIdFrom(payableInvoice.checkout) || row.surecart_checkout_id;
+      const { error: upErr } = await supabase.from("project_invoices").update({
+        status: payableInvoice.status === "void" ? "void" : row.status,
+        surecart_checkout_id: checkoutId,
+        checkout_url: payUrl,
+      }).eq("id", row.id);
+      if (upErr) throw upErr;
+      return respond({ checkoutUrl: payUrl, invoiceId: payableInvoice.id || row.surecart_invoice_id });
     }
 
     if (input.action === "void") {

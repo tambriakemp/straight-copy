@@ -140,6 +140,20 @@ export default function ProjectInvoicesCard({
     } finally { setBusy(null); }
   };
 
+  const openPayLink = async (inv: Invoice) => {
+    setBusy(inv.id);
+    const t = toast.loading("Preparing payment link…");
+    try {
+      const r = await callFn({ action: "payment-link", clientId, invoiceId: inv.id });
+      if (!r.checkoutUrl) throw new Error("No payment link available yet");
+      window.open(r.checkoutUrl, "_blank", "noopener");
+      await load();
+      toast.success("Payment link opened", { id: t });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not open payment link", { id: t });
+    } finally { setBusy(null); }
+  };
+
   const deleteInvoice = async (inv: Invoice) => {
     if (!confirm(`Delete invoice "${inv.label}"?`)) return;
     setBusy(inv.id);
@@ -236,7 +250,7 @@ export default function ProjectInvoicesCard({
                     <>
                       {inv.checkout_url && (
                         <button className="crm-btn crm-btn--ghost crm-btn--sm"
-                          onClick={() => { window.open(inv.checkout_url!, "_blank", "noopener"); }}>
+                          onClick={() => openPayLink(inv)} disabled={busy === inv.id}>
                           <ExternalLink size={12} /> Pay link
                         </button>
                       )}
