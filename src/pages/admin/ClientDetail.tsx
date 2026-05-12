@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen } from "lucide-react";
+import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen, FileSignature } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
@@ -243,7 +243,7 @@ export default function ClientDetail() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16, marginTop: 16 }}>
             {projects.map((p) => {
               const preview = previews[p.id];
-              const Icon = p.type === "site_preview" ? MonitorSmartphone : Workflow;
+              const Icon = p.type === "site_preview" ? MonitorSmartphone : p.type === "app_development" ? FileSignature : Workflow;
               const isBuild = p.type === "automation_build";
               const cn = isBuild ? (nodesByProject[p.id] ?? []) : [];
               const total = cn.length;
