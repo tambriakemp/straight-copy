@@ -565,14 +565,16 @@ export default function AutomationBuildView() {
 }
 
 // ---------- Stage modal ----------
-function StageModal({
-  client, node, index, total, onClose, onUpdate, onReload,
+function JourneyNodeCard({
+  client, node, index, total, state, open, onToggle, onUpdate, onReload,
 }: {
   client: Client;
   node: JourneyNode;
   index: number;
   total: number;
-  onClose: () => void;
+  state: "complete" | "current" | "blocked" | "upcoming";
+  open: boolean;
+  onToggle: () => void;
   onUpdate: (patch: Partial<JourneyNode>) => void;
   onReload: () => void;
 }) {
@@ -586,24 +588,12 @@ function StageModal({
     setAssetUrl(node.asset_url || "");
   }, [node.id]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  // Email tracking is handled by a scheduled `poll-email-status` cron job —
-  // no per-open API calls. The Intake panel renders cached state and exposes
-  // a manual "Refresh" button if the admin needs an immediate check.
-
-
   const dbToModalStatus = (s: NodeStatus): ModalStatus =>
     s === "complete" ? "complete" : s === "in_progress" ? "inprog" : "notstarted";
   const modalToDbStatus = (s: ModalStatus): NodeStatus =>
     s === "complete" ? "complete" : s === "inprog" || s === "blocked" ? "in_progress" : "pending";
 
   const status: ModalStatus = dbToModalStatus(node.status);
-
   const setStatus = (s: ModalStatus) => onUpdate({ status: modalToDbStatus(s) });
 
   const statusPill =
@@ -612,7 +602,6 @@ function StageModal({
     : status === "blocked" ? { label: "Blocked", cls: "crm-pill--blocked" }
     : { label: "Not Started", cls: "" };
 
-  // Title: split last word for italic accent
   const words = (node.label || "").split(" ");
   const titleHead = words.slice(0, -1).join(" ");
   const titleTail = words.slice(-1)[0] || "";
@@ -628,193 +617,153 @@ function StageModal({
   };
 
   return (
-    <div className="crm-shell">
-      <div className="crm-modal-backdrop" onClick={onClose}>
-        <div className="crm-modal" onClick={(e) => e.stopPropagation()}>
-          <button className="crm-modal__close" onClick={onClose} aria-label="Close">✕</button>
-
-          {/* LEFT */}
-          <div className="crm-modal__left">
-            <div className="crm-modal__stage-num">
-              Stage <em>{String(index + 1).padStart(2, "0")}</em> &nbsp;·&nbsp; of {String(total).padStart(2, "0")}
-            </div>
-            <div className="crm-modal__eyebrow">
-              {client.business_name || "Client"} — {client.tier === "growth" ? "Growth" : "Launch"} Journey
-            </div>
-            <h2 className="crm-modal__title">
-              {titleHead && <>{titleHead} </>}
-              <em>{titleTail}</em>.
-            </h2>
-            <hr className="crm-modal__rule" />
-            <p className="crm-modal__desc">
-              {status === "complete"
-                ? "This deliverable is complete. Review the notes and any linked assets below."
-                : status === "inprog"
-                ? "Currently in progress. Track tasks and attach working files as you go."
-                : "Not started yet. Use status, notes, and attachments to move it forward."}
-            </p>
-
-            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 32, flexWrap: "wrap" }}>
-              <span className={`crm-pill ${statusPill.cls}`}>● {statusPill.label}</span>
-            </div>
-
-            <div className="crm-modal__meta">
-              <div className="crm-modal__meta-item">
-                <span className="lbl">Client</span>
-                <div className="crm-modal__owner">
-                  <span className="crm-owner-avatar">
-                    {(client.business_name || "C").slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="val val--sm">{client.business_name || "—"}</span>
-                </div>
-              </div>
-              <div className="crm-modal__meta-item">
-                <span className="lbl">Tier</span>
-                <span className="val">{client.tier === "growth" ? "Growth" : "Launch"}</span>
-              </div>
-              <div className="crm-modal__meta-item">
-                <span className="lbl">Started</span>
-                <span className="val">
-                  {node.started_at ? format(new Date(node.started_at), "MMM d, yyyy") : "—"}
-                </span>
-              </div>
-              <div className="crm-modal__meta-item">
-                <span className="lbl">Completed</span>
-                <span
-                  className="val"
-                  style={{ color: node.completed_at ? "hsl(40 20% 97%)" : "hsl(30 8% 62%)" }}
-                >
-                  {node.completed_at ? format(new Date(node.completed_at), "MMM d, yyyy") : "—"}
-                </span>
-              </div>
-            </div>
-
-            <div style={{ marginTop: "auto", paddingTop: 48, display: "flex", gap: 12 }}>
-              <button className="crm-btn crm-btn--ghost" onClick={onClose}>← Back to Journey</button>
-            </div>
+    <div className={`journey-card journey-card--${state} ${open ? "journey-card--open" : ""}`}>
+      <button
+        type="button"
+        className="journey-card__header"
+        onClick={onToggle}
+        aria-expanded={open}
+      >
+        <div className="journey-card__head-main">
+          <div className="journey-card__eyebrow">
+            Stage {String(index + 1).padStart(2, "0")} <span className="sep">·</span> of {String(total).padStart(2, "0")}
           </div>
-
-          {/* RIGHT */}
-          <div className="crm-modal__right">
-            <section>
-              <div className="crm-modal__section-head">
-                <div className="crm-modal__section-title">Status</div>
-              </div>
-              <div className="crm-status-seg">
-                <button
-                  className={`crm-status-seg__btn ${status === "notstarted" ? "crm-status-seg__btn--active" : ""}`}
-                  onClick={() => setStatus("notstarted")}
-                >Not Started</button>
-                <button
-                  className={`crm-status-seg__btn crm-status-seg__btn--inprog ${status === "inprog" ? "crm-status-seg__btn--active" : ""}`}
-                  onClick={() => setStatus("inprog")}
-                >In Progress</button>
-                <button
-                  className={`crm-status-seg__btn crm-status-seg__btn--blocked ${status === "blocked" ? "crm-status-seg__btn--active" : ""}`}
-                  onClick={() => setStatus("blocked")}
-                >Blocked</button>
-                <button
-                  className={`crm-status-seg__btn crm-status-seg__btn--complete ${status === "complete" ? "crm-status-seg__btn--active" : ""}`}
-                  onClick={() => setStatus("complete")}
-                >Complete</button>
-              </div>
-            </section>
-
-            <NodeChecklist node={node} onUpdate={onUpdate} />
-
-            {node.key === "brand_voice" && (
-              <BrandVoicePanel client={client} onReload={onReload} />
-            )}
-
-            {node.key === "brand_kit" && (
-              <BrandKitPanel client={client} />
-            )}
-
-            {node.key === "intake" && (
-              <>
-                <OnboardingChatLinkPanel client={client} />
-                <EmailTrackingPanel client={client} onReload={onReload} />
-                <BuildSchedulePanel client={client} onReload={onReload} />
-              </>
-            )}
-
-            {node.key === "delivery" && (
-              <ClientFieldEditor
-                client={client}
-                field="delivery_video_url"
-                title="Delivery Video"
-                label="Video URL"
-                placeholder="https://… (Loom, Vimeo, YouTube)"
-                helpText="Pasting a link here makes it visible to the client in their portal."
-                onReload={onReload}
-              />
-            )}
-
-            {node.key === "automation_02" && (
-              <ClientFieldEditor
-                client={client}
-                field="build_update_note"
-                title="Build Update Note"
-                label="Note for client"
-                placeholder="What should the client know about this update?"
-                helpText="Saved here and synced to SureContact. When this stage is marked complete, your SureContact automation can use this note in the email it sends the client."
-                multiline
-                onReload={onReload}
-              />
-            )}
-
-            <section>
-              <div className="crm-modal__section-head">
-                <div className="crm-modal__section-title">Linked Asset</div>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <input
-                  className="crm-input"
-                  placeholder="Asset label (e.g. Brand Voice doc)"
-                  value={assetLabel}
-                  onChange={(e) => setAssetLabel(e.target.value)}
-                  onBlur={saveAssetLabel}
-                />
-                <input
-                  className="crm-input"
-                  placeholder="https://…"
-                  value={assetUrl}
-                  onChange={(e) => setAssetUrl(e.target.value)}
-                  onBlur={saveAssetUrl}
-                />
-                {node.asset_url && (
-                  <a
-                    href={node.asset_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="crm-attach"
-                  >
-                    <span className="crm-attach__icon">URL</span>
-                    <div className="crm-attach__info">
-                      <span className="crm-attach__name">{node.asset_label || node.asset_url}</span>
-                      <span className="crm-attach__meta">External link</span>
-                    </div>
-                    <span className="crm-attach__action">Open →</span>
-                  </a>
-                )}
-              </div>
-            </section>
-
-            <section>
-              <div className="crm-modal__section-head">
-                <div className="crm-modal__section-title">Internal Notes</div>
-              </div>
-              <textarea
-                className="crm-notes-area"
-                placeholder="Notes only visible to the Cre8 team..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                onBlur={saveNotes}
-              />
-            </section>
+          <h3 className="journey-card__title">
+            {titleHead && <>{titleHead} </>}
+            <em>{titleTail}</em>
+          </h3>
+          <div className="journey-card__sub">
+            <span>Started: {node.started_at ? format(new Date(node.started_at), "MMM d, yyyy") : "—"}</span>
+            <span className="sep">·</span>
+            <span>Completed: {node.completed_at ? format(new Date(node.completed_at), "MMM d, yyyy") : "—"}</span>
           </div>
         </div>
-      </div>
+        <div className="journey-card__head-aside">
+          <span className={`crm-pill ${statusPill.cls}`}>● {statusPill.label}</span>
+          <span className={`journey-card__chevron ${open ? "is-open" : ""}`} aria-hidden="true">▾</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="journey-card__body">
+          <section>
+            <div className="crm-modal__section-head">
+              <div className="crm-modal__section-title">Status</div>
+            </div>
+            <div className="crm-status-seg">
+              <button
+                className={`crm-status-seg__btn ${status === "notstarted" ? "crm-status-seg__btn--active" : ""}`}
+                onClick={() => setStatus("notstarted")}
+              >Not Started</button>
+              <button
+                className={`crm-status-seg__btn crm-status-seg__btn--inprog ${status === "inprog" ? "crm-status-seg__btn--active" : ""}`}
+                onClick={() => setStatus("inprog")}
+              >In Progress</button>
+              <button
+                className={`crm-status-seg__btn crm-status-seg__btn--blocked ${status === "blocked" ? "crm-status-seg__btn--active" : ""}`}
+                onClick={() => setStatus("blocked")}
+              >Blocked</button>
+              <button
+                className={`crm-status-seg__btn crm-status-seg__btn--complete ${status === "complete" ? "crm-status-seg__btn--active" : ""}`}
+                onClick={() => setStatus("complete")}
+              >Complete</button>
+            </div>
+          </section>
+
+          <NodeChecklist node={node} onUpdate={onUpdate} />
+
+          {node.key === "brand_voice" && (
+            <BrandVoicePanel client={client} onReload={onReload} />
+          )}
+
+          {node.key === "brand_kit" && (
+            <BrandKitPanel client={client} />
+          )}
+
+          {node.key === "intake" && (
+            <>
+              <OnboardingChatLinkPanel client={client} />
+              <EmailTrackingPanel client={client} onReload={onReload} />
+              <BuildSchedulePanel client={client} onReload={onReload} />
+            </>
+          )}
+
+          {node.key === "delivery" && (
+            <ClientFieldEditor
+              client={client}
+              field="delivery_video_url"
+              title="Delivery Video"
+              label="Video URL"
+              placeholder="https://… (Loom, Vimeo, YouTube)"
+              helpText="Pasting a link here makes it visible to the client in their portal."
+              onReload={onReload}
+            />
+          )}
+
+          {node.key === "automation_02" && (
+            <ClientFieldEditor
+              client={client}
+              field="build_update_note"
+              title="Build Update Note"
+              label="Note for client"
+              placeholder="What should the client know about this update?"
+              helpText="Saved here and synced to SureContact. When this stage is marked complete, your SureContact automation can use this note in the email it sends the client."
+              multiline
+              onReload={onReload}
+            />
+          )}
+
+          <section>
+            <div className="crm-modal__section-head">
+              <div className="crm-modal__section-title">Linked Asset</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <input
+                className="crm-input"
+                placeholder="Asset label (e.g. Brand Voice doc)"
+                value={assetLabel}
+                onChange={(e) => setAssetLabel(e.target.value)}
+                onBlur={saveAssetLabel}
+              />
+              <input
+                className="crm-input"
+                placeholder="https://…"
+                value={assetUrl}
+                onChange={(e) => setAssetUrl(e.target.value)}
+                onBlur={saveAssetUrl}
+              />
+              {node.asset_url && (
+                <a
+                  href={node.asset_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="crm-attach"
+                >
+                  <span className="crm-attach__icon">URL</span>
+                  <div className="crm-attach__info">
+                    <span className="crm-attach__name">{node.asset_label || node.asset_url}</span>
+                    <span className="crm-attach__meta">External link</span>
+                  </div>
+                  <span className="crm-attach__action">Open →</span>
+                </a>
+              )}
+            </div>
+          </section>
+
+          <section>
+            <div className="crm-modal__section-head">
+              <div className="crm-modal__section-title">Internal Notes</div>
+            </div>
+            <textarea
+              className="crm-notes-area"
+              placeholder="Notes only visible to the Cre8 team..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              onBlur={saveNotes}
+            />
+          </section>
+        </div>
+      )}
     </div>
   );
 }
