@@ -57,12 +57,18 @@ const Schemas = z.discriminatedUnion("action", [
     priceId: z.string().trim().min(3).max(80).optional(),
     dueDate: z.string().nullable().optional(),
   }),
+  z.object({ action: z.literal("payment-link"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
   z.object({ action: z.literal("void"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
   z.object({ action: z.literal("delete"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
   z.object({ action: z.literal("portal-active"), clientId: z.string().uuid() }),
 ]);
 
-const ADMIN_ONLY = new Set(["list", "schedule", "send", "void", "delete"]);
+const ADMIN_ONLY = new Set(["list", "schedule", "send", "payment-link", "void", "delete"]);
+
+const checkoutIdFrom = (checkout: unknown) =>
+  typeof checkout === "string" ? checkout :
+  checkout && typeof checkout === "object" && "id" in checkout ? String((checkout as { id?: string }).id ?? "") || null :
+  null;
 
 async function surecart(path: string, init: RequestInit) {
   const token = Deno.env.get("SURECART_API_TOKEN");
@@ -230,18 +236,21 @@ Deno.serve(async (req) => {
           method: "POST",
           body: JSON.stringify(invoiceBody),
         });
+        const openedInvoice = await surecart(`/invoices/${invoice.id}/open`, {
+          method: "PATCH",
+        });
 
-        const payUrl = invoice.portal_url || checkout.portal_url || null;
+        const payUrl = openedInvoice.portal_url || invoice.portal_url || checkout.portal_url || null;
         const { error: upErr } = await supabase.from("project_invoices").update({
           status: "sent",
           sent_at: new Date().toISOString(),
-          surecart_checkout_id: checkout.id,
-          surecart_invoice_id: invoice.id,
+          surecart_checkout_id: checkoutIdFrom(openedInvoice.checkout) || checkout.id,
+          surecart_invoice_id: openedInvoice.id || invoice.id,
           checkout_url: payUrl,
         }).eq("id", row.id);
         if (upErr) throw upErr;
 
-        return respond({ success: true, checkoutUrl: payUrl, invoiceId: invoice.id });
+        return respond({ success: true, checkoutUrl: payUrl, invoiceId: openedInvoice.id || invoice.id });
       } catch (e) {
         await supabase.from("project_invoices").update({
           status: "failed",
