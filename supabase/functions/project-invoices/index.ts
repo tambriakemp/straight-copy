@@ -61,6 +61,7 @@ const Schemas = z.discriminatedUnion("action", [
   z.object({ action: z.literal("void"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
   z.object({ action: z.literal("delete"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
   z.object({ action: z.literal("portal-active"), clientId: z.string().uuid() }),
+  z.object({ action: z.literal("portal-schedule"), clientId: z.string().uuid() }),
 ]);
 
 const ADMIN_ONLY = new Set(["list", "schedule", "send", "payment-link", "void", "delete"]);
