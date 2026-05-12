@@ -182,7 +182,11 @@ Deno.serve(async (req) => {
   // Extract from payload (SureCart shape)
   const data = event?.data?.object || event?.data || event
   const orderId: string =
-    data?.id || data?.order_id || data?.checkout?.id || ''
+    data?.order?.id ||
+    data?.order_id ||
+    data?.id ||
+    data?.checkout?.id ||
+    ''
   const orderNumber: string | number =
     data?.number || data?.order_number || orderId
 
