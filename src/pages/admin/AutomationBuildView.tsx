@@ -94,7 +94,16 @@ export default function AutomationBuildView() {
   const [client, setClient] = useState<Client | null>(null);
   const [nodes, setNodes] = useState<JourneyNode[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openNodeId, setOpenNodeId] = useState<string | null>(null);
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const didInitOpen = useRef(false);
+  const toggleNode = useCallback((nodeId: string) => {
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  }, []);
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     business_name: "",
