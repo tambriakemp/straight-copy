@@ -285,37 +285,6 @@ export default function ProjectInvoicesCard({
           </div>
         </div>
       )}
-
-      {sendDialog && (
-        <div onClick={() => setSendDialog(null)} style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50,
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-        }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: "hsl(36 5% 16%)", border: "1px solid hsl(40 20% 97% / 0.08)",
-            padding: 24, maxWidth: 460, width: "100%", color: "hsl(40 20% 97%)",
-          }}>
-            <h3 style={{ fontFamily: "var(--crm-font-serif)", fontSize: 22, fontStyle: "italic", margin: 0, marginBottom: 8 }}>
-              Send "{sendDialog.inv.label}"
-            </h3>
-            <p style={{ color: "var(--crm-taupe)", fontSize: 13, marginBottom: 16 }}>
-              Paste the SureCart <strong>Price ID</strong> for this milestone amount ({fmtUSD(sendDialog.inv.amount_cents)}).
-              Create the price in SureCart first if you don't have one. SureCart will email the client a hosted invoice.
-            </p>
-            <label className="crm-label">SureCart Price ID</label>
-            <input className="crm-input" placeholder="price_xxx" value={sendDialog.priceId}
-              onChange={e => setSendDialog(d => d ? { ...d, priceId: e.target.value } : null)}
-              autoFocus />
-            <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
-              <button className="crm-btn crm-btn--ghost" onClick={() => setSendDialog(null)} disabled={busy === sendDialog.inv.id}>Cancel</button>
-              <button className="crm-btn crm-btn--primary" disabled={busy === sendDialog.inv.id}
-                onClick={() => sendInvoice(sendDialog.inv, sendDialog.priceId)}>
-                {busy === sendDialog.inv.id ? "Sending…" : "Send invoice"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
