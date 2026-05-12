@@ -187,31 +187,30 @@ Deno.serve(async (req) => {
         if (!priceId) {
           return respond({ error: "SURECART_CUSTOM_PRICE_ID not configured" }, 500);
         }
-        const checkoutBody: any = {
-          checkout: {
-            line_items: [{
-              price: priceId,
-              quantity: 1,
-              ad_hoc_amount: row.amount_cents,
-            }],
-            metadata: {
-              project_invoice_id: row.id,
-              client_id: client.id,
-              project_id: row.client_project_id,
-              label: row.label,
-            },
-          },
-        };
-        if (client.surecart_customer_id) {
-          checkoutBody.checkout.customer = client.surecart_customer_id;
-        } else if (client.contact_email) {
-          checkoutBody.checkout.email = client.contact_email;
-          if (client.contact_name) {
-            const parts = client.contact_name.split(" ");
-            checkoutBody.checkout.first_name = parts[0];
-            checkoutBody.checkout.last_name = parts.slice(1).join(" ") || null;
-          }
+        if (!client.contact_email && !client.surecart_customer_id) {
+          return respond({ error: "Client is missing a contact email" }, 400);
         }
+
+        // 1. Ensure a SureCart customer exists for this client.
+        let customerId = client.surecart_customer_id as string | null;
+        if (!customerId) {
+          const customerBody: any = {
+            customer: {
+              email: client.contact_email,
+              name: client.contact_name || client.business_name || client.contact_email,
+            },
+          };
+          const created = await surecart("/customers", {
+            method: "POST",
+            body: JSON.stringify(customerBody),
+          });
+          customerId = created.id;
+          await supabase.from("clients")
+            .update({ surecart_customer_id: customerId })
+            .eq("id", client.id);
+        }
+
+        // 2. Create the draft invoice (SureCart auto-creates a paired checkout).
         const dueDate = input.dueDate ?? row.due_date;
         const invoiceBody: any = {
           invoice: {
@@ -232,10 +231,37 @@ Deno.serve(async (req) => {
         });
         const invoiceCheckoutId = checkoutIdFrom(invoice.checkout);
         if (!invoiceCheckoutId) throw new Error("SureCart did not create an invoice checkout");
+
+        // 3. Add the ad-hoc line item to the invoice's checkout.
+        await surecart("/line_items", {
+          method: "POST",
+          body: JSON.stringify({
+            line_item: {
+              checkout: invoiceCheckoutId,
+              price: priceId,
+              quantity: 1,
+              ad_hoc_amount: row.amount_cents,
+            },
+          }),
+        });
+
+        // 4. Attach the customer + metadata to the checkout.
         const checkout = await surecart(`/checkouts/${invoiceCheckoutId}`, {
           method: "PATCH",
-          body: JSON.stringify(checkoutBody),
+          body: JSON.stringify({
+            checkout: {
+              customer: customerId,
+              metadata: {
+                project_invoice_id: row.id,
+                client_id: client.id,
+                project_id: row.client_project_id,
+                label: row.label,
+              },
+            },
+          }),
         });
+
+        // 5. Open (finalize) the invoice so it has a public hosted URL.
         const openedInvoice = await surecart(`/invoices/${invoice.id}/open`, {
           method: "PATCH",
         });
