@@ -111,6 +111,14 @@ export default function ClientDetail() {
         if (error || !data?.project) throw new Error(error?.message || "Failed");
         toast.success("Preview project created");
         navigate(`/admin/clients/${id}/projects/${data.client_project_id}`);
+      } else if (type === "app_development") {
+        const { data: proj, error } = await supabase
+          .from("client_projects")
+          .insert({ client_id: id, type, name: name.trim() })
+          .select("*").single();
+        if (error) throw error;
+        toast.success("App development project created");
+        navigate(`/admin/clients/${id}/projects/${proj.id}`);
       } else {
         // Automation build: set client tier (drives journey templates), create project, seed journey nodes from templates
         if (client && client.tier !== tier) {
