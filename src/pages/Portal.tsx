@@ -358,6 +358,8 @@ export default function Portal() {
   const tierLabel = client.tier === "growth" ? "Growth" : "Launch";
   const isBrandKitDone = !!submittedAt;
   const isBrandKitActive = node?.key === "brand_kit" && !isBrandKitDone;
+  const hasJourneyProject = projectTypes.includes("automation_build");
+  const heroEyebrow = hasJourneyProject ? `${tierLabel} Journey` : "Your Project";
 
   return (
     <div className="crm-shell">
