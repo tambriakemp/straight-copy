@@ -54,7 +54,7 @@ const Schemas = z.discriminatedUnion("action", [
     action: z.literal("send"),
     clientId: z.string().uuid(),
     invoiceId: z.string().uuid(),
-    priceId: z.string().trim().min(3).max(80),
+    priceId: z.string().trim().min(3).max(80).optional(),
     dueDate: z.string().nullable().optional(),
   }),
   z.object({ action: z.literal("void"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
