@@ -58,21 +58,34 @@ async function verifySignature(
     ['sign']
   )
   const sigBytes = await crypto.subtle.sign('HMAC', key, enc.encode(rawBody))
-  const expected = Array.from(new Uint8Array(sigBytes))
+  const bytes = new Uint8Array(sigBytes)
+  const expectedHex = Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
+  // base64
+  let bin = ''
+  for (const b of bytes) bin += String.fromCharCode(b)
+  const expectedB64 = btoa(bin)
+  const expectedB64Url = expectedB64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  const expectedAll = [expectedHex, expectedB64, expectedB64Url]
 
-  // SureCart header may be `t=...,v1=...` or just the hex digest. Try both.
+  // SureCart header may be `t=...,v1=...`, base64, or hex. Try all.
   const candidates: string[] = []
-  if (signatureHeader.includes('=')) {
+  if (signatureHeader.includes('=') && signatureHeader.includes(',')) {
     for (const part of signatureHeader.split(',')) {
       const [k, v] = part.trim().split('=')
       if (k && v && k.toLowerCase().startsWith('v')) candidates.push(v)
     }
-  } else {
-    candidates.push(signatureHeader.trim())
   }
-  return candidates.some((c) => timingSafeEqual(c, expected))
+  candidates.push(signatureHeader.trim())
+
+  const matched = candidates.some((c) => expectedAll.some((e) => timingSafeEqual(c, e)))
+  if (!matched) {
+    const h = signatureHeader.trim()
+    const preview = h.length > 8 ? `${h.slice(0, 4)}…${h.slice(-4)}` : '(short)'
+    console.warn(`SureCart sig mismatch. header_len=${h.length} preview=${preview}`)
+  }
+  return matched
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
