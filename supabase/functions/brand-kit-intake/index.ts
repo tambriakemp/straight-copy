@@ -237,6 +237,13 @@ Deno.serve(async (req) => {
         if (cand && !cand.revoked) onboardingInvite = { token: cand.token, completed: !!cand.completed_at };
       }
 
+      // What kinds of projects does this client have? Drives which portal sections render.
+      const { data: projectsRows } = await supabase
+        .from("client_projects")
+        .select("type")
+        .eq("client_id", clientId);
+      const projectTypes = Array.from(new Set((projectsRows ?? []).map((r: any) => r.type).filter(Boolean)));
+
       return new Response(
         JSON.stringify({
           client: portalData,
@@ -245,6 +252,7 @@ Deno.serve(async (req) => {
           submittedAt: row?.brand_kit_intake_submitted_at ?? null,
           accountAccess: row?.client_account_access ?? {},
           onboardingInvite,
+          projectTypes,
           subscription: {
             id: row?.surecart_subscription_id ?? null,
             status: row?.subscription_status ?? null,

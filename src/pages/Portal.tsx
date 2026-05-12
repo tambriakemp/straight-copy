@@ -89,6 +89,7 @@ export default function Portal() {
     current_period_end: null,
     cancel_at_period_end: false,
   });
+  const [projectTypes, setProjectTypes] = useState<string[]>([]);
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -136,6 +137,7 @@ export default function Portal() {
           cancel_at_period_end: !!data.subscription.cancel_at_period_end,
         });
       }
+      setProjectTypes(Array.isArray(data.projectTypes) ? data.projectTypes : []);
 
       // Rehydrate transcript: prefer localStorage if it has more turns
       const cached = lsKey ? localStorage.getItem(lsKey) : null;
@@ -356,6 +358,8 @@ export default function Portal() {
   const tierLabel = client.tier === "growth" ? "Growth" : "Launch";
   const isBrandKitDone = !!submittedAt;
   const isBrandKitActive = node?.key === "brand_kit" && !isBrandKitDone;
+  const hasJourneyProject = projectTypes.includes("automation_build");
+  const heroEyebrow = hasJourneyProject ? `${tierLabel} Journey` : "Your Project";
 
   return (
     <div className="crm-shell">
@@ -367,7 +371,7 @@ export default function Portal() {
             <div className="portal-header__wordmark">Cre8<span className="dot">·</span>Portal</div>
           </div>
           <div className="portal-header__right">
-            {node && (
+            {hasJourneyProject && node && (
               <span className="portal-chip">
                 Step {String(node.order_index + 1).padStart(2, "0")} of 10 · {node.label}
               </span>
@@ -378,7 +382,7 @@ export default function Portal() {
         <main className="portal-main">
           {/* Hero */}
           <section className="portal-hero">
-            <div className="portal-hero__eyebrow">{tierLabel} Journey</div>
+            <div className="portal-hero__eyebrow">{heroEyebrow}</div>
             <h1 className="portal-hero__title">
               {businessName.split(" ").slice(0, -1).join(" ") || businessName}{" "}
               {businessName.split(" ").length > 1 && (
@@ -442,13 +446,15 @@ export default function Portal() {
             </section>
           )}
 
-          {/* Contract — sign your service agreement */}
-          <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
-            <ContractSection
-              clientId={clientId!}
-              contactName={client.contact_name}
-            />
-          </div>
+          {/* Contract — only render for clients with a launch/growth journey project */}
+          {hasJourneyProject && (
+            <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
+              <ContractSection
+                clientId={clientId!}
+                contactName={client.contact_name}
+              />
+            </div>
+          )}
 
           {/* App Development proposals — render only if any exist */}
           <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
@@ -460,33 +466,37 @@ export default function Portal() {
             <InvoiceSection clientId={clientId!} />
           </div>
 
-          {/* Brand Voice intake chat — collapsible accordion */}
-          {!!onboardingInvite && (
+          {/* Brand Voice intake chat — only for journey clients */}
+          {hasJourneyProject && !!onboardingInvite && (
             <BrandVoiceAccordion
               token={onboardingInvite.token}
               completed={onboardingInvite.completed}
             />
           )}
 
-          {/* Account Access — always available, collapsible */}
-          <AccountAccessSection
-            clientId={clientId!}
-            tier={client.tier}
-            initial={accountAccess}
-          />
-
-          {/* Subscription — manage plan / cancel / resume */}
-          <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
-            <SubscriptionSection
+          {/* Account Access — only for journey clients */}
+          {hasJourneyProject && (
+            <AccountAccessSection
               clientId={clientId!}
               tier={client.tier}
-              initial={subscription}
+              initial={accountAccess}
             />
-          </div>
+          )}
+
+          {/* Subscription — only for journey clients */}
+          {hasJourneyProject && (
+            <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
+              <SubscriptionSection
+                clientId={clientId!}
+                tier={client.tier}
+                initial={subscription}
+              />
+            </div>
+          )}
 
           {/* Body — only render Brand Kit chat / confirmation. Other nodes are
               communicated via the header chip; no redundant placeholder card. */}
-          {(isBrandKitDone || isBrandKitActive) && (
+          {hasJourneyProject && (isBrandKitDone || isBrandKitActive) && (
             <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
               {isBrandKitDone ? (
                 <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
