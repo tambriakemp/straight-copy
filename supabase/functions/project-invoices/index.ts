@@ -260,6 +260,28 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (input.action === "payment-link") {
+      const { data: row, error } = await supabase.from("project_invoices").select(COLS)
+        .eq("id", input.invoiceId).eq("client_id", input.clientId).maybeSingle();
+      if (error) throw error;
+      if (!row) return respond({ error: "Invoice not found" }, 404);
+      if (!row.surecart_invoice_id) return respond({ checkoutUrl: row.checkout_url ?? null });
+
+      const currentInvoice = await surecart(`/invoices/${row.surecart_invoice_id}`, { method: "GET" });
+      const payableInvoice = currentInvoice.status === "draft"
+        ? await surecart(`/invoices/${row.surecart_invoice_id}/open`, { method: "PATCH" })
+        : currentInvoice;
+      const payUrl = payableInvoice.portal_url || row.checkout_url || null;
+      const checkoutId = checkoutIdFrom(payableInvoice.checkout) || row.surecart_checkout_id;
+      const { error: upErr } = await supabase.from("project_invoices").update({
+        status: payableInvoice.status === "void" ? "void" : row.status,
+        surecart_checkout_id: checkoutId,
+        checkout_url: payUrl,
+      }).eq("id", row.id);
+      if (upErr) throw upErr;
+      return respond({ checkoutUrl: payUrl, invoiceId: payableInvoice.id || row.surecart_invoice_id });
+    }
+
     if (input.action === "void") {
       const { data: row } = await supabase.from("project_invoices")
         .select("id, status").eq("id", input.invoiceId).eq("client_id", input.clientId).maybeSingle();
