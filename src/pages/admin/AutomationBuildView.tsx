@@ -87,86 +87,6 @@ interface Client {
   onboarding_submission_id?: string | null;
 }
 
-// ---------- S-curve geometry ----------
-function buildSCurve(w: number, h: number, count: number, intensity = 0.7) {
-  const padX = 130;
-  const padTop = 130;
-  const padBot = 170;
-  const innerW = Math.max(200, w - padX * 2);
-  const innerH = Math.max(260, h - padTop - padBot);
-
-  const spread = 0.5 * intensity;
-  const bandY = [
-    padTop + innerH * (0.5 - spread),
-    padTop + innerH * 0.5,
-    padTop + innerH * (0.5 + spread),
-  ];
-
-  const perBand = [
-    Math.ceil(count / 3),
-    Math.ceil((count - Math.ceil(count / 3)) / 2),
-  ];
-  perBand.push(count - perBand[0] - perBand[1]);
-
-  const nodes: { x: number; y: number; index: number }[] = [];
-  let idx = 0;
-  for (let b = 0; b < 3; b++) {
-    const n = perBand[b];
-    const leftToRight = b % 2 === 0;
-    for (let i = 0; i < n; i++) {
-      const t = n === 1 ? 0.5 : i / (n - 1);
-      const x = leftToRight ? padX + t * innerW : padX + (1 - t) * innerW;
-      nodes.push({ x, y: bandY[b], index: idx });
-      idx++;
-    }
-  }
-
-  if (nodes.length === 0) return { nodes, d: "" };
-
-  let d = `M ${nodes[0].x} ${nodes[0].y}`;
-  for (let i = 1; i < nodes.length; i++) {
-    const p0 = nodes[i - 1];
-    const p1 = nodes[i];
-    const sameBand = Math.abs(p0.y - p1.y) < 2;
-    if (sameBand) {
-      const midX = (p0.x + p1.x) / 2;
-      const bow = (p1.x - p0.x) * 0.02;
-      d += ` C ${midX} ${p0.y + bow}, ${midX} ${p1.y + bow}, ${p1.x} ${p1.y}`;
-    } else {
-      const dx = p1.x - p0.x;
-      const cx1 = p0.x + dx * 0.5;
-      const cy1 = p0.y;
-      const cx2 = p1.x - dx * 0.5;
-      const cy2 = p1.y;
-      d += ` C ${cx1} ${cy1}, ${cx2} ${cy2}, ${p1.x} ${p1.y}`;
-    }
-  }
-  return { nodes, d };
-}
-
-function buildPartial(nodes: { x: number; y: number }[], k: number) {
-  if (k < 0 || nodes.length === 0) return "";
-  let d = `M ${nodes[0].x} ${nodes[0].y}`;
-  for (let i = 1; i <= k; i++) {
-    const p0 = nodes[i - 1];
-    const p1 = nodes[i];
-    const sameBand = Math.abs(p0.y - p1.y) < 2;
-    if (sameBand) {
-      const midX = (p0.x + p1.x) / 2;
-      const bow = (p1.x - p0.x) * 0.02;
-      d += ` C ${midX} ${p0.y + bow}, ${midX} ${p1.y + bow}, ${p1.x} ${p1.y}`;
-    } else {
-      const dx = p1.x - p0.x;
-      const cx1 = p0.x + dx * 0.5;
-      const cy1 = p0.y;
-      const cx2 = p1.x - dx * 0.5;
-      const cy2 = p1.y;
-      d += ` C ${cx1} ${cy1}, ${cx2} ${cy2}, ${p1.x} ${p1.y}`;
-    }
-  }
-  return d;
-}
-
 // ---------- Page ----------
 export default function AutomationBuildView() {
   const { id } = useParams<{ id: string }>();
@@ -174,7 +94,16 @@ export default function AutomationBuildView() {
   const [client, setClient] = useState<Client | null>(null);
   const [nodes, setNodes] = useState<JourneyNode[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openNodeId, setOpenNodeId] = useState<string | null>(null);
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const didInitOpen = useRef(false);
+  const toggleNode = useCallback((nodeId: string) => {
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  }, []);
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     business_name: "",
@@ -236,23 +165,6 @@ export default function AutomationBuildView() {
   };
 
 
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ w: 1200, h: 700 });
-
-  useEffect(() => {
-    if (!wrapRef.current) return;
-    const el = wrapRef.current;
-    const ro = new ResizeObserver((entries) => {
-      for (const e of entries) {
-        const { width, height } = e.contentRect;
-        setSize({ w: Math.max(640, width), h: Math.max(420, height) });
-      }
-    });
-    ro.observe(el);
-    const r = el.getBoundingClientRect();
-    setSize({ w: Math.max(640, r.width), h: Math.max(420, r.height) });
-    return () => ro.disconnect();
-  }, [loading]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -322,9 +234,8 @@ export default function AutomationBuildView() {
     if (error) toast.error(error.message);
   };
 
-  const { svgNodes, fullPath, progressPath, currentIdx, completedCount, total, pct } = useMemo(() => {
+  const { currentIdx, completedCount, total, pct } = useMemo(() => {
     const total = nodes.length;
-    const { nodes: pts, d } = buildSCurve(size.w, size.h, total);
     const inProgIdx = nodes.findIndex((n) => n.status === "in_progress");
     const lastCompleteIdx = (() => {
       for (let i = nodes.length - 1; i >= 0; i--) {
@@ -334,27 +245,10 @@ export default function AutomationBuildView() {
     })();
     const allComplete = total > 0 && nodes.every((n) => n.status === "complete");
     const currentIdx = inProgIdx >= 0 ? inProgIdx : Math.min(total - 1, lastCompleteIdx + 1);
-    const completedIdx = allComplete ? total - 1 : lastCompleteIdx;
-    const progressPath = buildPartial(pts, completedIdx);
     const completedCount = allComplete ? total : Math.max(0, lastCompleteIdx + 1);
     const pct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
-    return { svgNodes: pts, fullPath: d, progressPath, currentIdx, completedCount, total, pct };
-  }, [nodes, size]);
-
-  const nodeSize = useMemo(() => {
-    if (svgNodes.length < 2) return 18;
-    let minD = Infinity;
-    for (let i = 0; i < svgNodes.length; i++) {
-      for (let j = i + 1; j < svgNodes.length; j++) {
-        const dx = svgNodes[i].x - svgNodes[j].x;
-        const dy = svgNodes[i].y - svgNodes[j].y;
-        const dist = Math.hypot(dx, dy);
-        if (dist < minD) minD = dist;
-      }
-    }
-    const max = Math.min(22, (minD / 2) * 0.55);
-    return Math.max(12, max);
-  }, [svgNodes]);
+    return { currentIdx, completedCount, total, pct };
+  }, [nodes]);
 
   const stateFor = (i: number): "complete" | "current" | "blocked" | "upcoming" => {
     const n = nodes[i];
@@ -368,8 +262,15 @@ export default function AutomationBuildView() {
   const ringC = 2 * Math.PI * 18;
   const ringOffset = ringC * (1 - pct / 100);
 
-  const openNode = nodes.find((n) => n.id === openNodeId) || null;
-  const openNodeIndex = openNode ? nodes.findIndex((n) => n.id === openNode.id) : -1;
+  // Auto-open the first in-progress (or first non-complete) node once nodes load.
+  useEffect(() => {
+    if (didInitOpen.current || nodes.length === 0) return;
+    const target =
+      nodes.find((n) => n.status === "in_progress") ??
+      nodes.find((n) => n.status !== "complete");
+    if (target) setOpenIds(new Set([target.id]));
+    didInitOpen.current = true;
+  }, [nodes]);
 
   if (loading || !client) {
     return (
@@ -549,77 +450,32 @@ export default function AutomationBuildView() {
           </div>
         </div>
 
-        <div className="canvas" ref={wrapRef}>
-          <div className="canvas__grid" />
-          <div className="canvas__ghost">Cre8</div>
-
-          {total > 0 && (
-            <svg className="canvas__svg" viewBox={`0 0 ${size.w} ${size.h}`} preserveAspectRatio="xMidYMid meet">
-              <path className="journey-path-bg" d={fullPath} />
-              <path className="journey-path-drift" d={fullPath} />
-              {progressPath && <path className="journey-path-progress" d={progressPath} />}
-
-              {svgNodes.map((p, i) => {
-                const node = nodes[i];
-                const state = stateFor(i);
-                const num = String(i + 1).padStart(2, "0");
-                return (
-                  <g
-                    key={node.id}
-                    className={`node node--${state}`}
-                    transform={`translate(${p.x}, ${p.y}) rotate(45)`}
-                    onClick={() => setOpenNodeId(node.id)}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    {state === "current" && (
-                      <rect
-                        className="node__halo"
-                        x={-nodeSize - 8} y={-nodeSize - 8}
-                        width={(nodeSize + 8) * 2} height={(nodeSize + 8) * 2}
-                      />
-                    )}
-                    <rect
-                      className="node__frame"
-                      x={-nodeSize} y={-nodeSize}
-                      width={nodeSize * 2} height={nodeSize * 2}
-                    />
-                    <g transform="rotate(-45)">
-                      <text className="node__num" y="1">{num}</text>
-                    </g>
-                    <g transform="rotate(-45)">
-                      <text className="node__label" y={nodeSize + 26}>{node.label}</text>
-                    </g>
-                  </g>
-                );
-              })}
-            </svg>
-          )}
-
-          <div className="canvas__legend">
-            <span className="canvas__legend-item"><span className="canvas__legend-swatch canvas__legend-swatch--complete" /> Complete</span>
-            <span className="canvas__legend-item"><span className="canvas__legend-swatch canvas__legend-swatch--current" /> In Progress</span>
-            <span className="canvas__legend-item"><span className="canvas__legend-swatch" /> Upcoming</span>
+        <div className="crm-shell">
+          <div className="journey-cards">
+            {nodes.map((n, i) => (
+              <JourneyNodeCard
+                key={n.id}
+                client={client}
+                node={n}
+                index={i}
+                total={total}
+                state={stateFor(i)}
+                open={openIds.has(n.id)}
+                onToggle={() => toggleNode(n.id)}
+                onUpdate={(patch) => updateNode(n.id, patch)}
+                onReload={load}
+              />
+            ))}
+            {nodes.length === 0 && (
+              <div className="journey-cards__empty">No journey stages yet.</div>
+            )}
           </div>
-          <div className="canvas__hint">Click any deliverable to update its status and notes.</div>
         </div>
 
         <AdminContractSection clientId={client.id} />
 
         <HeyGenKeyPanel client={client} />
       </div>
-
-      {openNode && (
-        <StageModal
-          client={client}
-          node={openNode}
-          index={openNodeIndex}
-          total={total}
-          onClose={() => setOpenNodeId(null)}
-          onUpdate={(patch) => updateNode(openNode.id, patch)}
-          onReload={load}
-        />
-      )}
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-[480px]">
@@ -711,14 +567,16 @@ export default function AutomationBuildView() {
 }
 
 // ---------- Stage modal ----------
-function StageModal({
-  client, node, index, total, onClose, onUpdate, onReload,
+function JourneyNodeCard({
+  client, node, index, total, state, open, onToggle, onUpdate, onReload,
 }: {
   client: Client;
   node: JourneyNode;
   index: number;
   total: number;
-  onClose: () => void;
+  state: "complete" | "current" | "blocked" | "upcoming";
+  open: boolean;
+  onToggle: () => void;
   onUpdate: (patch: Partial<JourneyNode>) => void;
   onReload: () => void;
 }) {
@@ -732,24 +590,12 @@ function StageModal({
     setAssetUrl(node.asset_url || "");
   }, [node.id]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  // Email tracking is handled by a scheduled `poll-email-status` cron job —
-  // no per-open API calls. The Intake panel renders cached state and exposes
-  // a manual "Refresh" button if the admin needs an immediate check.
-
-
   const dbToModalStatus = (s: NodeStatus): ModalStatus =>
     s === "complete" ? "complete" : s === "in_progress" ? "inprog" : "notstarted";
   const modalToDbStatus = (s: ModalStatus): NodeStatus =>
     s === "complete" ? "complete" : s === "inprog" || s === "blocked" ? "in_progress" : "pending";
 
   const status: ModalStatus = dbToModalStatus(node.status);
-
   const setStatus = (s: ModalStatus) => onUpdate({ status: modalToDbStatus(s) });
 
   const statusPill =
@@ -758,7 +604,6 @@ function StageModal({
     : status === "blocked" ? { label: "Blocked", cls: "crm-pill--blocked" }
     : { label: "Not Started", cls: "" };
 
-  // Title: split last word for italic accent
   const words = (node.label || "").split(" ");
   const titleHead = words.slice(0, -1).join(" ");
   const titleTail = words.slice(-1)[0] || "";
@@ -774,193 +619,153 @@ function StageModal({
   };
 
   return (
-    <div className="crm-shell">
-      <div className="crm-modal-backdrop" onClick={onClose}>
-        <div className="crm-modal" onClick={(e) => e.stopPropagation()}>
-          <button className="crm-modal__close" onClick={onClose} aria-label="Close">✕</button>
-
-          {/* LEFT */}
-          <div className="crm-modal__left">
-            <div className="crm-modal__stage-num">
-              Stage <em>{String(index + 1).padStart(2, "0")}</em> &nbsp;·&nbsp; of {String(total).padStart(2, "0")}
-            </div>
-            <div className="crm-modal__eyebrow">
-              {client.business_name || "Client"} — {client.tier === "growth" ? "Growth" : "Launch"} Journey
-            </div>
-            <h2 className="crm-modal__title">
-              {titleHead && <>{titleHead} </>}
-              <em>{titleTail}</em>.
-            </h2>
-            <hr className="crm-modal__rule" />
-            <p className="crm-modal__desc">
-              {status === "complete"
-                ? "This deliverable is complete. Review the notes and any linked assets below."
-                : status === "inprog"
-                ? "Currently in progress. Track tasks and attach working files as you go."
-                : "Not started yet. Use status, notes, and attachments to move it forward."}
-            </p>
-
-            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 32, flexWrap: "wrap" }}>
-              <span className={`crm-pill ${statusPill.cls}`}>● {statusPill.label}</span>
-            </div>
-
-            <div className="crm-modal__meta">
-              <div className="crm-modal__meta-item">
-                <span className="lbl">Client</span>
-                <div className="crm-modal__owner">
-                  <span className="crm-owner-avatar">
-                    {(client.business_name || "C").slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="val val--sm">{client.business_name || "—"}</span>
-                </div>
-              </div>
-              <div className="crm-modal__meta-item">
-                <span className="lbl">Tier</span>
-                <span className="val">{client.tier === "growth" ? "Growth" : "Launch"}</span>
-              </div>
-              <div className="crm-modal__meta-item">
-                <span className="lbl">Started</span>
-                <span className="val">
-                  {node.started_at ? format(new Date(node.started_at), "MMM d, yyyy") : "—"}
-                </span>
-              </div>
-              <div className="crm-modal__meta-item">
-                <span className="lbl">Completed</span>
-                <span
-                  className="val"
-                  style={{ color: node.completed_at ? "hsl(40 20% 97%)" : "hsl(30 8% 62%)" }}
-                >
-                  {node.completed_at ? format(new Date(node.completed_at), "MMM d, yyyy") : "—"}
-                </span>
-              </div>
-            </div>
-
-            <div style={{ marginTop: "auto", paddingTop: 48, display: "flex", gap: 12 }}>
-              <button className="crm-btn crm-btn--ghost" onClick={onClose}>← Back to Journey</button>
-            </div>
+    <div className={`journey-card journey-card--${state} ${open ? "journey-card--open" : ""}`}>
+      <button
+        type="button"
+        className="journey-card__header"
+        onClick={onToggle}
+        aria-expanded={open}
+      >
+        <div className="journey-card__head-main">
+          <div className="journey-card__eyebrow">
+            Stage {String(index + 1).padStart(2, "0")} <span className="sep">·</span> of {String(total).padStart(2, "0")}
           </div>
-
-          {/* RIGHT */}
-          <div className="crm-modal__right">
-            <section>
-              <div className="crm-modal__section-head">
-                <div className="crm-modal__section-title">Status</div>
-              </div>
-              <div className="crm-status-seg">
-                <button
-                  className={`crm-status-seg__btn ${status === "notstarted" ? "crm-status-seg__btn--active" : ""}`}
-                  onClick={() => setStatus("notstarted")}
-                >Not Started</button>
-                <button
-                  className={`crm-status-seg__btn crm-status-seg__btn--inprog ${status === "inprog" ? "crm-status-seg__btn--active" : ""}`}
-                  onClick={() => setStatus("inprog")}
-                >In Progress</button>
-                <button
-                  className={`crm-status-seg__btn crm-status-seg__btn--blocked ${status === "blocked" ? "crm-status-seg__btn--active" : ""}`}
-                  onClick={() => setStatus("blocked")}
-                >Blocked</button>
-                <button
-                  className={`crm-status-seg__btn crm-status-seg__btn--complete ${status === "complete" ? "crm-status-seg__btn--active" : ""}`}
-                  onClick={() => setStatus("complete")}
-                >Complete</button>
-              </div>
-            </section>
-
-            <NodeChecklist node={node} onUpdate={onUpdate} />
-
-            {node.key === "brand_voice" && (
-              <BrandVoicePanel client={client} onReload={onReload} />
-            )}
-
-            {node.key === "brand_kit" && (
-              <BrandKitPanel client={client} />
-            )}
-
-            {node.key === "intake" && (
-              <>
-                <OnboardingChatLinkPanel client={client} />
-                <EmailTrackingPanel client={client} onReload={onReload} />
-                <BuildSchedulePanel client={client} onReload={onReload} />
-              </>
-            )}
-
-            {node.key === "delivery" && (
-              <ClientFieldEditor
-                client={client}
-                field="delivery_video_url"
-                title="Delivery Video"
-                label="Video URL"
-                placeholder="https://… (Loom, Vimeo, YouTube)"
-                helpText="Pasting a link here makes it visible to the client in their portal."
-                onReload={onReload}
-              />
-            )}
-
-            {node.key === "automation_02" && (
-              <ClientFieldEditor
-                client={client}
-                field="build_update_note"
-                title="Build Update Note"
-                label="Note for client"
-                placeholder="What should the client know about this update?"
-                helpText="Saved here and synced to SureContact. When this stage is marked complete, your SureContact automation can use this note in the email it sends the client."
-                multiline
-                onReload={onReload}
-              />
-            )}
-
-            <section>
-              <div className="crm-modal__section-head">
-                <div className="crm-modal__section-title">Linked Asset</div>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <input
-                  className="crm-input"
-                  placeholder="Asset label (e.g. Brand Voice doc)"
-                  value={assetLabel}
-                  onChange={(e) => setAssetLabel(e.target.value)}
-                  onBlur={saveAssetLabel}
-                />
-                <input
-                  className="crm-input"
-                  placeholder="https://…"
-                  value={assetUrl}
-                  onChange={(e) => setAssetUrl(e.target.value)}
-                  onBlur={saveAssetUrl}
-                />
-                {node.asset_url && (
-                  <a
-                    href={node.asset_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="crm-attach"
-                  >
-                    <span className="crm-attach__icon">URL</span>
-                    <div className="crm-attach__info">
-                      <span className="crm-attach__name">{node.asset_label || node.asset_url}</span>
-                      <span className="crm-attach__meta">External link</span>
-                    </div>
-                    <span className="crm-attach__action">Open →</span>
-                  </a>
-                )}
-              </div>
-            </section>
-
-            <section>
-              <div className="crm-modal__section-head">
-                <div className="crm-modal__section-title">Internal Notes</div>
-              </div>
-              <textarea
-                className="crm-notes-area"
-                placeholder="Notes only visible to the Cre8 team..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                onBlur={saveNotes}
-              />
-            </section>
+          <h3 className="journey-card__title">
+            {titleHead && <>{titleHead} </>}
+            <em>{titleTail}</em>
+          </h3>
+          <div className="journey-card__sub">
+            <span>Started: {node.started_at ? format(new Date(node.started_at), "MMM d, yyyy") : "—"}</span>
+            <span className="sep">·</span>
+            <span>Completed: {node.completed_at ? format(new Date(node.completed_at), "MMM d, yyyy") : "—"}</span>
           </div>
         </div>
-      </div>
+        <div className="journey-card__head-aside">
+          <span className={`crm-pill ${statusPill.cls}`}>● {statusPill.label}</span>
+          <span className={`journey-card__chevron ${open ? "is-open" : ""}`} aria-hidden="true">▾</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="journey-card__body">
+          <section>
+            <div className="crm-modal__section-head">
+              <div className="crm-modal__section-title">Status</div>
+            </div>
+            <div className="crm-status-seg">
+              <button
+                className={`crm-status-seg__btn ${status === "notstarted" ? "crm-status-seg__btn--active" : ""}`}
+                onClick={() => setStatus("notstarted")}
+              >Not Started</button>
+              <button
+                className={`crm-status-seg__btn crm-status-seg__btn--inprog ${status === "inprog" ? "crm-status-seg__btn--active" : ""}`}
+                onClick={() => setStatus("inprog")}
+              >In Progress</button>
+              <button
+                className={`crm-status-seg__btn crm-status-seg__btn--blocked ${status === "blocked" ? "crm-status-seg__btn--active" : ""}`}
+                onClick={() => setStatus("blocked")}
+              >Blocked</button>
+              <button
+                className={`crm-status-seg__btn crm-status-seg__btn--complete ${status === "complete" ? "crm-status-seg__btn--active" : ""}`}
+                onClick={() => setStatus("complete")}
+              >Complete</button>
+            </div>
+          </section>
+
+          <NodeChecklist node={node} onUpdate={onUpdate} />
+
+          {node.key === "brand_voice" && (
+            <BrandVoicePanel client={client} onReload={onReload} />
+          )}
+
+          {node.key === "brand_kit" && (
+            <BrandKitPanel client={client} />
+          )}
+
+          {node.key === "intake" && (
+            <>
+              <OnboardingChatLinkPanel client={client} />
+              <EmailTrackingPanel client={client} onReload={onReload} />
+              <BuildSchedulePanel client={client} onReload={onReload} />
+            </>
+          )}
+
+          {node.key === "delivery" && (
+            <ClientFieldEditor
+              client={client}
+              field="delivery_video_url"
+              title="Delivery Video"
+              label="Video URL"
+              placeholder="https://… (Loom, Vimeo, YouTube)"
+              helpText="Pasting a link here makes it visible to the client in their portal."
+              onReload={onReload}
+            />
+          )}
+
+          {node.key === "automation_02" && (
+            <ClientFieldEditor
+              client={client}
+              field="build_update_note"
+              title="Build Update Note"
+              label="Note for client"
+              placeholder="What should the client know about this update?"
+              helpText="Saved here and synced to SureContact. When this stage is marked complete, your SureContact automation can use this note in the email it sends the client."
+              multiline
+              onReload={onReload}
+            />
+          )}
+
+          <section>
+            <div className="crm-modal__section-head">
+              <div className="crm-modal__section-title">Linked Asset</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <input
+                className="crm-input"
+                placeholder="Asset label (e.g. Brand Voice doc)"
+                value={assetLabel}
+                onChange={(e) => setAssetLabel(e.target.value)}
+                onBlur={saveAssetLabel}
+              />
+              <input
+                className="crm-input"
+                placeholder="https://…"
+                value={assetUrl}
+                onChange={(e) => setAssetUrl(e.target.value)}
+                onBlur={saveAssetUrl}
+              />
+              {node.asset_url && (
+                <a
+                  href={node.asset_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="crm-attach"
+                >
+                  <span className="crm-attach__icon">URL</span>
+                  <div className="crm-attach__info">
+                    <span className="crm-attach__name">{node.asset_label || node.asset_url}</span>
+                    <span className="crm-attach__meta">External link</span>
+                  </div>
+                  <span className="crm-attach__action">Open →</span>
+                </a>
+              )}
+            </div>
+          </section>
+
+          <section>
+            <div className="crm-modal__section-head">
+              <div className="crm-modal__section-title">Internal Notes</div>
+            </div>
+            <textarea
+              className="crm-notes-area"
+              placeholder="Notes only visible to the Cre8 team..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              onBlur={saveNotes}
+            />
+          </section>
+        </div>
+      )}
     </div>
   );
 }
