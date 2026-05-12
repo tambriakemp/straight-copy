@@ -40,7 +40,6 @@ export default function ProjectInvoicesCard({
   const [editing, setEditing] = useState(false);
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
-  const [sendDialog, setSendDialog] = useState<{ inv: Invoice; priceId: string } | null>(null);
 
   const callFn = async (body: Record<string, unknown>) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -109,19 +108,18 @@ export default function ProjectInvoicesCard({
     }
   };
 
-  const sendInvoice = async (inv: Invoice, priceId: string) => {
-    if (!priceId.trim()) return toast.error("Enter SureCart Price ID");
+  const sendInvoice = async (inv: Invoice) => {
+    if (!confirm(`Send "${inv.label}" for ${fmtUSD(inv.amount_cents)} to the client via SureCart?`)) return;
     setBusy(inv.id);
     try {
       const r = await callFn({
-        action: "send", clientId, invoiceId: inv.id, priceId: priceId.trim(),
+        action: "send", clientId, invoiceId: inv.id,
         dueDate: inv.due_date,
       });
       toast.success("Invoice sent");
       if (r.checkoutUrl) {
         try { await navigator.clipboard.writeText(r.checkoutUrl); } catch { /* ignore */ }
       }
-      setSendDialog(null);
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Send failed");
@@ -224,7 +222,7 @@ export default function ProjectInvoicesCard({
                   {(inv.status === "scheduled" || inv.status === "failed") && (
                     <>
                       <button className="crm-btn crm-btn--primary crm-btn--sm" disabled={busy === inv.id}
-                        onClick={() => setSendDialog({ inv, priceId: "" })} title="Send via SureCart">
+                        onClick={() => sendInvoice(inv)} title="Send via SureCart">
                         <Send size={12} /> Send
                       </button>
                       <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => deleteInvoice(inv)} disabled={busy === inv.id} title="Delete">
@@ -284,37 +282,6 @@ export default function ProjectInvoicesCard({
           <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
             <button className="crm-btn crm-btn--ghost" onClick={() => setEditing(false)}>Cancel</button>
             <button className="crm-btn crm-btn--primary" onClick={saveSchedule}>Save schedule</button>
-          </div>
-        </div>
-      )}
-
-      {sendDialog && (
-        <div onClick={() => setSendDialog(null)} style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50,
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-        }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: "hsl(36 5% 16%)", border: "1px solid hsl(40 20% 97% / 0.08)",
-            padding: 24, maxWidth: 460, width: "100%", color: "hsl(40 20% 97%)",
-          }}>
-            <h3 style={{ fontFamily: "var(--crm-font-serif)", fontSize: 22, fontStyle: "italic", margin: 0, marginBottom: 8 }}>
-              Send "{sendDialog.inv.label}"
-            </h3>
-            <p style={{ color: "var(--crm-taupe)", fontSize: 13, marginBottom: 16 }}>
-              Paste the SureCart <strong>Price ID</strong> for this milestone amount ({fmtUSD(sendDialog.inv.amount_cents)}).
-              Create the price in SureCart first if you don't have one. SureCart will email the client a hosted invoice.
-            </p>
-            <label className="crm-label">SureCart Price ID</label>
-            <input className="crm-input" placeholder="price_xxx" value={sendDialog.priceId}
-              onChange={e => setSendDialog(d => d ? { ...d, priceId: e.target.value } : null)}
-              autoFocus />
-            <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
-              <button className="crm-btn crm-btn--ghost" onClick={() => setSendDialog(null)} disabled={busy === sendDialog.inv.id}>Cancel</button>
-              <button className="crm-btn crm-btn--primary" disabled={busy === sendDialog.inv.id}
-                onClick={() => sendInvoice(sendDialog.inv, sendDialog.priceId)}>
-                {busy === sendDialog.inv.id ? "Sending…" : "Send invoice"}
-              </button>
-            </div>
           </div>
         </div>
       )}

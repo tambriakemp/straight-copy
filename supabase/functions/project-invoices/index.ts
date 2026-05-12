@@ -54,7 +54,7 @@ const Schemas = z.discriminatedUnion("action", [
     action: z.literal("send"),
     clientId: z.string().uuid(),
     invoiceId: z.string().uuid(),
-    priceId: z.string().trim().min(3).max(80),
+    priceId: z.string().trim().min(3).max(80).optional(),
     dueDate: z.string().nullable().optional(),
   }),
   z.object({ action: z.literal("void"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
@@ -177,9 +177,17 @@ Deno.serve(async (req) => {
       if (!client) return respond({ error: "Client not found" }, 404);
 
       try {
+        const priceId = input.priceId || Deno.env.get("SURECART_CUSTOM_PRICE_ID");
+        if (!priceId) {
+          return respond({ error: "SURECART_CUSTOM_PRICE_ID not configured" }, 500);
+        }
         const checkoutBody: any = {
           checkout: {
-            line_items: [{ price: input.priceId, quantity: 1 }],
+            line_items: [{
+              price: priceId,
+              quantity: 1,
+              ad_hoc_amount: row.amount_cents,
+            }],
             metadata: {
               project_invoice_id: row.id,
               client_id: client.id,
