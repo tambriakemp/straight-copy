@@ -375,6 +375,75 @@ export type Database = {
           },
         ]
       }
+      client_proposals: {
+        Row: {
+          agency_countersigned_at: string | null
+          agency_signer_name: string
+          client_audit: Json | null
+          client_id: string
+          client_ip: string | null
+          client_project_id: string
+          client_signature_data: string | null
+          client_signature_name: string | null
+          client_signature_type: string | null
+          client_signed_at: string | null
+          client_user_agent: string | null
+          created_at: string
+          description: string | null
+          id: string
+          pdf_generated_at: string | null
+          signed_pdf_path: string | null
+          source_pdf_path: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agency_countersigned_at?: string | null
+          agency_signer_name?: string
+          client_audit?: Json | null
+          client_id: string
+          client_ip?: string | null
+          client_project_id: string
+          client_signature_data?: string | null
+          client_signature_name?: string | null
+          client_signature_type?: string | null
+          client_signed_at?: string | null
+          client_user_agent?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          pdf_generated_at?: string | null
+          signed_pdf_path?: string | null
+          source_pdf_path: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agency_countersigned_at?: string | null
+          agency_signer_name?: string
+          client_audit?: Json | null
+          client_id?: string
+          client_ip?: string | null
+          client_project_id?: string
+          client_signature_data?: string | null
+          client_signature_name?: string | null
+          client_signature_type?: string | null
+          client_signed_at?: string | null
+          client_user_agent?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          pdf_generated_at?: string | null
+          signed_pdf_path?: string | null
+          source_pdf_path?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           archived: boolean
