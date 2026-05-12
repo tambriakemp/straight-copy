@@ -40,7 +40,6 @@ export default function ProjectInvoicesCard({
   const [editing, setEditing] = useState(false);
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
-  const [sendDialog, setSendDialog] = useState<{ inv: Invoice; priceId: string } | null>(null);
 
   const callFn = async (body: Record<string, unknown>) => {
     const { data: { session } } = await supabase.auth.getSession();
