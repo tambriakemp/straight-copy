@@ -368,6 +368,8 @@ Deno.serve(async (req) => {
 
       return respond({ projects: byProject });
     }
+
+    return respond({ error: "Unknown action" }, 400);
   } catch (e) {
     console.error("[project-invoices] error:", e);
     return respond({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
