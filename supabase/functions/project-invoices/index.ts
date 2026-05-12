@@ -342,7 +342,32 @@ Deno.serve(async (req) => {
       return respond({ invoice: data?.[0] ?? null });
     }
 
-    return respond({ error: "Unknown action" }, 400);
+    if (input.action === "portal-schedule") {
+      // Return all non-deleted invoices for this client across their app development projects,
+      // grouped by project. Read-only — clients see status + paylink only.
+      const { data: projects } = await supabase
+        .from("client_projects")
+        .select("id, name, type")
+        .eq("client_id", input.clientId)
+        .eq("type", "app_development");
+      const projectIds = (projects ?? []).map((p: any) => p.id);
+      if (!projectIds.length) return respond({ projects: [] });
+
+      const { data: invoices, error } = await supabase
+        .from("project_invoices")
+        .select("id, client_project_id, sequence, label, amount_cents, currency, due_date, status, checkout_url, sent_at, paid_at")
+        .in("client_project_id", projectIds)
+        .order("sequence", { ascending: true });
+      if (error) throw error;
+
+      const byProject = (projects ?? []).map((p: any) => ({
+        projectId: p.id,
+        projectName: p.name,
+        invoices: (invoices ?? []).filter((i: any) => i.client_project_id === p.id),
+      })).filter((p) => p.invoices.length > 0);
+
+      return respond({ projects: byProject });
+    }
   } catch (e) {
     console.error("[project-invoices] error:", e);
     return respond({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
