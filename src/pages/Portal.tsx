@@ -137,6 +137,7 @@ export default function Portal() {
           cancel_at_period_end: !!data.subscription.cancel_at_period_end,
         });
       }
+      setProjectTypes(Array.isArray(data.projectTypes) ? data.projectTypes : []);
 
       // Rehydrate transcript: prefer localStorage if it has more turns
       const cached = lsKey ? localStorage.getItem(lsKey) : null;
