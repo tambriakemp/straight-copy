@@ -225,7 +225,7 @@ export default function ProjectInvoicesCard({
                     <>
                       <button className="crm-btn crm-btn--primary crm-btn--sm" disabled={busy === inv.id}
                         onClick={() => sendInvoice(inv)} title="Send via SureCart">
-                        <Send size={12} /> Send
+                        <Send size={12} /> {busy === inv.id ? "Sending…" : "Send"}
                       </button>
                       <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => deleteInvoice(inv)} disabled={busy === inv.id} title="Delete">
                         <Trash2 size={12} />
