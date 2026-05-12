@@ -382,7 +382,7 @@ export default function Portal() {
         <main className="portal-main">
           {/* Hero */}
           <section className="portal-hero">
-            <div className="portal-hero__eyebrow">{tierLabel} Journey</div>
+            <div className="portal-hero__eyebrow">{heroEyebrow}</div>
             <h1 className="portal-hero__title">
               {businessName.split(" ").slice(0, -1).join(" ") || businessName}{" "}
               {businessName.split(" ").length > 1 && (
