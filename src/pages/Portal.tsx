@@ -455,6 +455,11 @@ export default function Portal() {
             <ProposalsSection clientId={clientId!} contactName={client.contact_name} />
           </div>
 
+          {/* App Development active invoice — current only */}
+          <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
+            <InvoiceSection clientId={clientId!} />
+          </div>
+
           {/* Brand Voice intake chat — collapsible accordion */}
           {!!onboardingInvite && (
             <BrandVoiceAccordion
