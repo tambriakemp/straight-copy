@@ -1,85 +1,102 @@
-## Context
+## Goal
 
-SureContact's **public API does not have** a "list email templates" or a "send template to contact" endpoint. The only way to trigger a templated email to a single contact via API is through **Automations**:
+New project type **App Development**. Admin uploads a proposal/contract PDF on the project page. Client sees it in the portal, signs (typed or drawn), and a countersigned signed PDF is produced and shown in both portal and admin. Multiple proposals per project (revisions, change orders) are supported, each independently signable.
 
-- `GET /api/v1/public/automations` — list all automations in the workspace (this is the closest thing to "list templates" — each kickoff/welcome/etc. email lives inside an automation in SureContact)
-- `POST /api/v1/public/contacts/{contact_uuid}/automations/{automation_uuid}/start` — manually enroll a contact into an active automation
+## Scope
 
-So the migration path is: **replace the incoming-webhook fire with a "start automation" API call**, using a kickoff-specific automation UUID stored as a secret.
+- New `client_projects.type = 'app_development'`
+- Admin upload + manage proposals on the project page
+- Portal section listing all proposals for the client's app dev projects, with sign flow
+- Stamped signed PDF (signature + audit block on a final page) using `pdf-lib`, mirroring the existing `contract-sign` flow
+- Storage in existing `client-assets` bucket
+- Reserve a journey/checklist scaffold (empty `journey_templates` rows for `tier='app_development'`) for future stages
+- No emails, no payments, no other workflow changes
 
-## Currently webhook-triggered (in this codebase)
+## Data model
 
-Searching the repo for `incoming-webhooks` / `surecontact.com/incoming-webhooks` shows **only one** SureContact incoming-webhook fire:
+New table `client_proposals`:
 
-- `supabase/functions/trigger-kickoff-webhook/index.ts` → kickoff confirmation
+- `id`, `client_id`, `client_project_id`
+- `title`, `description` (optional)
+- `source_pdf_path` (storage path of admin upload)
+- `status`: `draft` | `sent` | `signed` | `voided`
+- `client_signature_name`, `client_signature_type` (`typed`|`drawn`), `client_signature_data` (drawn data URL)
+- `client_signed_at`, `client_ip`, `client_user_agent`, `client_audit` (jsonb)
+- `agency_signer_name` (default `Tambria Kemp`), `agency_countersigned_at`
+- `signed_pdf_path` (output of stamping), `pdf_generated_at`
+- `created_at`, `updated_at`
 
-(All other transactional sends are already API-based — `submit-contact`, `sync-client-to-surecontact`, `send-transactional-email`, etc.)
+RLS: admins manage; service role full access (matches `client_contracts` pattern). Portal access goes through edge function with service role, scoped by `clientId`, same model as existing `contract-sign`.
 
-So "kickoff" is the only one to migrate right now.
+Add `journey_templates` rows for `tier='app_development'` with one placeholder node so the system can later render a journey for these projects (no behavior change today; admin UI hides the journey for now).
 
-## Plan
+## Storage
 
-### 1. Add a small admin tool to list available SureContact automations
+Reuse `client-assets` bucket:
+- Source upload: `proposals/{clientId}/{proposalId}/source.pdf`
+- Signed output: `proposals/{clientId}/{proposalId}/signed.pdf`
 
-So you can pick the kickoff automation UUID without leaving the app.
+Access via signed URLs minted by the edge function (matches contract pattern).
 
-- New edge function `list-surecontact-automations` (`verify_jwt = false`, gated by admin check via Supabase auth in the function — same pattern the other admin endpoints use):
-  - Calls `GET https://api.surecontact.com/api/v1/public/automations` with `X-API-Key: SURECONTACT_API_KEY`
-  - Returns `[{ uuid, name, status }, ...]`
-- Surface this in the existing admin UI as a small "SureContact Automations" panel inside `src/pages/admin/Profile.tsx` (or a new minimal `Integrations` section), with a copy-to-clipboard button on each UUID.
+## Edge function: `proposal-sign`
 
-### 2. Store the kickoff automation UUID as a secret
+Single function, action-routed (mirrors `contract-sign`):
 
-Add `SURECONTACT_KICKOFF_AUTOMATION_UUID` via the secrets tool. You'll paste the UUID after using the listing tool above.
+- `list` — admin or portal: returns proposals for a client (optionally filtered by project)
+- `upload-url` — admin: returns a short-lived signed upload URL for `source.pdf`
+- `create` — admin: after upload, inserts the `client_proposals` row with `source_pdf_path`, `title`
+- `get` — returns one proposal + signed URLs for source and (if present) signed PDF
+- `sign` — portal: validates payload, stamps signature + audit page onto source PDF using `pdf-lib`, writes `signed.pdf`, updates row to `status='signed'`
+- `void` / `delete` — admin: void unsigned proposals; signed proposals are immutable
+- `download` — admin/portal: returns signed URL for source or signed PDF
 
-### 3. Rewrite `trigger-kickoff-webhook` to use the Automation API
+PDF stamping reuses helpers from `supabase/functions/contract-sign/index.ts` (drawn signature embed, typed signature font, audit page renderer). Extract shared helpers into `supabase/functions/_shared/sign-pdf.ts` so both functions stay in sync.
 
-Keep the function name (so the DB trigger `fire_kickoff_webhook` and admin "re-fire" buttons keep working unchanged), but swap the body:
+## Admin UI
 
-1. Look up client (same as today) + gating + idempotency check on `clients.kickoff_webhook_fired_at`.
-2. **Upsert contact** in SureContact via the existing `upsertSureContact` shared helper — guarantees the contact exists and tags/custom fields are current. Capture the returned `contact_uuid` from the upsert response (SureContact returns the contact in the response).
-3. **Start automation**: `POST /api/v1/public/contacts/{contact_uuid}/automations/{SURECONTACT_KICKOFF_AUTOMATION_UUID}/start` with `X-API-Key`.
-4. On success:
-   - Stamp `clients.kickoff_webhook_fired_at = now()` (unchanged).
-   - Insert into `email_send_log`:
-     ```
-     template_name: 'kickoff-confirmation'
-     recipient_email: client.contact_email
-     status: 'api_triggered'   // (new status string, parallel to 'webhook_fired')
-     metadata: { client_id, automation_uuid, contact_uuid, surecontact_response }
-     ```
-   - Keep the existing `schedulePollRetries(...)` background polling so `intake.kickoff_confirmation_sent` still flips when SureContact records the actual send activity.
-5. On failure: log to `email_send_log` with `status: 'failed'`, return 502 with the SureContact error body — same shape as today, so the admin UI's existing error display keeps working.
+- `src/pages/admin/ClientDetail.tsx`: add `app_development` to project type select and `TYPE_LABEL`. New project tile renders a simplified card (no journey/stage block) showing proposal count + latest status.
+- `src/pages/admin/ProjectDetail.tsx`: route `app_development` to a new `AppDevelopmentView`.
+- New `src/pages/admin/AppDevelopmentView.tsx`:
+  - Header (project name, client link)
+  - "Proposals" panel listing each proposal: title, status pill, upload date, signed date, download buttons (source + signed)
+  - "Upload new proposal" action (drag-drop or file picker, title field)
+  - Per-row actions: copy portal link hint, void (if unsigned), download
 
-### 4. Update `_shared/surecontact.ts`
+## Portal UI
 
-Extract the contact UUID from SureContact's upsert response (it's in `data.contact.uuid` / `data.data.uuid` depending on shape — function will check both). Add a small helper `extractContactUuid(result)` so the kickoff function and any future automation-trigger functions can reuse it.
+- `src/pages/Portal.tsx`: add a `ProposalsSection` rendered for clients with any `app_development` project.
+- New `src/components/portal/ProposalsSection.tsx`:
+  - Lists all proposals (newest first), each as a collapsible card
+  - Unsigned: shows embedded PDF preview (iframe of signed source URL) + sign panel reused from `ContractSection` (typed/drawn modes, agreed checkbox, audit collection)
+  - Signed: shows signed metadata + download button for the signed PDF
 
-### 5. Leave alone (per your scope)
+Reuse the existing signature canvas + audit collection logic from `src/components/portal/ContractSection.tsx` by extracting it into `src/components/portal/SignaturePad.tsx` and `src/lib/sign-audit.ts`.
 
-- Welcome sequence (still tag-driven) — no change.
-- `sync-client-to-surecontact` stage tags — still written for segmentation; no automation trigger added.
-- Other transactional emails already going through the API.
+## Out of scope (can add later)
 
-## Technical notes
+- Email notifications on upload/sign
+- Journey/checklist behavior for app dev projects
+- Versioning relationships between proposals (parent/child)
+- Counter-signing UI for the agency (auto-stamped at sign time today)
 
-- SureContact requires the **automation to be in `active` status** or the start call returns 422 — surface that error message verbatim in the admin "re-fire" toast so you know to flip it on in SureContact.
-- The new `list-surecontact-automations` function reuses the existing `SURECONTACT_API_KEY` secret — no new secrets needed for the listing tool. Only the kickoff UUID secret is new.
-- DB trigger `fire_kickoff_webhook` and `auto_complete_journey_node` gating logic are unchanged — they still call the same edge function name, just with a new internal implementation.
-- Idempotency marker (`kickoff_webhook_fired_at`) keeps its current name; treat it as "kickoff API-triggered at" going forward — no migration needed.
+## Files (new / changed)
 
-## Files
+New:
+- `supabase/functions/proposal-sign/index.ts` (+ `deno.json`)
+- `supabase/functions/_shared/sign-pdf.ts` (extract from `contract-sign`)
+- `src/pages/admin/AppDevelopmentView.tsx`
+- `src/components/portal/ProposalsSection.tsx`
+- `src/components/portal/SignaturePad.tsx`
+- `src/lib/sign-audit.ts`
 
-- **New**: `supabase/functions/list-surecontact-automations/index.ts` (+ `deno.json`, + `config.toml` entry with `verify_jwt = false`)
-- **Edit**: `supabase/functions/trigger-kickoff-webhook/index.ts` — swap webhook fetch for upsert + start-automation calls
-- **Edit**: `supabase/functions/_shared/surecontact.ts` — add `extractContactUuid` helper
-- **Edit**: `src/pages/admin/Profile.tsx` (or new section) — list automations with copy-UUID buttons
-- **Secret request**: `SURECONTACT_KICKOFF_AUTOMATION_UUID`
+Changed:
+- `supabase/config.toml` (register new function)
+- `supabase/functions/contract-sign/index.ts` (use shared helpers)
+- `src/pages/admin/ClientDetail.tsx` (new type option, card variant)
+- `src/pages/admin/ProjectDetail.tsx` (route new type)
+- `src/pages/Portal.tsx` (mount ProposalsSection)
+- `src/components/portal/ContractSection.tsx` (use shared SignaturePad)
 
-## Order of operations after approval
-
-1. Build the listing function + admin UI panel and deploy.
-2. You open the panel, copy the kickoff automation UUID.
-3. I prompt you to add `SURECONTACT_KICKOFF_AUTOMATION_UUID` as a secret.
-4. Once the secret is in, I rewrite `trigger-kickoff-webhook` and deploy.
-5. Test on a client (the existing "Re-fire kickoff" admin action will exercise the new path).
+Migration:
+- Create `client_proposals` table + RLS policies
+- Insert placeholder `journey_templates` row for `tier='app_development'`

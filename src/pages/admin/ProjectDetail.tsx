@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import AutomationBuildView from "./AutomationBuildView";
 import PreviewDetail from "./PreviewDetail";
+import AppDevelopmentView from "./AppDevelopmentView";
 
 type ProjectRow = { id: string; client_id: string; type: string; name: string };
 
@@ -48,6 +49,9 @@ export default function ProjectDetail() {
   if (project.type === "site_preview") {
     if (!previewId) return <AdminLayout><div style={{ padding: 40 }}>No preview attached to this project yet.</div></AdminLayout>;
     return <PreviewDetail overrideId={previewId} backTo={`/admin/clients/${project.client_id}`} />;
+  }
+  if (project.type === "app_development") {
+    return <AppDevelopmentView />;
   }
   return <Navigate to={`/admin/clients/${project.client_id}`} replace />;
 }

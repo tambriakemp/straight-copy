@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
 import ContractSection from "@/components/portal/ContractSection";
+import ProposalsSection from "@/components/portal/ProposalsSection";
 import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -446,6 +447,11 @@ export default function Portal() {
               clientId={clientId!}
               contactName={client.contact_name}
             />
+          </div>
+
+          {/* App Development proposals — render only if any exist */}
+          <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
+            <ProposalsSection clientId={clientId!} contactName={client.contact_name} />
           </div>
 
           {/* Brand Voice intake chat — collapsible accordion */}

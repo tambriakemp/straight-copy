@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.preview-admin]
 verify_jwt = false
+
+[functions.proposal-sign]
+verify_jwt = false
