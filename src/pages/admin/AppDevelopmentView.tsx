@@ -7,6 +7,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
