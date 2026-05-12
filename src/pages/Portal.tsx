@@ -89,6 +89,7 @@ export default function Portal() {
     current_period_end: null,
     cancel_at_period_end: false,
   });
+  const [projectTypes, setProjectTypes] = useState<string[]>([]);
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
