@@ -450,24 +450,26 @@ export default function AutomationBuildView() {
           </div>
         </div>
 
-        <div className="journey-cards">
-          {nodes.map((n, i) => (
-            <JourneyNodeCard
-              key={n.id}
-              client={client}
-              node={n}
-              index={i}
-              total={total}
-              state={stateFor(i)}
-              open={openIds.has(n.id)}
-              onToggle={() => toggleNode(n.id)}
-              onUpdate={(patch) => updateNode(n.id, patch)}
-              onReload={load}
-            />
-          ))}
-          {nodes.length === 0 && (
-            <div className="journey-cards__empty">No journey stages yet.</div>
-          )}
+        <div className="crm-shell">
+          <div className="journey-cards">
+            {nodes.map((n, i) => (
+              <JourneyNodeCard
+                key={n.id}
+                client={client}
+                node={n}
+                index={i}
+                total={total}
+                state={stateFor(i)}
+                open={openIds.has(n.id)}
+                onToggle={() => toggleNode(n.id)}
+                onUpdate={(patch) => updateNode(n.id, patch)}
+                onReload={load}
+              />
+            ))}
+            {nodes.length === 0 && (
+              <div className="journey-cards__empty">No journey stages yet.</div>
+            )}
+          </div>
         </div>
 
         <AdminContractSection clientId={client.id} />
