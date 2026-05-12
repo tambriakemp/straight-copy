@@ -185,6 +185,52 @@ Deno.serve(async (req) => {
   const orderNumber: string | number =
     data?.number || data?.order_number || orderId
 
+  // ---- project_invoices match (paid event) ----
+  // SureCart fires order.paid / checkout.paid / invoice.paid; we look up the
+  // project_invoices row by either checkout id, invoice id, or order id and
+  // mark it paid. Idempotent on repeated events.
+  try {
+    const supabaseInv = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+    const checkoutId: string =
+      data?.checkout?.id || data?.checkout_id ||
+      (eventType.startsWith('checkout.') ? data?.id : '') || ''
+    const invoiceId: string =
+      data?.invoice?.id || data?.invoice_id ||
+      (eventType.startsWith('invoice.') ? data?.id : '') || ''
+    const ors: string[] = []
+    if (checkoutId) ors.push(`surecart_checkout_id.eq.${checkoutId}`)
+    if (invoiceId) ors.push(`surecart_invoice_id.eq.${invoiceId}`)
+    if (orderId) ors.push(`surecart_order_id.eq.${orderId}`)
+    if (ors.length) {
+      const { data: invRow } = await supabaseInv
+        .from('project_invoices')
+        .select('id, status')
+        .or(ors.join(','))
+        .maybeSingle()
+      if (invRow) {
+        if (invRow.status !== 'paid') {
+          await supabaseInv.from('project_invoices').update({
+            status: 'paid',
+            paid_at: new Date().toISOString(),
+            surecart_order_id: orderId || null,
+            surecart_checkout_id: checkoutId || undefined,
+            surecart_invoice_id: invoiceId || undefined,
+          }).eq('id', invRow.id)
+        }
+        return new Response(JSON.stringify({ ok: true, project_invoice_paid: invRow.id }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
+  } catch (e) {
+    console.error('project_invoices match error', e)
+  }
+
+
   // Customer
   const customer = data?.customer || data?.checkout?.customer || {}
   const email: string =
