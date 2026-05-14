@@ -695,3 +695,46 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
     </Wrap>
   );
 }
+
+function EditableTitle({ value, onSave }: { value: string; onSave: (next: string) => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setDraft(value); }, [value]);
+
+  const commit = async () => {
+    const next = draft.trim();
+    if (!next || next === value) { setEditing(false); setDraft(value); return; }
+    setSaving(true);
+    try { await onSave(next); setEditing(false); }
+    catch (e: any) { toast.error(e?.message || "Rename failed"); }
+    finally { setSaving(false); }
+  };
+
+  if (editing) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input
+          autoFocus
+          value={draft}
+          disabled={saving}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setEditing(false); setDraft(value); } }}
+          style={{ flex: 1, fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 32, lineHeight: 1.1, color: "var(--crm-warm-white)", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 6, padding: "4px 10px" }}
+        />
+        <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={commit} disabled={saving} title="Save"><Check size={14} /></button>
+        <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => { setEditing(false); setDraft(value); }} disabled={saving} title="Cancel"><X size={14} /></button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <h1 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 38, lineHeight: 1.1, color: "var(--crm-warm-white)", margin: 0 }}>
+        {value}
+      </h1>
+      <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setEditing(true)} title="Rename" style={{ padding: 6 }}>
+        <Pencil size={12} />
+      </button>
+    </div>
+  );
+}
