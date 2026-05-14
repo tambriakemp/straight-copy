@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, MonitorSmartphone, Plus, Copy, Check, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronRight, MonitorSmartphone, Plus, Copy, Check, ExternalLink, Pencil, X } from "lucide-react";
 import PreviewDetail from "@/pages/admin/PreviewDetail";
 
 type Props = {
@@ -87,6 +87,17 @@ export default function ProjectPreviewCard({ clientId, clientProjectId, projectN
         </span>
         {preview && (
           <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <PreviewNameInline
+              name={preview.name}
+              onSave={async (next) => {
+                const { data } = await supabase.functions.invoke("preview-admin", {
+                  body: { action: "update", id: preview.id, name: next },
+                });
+                if (data?.project) setPreview({ ...preview, name: data.project.name });
+                else await load();
+                toast.success("Renamed");
+              }}
+            />
             <code style={{ fontSize: 12, color: "var(--crm-taupe)", fontFamily: "monospace" }}>
               /p/{preview.slug.slice(0, 12)}…
             </code>
@@ -133,5 +144,47 @@ export default function ProjectPreviewCard({ clientId, clientProjectId, projectN
         </div>
       )}
     </div>
+  );
+}
+
+function PreviewNameInline({ name, onSave }: { name: string; onSave: (next: string) => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setDraft(name); }, [name]);
+
+  const commit = async (e?: React.SyntheticEvent) => {
+    e?.stopPropagation();
+    const next = draft.trim();
+    if (!next || next === name) { setEditing(false); setDraft(name); return; }
+    setSaving(true);
+    try { await onSave(next); setEditing(false); }
+    catch (err: any) { toast.error(err?.message || "Rename failed"); }
+    finally { setSaving(false); }
+  };
+
+  if (editing) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+        <input
+          autoFocus
+          value={draft}
+          disabled={saving}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") commit(e); if (e.key === "Escape") { setEditing(false); setDraft(name); } }}
+          style={{ fontSize: 13, color: "var(--crm-warm-white)", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 4, padding: "2px 6px", minWidth: 160 }}
+        />
+        <span role="button" className="crm-btn crm-btn--ghost crm-btn--sm" onClick={commit} title="Save"><Check size={12} /></span>
+        <span role="button" className="crm-btn crm-btn--ghost crm-btn--sm" onClick={(e) => { e.stopPropagation(); setEditing(false); setDraft(name); }} title="Cancel"><X size={12} /></span>
+      </span>
+    );
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontSize: 13, color: "var(--crm-warm-white)" }}>{name}</span>
+      <span role="button" className="crm-btn crm-btn--ghost crm-btn--sm" onClick={(e) => { e.stopPropagation(); setEditing(true); }} title="Rename" style={{ padding: 4 }}>
+        <Pencil size={10} />
+      </span>
+    </span>
   );
 }
