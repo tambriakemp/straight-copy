@@ -22,7 +22,7 @@ type Client = {
 type Project = {
   id: string;
   client_id: string;
-  type: "automation_build" | "site_preview" | "app_development";
+  type: "automation_build" | "site_preview" | "app_development" | "web_development" | "marketing";
   name: string;
   status: string;
   notes: string | null;
@@ -37,6 +37,8 @@ const TYPE_LABEL: Record<Project["type"], string> = {
   automation_build: "Automation Build",
   site_preview: "Site Preview",
   app_development: "App Development",
+  web_development: "Web Development",
+  marketing: "Marketing",
 };
 
 const tierLabel = (t: string) => (t === "growth" ? "Growth" : "Launch");
