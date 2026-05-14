@@ -489,7 +489,7 @@ export default function PortalProject() {
           {/* Preview link — preview-eligible projects only */}
           {isPreviewable && currentProject && (
             <div id="portal-preview" style={{ scrollMarginTop: 24 }}>
-              <PortalProjectPreviewCard clientProjectId={currentProject.id} />
+              <PortalProjectPreviewCard clientProjectId={currentProject.id} contactName={client.contact_name} />
             </div>
           )}
 
@@ -497,13 +497,6 @@ export default function PortalProject() {
           {currentProject && (
             <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
               <ProposalsSection clientId={clientId!} contactName={client.contact_name} projectId={currentProject.id} />
-            </div>
-          )}
-
-          {/* Invoice — scoped to this project */}
-          {currentProject && (
-            <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
-              <InvoiceSection clientId={clientId!} projectId={currentProject.id} />
             </div>
           )}
 
@@ -555,6 +548,13 @@ export default function PortalProject() {
                   scrollRef={scrollRef}
                 />
               )}
+            </div>
+          )}
+
+          {/* Payment Schedule — always last */}
+          {currentProject && (
+            <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
+              <InvoiceSection clientId={clientId!} projectId={currentProject.id} />
             </div>
           )}
         </main>
