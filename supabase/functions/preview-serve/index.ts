@@ -462,7 +462,7 @@ Deno.serve(async (req) => {
         }
       }
       const inject = project.feedback_enabled
-        ? `<script>window.__PREVIEW_SLUG__=${JSON.stringify(slug)};window.__PREVIEW_PAGE__=${JSON.stringify(path)};window.__PREVIEW_API__=${JSON.stringify(FN_BASE)};window.__PREVIEW_AUTHOR__=${JSON.stringify(authorName)};</script><script src="${FN_BASE}/preview-serve?slug=${encodeURIComponent(slug)}&path=__pf_widget.js"></script>`
+        ? `<script>window.__PREVIEW_SLUG__=${JSON.stringify(slug)};window.__PREVIEW_PAGE__=${JSON.stringify(path)};window.__PREVIEW_API__=${JSON.stringify(FN_BASE)};window.__PREVIEW_AUTHOR__=${JSON.stringify(authorName)};window.__PREVIEW_WIDGET_SRC__=${JSON.stringify(`${FN_BASE}/preview-serve?slug=${slug}&path=__pf_widget.js`)};</script><script src="${FN_BASE}/preview-serve?slug=${encodeURIComponent(slug)}&path=__pf_bootstrap.js"></script>`
         : "";
       if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, inject + "</body>");
       else html += inject;
