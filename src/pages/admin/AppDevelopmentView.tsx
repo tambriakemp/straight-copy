@@ -8,6 +8,13 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
+import ProjectPreviewCard from "@/components/admin/ProjectPreviewCard";
+
+const TYPE_LABEL: Record<string, string> = {
+  app_development: "App Development",
+  web_development: "Web Development",
+  marketing: "Marketing",
+};
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
