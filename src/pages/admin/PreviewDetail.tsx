@@ -147,6 +147,32 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
     await load();
   };
 
+  const renameFile = async (fromPath: string, newName: string) => {
+    const clean = newName.trim().replace(/^\/+/, "").replace(/\.\.+/g, "");
+    if (!clean || clean === fromPath) return;
+    // Preserve directory
+    const dir = fromPath.includes("/") ? fromPath.slice(0, fromPath.lastIndexOf("/") + 1) : "";
+    // Preserve original extension if user didn't include one
+    const origExt = fromPath.includes(".") ? fromPath.slice(fromPath.lastIndexOf(".")) : "";
+    let target = clean.includes("/") ? clean : `${dir}${clean}`;
+    if (origExt && !/\.[A-Za-z0-9]+$/.test(target)) target = `${target}${origExt}`;
+    if (target === fromPath) return;
+    const wasEntry = project.entry_path === fromPath;
+    const { data, error } = await supabase.functions.invoke("preview-admin", {
+      body: { action: "file_rename", project_id: project.id, from_path: fromPath, to_path: target },
+    });
+    if (error) { toast.error(error.message); return; }
+    const finalPath = data?.path ?? target;
+    if (wasEntry) {
+      await supabase.functions.invoke("preview-admin", {
+        body: { action: "update", id: project.id, entry_path: finalPath },
+      });
+    }
+    toast.success(`Renamed to ${finalPath}`);
+    await load();
+    await loadMissing();
+  };
+
   const setStatus = async (commentId: string, status: Status) => {
     await supabase.functions.invoke("preview-admin", { body: { action: "comment_status", id: commentId, status } });
     setComments((cs) => cs.map((c) => (c.id === commentId ? { ...c, status } : c)));
