@@ -362,8 +362,26 @@ export default function PortalProject() {
   const tierLabel = client.tier === "growth" ? "Growth" : "Launch";
   const isBrandKitDone = !!submittedAt;
   const isBrandKitActive = node?.key === "brand_kit" && !isBrandKitDone;
-  const hasJourneyProject = projectTypes.includes("automation_build");
-  const heroEyebrow = hasJourneyProject ? `${tierLabel} Journey` : "Your Project";
+
+  const currentProject = projects.find((p) => p.id === projectId) ?? null;
+  const isAutomation = currentProject?.type === "automation_build";
+  const isPreviewable = currentProject?.type === "app_development"
+    || currentProject?.type === "web_development"
+    || currentProject?.type === "marketing";
+  const visibleProjects = projects.filter((p) => p.type !== "site_preview");
+  const hasMultipleProjects = visibleProjects.length > 1;
+
+  const PROJECT_TYPE_LABEL: Record<string, string> = {
+    automation_build: `${tierLabel} Journey`,
+    app_development: "App Development",
+    web_development: "Web Development",
+    marketing: "Marketing",
+    site_preview: "Site Preview",
+  };
+  const heroEyebrow = currentProject
+    ? PROJECT_TYPE_LABEL[currentProject.type] ?? "Your Project"
+    : "Your Project";
+  const heroTitle = currentProject?.name || businessName;
 
   return (
     <div className="crm-shell">
@@ -375,7 +393,7 @@ export default function PortalProject() {
             <div className="portal-header__wordmark">Cre8<span className="dot">·</span>Portal</div>
           </div>
           <div className="portal-header__right">
-            {hasJourneyProject && node && (
+            {isAutomation && node && (
               <span className="portal-chip">
                 Step {String(node.order_index + 1).padStart(2, "0")} of 10 · {node.label}
               </span>
@@ -384,22 +402,33 @@ export default function PortalProject() {
         </header>
 
         <main className="portal-main">
+          {hasMultipleProjects && (
+            <div style={{ marginBottom: 16 }}>
+              <Link
+                to={`/portal/${clientId}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "hsl(30 8% 62%)", fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase" }}
+              >
+                <ArrowLeft size={14} /> All projects
+              </Link>
+            </div>
+          )}
+
           {/* Hero */}
           <section className="portal-hero">
             <div className="portal-hero__eyebrow">{heroEyebrow}</div>
             <h1 className="portal-hero__title">
-              {businessName.split(" ").slice(0, -1).join(" ") || businessName}{" "}
-              {businessName.split(" ").length > 1 && (
-                <em>{businessName.split(" ").slice(-1)[0]}</em>
+              {heroTitle.split(" ").slice(0, -1).join(" ") || heroTitle}{" "}
+              {heroTitle.split(" ").length > 1 && (
+                <em>{heroTitle.split(" ").slice(-1)[0]}</em>
               )}
-              {businessName.split(" ").length === 1 && <em>.</em>}
+              {heroTitle.split(" ").length === 1 && <em>.</em>}
             </h1>
             <hr className="portal-hero__rule" />
             <p className="portal-hero__sub">
               Welcome{client.contact_name ? `, ${client.contact_name}` : ""}.
               {contactEmail ? ` We'll keep you posted at ${contactEmail}.` : ""}
             </p>
-            {(client.build_start_date || client.delivery_date) && (
+            {isAutomation && (client.build_start_date || client.delivery_date) && (
               <div
                 style={{
                   display: "flex",
@@ -427,8 +456,8 @@ export default function PortalProject() {
             )}
           </section>
 
-          {/* Delivery video — shown once admin pastes a link */}
-          {client.delivery_video_url && (
+          {/* Delivery video — automation_build only */}
+          {isAutomation && client.delivery_video_url && (
             <section className="portal-confirm" id="portal-delivery-video" style={{ scrollMarginTop: 24 }}>
               <div className="portal-confirm__eyebrow">Your Delivery</div>
               <h2 className="portal-confirm__title">
@@ -450,36 +479,44 @@ export default function PortalProject() {
             </section>
           )}
 
-          {/* Contract — only render for clients with a launch/growth journey project */}
-          {hasJourneyProject && (
+          {/* Contract — automation_build only */}
+          {isAutomation && (
             <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
-              <ContractSection
-                clientId={clientId!}
-                contactName={client.contact_name}
-              />
+              <ContractSection clientId={clientId!} contactName={client.contact_name} />
             </div>
           )}
 
-          {/* App Development proposals — render only if any exist */}
-          <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
-            <ProposalsSection clientId={clientId!} contactName={client.contact_name} />
-          </div>
+          {/* Preview link — preview-eligible projects only */}
+          {isPreviewable && currentProject && (
+            <div id="portal-preview" style={{ scrollMarginTop: 24 }}>
+              <PortalProjectPreviewCard clientProjectId={currentProject.id} />
+            </div>
+          )}
 
-          {/* App Development active invoice — current only */}
-          <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
-            <InvoiceSection clientId={clientId!} />
-          </div>
+          {/* Proposals — scoped to this project */}
+          {currentProject && (
+            <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
+              <ProposalsSection clientId={clientId!} contactName={client.contact_name} projectId={currentProject.id} />
+            </div>
+          )}
 
-          {/* Brand Voice intake chat — only for journey clients */}
-          {hasJourneyProject && !!onboardingInvite && (
+          {/* Invoice — scoped to this project */}
+          {currentProject && (
+            <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
+              <InvoiceSection clientId={clientId!} projectId={currentProject.id} />
+            </div>
+          )}
+
+          {/* Brand Voice intake chat — automation_build only */}
+          {isAutomation && !!onboardingInvite && (
             <BrandVoiceAccordion
               token={onboardingInvite.token}
               completed={onboardingInvite.completed}
             />
           )}
 
-          {/* Account Access — only for journey clients */}
-          {hasJourneyProject && (
+          {/* Account Access — automation_build only */}
+          {isAutomation && (
             <AccountAccessSection
               clientId={clientId!}
               tier={client.tier}
@@ -487,8 +524,8 @@ export default function PortalProject() {
             />
           )}
 
-          {/* Subscription — only for journey clients */}
-          {hasJourneyProject && (
+          {/* Subscription — automation_build only */}
+          {isAutomation && (
             <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
               <SubscriptionSection
                 clientId={clientId!}
@@ -498,9 +535,8 @@ export default function PortalProject() {
             </div>
           )}
 
-          {/* Body — only render Brand Kit chat / confirmation. Other nodes are
-              communicated via the header chip; no redundant placeholder card. */}
-          {hasJourneyProject && (isBrandKitDone || isBrandKitActive) && (
+          {/* Brand Kit chat / confirmation — automation_build only */}
+          {isAutomation && (isBrandKitDone || isBrandKitActive) && (
             <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
               {isBrandKitDone ? (
                 <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
