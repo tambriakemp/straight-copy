@@ -147,6 +147,32 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
     await load();
   };
 
+  const renameFile = async (fromPath: string, newName: string) => {
+    const clean = newName.trim().replace(/^\/+/, "").replace(/\.\.+/g, "");
+    if (!clean || clean === fromPath) return;
+    // Preserve directory
+    const dir = fromPath.includes("/") ? fromPath.slice(0, fromPath.lastIndexOf("/") + 1) : "";
+    // Preserve original extension if user didn't include one
+    const origExt = fromPath.includes(".") ? fromPath.slice(fromPath.lastIndexOf(".")) : "";
+    let target = clean.includes("/") ? clean : `${dir}${clean}`;
+    if (origExt && !/\.[A-Za-z0-9]+$/.test(target)) target = `${target}${origExt}`;
+    if (target === fromPath) return;
+    const wasEntry = project.entry_path === fromPath;
+    const { data, error } = await supabase.functions.invoke("preview-admin", {
+      body: { action: "file_rename", project_id: project.id, from_path: fromPath, to_path: target },
+    });
+    if (error) { toast.error(error.message); return; }
+    const finalPath = data?.path ?? target;
+    if (wasEntry) {
+      await supabase.functions.invoke("preview-admin", {
+        body: { action: "update", id: project.id, entry_path: finalPath },
+      });
+    }
+    toast.success(`Renamed to ${finalPath}`);
+    await load();
+    await loadMissing();
+  };
+
   const setStatus = async (commentId: string, status: Status) => {
     await supabase.functions.invoke("preview-admin", { body: { action: "comment_status", id: commentId, status } });
     setComments((cs) => cs.map((c) => (c.id === commentId ? { ...c, status } : c)));
@@ -356,7 +382,11 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                     </button>
                     <FileText size={14} style={{ color: "var(--crm-stone)", flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: "var(--crm-warm-white)", fontSize: 15, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.path}</div>
+                      <InlineRename
+                        path={f.path}
+                        onRename={(next) => renameFile(f.path, next)}
+                        textStyle={{ color: "var(--crm-warm-white)", fontSize: 15, fontWeight: 500 }}
+                      />
                       <div style={{ color: "var(--crm-taupe)", fontSize: 13, marginTop: 2 }}>
                         {isEntry ? "Entry page · " : ""}{Math.ceil((f.size_bytes ?? 0) / 1024)} KB
                       </div>
@@ -446,7 +476,13 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                   return (
                     <li key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", fontSize: 14, color: "var(--crm-stone)", borderRadius: 6 }}>
                       <Icon size={12} style={{ color: "var(--crm-taupe)", flexShrink: 0 }} />
-                      <span style={{ flex: 1, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.path}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <InlineRename
+                          path={f.path}
+                          onRename={(next) => renameFile(f.path, next)}
+                          textStyle={{ fontFamily: "monospace", color: "var(--crm-stone)" }}
+                        />
+                      </div>
                       <span style={{ color: "var(--crm-taupe)", flexShrink: 0 }}>{Math.ceil((f.size_bytes ?? 0) / 1024)} KB</span>
                       <button onClick={() => deleteFile(f.path)} title="Delete" style={{ background: "transparent", border: 0, color: "var(--crm-taupe)", cursor: "pointer", padding: 4 }}>
                         <Trash2 size={12} />
@@ -736,5 +772,60 @@ function EditableTitle({ value, onSave }: { value: string; onSave: (next: string
         <Pencil size={12} />
       </button>
     </div>
+  );
+}
+
+function InlineRename({
+  path,
+  onRename,
+  textStyle,
+}: {
+  path: string;
+  onRename: (next: string) => Promise<void>;
+  textStyle?: React.CSSProperties;
+}) {
+  const baseName = path.includes("/") ? path.slice(path.lastIndexOf("/") + 1) : path;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(baseName);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setDraft(baseName); }, [baseName]);
+
+  const commit = async () => {
+    const next = draft.trim();
+    if (!next || next === baseName) { setEditing(false); setDraft(baseName); return; }
+    setSaving(true);
+    try { await onRename(next); setEditing(false); }
+    catch (e: any) { toast.error(e?.message || "Rename failed"); }
+    finally { setSaving(false); }
+  };
+
+  if (editing) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, width: "100%" }}>
+        <input
+          autoFocus
+          value={draft}
+          disabled={saving}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setEditing(false); setDraft(baseName); } }}
+          style={{ flex: 1, minWidth: 0, fontSize: 14, color: "var(--crm-warm-white)", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 4, padding: "2px 6px" }}
+        />
+        <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={commit} disabled={saving} title="Save" style={{ padding: 4 }}><Check size={12} /></button>
+        <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => { setEditing(false); setDraft(baseName); }} disabled={saving} title="Cancel" style={{ padding: 4 }}><X size={12} /></button>
+      </span>
+    );
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0, width: "100%" }}>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, ...textStyle }}>{path}</span>
+      <button
+        className="crm-btn crm-btn--ghost crm-btn--sm"
+        onClick={() => setEditing(true)}
+        title="Rename file"
+        style={{ padding: 4, flexShrink: 0 }}
+      >
+        <Pencil size={10} />
+      </button>
+    </span>
   );
 }
