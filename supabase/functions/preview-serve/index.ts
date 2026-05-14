@@ -383,24 +383,43 @@ Deno.serve(async (req) => {
         }
         return `${base}${encodeURIComponent(target)}${tail}`;
       };
-      // Rewrite src/href on any tag
-      html = html.replace(/(\s(?:src|href|poster|data-src))=("|')([^"']+)\2/gi,
-        (_m, attr, q, p) => `${attr}=${q}${resolveRef(p)}${q}`);
-      // Rewrite srcset (comma-separated list with optional descriptors)
-      html = html.replace(/(\ssrcset)=("|')([^"']+)\2/gi, (_m, attr, q, list) => {
-        const rewritten = list.split(",").map((part: string) => {
-          const t = part.trim();
-          if (!t) return "";
-          const sp = t.indexOf(" ");
-          const url = sp === -1 ? t : t.slice(0, sp);
-          const desc = sp === -1 ? "" : t.slice(sp);
-          return resolveRef(url) + desc;
-        }).filter(Boolean).join(", ");
-        return `${attr}=${q}${rewritten}${q}`;
-      });
-      // Rewrite url(...) in inline <style>/style attributes
-      html = html.replace(/url\(\s*(["']?)([^)"']+)\1\s*\)/gi,
-        (_m, q, p) => `url(${q}${resolveRef(p)}${q})`);
+
+      const rewriteSegment = (seg: string): string => {
+        // Rewrite src/href on any tag
+        seg = seg.replace(/(\s(?:src|href|poster|data-src))=("|')([^"']+)\2/gi,
+          (_m, attr, q, p) => `${attr}=${q}${resolveRef(p)}${q}`);
+        // Rewrite srcset (comma-separated list with optional descriptors)
+        seg = seg.replace(/(\ssrcset)=("|')([^"']+)\2/gi, (_m, attr, q, list) => {
+          const rewritten = list.split(",").map((part: string) => {
+            const t = part.trim();
+            if (!t) return "";
+            const sp = t.indexOf(" ");
+            const url = sp === -1 ? t : t.slice(0, sp);
+            const desc = sp === -1 ? "" : t.slice(sp);
+            return resolveRef(url) + desc;
+          }).filter(Boolean).join(", ");
+          return `${attr}=${q}${rewritten}${q}`;
+        });
+        // Rewrite url(...) in inline <style>/style attributes
+        seg = seg.replace(/url\(\s*(["']?)([^)"']+)\1\s*\)/gi,
+          (_m, q, p) => `url(${q}${resolveRef(p)}${q})`);
+        return seg;
+      };
+
+      // Split off <script>...</script> blocks so we never rewrite JS source.
+      // A user-bundled HTML may contain `URL.createObjectURL(new Blob(...))`
+      // — case-insensitive `url(...)` would otherwise mangle it.
+      const scriptRe = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
+      let out = "";
+      let last = 0;
+      for (const m of html.matchAll(scriptRe)) {
+        const start = m.index ?? 0;
+        out += rewriteSegment(html.slice(last, start));
+        out += m[0]; // leave script body untouched
+        last = start + m[0].length;
+      }
+      out += rewriteSegment(html.slice(last));
+      html = out;
 
       // Inject feedback bootstrap before </body>
       let authorName = "";
