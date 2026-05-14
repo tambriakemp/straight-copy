@@ -684,6 +684,6 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         pagePath={aiEditPath ?? ""}
         onApplied={load}
       />
-    </AdminLayout>
+    </Wrap>
   );
 }
