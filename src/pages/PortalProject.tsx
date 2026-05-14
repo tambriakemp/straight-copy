@@ -52,8 +52,8 @@ const STAGE_LABELS = [
   "Review",
 ];
 
-export default function Portal() {
-  const { clientId } = useParams<{ clientId: string }>();
+export default function PortalProject() {
+  const { clientId, projectId } = useParams<{ clientId: string; projectId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Admin impersonation flag — persists across in-portal navigation via sessionStorage.
