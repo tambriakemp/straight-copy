@@ -206,7 +206,10 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
     }
   };
 
-  if (loading || !project) return <AdminLayout><div style={{ padding: "48px 52px" }}>Loading…</div></AdminLayout>;
+  if (loading || !project) {
+    const loadingNode = <div style={{ padding: embedded ? 24 : "48px 52px" }}>Loading…</div>;
+    return embedded ? loadingNode : <AdminLayout>{loadingNode}</AdminLayout>;
+  }
 
   const pages = files.filter((f) => /\.html?$/i.test(f.path));
   const assets = files.filter((f) => !/\.html?$/i.test(f.path));
