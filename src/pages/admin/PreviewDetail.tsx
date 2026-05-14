@@ -774,3 +774,58 @@ function EditableTitle({ value, onSave }: { value: string; onSave: (next: string
     </div>
   );
 }
+
+function InlineRename({
+  path,
+  onRename,
+  textStyle,
+}: {
+  path: string;
+  onRename: (next: string) => Promise<void>;
+  textStyle?: React.CSSProperties;
+}) {
+  const baseName = path.includes("/") ? path.slice(path.lastIndexOf("/") + 1) : path;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(baseName);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setDraft(baseName); }, [baseName]);
+
+  const commit = async () => {
+    const next = draft.trim();
+    if (!next || next === baseName) { setEditing(false); setDraft(baseName); return; }
+    setSaving(true);
+    try { await onRename(next); setEditing(false); }
+    catch (e: any) { toast.error(e?.message || "Rename failed"); }
+    finally { setSaving(false); }
+  };
+
+  if (editing) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, width: "100%" }}>
+        <input
+          autoFocus
+          value={draft}
+          disabled={saving}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setEditing(false); setDraft(baseName); } }}
+          style={{ flex: 1, minWidth: 0, fontSize: 14, color: "var(--crm-warm-white)", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 4, padding: "2px 6px" }}
+        />
+        <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={commit} disabled={saving} title="Save" style={{ padding: 4 }}><Check size={12} /></button>
+        <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => { setEditing(false); setDraft(baseName); }} disabled={saving} title="Cancel" style={{ padding: 4 }}><X size={12} /></button>
+      </span>
+    );
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, minWidth: 0, width: "100%" }}>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, ...textStyle }}>{path}</span>
+      <button
+        className="crm-btn crm-btn--ghost crm-btn--sm"
+        onClick={() => setEditing(true)}
+        title="Rename file"
+        style={{ padding: 4, flexShrink: 0 }}
+      >
+        <Pencil size={10} />
+      </button>
+    </span>
+  );
+}
