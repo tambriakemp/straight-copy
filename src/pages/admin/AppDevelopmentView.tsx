@@ -165,7 +165,7 @@ export default function AppDevelopmentView() {
 
         <div className="roster__head">
           <div className="roster__title-block">
-            <div className="roster__eyebrow">App Development</div>
+            <div className="roster__eyebrow">{TYPE_LABEL[project.type] ?? "Project"}</div>
             <h1 className="roster__title">{project.name}</h1>
             <hr className="roster__rule" />
             <p className="roster__sub">
