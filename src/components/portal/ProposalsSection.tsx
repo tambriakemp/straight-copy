@@ -270,14 +270,14 @@ function ProposalCard({ clientId, contactName, proposal, onSigned }: {
   );
 }
 
-export default function ProposalsSection({ clientId, contactName }: { clientId: string; contactName: string | null }) {
+export default function ProposalsSection({ clientId, contactName, projectId }: { clientId: string; contactName: string | null; projectId?: string }) {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
     try {
-      const data = await callFn({ action: "list", clientId });
+      const data = await callFn({ action: "list", clientId, ...(projectId ? { clientProjectId: projectId } : {}) });
       setProposals((data.proposals ?? []) as Proposal[]);
     } catch (e) {
       console.error(e);
@@ -286,7 +286,7 @@ export default function ProposalsSection({ clientId, contactName }: { clientId: 
     }
   };
 
-  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [clientId]);
+  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [clientId, projectId]);
 
   if (loading) return null;
   const visible = proposals.filter((p) => p.status !== "voided" && p.status !== "draft");
