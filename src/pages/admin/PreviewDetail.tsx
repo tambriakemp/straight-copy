@@ -254,9 +254,17 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
             <div style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
               Preview Project
             </div>
-            <h1 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 38, lineHeight: 1.1, color: "var(--crm-warm-white)", margin: 0 }}>
-              {project.name}
-            </h1>
+            <EditableTitle
+              value={project.name}
+              onSave={async (next) => {
+                const { data } = await supabase.functions.invoke("preview-admin", {
+                  body: { action: "update", id: project.id, name: next },
+                });
+                if (data?.project) setProject(data.project);
+                else await load();
+                toast.success("Renamed");
+              }}
+            />
             <div style={{ marginTop: 10, color: "var(--crm-stone)", fontSize: 15, display: "flex", gap: 16, flexWrap: "wrap" }}>
               {project.client_label && <span>{project.client_label}</span>}
               <span>{pages.length} {pages.length === 1 ? "page" : "pages"}</span>
