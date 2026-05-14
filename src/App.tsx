@@ -5,9 +5,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ScrollToTop from "@/components/ScrollToTop";
-import RequireAdmin from "./components/admin/RequireAdmin.tsx";
-import RequireWiki from "./components/admin/RequireWiki.tsx";
-
 const queryClient = new QueryClient();
 
 const Index = lazy(() => import("./pages/Index.tsx"));
@@ -32,6 +29,8 @@ const Previews = lazy(() => import("./pages/admin/Previews.tsx"));
 const PreviewDetail = lazy(() => import("./pages/admin/PreviewDetail.tsx"));
 const ProjectDetail = lazy(() => import("./pages/admin/ProjectDetail.tsx"));
 const PreviewViewer = lazy(() => import("./pages/PreviewViewer.tsx"));
+const RequireAdmin = lazy(() => import("./components/admin/RequireAdmin.tsx"));
+const RequireWiki = lazy(() => import("./components/admin/RequireWiki.tsx"));
 const WikiList = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => ({ default: module.WikiList })));
 const WikiEdit = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => ({ default: module.WikiEdit })));
 const WikiDetail = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => ({ default: module.WikiDetail })));
