@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, MonitorSmartphone, Plus, Copy, Check, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronRight, MonitorSmartphone, Plus, Copy, Check, ExternalLink, Pencil, X } from "lucide-react";
 import PreviewDetail from "@/pages/admin/PreviewDetail";
 
 type Props = {
@@ -87,6 +87,17 @@ export default function ProjectPreviewCard({ clientId, clientProjectId, projectN
         </span>
         {preview && (
           <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <PreviewNameInline
+              name={preview.name}
+              onSave={async (next) => {
+                const { data } = await supabase.functions.invoke("preview-admin", {
+                  body: { action: "update", id: preview.id, name: next },
+                });
+                if (data?.project) setPreview({ ...preview, name: data.project.name });
+                else await load();
+                toast.success("Renamed");
+              }}
+            />
             <code style={{ fontSize: 12, color: "var(--crm-taupe)", fontFamily: "monospace" }}>
               /p/{preview.slug.slice(0, 12)}…
             </code>
