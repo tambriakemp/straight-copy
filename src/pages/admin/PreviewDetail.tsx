@@ -476,7 +476,13 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                   return (
                     <li key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", fontSize: 14, color: "var(--crm-stone)", borderRadius: 6 }}>
                       <Icon size={12} style={{ color: "var(--crm-taupe)", flexShrink: 0 }} />
-                      <span style={{ flex: 1, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.path}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <InlineRename
+                          path={f.path}
+                          onRename={(next) => renameFile(f.path, next)}
+                          textStyle={{ fontFamily: "monospace", color: "var(--crm-stone)" }}
+                        />
+                      </div>
                       <span style={{ color: "var(--crm-taupe)", flexShrink: 0 }}>{Math.ceil((f.size_bytes ?? 0) / 1024)} KB</span>
                       <button onClick={() => deleteFile(f.path)} title="Delete" style={{ background: "transparent", border: 0, color: "var(--crm-taupe)", cursor: "pointer", padding: 4 }}>
                         <Trash2 size={12} />
