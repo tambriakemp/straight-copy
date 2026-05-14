@@ -31,14 +31,14 @@ Deno.serve(async (req) => {
   try {
     const payload = await req.json();
     const action = String(payload.action || "");
-    const slug = String(payload.slug || "");
-    if (!slug) return json({ error: "slug required" }, 400);
+    const slug = payload.slug ? String(payload.slug) : null;
+    const clientProjectId = payload.client_project_id ? String(payload.client_project_id) : null;
+    if (!slug && !clientProjectId) return json({ error: "slug or client_project_id required" }, 400);
 
-    const { data: project } = await admin
-      .from("preview_projects")
-      .select("id, slug, name, entry_path, archived")
-      .eq("slug", slug)
-      .maybeSingle();
+    const q = admin.from("preview_projects").select("id, slug, name, entry_path, archived");
+    const { data: project } = await (slug
+      ? q.eq("slug", slug).maybeSingle()
+      : q.eq("client_project_id", clientProjectId!).maybeSingle());
     if (!project || project.archived) return json({ error: "not found" }, 404);
 
     if (action === "list") {
