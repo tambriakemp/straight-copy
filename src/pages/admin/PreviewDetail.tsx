@@ -36,7 +36,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(s/86400)}d`;
 }
 
-export default function PreviewDetail({ overrideId, backTo }: { overrideId?: string; backTo?: string } = {}) {
+export default function PreviewDetail({ overrideId, backTo, embedded }: { overrideId?: string; backTo?: string; embedded?: boolean } = {}) {
   const params = useParams();
   const id = overrideId ?? params.id;
   const [project, setProject] = useState<Project | null>(null);
