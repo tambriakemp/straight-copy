@@ -350,6 +350,11 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "public, max-age=300" },
       });
     }
+    if (path === "__pf_bootstrap.js") {
+      return new Response(FEEDBACK_BOOTSTRAP_JS, {
+        headers: { ...corsHeaders, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "public, max-age=300" },
+      });
+    }
 
     // Reject path traversal
     if (path.includes("..")) return new Response("bad path", { status: 400, headers: corsHeaders });
