@@ -42,7 +42,6 @@ async function fetchSlug(clientProjectId: string): Promise<string | null> {
 }
 
 export default function PortalProjectPreviewCard({ clientProjectId, contactName }: Props) {
-  const [slug, setSlug] = useState<string | null>(null);
   const [list, setList] = useState<ListResp | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -55,11 +54,9 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
 
   const load = useCallback(async () => {
     setLoading(true);
-    const s = await fetchSlug(clientProjectId);
-    setSlug(s);
-    if (!s) { setList(null); setLoading(false); return; }
-    const r = await call({ action: "list", slug: s });
+    const r = await call({ action: "list", client_project_id: clientProjectId });
     if (r.ok) setList(r.data as ListResp);
+    else setList(null);
     setLoading(false);
   }, [clientProjectId]);
 
@@ -67,7 +64,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
 
   if (loading) return null;
 
-  if (!slug || !list) {
+  if (!list) {
     return (
       <section className="portal-access is-open" style={{ scrollMarginTop: 24 }}>
         <div className="portal-access__toggle" style={{ cursor: "default" }}>
