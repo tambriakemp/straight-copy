@@ -106,20 +106,13 @@ export default function ClientDetail() {
     if (!name.trim() || !id) return toast.error("Name required");
     setCreating(true);
     try {
-      if (type === "site_preview") {
-        const { data, error } = await supabase.functions.invoke("preview-admin", {
-          body: { action: "create", name: name.trim(), client_id: id, client_label: client?.business_name ?? null },
-        });
-        if (error || !data?.project) throw new Error(error?.message || "Failed");
-        toast.success("Preview project created");
-        navigate(`/admin/clients/${id}/projects/${data.client_project_id}`);
-      } else if (type === "app_development") {
+      if (type === "app_development" || type === "web_development" || type === "marketing") {
         const { data: proj, error } = await supabase
           .from("client_projects")
           .insert({ client_id: id, type, name: name.trim() })
           .select("*").single();
         if (error) throw error;
-        toast.success("App development project created");
+        toast.success(`${TYPE_LABEL[type]} project created`);
         navigate(`/admin/clients/${id}/projects/${proj.id}`);
       } else {
         // Automation build: set client tier (drives journey templates), create project, seed journey nodes from templates
