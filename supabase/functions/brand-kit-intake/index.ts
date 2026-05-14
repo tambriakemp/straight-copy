@@ -256,6 +256,7 @@ Deno.serve(async (req) => {
           accountAccess: row?.client_account_access ?? {},
           onboardingInvite,
           projectTypes,
+          projects,
           subscription: {
             id: row?.surecart_subscription_id ?? null,
             status: row?.subscription_status ?? null,
