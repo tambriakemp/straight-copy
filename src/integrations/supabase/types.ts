@@ -915,6 +915,44 @@ export type Database = {
         }
         Relationships: []
       }
+      preview_approvals: {
+        Row: {
+          approved_at: string
+          approver_name: string | null
+          created_at: string
+          id: string
+          kind: string
+          path: string
+          project_id: string
+        }
+        Insert: {
+          approved_at?: string
+          approver_name?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          path: string
+          project_id: string
+        }
+        Update: {
+          approved_at?: string
+          approver_name?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          path?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preview_approvals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "preview_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       preview_comment_replies: {
         Row: {
           author_name: string | null
