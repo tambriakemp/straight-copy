@@ -239,7 +239,11 @@ export default function ClientDetail() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16, marginTop: 16 }}>
             {projects.map((p) => {
               const preview = previews[p.id];
-              const Icon = p.type === "site_preview" ? MonitorSmartphone : p.type === "app_development" ? FileSignature : Workflow;
+              const Icon = p.type === "site_preview" ? MonitorSmartphone
+                : p.type === "app_development" ? FileSignature
+                : p.type === "web_development" ? Globe
+                : p.type === "marketing" ? Megaphone
+                : Workflow;
               const isBuild = p.type === "automation_build";
               const cn = isBuild ? (nodesByProject[p.id] ?? []) : [];
               const total = cn.length;
