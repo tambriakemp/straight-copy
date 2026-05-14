@@ -382,7 +382,11 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                     </button>
                     <FileText size={14} style={{ color: "var(--crm-stone)", flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: "var(--crm-warm-white)", fontSize: 15, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.path}</div>
+                      <InlineRename
+                        path={f.path}
+                        onRename={(next) => renameFile(f.path, next)}
+                        textStyle={{ color: "var(--crm-warm-white)", fontSize: 15, fontWeight: 500 }}
+                      />
                       <div style={{ color: "var(--crm-taupe)", fontSize: 13, marginTop: 2 }}>
                         {isEntry ? "Entry page · " : ""}{Math.ceil((f.size_bytes ?? 0) / 1024)} KB
                       </div>
