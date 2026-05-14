@@ -31,7 +31,7 @@ const STATUS_LABEL: Record<Invoice["status"], string> = {
   void: "Voided",
 };
 
-export default function InvoiceSection({ clientId }: { clientId: string }) {
+export default function InvoiceSection({ clientId, projectId }: { clientId: string; projectId?: string }) {
   const [groups, setGroups] = useState<ProjectGroup[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,7 +45,10 @@ export default function InvoiceSection({ clientId }: { clientId: string }) {
           body: JSON.stringify({ action: "portal-schedule", clientId }),
         });
         const data = await r.json();
-        if (!cancelled && r.ok) setGroups((data.projects ?? []) as ProjectGroup[]);
+        if (!cancelled && r.ok) {
+          const all = (data.projects ?? []) as ProjectGroup[];
+          setGroups(projectId ? all.filter((g) => g.projectId === projectId) : all);
+        }
       } catch {
         // silent
       } finally {
@@ -53,7 +56,7 @@ export default function InvoiceSection({ clientId }: { clientId: string }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [clientId]);
+  }, [clientId, projectId]);
 
   if (loading || groups.length === 0) return null;
 
