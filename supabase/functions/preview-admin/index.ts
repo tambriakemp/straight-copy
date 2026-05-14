@@ -64,14 +64,16 @@ Deno.serve(async (req) => {
       }
 
       case "create": {
-        const { name, client_label, client_id } = payload;
+        const { name, client_label, client_id, attach_to_project_id } = payload;
         if (!name) return json({ error: "name required" }, 400);
         const slug = genSlug();
         const id = crypto.randomUUID();
 
-        // If linked to a client, create the client_projects row first
+        // If linked to an existing project, attach to it; otherwise (legacy) create a new site_preview client_project.
         let client_project_id: string | null = null;
-        if (client_id) {
+        if (attach_to_project_id) {
+          client_project_id = attach_to_project_id;
+        } else if (client_id) {
           const { data: cp, error: cpErr } = await admin
             .from("client_projects")
             .insert({ client_id, type: "site_preview", name })
