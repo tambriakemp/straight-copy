@@ -17,6 +17,8 @@ const FEEDBACK_WIDGET_JS = `(() => {
   const API = window.__PREVIEW_API__;
   const AUTHOR = window.__PREVIEW_AUTHOR__ || "";
   if (!SLUG || !API) return;
+  if (window.__PF_INSTALLED__) return;
+  window.__PF_INSTALLED__ = true;
 
   // ---- Local edit-token store (per browser, per pin/reply) ----
   const TKEY = "pf-tokens-" + SLUG;
