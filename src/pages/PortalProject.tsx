@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
 import ContractSection from "@/components/portal/ContractSection";
 import ProposalsSection from "@/components/portal/ProposalsSection";
 import InvoiceSection from "@/components/portal/InvoiceSection";
 import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
+import PortalProjectPreviewCard from "@/components/portal/PortalProjectPreviewCard";
+
+type ProjectRow = { id: string; type: string; name: string; status: string; updated_at: string };
 
 type Msg = { role: "user" | "assistant"; content: string };
 type ActiveNode = {
