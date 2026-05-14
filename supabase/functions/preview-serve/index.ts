@@ -17,6 +17,8 @@ const FEEDBACK_WIDGET_JS = `(() => {
   const API = window.__PREVIEW_API__;
   const AUTHOR = window.__PREVIEW_AUTHOR__ || "";
   if (!SLUG || !API) return;
+  if (window.__PF_INSTALLED__) return;
+  window.__PF_INSTALLED__ = true;
 
   // ---- Local edit-token store (per browser, per pin/reply) ----
   const TKEY = "pf-tokens-" + SLUG;
@@ -281,7 +283,29 @@ const FEEDBACK_WIDGET_JS = `(() => {
   window.addEventListener("scroll", renderPins, { passive: true });
   window.addEventListener("load", () => setTimeout(renderPins, 200));
   loadPins();
-  setInterval(loadPins, 15000);
+  if (window.__PF_LOAD_INTERVAL__) clearInterval(window.__PF_LOAD_INTERVAL__);
+  window.__PF_LOAD_INTERVAL__ = setInterval(loadPins, 15000);
+})();`;
+
+// Bootstrap that survives document.write() resets (e.g. user-bundled SPAs that
+// call document.open()/write() after load and wipe our injected DOM/script).
+const FEEDBACK_BOOTSTRAP_JS = `(() => {
+  function inject() {
+    if (document.getElementById("__pf_widget_script")) return;
+    window.__PF_INSTALLED__ = false;
+    var s = document.createElement("script");
+    s.id = "__pf_widget_script";
+    s.src = window.__PREVIEW_WIDGET_SRC__;
+    (document.body || document.documentElement).appendChild(s);
+  }
+  function ensure() {
+    if (!document.getElementById("pf-toggle")) inject();
+  }
+  if (window.__PF_BOOTSTRAPPED__) { ensure(); return; }
+  window.__PF_BOOTSTRAPPED__ = true;
+  inject();
+  // Watchdog: if the host page wipes our DOM (e.g. document.write), reinstall.
+  setInterval(ensure, 1500);
 })();`;
 
 function contentTypeFor(path: string): string {
@@ -323,6 +347,11 @@ Deno.serve(async (req) => {
     // Special path: serve the injected feedback widget
     if (path === "__pf_widget.js") {
       return new Response(FEEDBACK_WIDGET_JS, {
+        headers: { ...corsHeaders, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "public, max-age=300" },
+      });
+    }
+    if (path === "__pf_bootstrap.js") {
+      return new Response(FEEDBACK_BOOTSTRAP_JS, {
         headers: { ...corsHeaders, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "public, max-age=300" },
       });
     }
@@ -433,7 +462,7 @@ Deno.serve(async (req) => {
         }
       }
       const inject = project.feedback_enabled
-        ? `<script>window.__PREVIEW_SLUG__=${JSON.stringify(slug)};window.__PREVIEW_PAGE__=${JSON.stringify(path)};window.__PREVIEW_API__=${JSON.stringify(FN_BASE)};window.__PREVIEW_AUTHOR__=${JSON.stringify(authorName)};</script><script src="${FN_BASE}/preview-serve?slug=${encodeURIComponent(slug)}&path=__pf_widget.js"></script>`
+        ? `<script>window.__PREVIEW_SLUG__=${JSON.stringify(slug)};window.__PREVIEW_PAGE__=${JSON.stringify(path)};window.__PREVIEW_API__=${JSON.stringify(FN_BASE)};window.__PREVIEW_AUTHOR__=${JSON.stringify(authorName)};window.__PREVIEW_WIDGET_SRC__=${JSON.stringify(`${FN_BASE}/preview-serve?slug=${slug}&path=__pf_widget.js`)};</script><script src="${FN_BASE}/preview-serve?slug=${encodeURIComponent(slug)}&path=__pf_bootstrap.js"></script>`
         : "";
       if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, inject + "</body>");
       else html += inject;
