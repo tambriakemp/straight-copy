@@ -13,6 +13,7 @@ import Privacy from "./pages/Privacy.tsx";
 import Unsubscribe from "./pages/Unsubscribe.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
 import Portal from "./pages/Portal.tsx";
+import PortalProject from "./pages/PortalProject.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AdminLogin from "./pages/admin/AdminLogin.tsx";
 import ResetPassword from "./pages/admin/ResetPassword.tsx";
@@ -48,6 +49,7 @@ const App = () => (
           <Route path="/unsubscribe" element={<Unsubscribe />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/portal/:clientId" element={<Portal />} />
+          <Route path="/portal/:clientId/projects/:projectId" element={<PortalProject />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/reset-password" element={<ResetPassword />} />
           <Route path="/admin" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
