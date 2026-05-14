@@ -231,15 +231,22 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   }
   const openCount = comments.filter((c) => c.status !== "resolved").length;
 
+  const Wrap: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+    embedded ? <>{children}</> : <AdminLayout>{children}</AdminLayout>;
+
   return (
-    <AdminLayout>
-      <div style={{ padding: "48px 52px 96px", maxWidth: 1400, margin: "0 auto", width: "100%", overflowY: "auto", flex: 1 }}>
+    <Wrap>
+      <div style={embedded
+        ? { padding: 0, width: "100%" }
+        : { padding: "48px 52px 96px", maxWidth: 1400, margin: "0 auto", width: "100%", overflowY: "auto", flex: 1 }}>
       {/* Header */}
-      <div style={{ marginBottom: 14 }}>
-        <Link to={backTo ?? "/admin"} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 14, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-          <ArrowLeft size={14} /> Back
-        </Link>
-      </div>
+      {!embedded && (
+        <div style={{ marginBottom: 14 }}>
+          <Link to={backTo ?? "/admin"} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 14, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            <ArrowLeft size={14} /> Back
+          </Link>
+        </div>
+      )}
 
       <header style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid var(--crm-border-dark)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24, flexWrap: "wrap" }}>
