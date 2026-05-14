@@ -82,7 +82,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
     );
   }
 
-  const url = `${base}/p/${slug}`;
+  const url = `${base}/p/${list.project.slug}`;
   const copy = async () => {
     await navigator.clipboard.writeText(url);
     setCopied(true);
@@ -102,7 +102,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
     setBusy(key);
     const r = await call({
       action: approve ? "approve" : "unapprove",
-      slug,
+      slug: list.project.slug,
       kind,
       path,
       approver_name: approverDraft.trim() || null,
