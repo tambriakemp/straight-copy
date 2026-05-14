@@ -25,22 +25,6 @@ async function call(body: Record<string, unknown>) {
   return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
 }
 
-// Slug discovery uses the regular client (RLS allows admins; for clients we resolve via the
-// edge function below by trying the slug from preview_projects directly).
-async function fetchSlug(clientProjectId: string): Promise<string | null> {
-  // Use a dedicated lookup via supabase rest with anon (RLS may block this for clients,
-  // but the brand-kit-intake `resolve` flow already returns slug-less data — fall back to
-  // an admin-managed table read; if blocked we'll show "coming soon").
-  const { supabase } = await import("@/integrations/supabase/client");
-  const { data } = await supabase
-    .from("preview_projects")
-    .select("slug, archived")
-    .eq("client_project_id", clientProjectId)
-    .maybeSingle();
-  if (!data || (data as any).archived) return null;
-  return (data as any).slug as string;
-}
-
 export default function PortalProjectPreviewCard({ clientProjectId, contactName }: Props) {
   const [list, setList] = useState<ListResp | null>(null);
   const [loading, setLoading] = useState(true);
