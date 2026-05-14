@@ -70,36 +70,3 @@ export function useAdminAuth() {
 
   return { session, user, isAdmin, loading, signOut };
 }
-          const { data } = await supabase
-            .from("admin_users")
-            .select("id")
-            .eq("user_id", sess.user.id)
-            .maybeSingle();
-          setIsAdmin(!!data);
-          setLoading(false);
-        }, 0);
-      } else {
-        setIsAdmin(false);
-        setLoading(false);
-      }
-    });
-
-    // Then check existing session
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
-      setSession(sess);
-      setUser(sess?.user ?? null);
-      if (!sess) {
-        setIsAdmin(false);
-        setLoading(false);
-      }
-    });
-
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
-
-  return { session, user, isAdmin, loading, signOut };
-}
