@@ -50,7 +50,7 @@ export default function ProjectDetail() {
     if (!previewId) return <AdminLayout><div style={{ padding: 40 }}>No preview attached to this project yet.</div></AdminLayout>;
     return <PreviewDetail overrideId={previewId} backTo={`/admin/clients/${project.client_id}`} />;
   }
-  if (project.type === "app_development") {
+  if (project.type === "app_development" || project.type === "web_development" || project.type === "marketing") {
     return <AppDevelopmentView />;
   }
   return <Navigate to={`/admin/clients/${project.client_id}`} replace />;

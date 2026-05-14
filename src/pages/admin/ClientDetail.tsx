@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen, FileSignature } from "lucide-react";
+import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen, FileSignature, Globe, Megaphone } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
@@ -22,7 +22,7 @@ type Client = {
 type Project = {
   id: string;
   client_id: string;
-  type: "automation_build" | "site_preview" | "app_development";
+  type: "automation_build" | "site_preview" | "app_development" | "web_development" | "marketing";
   name: string;
   status: string;
   notes: string | null;
@@ -37,6 +37,8 @@ const TYPE_LABEL: Record<Project["type"], string> = {
   automation_build: "Automation Build",
   site_preview: "Site Preview",
   app_development: "App Development",
+  web_development: "Web Development",
+  marketing: "Marketing",
 };
 
 const tierLabel = (t: string) => (t === "growth" ? "Growth" : "Launch");
@@ -104,20 +106,13 @@ export default function ClientDetail() {
     if (!name.trim() || !id) return toast.error("Name required");
     setCreating(true);
     try {
-      if (type === "site_preview") {
-        const { data, error } = await supabase.functions.invoke("preview-admin", {
-          body: { action: "create", name: name.trim(), client_id: id, client_label: client?.business_name ?? null },
-        });
-        if (error || !data?.project) throw new Error(error?.message || "Failed");
-        toast.success("Preview project created");
-        navigate(`/admin/clients/${id}/projects/${data.client_project_id}`);
-      } else if (type === "app_development") {
+      if (type === "app_development" || type === "web_development" || type === "marketing") {
         const { data: proj, error } = await supabase
           .from("client_projects")
           .insert({ client_id: id, type, name: name.trim() })
           .select("*").single();
         if (error) throw error;
-        toast.success("App development project created");
+        toast.success(`${TYPE_LABEL[type]} project created`);
         navigate(`/admin/clients/${id}/projects/${proj.id}`);
       } else {
         // Automation build: set client tier (drives journey templates), create project, seed journey nodes from templates
@@ -206,13 +201,14 @@ export default function ClientDetail() {
                   <label className="crm-label">Type</label>
                   <select className="crm-input" value={type} onChange={(e) => setType(e.target.value as Project["type"])}>
                     <option value="automation_build">Automation Build</option>
-                    <option value="site_preview">Site Preview</option>
                     <option value="app_development">App Development</option>
+                    <option value="web_development">Web Development</option>
+                    <option value="marketing">Marketing</option>
                   </select>
                 </div>
                 <div>
                   <label className="crm-label">Project name *</label>
-                  <input className="crm-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === "site_preview" ? "Home v1" : type === "app_development" ? "Mobile app v1" : "Launch build"} />
+                  <input className="crm-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === "app_development" ? "Mobile app v1" : type === "web_development" ? "Website v1" : type === "marketing" ? "Campaign v1" : "Launch build"} />
                 </div>
                 {type === "automation_build" && (
                   <div>
@@ -243,7 +239,11 @@ export default function ClientDetail() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16, marginTop: 16 }}>
             {projects.map((p) => {
               const preview = previews[p.id];
-              const Icon = p.type === "site_preview" ? MonitorSmartphone : p.type === "app_development" ? FileSignature : Workflow;
+              const Icon = p.type === "site_preview" ? MonitorSmartphone
+                : p.type === "app_development" ? FileSignature
+                : p.type === "web_development" ? Globe
+                : p.type === "marketing" ? Megaphone
+                : Workflow;
               const isBuild = p.type === "automation_build";
               const cn = isBuild ? (nodesByProject[p.id] ?? []) : [];
               const total = cn.length;

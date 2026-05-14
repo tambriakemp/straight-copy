@@ -8,6 +8,13 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
+import ProjectPreviewCard from "@/components/admin/ProjectPreviewCard";
+
+const TYPE_LABEL: Record<string, string> = {
+  app_development: "App Development",
+  web_development: "Web Development",
+  marketing: "Marketing",
+};
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
@@ -158,7 +165,7 @@ export default function AppDevelopmentView() {
 
         <div className="roster__head">
           <div className="roster__title-block">
-            <div className="roster__eyebrow">App Development</div>
+            <div className="roster__eyebrow">{TYPE_LABEL[project.type] ?? "Project"}</div>
             <h1 className="roster__title">{project.name}</h1>
             <hr className="roster__rule" />
             <p className="roster__sub">
@@ -246,6 +253,13 @@ export default function AppDevelopmentView() {
         )}
 
         <ProjectInvoicesCard clientId={clientId!} clientProjectId={projectId!} />
+
+        <ProjectPreviewCard
+          clientId={clientId!}
+          clientProjectId={projectId!}
+          projectName={project.name}
+          clientLabel={client.business_name}
+        />
       </div>
 
       <Dialog open={openUpload} onOpenChange={(v) => { if (!uploading) setOpenUpload(v); }}>
