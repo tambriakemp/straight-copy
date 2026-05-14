@@ -146,3 +146,45 @@ export default function ProjectPreviewCard({ clientId, clientProjectId, projectN
     </div>
   );
 }
+
+function PreviewNameInline({ name, onSave }: { name: string; onSave: (next: string) => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setDraft(name); }, [name]);
+
+  const commit = async (e?: React.SyntheticEvent) => {
+    e?.stopPropagation();
+    const next = draft.trim();
+    if (!next || next === name) { setEditing(false); setDraft(name); return; }
+    setSaving(true);
+    try { await onSave(next); setEditing(false); }
+    catch (err: any) { toast.error(err?.message || "Rename failed"); }
+    finally { setSaving(false); }
+  };
+
+  if (editing) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+        <input
+          autoFocus
+          value={draft}
+          disabled={saving}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") commit(e); if (e.key === "Escape") { setEditing(false); setDraft(name); } }}
+          style={{ fontSize: 13, color: "var(--crm-warm-white)", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 4, padding: "2px 6px", minWidth: 160 }}
+        />
+        <span role="button" className="crm-btn crm-btn--ghost crm-btn--sm" onClick={commit} title="Save"><Check size={12} /></span>
+        <span role="button" className="crm-btn crm-btn--ghost crm-btn--sm" onClick={(e) => { e.stopPropagation(); setEditing(false); setDraft(name); }} title="Cancel"><X size={12} /></span>
+      </span>
+    );
+  }
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontSize: 13, color: "var(--crm-warm-white)" }}>{name}</span>
+      <span role="button" className="crm-btn crm-btn--ghost crm-btn--sm" onClick={(e) => { e.stopPropagation(); setEditing(true); }} title="Rename" style={{ padding: 4 }}>
+        <Pencil size={10} />
+      </span>
+    </span>
+  );
+}
