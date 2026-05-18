@@ -117,18 +117,9 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
           and approve each page or asset below once it's good to go.
         </p>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12, alignItems: "center" }}>
-          <a className="crm-btn crm-btn--bronze crm-btn--sm" href={url} target="_blank" rel="noreferrer">
-            <ExternalLink size={12} /> Open preview
-          </a>
-          <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={copy} title="Copy share link">
-            {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? "Copied" : "Copy link"}
-          </button>
-        </div>
-
         {totalItems > 0 && (
           <>
-            <div style={{ marginTop: 22, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+            <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
               <label style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
                 Your name
               </label>
@@ -155,6 +146,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
                   key: p.path,
                   label: labelForPath(p.path) + (p.isEntry ? " · entry" : ""),
                   sub: p.path,
+                  viewUrl: pageUrl(p.path),
                   approval: p.approval,
                   onApprove: (v: boolean) => setApproval("page", p.path, v),
                   busy: busy === `page:${p.path}`,
@@ -170,6 +162,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
                   key: a.path,
                   label: a.path.split("/").pop() || a.path,
                   sub: a.path,
+                  viewUrl: pageUrl(a.path),
                   approval: a.approval,
                   onApprove: (v: boolean) => setApproval("asset", a.path, v),
                   busy: busy === `asset:${a.path}`,
