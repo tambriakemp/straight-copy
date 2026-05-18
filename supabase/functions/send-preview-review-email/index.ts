@@ -32,9 +32,9 @@ function escapeHtml(s: string) {
     .replace(/'/g, "&#39;");
 }
 
-function buildEmailHtml(firstName: string, previewUrl: string) {
+function buildEmailHtml(firstName: string, portalUrl: string) {
   const safeName = escapeHtml(firstName || "there");
-  const safeUrl = escapeHtml(previewUrl);
+  const safeUrl = escapeHtml(portalUrl);
   return `<!DOCTYPE html>
 <html>
 <body style="margin:0;padding:0;background:#f6f3ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#2a2622;">
@@ -42,24 +42,29 @@ function buildEmailHtml(firstName: string, previewUrl: string) {
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;">Hi ${safeName},</p>
 
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;">
-      Your site preview is live and ready for your eyes. Take a few minutes to walk through it before we move into the next phase of the build.
+      Your site preview is live and ready for your eyes. Head to your client portal to walk through it before we move into the next phase of the build.
     </p>
 
     <p style="margin:28px 0;text-align:center;">
       <a href="${safeUrl}"
          style="display:inline-block;background:#8a6d4e;color:#ffffff;text-decoration:none;
                 padding:14px 28px;border-radius:4px;font-size:15px;letter-spacing:0.05em;">
-        Review my site preview
+        Open my client portal
       </a>
     </p>
 
-    <p style="font-size:16px;line-height:1.6;margin:0 0 12px;"><strong>How to leave feedback:</strong></p>
+    <p style="font-size:16px;line-height:1.6;margin:0 0 12px;"><strong>How to review your preview:</strong></p>
     <ol style="font-size:15px;line-height:1.7;padding-left:22px;margin:0 0 22px;">
-      <li>Click the <strong>"Leave Feedback"</strong> button in the bottom right corner.</li>
-      <li>Click anywhere on the page to drop a numbered pin — type your note, add your name, and save. Your comment is tied to that exact spot.</li>
-      <li>Use pins for anything: copy tweaks, color/spacing thoughts, "move this up," "swap this image," questions, approvals — all of it.</li>
-      <li>Move between pages using the site's own navigation. Pins work on every page.</li>
-      <li>You can reply to your own pins or to anything we reply with — it's a running conversation, not a one-shot form.</li>
+      <li>Click the button above to open your client portal.</li>
+      <li>Scroll to the <strong>Site Preview</strong> section — you'll see every page and asset listed.</li>
+      <li>Click <strong>View</strong> next to each page to open it in a new tab.</li>
+      <li>On each page, either:
+        <ul style="margin:6px 0 0;padding-left:22px;">
+          <li>Click <strong>"Leave Feedback"</strong> in the bottom right and drop numbered pins anywhere on the page with your notes, or</li>
+          <li>Head back to the portal and click <strong>Approve</strong> on that page once you're happy with it.</li>
+        </ul>
+      </li>
+      <li>Repeat for every page so we know exactly what's approved and what still needs tweaks.</li>
     </ol>
 
     <p style="font-size:16px;line-height:1.6;margin:0 0 12px;"><strong>What to look for:</strong></p>
@@ -71,11 +76,11 @@ function buildEmailHtml(firstName: string, previewUrl: string) {
     </ul>
 
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;">
-      Don't worry about being too picky — the more specific you are now, the faster we land on the final version. Aim to leave your feedback within the next 3 business days so we can keep your build on schedule.
+      Don't worry about being too picky — the more specific you are now, the faster we land on the final version. Aim to leave your feedback or approvals within the next 3 business days so we can keep your build on schedule.
     </p>
 
     <p style="font-size:16px;line-height:1.6;margin:0 0 28px;">
-      If anything is broken or you can't access the preview, just reply to this email.
+      If anything is broken or you can't access the portal, just reply to this email.
     </p>
 
     <p style="font-size:16px;line-height:1.6;margin:0;">Talking soon,</p>
