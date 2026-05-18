@@ -28,7 +28,6 @@ async function call(body: Record<string, unknown>) {
 export default function PortalProjectPreviewCard({ clientProjectId, contactName }: Props) {
   const [list, setList] = useState<ListResp | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [approverDraft, setApproverDraft] = useState(contactName ?? "");
 
