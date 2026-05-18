@@ -182,6 +182,12 @@ type Row = {
   label: string;
   sub: string;
   approval: Approval;
+type Row = {
+  key: string;
+  label: string;
+  sub: string;
+  viewUrl: string;
+  approval: Approval;
   onApprove: (v: boolean) => void;
   busy: boolean;
 };
