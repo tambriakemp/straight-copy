@@ -54,6 +54,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   const [dragOver, setDragOver] = useState<Status | null>(null);
   const [aiEditPath, setAiEditPath] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const filesInput = useRef<HTMLInputElement>(null);
   const zipInput = useRef<HTMLInputElement>(null);
   const dropzone = useRef<HTMLDivElement>(null);
 
