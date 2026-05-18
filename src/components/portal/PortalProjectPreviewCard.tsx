@@ -66,11 +66,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
   }
 
   const url = `${base}/p/${list.project.slug}`;
-  const copy = async () => {
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
+  const pageUrl = (path: string) => `${base}/p/${list.project.slug}/${path}`;
 
   const totalItems = list.pages.length + list.assets.length;
   const approvedItems =
