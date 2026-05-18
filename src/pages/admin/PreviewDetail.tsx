@@ -419,7 +419,12 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
               // @ts-expect-error nonstandard
               webkitdirectory=""
               style={{ display: "none" }} onChange={(e) => uploadFiles(e.target.files, false)} />
+            <input ref={filesInput} type="file" multiple
+              style={{ display: "none" }} onChange={(e) => uploadFiles(e.target.files, false)} />
             <input ref={zipInput} type="file" accept=".zip" style={{ display: "none" }} onChange={(e) => uploadFiles(e.target.files, true)} />
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => filesInput.current?.click()} disabled={uploading}>
+              <Upload size={12} /> Files
+            </button>
             <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => fileInput.current?.click()} disabled={uploading}>
               <Upload size={12} /> Folder
             </button>
@@ -432,6 +437,10 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         {/* Dropzone */}
         <div
           ref={dropzone}
+          role="button"
+          tabIndex={0}
+          onClick={() => filesInput.current?.click()}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); filesInput.current?.click(); } }}
           onDragOver={(e) => { e.preventDefault(); dropzone.current?.classList.add("is-drag"); }}
           onDragLeave={() => dropzone.current?.classList.remove("is-drag")}
           onDrop={onDrop}
@@ -444,10 +453,12 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
             fontSize: 14,
             marginBottom: 22,
             transition: "border-color 200ms",
+            cursor: "pointer",
           }}
         >
-          {uploading ? "Uploading…" : "Drop files, a folder, or a .zip here to upload"}
+          {uploading ? "Uploading…" : "Click or drop files, a folder, or a .zip here to upload"}
         </div>
+
 
         <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: "0 0 14px" }}>Assets & Missing References</h2>
 
