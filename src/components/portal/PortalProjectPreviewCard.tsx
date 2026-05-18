@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Copy, Check, ExternalLink, Loader2 } from "lucide-react";
+import { Check, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -28,7 +28,6 @@ async function call(body: Record<string, unknown>) {
 export default function PortalProjectPreviewCard({ clientProjectId, contactName }: Props) {
   const [list, setList] = useState<ListResp | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [approverDraft, setApproverDraft] = useState(contactName ?? "");
 
@@ -67,11 +66,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
   }
 
   const url = `${base}/p/${list.project.slug}`;
-  const copy = async () => {
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
+  const pageUrl = (path: string) => `${base}/p/${list.project.slug}/${path}`;
 
   const totalItems = list.pages.length + list.assets.length;
   const approvedItems =
@@ -122,18 +117,9 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
           and approve each page or asset below once it's good to go.
         </p>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12, alignItems: "center" }}>
-          <a className="crm-btn crm-btn--bronze crm-btn--sm" href={url} target="_blank" rel="noreferrer">
-            <ExternalLink size={12} /> Open preview
-          </a>
-          <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={copy} title="Copy share link">
-            {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? "Copied" : "Copy link"}
-          </button>
-        </div>
-
         {totalItems > 0 && (
           <>
-            <div style={{ marginTop: 22, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+            <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
               <label style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
                 Your name
               </label>
@@ -160,6 +146,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
                   key: p.path,
                   label: labelForPath(p.path) + (p.isEntry ? " · entry" : ""),
                   sub: p.path,
+                  viewUrl: pageUrl(p.path),
                   approval: p.approval,
                   onApprove: (v: boolean) => setApproval("page", p.path, v),
                   busy: busy === `page:${p.path}`,
@@ -175,6 +162,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
                   key: a.path,
                   label: a.path.split("/").pop() || a.path,
                   sub: a.path,
+                  viewUrl: pageUrl(a.path),
                   approval: a.approval,
                   onApprove: (v: boolean) => setApproval("asset", a.path, v),
                   busy: busy === `asset:${a.path}`,
@@ -193,6 +181,7 @@ type Row = {
   key: string;
   label: string;
   sub: string;
+  viewUrl: string;
   approval: Approval;
   onApprove: (v: boolean) => void;
   busy: boolean;
@@ -234,7 +223,16 @@ function ApprovalGroup({ title, rows, fmtDate }: { title: string; rows: Row[]; f
                   </div>
                 )}
               </div>
-              <div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <a
+                  className="crm-btn crm-btn--ghost crm-btn--sm"
+                  href={r.viewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="View in new tab"
+                >
+                  <ExternalLink size={12} /> View
+                </a>
                 {approved ? (
                   <button
                     className="crm-btn crm-btn--ghost crm-btn--sm"
