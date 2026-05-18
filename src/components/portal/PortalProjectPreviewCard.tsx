@@ -223,7 +223,16 @@ function ApprovalGroup({ title, rows, fmtDate }: { title: string; rows: Row[]; f
                   </div>
                 )}
               </div>
-              <div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <a
+                  className="crm-btn crm-btn--ghost crm-btn--sm"
+                  href={r.viewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="View in new tab"
+                >
+                  <ExternalLink size={12} /> View
+                </a>
                 {approved ? (
                   <button
                     className="crm-btn crm-btn--ghost crm-btn--sm"
