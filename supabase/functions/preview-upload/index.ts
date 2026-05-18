@@ -82,6 +82,8 @@ Deno.serve(async (req) => {
     const projectIdRaw = form.get("project_id");
     const name = (form.get("name") as string) || "Untitled preview";
     const clientLabel = (form.get("client_label") as string) || null;
+    // mode: "append" (default for existing project) merges new files; "replace" wipes first.
+    const mode = ((form.get("mode") as string) || "append").toLowerCase();
 
     // Resolve or create project
     let projectId = projectIdRaw ? String(projectIdRaw) : null;
@@ -95,13 +97,14 @@ Deno.serve(async (req) => {
         .single();
       if (error || !data) throw new Error("project not found");
       project = data;
-      // wipe existing files
-      await admin.storage.from("preview-sites").remove(
-        (
-          await admin.from("preview_files").select("path").eq("project_id", projectId)
-        ).data?.map((r: any) => `${project.storage_prefix}${r.path}`) ?? [],
-      );
-      await admin.from("preview_files").delete().eq("project_id", projectId);
+      if (mode === "replace") {
+        await admin.storage.from("preview-sites").remove(
+          (
+            await admin.from("preview_files").select("path").eq("project_id", projectId)
+          ).data?.map((r: any) => `${project.storage_prefix}${r.path}`) ?? [],
+        );
+        await admin.from("preview_files").delete().eq("project_id", projectId);
+      }
     } else {
       const slug = genSlug();
       const newId = crypto.randomUUID();
