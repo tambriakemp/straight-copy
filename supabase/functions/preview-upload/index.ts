@@ -82,6 +82,8 @@ Deno.serve(async (req) => {
     const projectIdRaw = form.get("project_id");
     const name = (form.get("name") as string) || "Untitled preview";
     const clientLabel = (form.get("client_label") as string) || null;
+    // mode: "append" (default for existing project) merges new files; "replace" wipes first.
+    const mode = ((form.get("mode") as string) || "append").toLowerCase();
 
     // Resolve or create project
     let projectId = projectIdRaw ? String(projectIdRaw) : null;
@@ -95,13 +97,14 @@ Deno.serve(async (req) => {
         .single();
       if (error || !data) throw new Error("project not found");
       project = data;
-      // wipe existing files
-      await admin.storage.from("preview-sites").remove(
-        (
-          await admin.from("preview_files").select("path").eq("project_id", projectId)
-        ).data?.map((r: any) => `${project.storage_prefix}${r.path}`) ?? [],
-      );
-      await admin.from("preview_files").delete().eq("project_id", projectId);
+      if (mode === "replace") {
+        await admin.storage.from("preview-sites").remove(
+          (
+            await admin.from("preview_files").select("path").eq("project_id", projectId)
+          ).data?.map((r: any) => `${project.storage_prefix}${r.path}`) ?? [],
+        );
+        await admin.from("preview_files").delete().eq("project_id", projectId);
+      }
     } else {
       const slug = genSlug();
       const newId = crypto.randomUUID();
@@ -161,18 +164,15 @@ Deno.serve(async (req) => {
 
     if (filesToUpload.length === 0) throw new Error("No files supplied");
 
-    // Determine entry HTML
+    // Determine entry HTML from the new batch
     const htmlFiles = filesToUpload
       .filter((f) => /\.html?$/i.test(f.path))
       .map((f) => f.path);
     let entry = htmlFiles.find((p) => /^index\.html?$/i.test(p)) ||
       htmlFiles.find((p) => !p.includes("/")) ||
       htmlFiles[0];
-    if (!entry) throw new Error("No HTML file found");
 
-    const isMulti = htmlFiles.length > 1;
-
-    // Upload all files
+    // Upload all files (upsert so re-uploading a path overwrites cleanly)
     for (const f of filesToUpload) {
       const ct = contentTypeFor(f.path);
       const { error: upErr } = await admin.storage
@@ -182,23 +182,39 @@ Deno.serve(async (req) => {
           upsert: true,
         });
       if (upErr) throw upErr;
-      await admin.from("preview_files").insert({
-        project_id: projectId,
-        path: f.path,
-        content_type: ct,
-        size_bytes: f.data.byteLength,
-      });
+      await admin.from("preview_files").upsert(
+        {
+          project_id: projectId,
+          path: f.path,
+          content_type: ct,
+          size_bytes: f.data.byteLength,
+        },
+        { onConflict: "project_id,path" },
+      );
     }
+
+    // Recompute multi-page based on ALL html files now in the project,
+    // and only change entry_path when we have no usable existing entry.
+    const { data: allFiles } = await admin
+      .from("preview_files")
+      .select("path")
+      .eq("project_id", projectId);
+    const allHtml = (allFiles ?? []).map((r: any) => r.path as string).filter((p) => /\.html?$/i.test(p));
+    const isMulti = allHtml.length > 1;
+    const currentEntry = project.entry_path as string | null;
+    const keepEntry = currentEntry && allHtml.includes(currentEntry);
+    const finalEntry = keepEntry ? currentEntry! : (entry ?? allHtml[0]);
+    if (!finalEntry) throw new Error("No HTML file found");
 
     await admin
       .from("preview_projects")
-      .update({ entry_path: entry, is_multi_page: isMulti })
+      .update({ entry_path: finalEntry, is_multi_page: isMulti })
       .eq("id", projectId);
 
     return new Response(
       JSON.stringify({
         ok: true,
-        project: { ...project, entry_path: entry, is_multi_page: isMulti },
+        project: { ...project, entry_path: finalEntry, is_multi_page: isMulti },
         file_count: filesToUpload.length,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
