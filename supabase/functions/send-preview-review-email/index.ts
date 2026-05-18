@@ -141,9 +141,10 @@ Deno.serve(async (req) => {
   if (!client?.contact_email) return json({ error: "client has no contact_email" }, 400);
 
   const origin = req.headers.get("origin") ?? "https://cre8visions.com";
+  const portalUrl = `${origin.replace(/\/$/, "")}/portal/${cp.client_id}`;
   const previewUrl = `${origin.replace(/\/$/, "")}/p/${preview.slug}`;
   const firstName = (client.contact_name || "").trim().split(/\s+/)[0] || "there";
-  const html = buildEmailHtml(firstName, previewUrl);
+  const html = buildEmailHtml(firstName, portalUrl);
 
   const sendBody: Record<string, unknown> = {
     subject: "Your site preview is ready — let's gather your feedback",
