@@ -915,6 +915,36 @@ export type Database = {
         }
         Relationships: []
       }
+      preview_approval_events: {
+        Row: {
+          action: string
+          approver_name: string | null
+          created_at: string
+          id: string
+          kind: string
+          path: string
+          project_id: string
+        }
+        Insert: {
+          action: string
+          approver_name?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          path: string
+          project_id: string
+        }
+        Update: {
+          action?: string
+          approver_name?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          path?: string
+          project_id?: string
+        }
+        Relationships: []
+      }
       preview_approvals: {
         Row: {
           approved_at: string
