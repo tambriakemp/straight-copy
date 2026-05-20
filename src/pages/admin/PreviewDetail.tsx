@@ -349,7 +349,9 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
             Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
           </TabsTrigger>
           <TabsTrigger value="files" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Files</TabsTrigger>
+          <TabsTrigger value="activity" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Activity</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="pages">
       {/* Pages list */}
@@ -651,8 +653,13 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         )}
       </section>
         </TabsContent>
+
+        <TabsContent value="activity">
+          <ApprovalActivity projectId={project.id} />
+        </TabsContent>
       </Tabs>
       </div>
+
 
       {/* Comment drawer */}
       {activeComment && (
@@ -839,5 +846,90 @@ function InlineRename({
         <Pencil size={10} />
       </button>
     </span>
+  );
+}
+
+function ApprovalActivity({ projectId }: { projectId: string }) {
+  const [events, setEvents] = useState<Array<{ kind: string; path: string; action: string; approver_name: string | null; created_at: string }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data, error } = await supabase
+        .from("preview_approval_events")
+        .select("kind, path, action, approver_name, created_at")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (cancelled) return;
+      if (!error) setEvents(data ?? []);
+      setLoading(false);
+    };
+    load();
+    const t = setInterval(load, 15000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [projectId]);
+
+  if (loading) return <div style={{ padding: 24, color: "var(--crm-taupe)" }}>Loading activity…</div>;
+  if (events.length === 0) {
+    return (
+      <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 14, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
+        No approval activity yet. When clients approve or unapprove pages and assets, they'll show up here.
+      </div>
+    );
+  }
+
+  const fmt = (iso: string) => new Date(iso).toLocaleString(undefined, {
+    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {events.map((e, i) => {
+        const isApprove = e.action === "approve";
+        return (
+          <div
+            key={i}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "auto minmax(0,1fr) auto",
+              alignItems: "center",
+              gap: 14,
+              padding: "12px 14px",
+              border: "1px solid var(--crm-border-dark)",
+              borderRadius: 8,
+              background: "hsl(40 20% 97% / 0.03)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                padding: "4px 8px",
+                borderRadius: 4,
+                color: isApprove ? "hsl(140 40% 70%)" : "hsl(20 60% 70%)",
+                background: isApprove ? "hsl(140 30% 20% / 0.4)" : "hsl(20 40% 22% / 0.4)",
+                border: `1px solid ${isApprove ? "hsl(140 30% 35%)" : "hsl(20 40% 35%)"}`,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {isApprove ? "Approved" : "Unapproved"}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, color: "var(--crm-warm-white)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ color: "var(--crm-taupe)", marginRight: 8, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase" }}>{e.kind}</span>
+                {e.path}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--crm-stone)", marginTop: 3 }}>
+                {e.approver_name ? `by ${e.approver_name}` : "by anonymous client"}
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--crm-taupe)", whiteSpace: "nowrap" }}>{fmt(e.created_at)}</div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

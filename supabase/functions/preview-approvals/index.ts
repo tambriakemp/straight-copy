@@ -68,6 +68,16 @@ Deno.serve(async (req) => {
       return json({ project: { id: project.id, name: project.name, slug: project.slug, entry_path: project.entry_path }, pages, assets });
     }
 
+    if (action === "events") {
+      const { data: events } = await admin
+        .from("preview_approval_events")
+        .select("kind, path, action, approver_name, created_at")
+        .eq("project_id", project.id)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      return json({ events: events ?? [] });
+    }
+
     if (action === "approve" || action === "unapprove") {
       const kind = String(payload.kind || "");
       const path = String(payload.path || "");
@@ -83,8 +93,9 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (!file) return json({ error: "file not found" }, 404);
 
+      const approver_name = (payload.approver_name ? String(payload.approver_name).slice(0, 120) : null) || null;
+
       if (action === "approve") {
-        const approver_name = (payload.approver_name ? String(payload.approver_name).slice(0, 120) : null) || null;
         const { error } = await admin
           .from("preview_approvals")
           .upsert(
@@ -92,6 +103,9 @@ Deno.serve(async (req) => {
             { onConflict: "project_id,kind,path" },
           );
         if (error) throw error;
+        await admin.from("preview_approval_events").insert({
+          project_id: project.id, kind, path, action: "approve", approver_name,
+        });
         return json({ ok: true });
       } else {
         const { error } = await admin
@@ -101,9 +115,13 @@ Deno.serve(async (req) => {
           .eq("kind", kind)
           .eq("path", path);
         if (error) throw error;
+        await admin.from("preview_approval_events").insert({
+          project_id: project.id, kind, path, action: "unapprove", approver_name,
+        });
         return json({ ok: true });
       }
     }
+
 
     return json({ error: "unknown action" }, 400);
   } catch (e) {
