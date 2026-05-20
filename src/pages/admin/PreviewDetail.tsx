@@ -349,7 +349,9 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
             Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
           </TabsTrigger>
           <TabsTrigger value="files" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Files</TabsTrigger>
+          <TabsTrigger value="activity" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Activity</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="pages">
       {/* Pages list */}
