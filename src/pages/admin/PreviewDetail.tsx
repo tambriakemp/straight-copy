@@ -653,8 +653,13 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         )}
       </section>
         </TabsContent>
+
+        <TabsContent value="activity">
+          <ApprovalActivity projectId={project.id} />
+        </TabsContent>
       </Tabs>
       </div>
+
 
       {/* Comment drawer */}
       {activeComment && (
