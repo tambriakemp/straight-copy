@@ -84,11 +84,57 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   useEffect(() => { if (project) loadMissing(); }, [project?.id, files.length]);
   useEffect(() => { const t = setInterval(load, 20000); return () => clearInterval(t); }, [id]);
 
-  const shareUrl = project ? `${base}/p/${project.slug}` : "";
+  const isExternal = project?.source_type === "external_url";
+  const shareUrl = project
+    ? (isExternal ? (project.external_base_url || "") : `${base}/p/${project.slug}`)
+    : "";
 
   const copy = async () => {
     await navigator.clipboard.writeText(shareUrl);
     setCopied(true); setTimeout(() => setCopied(false), 1500);
+  };
+
+  const crawlExternal = async () => {
+    if (!project) return;
+    setCrawling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("preview-admin", {
+        body: { action: "crawl_external", id: project.id },
+      });
+      if (error || data?.error) throw new Error(error?.message || data?.error || "Crawl failed");
+      const pages = data?.pages ?? [];
+      if (!pages.length) { toast.message("No pages discovered."); return; }
+      // Merge: keep any existing ones, add new ones at the end
+      const existing = new Set(externalPages.map((p) => p.path));
+      const merged = [
+        ...externalPages.map((p) => ({ path: p.path, label: p.label })),
+        ...pages.filter((p: any) => !existing.has(p.path)).map((p: any) => ({ path: p.path, label: p.label })),
+      ];
+      await supabase.functions.invoke("preview-admin", {
+        body: { action: "external_pages_set", project_id: project.id, pages: merged },
+      });
+      await load();
+      toast.success(`Discovered ${pages.length} page${pages.length === 1 ? "" : "s"}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Crawl failed");
+    } finally {
+      setCrawling(false);
+    }
+  };
+
+  const saveExternalPages = async (next: Array<{ path: string; label: string | null }>) => {
+    if (!project) return;
+    const { error } = await supabase.functions.invoke("preview-admin", {
+      body: { action: "external_pages_set", project_id: project.id, pages: next },
+    });
+    if (error) { toast.error(error.message); return; }
+    await load();
+  };
+
+  const deletePageComment = async (commentId: string) => {
+    if (!confirm("Delete this comment?")) return;
+    await supabase.functions.invoke("preview-admin", { body: { action: "page_comment_delete", id: commentId } });
+    await load();
   };
 
   const uploadFiles = async (filelist: FileList | null, asZip: boolean) => {
