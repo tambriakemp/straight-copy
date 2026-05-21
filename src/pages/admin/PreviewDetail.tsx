@@ -43,6 +43,8 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   const [files, setFiles] = useState<FileRow[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [replies, setReplies] = useState<Reply[]>([]);
+  const [externalPages, setExternalPages] = useState<Array<{ id: string; path: string; label: string | null; order_index: number }>>([]);
+  const [pageComments, setPageComments] = useState<Array<{ id: string; path: string; author_name: string | null; body: string; created_at: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -53,6 +55,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   const [pageFilter, setPageFilter] = useState<string>("__all__");
   const [dragOver, setDragOver] = useState<Status | null>(null);
   const [aiEditPath, setAiEditPath] = useState<string | null>(null);
+  const [crawling, setCrawling] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const filesInput = useRef<HTMLInputElement>(null);
   const zipInput = useRef<HTMLInputElement>(null);
@@ -67,6 +70,8 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
     setFiles(data?.files ?? []);
     setComments(data?.comments ?? []);
     setReplies(data?.replies ?? []);
+    setExternalPages(data?.external_pages ?? []);
+    setPageComments(data?.page_comments ?? []);
     setLoading(false);
   };
 
@@ -79,11 +84,57 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   useEffect(() => { if (project) loadMissing(); }, [project?.id, files.length]);
   useEffect(() => { const t = setInterval(load, 20000); return () => clearInterval(t); }, [id]);
 
-  const shareUrl = project ? `${base}/p/${project.slug}` : "";
+  const isExternal = project?.source_type === "external_url";
+  const shareUrl = project
+    ? (isExternal ? (project.external_base_url || "") : `${base}/p/${project.slug}`)
+    : "";
 
   const copy = async () => {
     await navigator.clipboard.writeText(shareUrl);
     setCopied(true); setTimeout(() => setCopied(false), 1500);
+  };
+
+  const crawlExternal = async () => {
+    if (!project) return;
+    setCrawling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("preview-admin", {
+        body: { action: "crawl_external", id: project.id },
+      });
+      if (error || data?.error) throw new Error(error?.message || data?.error || "Crawl failed");
+      const pages = data?.pages ?? [];
+      if (!pages.length) { toast.message("No pages discovered."); return; }
+      // Merge: keep any existing ones, add new ones at the end
+      const existing = new Set(externalPages.map((p) => p.path));
+      const merged = [
+        ...externalPages.map((p) => ({ path: p.path, label: p.label })),
+        ...pages.filter((p: any) => !existing.has(p.path)).map((p: any) => ({ path: p.path, label: p.label })),
+      ];
+      await supabase.functions.invoke("preview-admin", {
+        body: { action: "external_pages_set", project_id: project.id, pages: merged },
+      });
+      await load();
+      toast.success(`Discovered ${pages.length} page${pages.length === 1 ? "" : "s"}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Crawl failed");
+    } finally {
+      setCrawling(false);
+    }
+  };
+
+  const saveExternalPages = async (next: Array<{ path: string; label: string | null }>) => {
+    if (!project) return;
+    const { error } = await supabase.functions.invoke("preview-admin", {
+      body: { action: "external_pages_set", project_id: project.id, pages: next },
+    });
+    if (error) { toast.error(error.message); return; }
+    await load();
+  };
+
+  const deletePageComment = async (commentId: string) => {
+    if (!confirm("Delete this comment?")) return;
+    await supabase.functions.invoke("preview-admin", { body: { action: "page_comment_delete", id: commentId } });
+    await load();
   };
 
   const uploadFiles = async (filelist: FileList | null, asZip: boolean) => {
@@ -345,16 +396,34 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
       <Tabs defaultValue="pages" className="w-full">
         <TabsList style={{ background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 8, marginBottom: 18 }}>
           <TabsTrigger value="pages" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Pages</TabsTrigger>
-          <TabsTrigger value="feedback" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-            Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
-          </TabsTrigger>
-          <TabsTrigger value="files" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Files</TabsTrigger>
+          {!isExternal && (
+            <TabsTrigger value="feedback" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+              Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
+            </TabsTrigger>
+          )}
+          {isExternal && (
+            <TabsTrigger value="comments" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+              Comments {pageComments.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {pageComments.length}</span>}
+            </TabsTrigger>
+          )}
+          {!isExternal && (
+            <TabsTrigger value="files" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Files</TabsTrigger>
+          )}
           <TabsTrigger value="activity" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Activity</TabsTrigger>
         </TabsList>
 
 
         <TabsContent value="pages">
-      {/* Pages list */}
+      {isExternal ? (
+        <ExternalPagesPanel
+          baseUrl={project.external_base_url}
+          pages={externalPages}
+          onSave={saveExternalPages}
+          onCrawl={crawlExternal}
+          crawling={crawling}
+          lastCrawledAt={project.last_crawled_at}
+        />
+      ) : (
       <section style={{ marginBottom: 28 }}>
         {pages.length === 0 && (
           <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 14, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
@@ -410,7 +479,18 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           </div>
         )}
       </section>
+      )}
         </TabsContent>
+
+        <TabsContent value="comments">
+          <ExternalCommentsPanel
+            baseUrl={project.external_base_url}
+            pages={externalPages}
+            comments={pageComments}
+            onDelete={deletePageComment}
+          />
+        </TabsContent>
+
 
         <TabsContent value="files">
       <section style={{ marginBottom: 28 }}>
@@ -930,6 +1010,121 @@ function ApprovalActivity({ projectId }: { projectId: string }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function ExternalPagesPanel({
+  baseUrl, pages, onSave, onCrawl, crawling, lastCrawledAt,
+}: {
+  baseUrl: string | null;
+  pages: Array<{ id: string; path: string; label: string | null; order_index: number }>;
+  onSave: (next: Array<{ path: string; label: string | null }>) => Promise<void>;
+  onCrawl: () => Promise<void>;
+  crawling: boolean;
+  lastCrawledAt?: string | null;
+}) {
+  const [rows, setRows] = useState(pages.map((p) => ({ path: p.path, label: p.label || "" })));
+  useEffect(() => { setRows(pages.map((p) => ({ path: p.path, label: p.label || "" }))); }, [pages]);
+  const dirty = JSON.stringify(rows) !== JSON.stringify(pages.map((p) => ({ path: p.path, label: p.label || "" })));
+  const update = (i: number, k: "path" | "label", v: string) =>
+    setRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
+  const remove = (i: number) => setRows((rs) => rs.filter((_, idx) => idx !== i));
+  const add = () => setRows((rs) => [...rs, { path: "/", label: "" }]);
+
+  return (
+    <section style={{ marginBottom: 28 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, fontSize: 13, color: "var(--crm-taupe)" }}>
+          {baseUrl ? <>External site · <a href={baseUrl} target="_blank" rel="noreferrer" style={{ color: "var(--crm-accent)" }}>{baseUrl}</a></> : "No URL set"}
+          {lastCrawledAt && <span> · last crawled {new Date(lastCrawledAt).toLocaleString()}</span>}
+        </div>
+        <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={onCrawl} disabled={crawling || !baseUrl}>
+          {crawling ? "Crawling…" : pages.length ? "Re-crawl pages" : "Crawl pages"}
+        </button>
+      </div>
+
+      {rows.length === 0 ? (
+        <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 14, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
+          No pages yet. Click <strong style={{ color: "var(--crm-warm-white)" }}>Crawl pages</strong> to auto-discover them, or add one manually.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 8 }}>
+          {rows.map((r, i) => (
+            <div key={i} style={{
+              display: "grid", gridTemplateColumns: "1fr 1.5fr auto auto", gap: 8, alignItems: "center",
+              padding: "10px 12px", background: "hsl(40 20% 97% / 0.03)", border: "1px solid var(--crm-border-dark)", borderRadius: 8,
+            }}>
+              <input className="crm-input" value={r.label} onChange={(e) => update(i, "label", e.target.value)} placeholder="Home" />
+              <input className="crm-input" value={r.path} onChange={(e) => update(i, "path", e.target.value)} placeholder="/about" style={{ fontFamily: "monospace" }} />
+              <a className="crm-btn crm-btn--ghost crm-btn--sm" href={baseUrl ? baseUrl + r.path : "#"} target="_blank" rel="noreferrer" title="Open page">
+                <ExternalLink size={12} /> View
+              </a>
+              <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => remove(i)} title="Remove"><Trash2 size={12} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={add}>+ Add page</button>
+        <button
+          className="crm-btn crm-btn--primary crm-btn--sm"
+          disabled={!dirty}
+          onClick={() => onSave(rows.map((r) => ({ path: r.path.trim() || "/", label: r.label.trim() || null })))}
+          style={{ marginLeft: "auto" }}
+        >
+          {dirty ? "Save changes" : "Saved"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ExternalCommentsPanel({
+  baseUrl, pages, comments, onDelete,
+}: {
+  baseUrl: string | null;
+  pages: Array<{ path: string; label: string | null }>;
+  comments: Array<{ id: string; path: string; author_name: string | null; body: string; created_at: string }>;
+  onDelete: (id: string) => void;
+}) {
+  if (comments.length === 0) {
+    return (
+      <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 14, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
+        No client comments yet. Comments will appear here as your client reviews each page.
+      </div>
+    );
+  }
+  const labelFor = (p: string) => pages.find((x) => x.path === p)?.label || p;
+  const grouped: Record<string, typeof comments> = {};
+  for (const c of comments) (grouped[c.path] ||= []).push(c);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {Object.entries(grouped).map(([p, list]) => (
+        <div key={p} style={{ border: "1px solid var(--crm-border-dark)", borderRadius: 10, padding: 14, background: "hsl(40 20% 97% / 0.03)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 13, color: "var(--crm-warm-white)", fontWeight: 600 }}>{labelFor(p)}</div>
+              <div style={{ fontSize: 12, color: "var(--crm-taupe)", fontFamily: "monospace" }}>{p}</div>
+            </div>
+            {baseUrl && (
+              <a className="crm-btn crm-btn--ghost crm-btn--sm" href={baseUrl + p} target="_blank" rel="noreferrer"><ExternalLink size={12} /> View</a>
+            )}
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {list.map((c) => (
+              <div key={c.id} style={{ padding: "10px 12px", borderRadius: 8, background: "hsl(40 20% 97% / 0.04)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: "var(--crm-stone)" }}>{c.author_name || "Guest"} · {new Date(c.created_at).toLocaleString()}</span>
+                  <button onClick={() => onDelete(c.id)} title="Delete" style={{ background: "transparent", border: 0, color: "var(--crm-taupe)", cursor: "pointer" }}><Trash2 size={12} /></button>
+                </div>
+                <div style={{ fontSize: 14, color: "var(--crm-warm-white)", whiteSpace: "pre-wrap" }}>{c.body}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

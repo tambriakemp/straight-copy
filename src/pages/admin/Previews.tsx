@@ -28,6 +28,8 @@ export default function Previews() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [clientLabel, setClientLabel] = useState("");
+  const [sourceType, setSourceType] = useState<"upload" | "external_url">("upload");
+  const [externalUrl, setExternalUrl] = useState("");
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -45,15 +47,22 @@ export default function Previews() {
 
   const create = async () => {
     if (!name.trim()) return toast.error("Name required");
+    if (sourceType === "external_url" && !externalUrl.trim()) return toast.error("URL required");
     setCreating(true);
     const { data, error } = await supabase.functions.invoke("preview-admin", {
-      body: { action: "create", name: name.trim(), client_label: clientLabel.trim() || null },
+      body: {
+        action: "create",
+        name: name.trim(),
+        client_label: clientLabel.trim() || null,
+        source_type: sourceType,
+        external_base_url: sourceType === "external_url" ? externalUrl.trim() : undefined,
+      },
     });
     setCreating(false);
     if (error || !data?.project) return toast.error(error?.message || "Failed");
     setOpen(false);
-    setName(""); setClientLabel("");
-    toast.success("Preview created — now upload your files.");
+    setName(""); setClientLabel(""); setExternalUrl(""); setSourceType("upload");
+    toast.success(sourceType === "external_url" ? "Preview created — now crawl pages." : "Preview created — now upload your files.");
     navigate(`/admin/previews/${data.project.id}`);
   };
 
@@ -118,6 +127,22 @@ export default function Previews() {
                 </DialogHeader>
                 <div className="space-y-4 mt-2">
                   <div>
+                    <label className="crm-label">Type</label>
+                    <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                      {(["upload","external_url"] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setSourceType(t)}
+                          className={`crm-btn ${sourceType === t ? "crm-btn--bronze" : "crm-btn--ghost"} crm-btn--sm`}
+                          style={{ flex: 1 }}
+                        >
+                          {t === "upload" ? "Upload files" : "External URL"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
                     <label className="crm-label">Project name *</label>
                     <input className="crm-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Magna Tax Relief — Home v1" />
                   </div>
@@ -125,6 +150,15 @@ export default function Previews() {
                     <label className="crm-label">Client label (optional)</label>
                     <input className="crm-input" value={clientLabel} onChange={(e) => setClientLabel(e.target.value)} placeholder="Magna Tax Relief" />
                   </div>
+                  {sourceType === "external_url" && (
+                    <div>
+                      <label className="crm-label">Site URL *</label>
+                      <input className="crm-input" value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)} placeholder="https://menovia-landing.lovable.app" />
+                      <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 6 }}>
+                        We'll auto-discover the site's pages so clients can review each one.
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <button className="crm-btn crm-btn--ghost" onClick={() => setOpen(false)}>Cancel</button>

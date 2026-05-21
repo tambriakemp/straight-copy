@@ -6,10 +6,10 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 type Approval = { approver_name: string | null; approved_at: string } | null;
-type PageRow = { path: string; isEntry: boolean; approval: Approval };
+type PageRow = { path: string; label?: string | null; isEntry: boolean; approval: Approval };
 type AssetRow = { path: string; approval: Approval };
 type ListResp = {
-  project: { id: string; name: string; slug: string; entry_path: string };
+  project: { id: string; name: string; slug: string; entry_path: string; source_type?: string; external_base_url?: string | null };
   pages: PageRow[];
   assets: AssetRow[];
 };
@@ -65,8 +65,10 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
     );
   }
 
-  const url = `${base}/p/${list.project.slug}`;
-  const pageUrl = (path: string) => `${base}/p/${list.project.slug}/${path}`;
+  const isExternal = list.project.source_type === "external_url";
+  const url = isExternal ? (list.project.external_base_url || "") : `${base}/p/${list.project.slug}`;
+  const pageUrl = (path: string) =>
+    isExternal ? `${list.project.external_base_url || ""}${path}` : `${base}/p/${list.project.slug}/${path}`;
 
   const totalItems = list.pages.length + list.assets.length;
   const approvedItems =
@@ -144,12 +146,15 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
                 title="Pages"
                 rows={list.pages.map((p) => ({
                   key: p.path,
-                  label: labelForPath(p.path) + (p.isEntry ? " · entry" : ""),
+                  label: (p.label || labelForPath(p.path)) + (p.isEntry ? " · entry" : ""),
                   sub: p.path,
                   viewUrl: pageUrl(p.path),
                   approval: p.approval,
                   onApprove: (v: boolean) => setApproval("page", p.path, v),
                   busy: busy === `page:${p.path}`,
+                  showComments: isExternal,
+                  slug: list.project.slug,
+                  path: p.path,
                 }))}
                 fmtDate={fmtDate}
               />
@@ -185,6 +190,9 @@ type Row = {
   approval: Approval;
   onApprove: (v: boolean) => void;
   busy: boolean;
+  showComments?: boolean;
+  slug?: string;
+  path?: string;
 };
 
 function ApprovalGroup({ title, rows, fmtDate }: { title: string; rows: Row[]; fmtDate: (s: string) => string }) {
