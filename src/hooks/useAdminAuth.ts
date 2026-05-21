@@ -39,7 +39,19 @@ export function useAdminAuth() {
     };
 
     // Set up auth listener FIRST
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+    let lastUserId: string | null | undefined = undefined;
+    const { data: sub } = supabase.auth.onAuthStateChange((event, sess) => {
+      const nextUserId = sess?.user?.id ?? null;
+      // Ignore token refresh / tab-focus revalidation events that don't change identity.
+      // Otherwise switching tabs causes RequireAdmin to flash "Loading…" and remount children.
+      if (
+        lastUserId !== undefined &&
+        nextUserId === lastUserId &&
+        event !== "SIGNED_OUT"
+      ) {
+        return;
+      }
+      lastUserId = nextUserId;
       setLoading(true);
       // Defer admin check to avoid auth callback deadlocks.
       setTimeout(() => {
