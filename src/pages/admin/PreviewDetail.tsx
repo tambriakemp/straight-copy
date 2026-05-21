@@ -84,7 +84,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   useEffect(() => { if (project) loadMissing(); }, [project?.id, files.length]);
   useEffect(() => { const t = setInterval(load, 20000); return () => clearInterval(t); }, [id]);
 
-  const isExternal = project?.source_type === "external_url";
+  const isExternal = !!project?.external_base_url;
   const shareUrl = project
     ? (isExternal ? (project.external_base_url || "") : `${base}/p/${project.slug}`)
     : "";
@@ -396,11 +396,9 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
       <Tabs defaultValue="pages" className="w-full">
         <TabsList style={{ background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 8, marginBottom: 18 }}>
           <TabsTrigger value="pages" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Pages</TabsTrigger>
-          {!isExternal && (
-            <TabsTrigger value="feedback" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-              Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="feedback" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+            Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
+          </TabsTrigger>
           {isExternal && (
             <TabsTrigger value="comments" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
               Comments {pageComments.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {pageComments.length}</span>}
@@ -411,8 +409,9 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         </TabsList>
 
 
+
         <TabsContent value="pages">
-      {isExternal ? (
+      {isExternal && (
         <ExternalPagesPanel
           baseUrl={project.external_base_url}
           pages={externalPages}
@@ -421,11 +420,14 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           crawling={crawling}
           lastCrawledAt={project.last_crawled_at}
         />
-      ) : (
-      <section style={{ marginBottom: 28 }}>
-        {pages.length === 0 && (
+      )}
+      <section style={{ marginBottom: 28, marginTop: isExternal ? 22 : 0 }}>
+        {isExternal && (
+          <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: "0 0 12px" }}>Uploaded Pages</h2>
+        )}
+        {pages.length === 0 && !isExternal && (
           <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 14, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
-            No pages yet. Upload HTML files from the <strong style={{ color: "var(--crm-warm-white)" }}>Files</strong> tab.
+            No pages yet. Upload HTML files from the <strong style={{ color: "var(--crm-warm-white)" }}>Files</strong> tab, or link an external site there.
           </div>
         )}
 
@@ -477,8 +479,8 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           </div>
         )}
       </section>
-      )}
         </TabsContent>
+
 
         <TabsContent value="comments">
           <ExternalCommentsPanel
@@ -497,7 +499,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         externalBaseUrl={project.external_base_url}
         onSaved={load}
       />
-      {!isExternal && (
+      {(
       <section style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
           <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Upload Files</h2>
@@ -1136,14 +1138,14 @@ function ExternalCommentsPanel({
 }
 
 function ExternalLinkPanel({
-  projectId, sourceType, externalBaseUrl, onSaved,
+  projectId, externalBaseUrl, onSaved,
 }: {
   projectId: string;
-  sourceType: string;
+  sourceType?: string;
   externalBaseUrl: string | null;
   onSaved: () => void | Promise<void>;
 }) {
-  const isExternal = sourceType === "external_url";
+  const hasLink = !!externalBaseUrl;
   const [url, setUrl] = useState(externalBaseUrl ?? "");
   const [saving, setSaving] = useState(false);
   useEffect(() => { setUrl(externalBaseUrl ?? ""); }, [externalBaseUrl]);
@@ -1153,7 +1155,7 @@ function ExternalLinkPanel({
     if (!trimmed) { toast.error("Enter a URL"); return; }
     setSaving(true);
     const { data, error } = await supabase.functions.invoke("preview-admin", {
-      body: { action: "update", id: projectId, source_type: "external_url", external_base_url: trimmed },
+      body: { action: "update", id: projectId, external_base_url: trimmed },
     });
     setSaving(false);
     if (error || (data as any)?.error) { toast.error(error?.message || (data as any)?.error || "Failed"); return; }
@@ -1162,14 +1164,14 @@ function ExternalLinkPanel({
   };
 
   const clear = async () => {
-    if (!confirm("Remove the linked URL and switch back to file uploads?")) return;
+    if (!confirm("Remove the linked URL? Uploaded files will remain.")) return;
     setSaving(true);
     const { error } = await supabase.functions.invoke("preview-admin", {
-      body: { action: "update", id: projectId, source_type: "upload", external_base_url: null },
+      body: { action: "update", id: projectId, external_base_url: null },
     });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Reverted to upload mode");
+    toast.success("Link removed");
     await onSaved();
   };
 
@@ -1180,7 +1182,7 @@ function ExternalLinkPanel({
           External Link
         </h2>
         <span style={{ fontSize: 12, color: "var(--crm-taupe)" }}>
-          {isExternal ? "Active — uploads disabled" : "Optional — paste a live URL instead of uploading files"}
+          {hasLink ? "Linked — coexists with uploaded files" : "Optional — link a live URL in addition to or instead of uploads"}
         </span>
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1193,15 +1195,16 @@ function ExternalLinkPanel({
           style={{ flex: "1 1 320px", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 6, padding: "8px 12px", color: "var(--crm-warm-white)", fontSize: 14 }}
         />
         <button className="crm-btn crm-btn--primary crm-btn--sm" onClick={save} disabled={saving || !url.trim() || url.trim() === (externalBaseUrl ?? "")}>
-          {saving ? "Saving…" : isExternal ? "Update link" : "Link site"}
+          {saving ? "Saving…" : hasLink ? "Update link" : "Link site"}
         </button>
-        {isExternal && (
+        {hasLink && (
           <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={clear} disabled={saving}>
-            Switch to uploads
+            Remove link
           </button>
         )}
       </div>
     </section>
   );
 }
+
 

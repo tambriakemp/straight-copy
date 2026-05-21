@@ -6,10 +6,10 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 type Approval = { approver_name: string | null; approved_at: string } | null;
-type PageRow = { path: string; label?: string | null; isEntry: boolean; approval: Approval };
+type PageRow = { path: string; label?: string | null; isEntry: boolean; isExternal?: boolean; viewUrl?: string | null; approval: Approval };
 type AssetRow = { path: string; approval: Approval };
 type ListResp = {
-  project: { id: string; name: string; slug: string; entry_path: string; source_type?: string; external_base_url?: string | null };
+  project: { id: string; name: string; slug: string; entry_path: string; source_type?: string; external_base_url?: string | null; has_external?: boolean };
   pages: PageRow[];
   assets: AssetRow[];
 };
@@ -65,10 +65,12 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
     );
   }
 
-  const isExternal = list.project.source_type === "external_url";
-  const url = isExternal ? (list.project.external_base_url || "") : `${base}/p/${list.project.slug}`;
-  const pageUrl = (path: string) =>
-    isExternal ? `${list.project.external_base_url || ""}${path}` : `${base}/p/${list.project.slug}/${path}`;
+  const pageUrl = (row: PageRow) =>
+    row.viewUrl || `${base}/p/${list.project.slug}/${row.path}`;
+  const assetUrl = (path: string) => `${base}/p/${list.project.slug}/${path}`;
+
+  const uploadedPages = list.pages.filter((p) => !p.isExternal);
+  const externalPages = list.pages.filter((p) => p.isExternal);
 
   const totalItems = list.pages.length + list.assets.length;
   const approvedItems =
@@ -141,18 +143,37 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
               />
             </div>
 
-            {list.pages.length > 0 && (
+            {uploadedPages.length > 0 && (
               <ApprovalGroup
                 title="Pages"
-                rows={list.pages.map((p) => ({
+                rows={uploadedPages.map((p) => ({
                   key: p.path,
                   label: (p.label || labelForPath(p.path)) + (p.isEntry ? " · entry" : ""),
                   sub: p.path,
-                  viewUrl: pageUrl(p.path),
+                  viewUrl: pageUrl(p),
                   approval: p.approval,
                   onApprove: (v: boolean) => setApproval("page", p.path, v),
                   busy: busy === `page:${p.path}`,
-                  showComments: isExternal,
+                  showComments: false,
+                  slug: list.project.slug,
+                  path: p.path,
+                }))}
+                fmtDate={fmtDate}
+              />
+            )}
+
+            {externalPages.length > 0 && (
+              <ApprovalGroup
+                title="External pages"
+                rows={externalPages.map((p) => ({
+                  key: `ext:${p.path}`,
+                  label: p.label || labelForPath(p.path),
+                  sub: p.path,
+                  viewUrl: pageUrl(p),
+                  approval: p.approval,
+                  onApprove: (v: boolean) => setApproval("page", p.path, v),
+                  busy: busy === `page:${p.path}`,
+                  showComments: true,
                   slug: list.project.slug,
                   path: p.path,
                 }))}
@@ -167,7 +188,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
                   key: a.path,
                   label: a.path.split("/").pop() || a.path,
                   sub: a.path,
-                  viewUrl: pageUrl(a.path),
+                  viewUrl: assetUrl(a.path),
                   approval: a.approval,
                   onApprove: (v: boolean) => setApproval("asset", a.path, v),
                   busy: busy === `asset:${a.path}`,

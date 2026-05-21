@@ -41,7 +41,8 @@ Deno.serve(async (req) => {
       : q.eq("client_project_id", clientProjectId!).maybeSingle());
     if (!project || project.archived) return json({ error: "not found" }, 404);
 
-    const isExternal = project.source_type === "external_url";
+    const hasExternal = !!project.external_base_url;
+    const extBase = (project.external_base_url || "").replace(/\/+$/, "");
 
     if (action === "list") {
       const { data: approvals } = await admin
@@ -51,47 +52,49 @@ Deno.serve(async (req) => {
       const approvalMap = new Map<string, { approver_name: string | null; approved_at: string }>();
       for (const a of approvals ?? []) approvalMap.set(`${a.kind}:${a.path}`, { approver_name: a.approver_name, approved_at: a.approved_at });
 
-      if (isExternal) {
-        const { data: extPages } = await admin
-          .from("preview_external_pages")
-          .select("path, label, order_index")
-          .eq("project_id", project.id)
-          .order("order_index", { ascending: true });
-        const pages = (extPages ?? []).map((p) => ({
-          path: p.path,
-          label: p.label,
-          isEntry: false,
-          approval: approvalMap.get(`page:${p.path}`) ?? null,
-        }));
-        return json({
-          project: {
-            id: project.id, name: project.name, slug: project.slug, entry_path: project.entry_path,
-            source_type: project.source_type, external_base_url: project.external_base_url,
-          },
-          pages,
-          assets: [],
-        });
-      }
+      const pages: any[] = [];
+      const assets: any[] = [];
 
+      // Uploaded files (always include if present)
       const { data: files } = await admin
         .from("preview_files")
         .select("path")
         .eq("project_id", project.id)
         .order("path");
-      const pages: any[] = [];
-      const assets: any[] = [];
       for (const f of files ?? []) {
         const p = f.path as string;
         if (isPagePath(p)) {
-          pages.push({ path: p, isEntry: p === project.entry_path, approval: approvalMap.get(`page:${p}`) ?? null });
+          pages.push({
+            path: p, label: null, isEntry: p === project.entry_path,
+            isExternal: false, viewUrl: null,
+            approval: approvalMap.get(`page:${p}`) ?? null,
+          });
         } else {
           assets.push({ path: p, approval: approvalMap.get(`asset:${p}`) ?? null });
         }
       }
+
+      // External pages (if a link is configured)
+      if (hasExternal) {
+        const { data: extPages } = await admin
+          .from("preview_external_pages")
+          .select("path, label, order_index")
+          .eq("project_id", project.id)
+          .order("order_index", { ascending: true });
+        for (const p of extPages ?? []) {
+          pages.push({
+            path: p.path, label: p.label, isEntry: false,
+            isExternal: true, viewUrl: `${extBase}${p.path}`,
+            approval: approvalMap.get(`page:${p.path}`) ?? null,
+          });
+        }
+      }
+
       return json({
         project: {
           id: project.id, name: project.name, slug: project.slug, entry_path: project.entry_path,
-          source_type: project.source_type, external_base_url: null,
+          source_type: project.source_type, external_base_url: project.external_base_url,
+          has_external: hasExternal,
         },
         pages, assets,
       });
@@ -113,25 +116,22 @@ Deno.serve(async (req) => {
       if (!["page", "asset"].includes(kind)) return json({ error: "invalid kind" }, 400);
       if (!path) return json({ error: "path required" }, 400);
 
-      // Verify the path belongs to this project
-      if (isExternal) {
-        if (kind !== "page") return json({ error: "external previews only support page approvals" }, 400);
+      // Verify path exists: check external pages first, then uploaded files
+      let found = false;
+      if (kind === "page" && hasExternal) {
         const { data: ext } = await admin
           .from("preview_external_pages")
-          .select("path")
-          .eq("project_id", project.id)
-          .eq("path", path)
-          .maybeSingle();
-        if (!ext) return json({ error: "page not found" }, 404);
-      } else {
+          .select("path").eq("project_id", project.id).eq("path", path).maybeSingle();
+        if (ext) found = true;
+      }
+      if (!found) {
         const { data: file } = await admin
           .from("preview_files")
-          .select("path")
-          .eq("project_id", project.id)
-          .eq("path", path)
-          .maybeSingle();
-        if (!file) return json({ error: "file not found" }, 404);
+          .select("path").eq("project_id", project.id).eq("path", path).maybeSingle();
+        if (file) found = true;
       }
+      if (!found) return json({ error: "path not found" }, 404);
+
 
       const approver_name = (payload.approver_name ? String(payload.approver_name).slice(0, 120) : null) || null;
 
