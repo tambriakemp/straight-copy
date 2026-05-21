@@ -208,62 +208,137 @@ function ApprovalGroup({ title, rows, fmtDate }: { title: string; rows: Row[]; f
             <div
               key={r.key}
               style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0,1fr) auto",
-                alignItems: "center",
-                gap: 14,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
                 padding: "12px 14px",
                 border: "1px solid hsl(30 8% 22%)",
                 borderRadius: 6,
                 background: approved ? "hsl(30 6% 12%)" : "transparent",
               }}
             >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, color: "hsl(40 20% 97%)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {r.label}
-                </div>
-                <div style={{ fontSize: 11, color: "hsl(30 8% 55%)", marginTop: 3, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {r.sub}
-                </div>
-                {approved && r.approval && (
-                  <div style={{ fontSize: 11, color: "hsl(140 30% 60%)", marginTop: 4, letterSpacing: "0.06em" }}>
-                    ✓ Approved{r.approval.approver_name ? ` by ${r.approval.approver_name}` : ""} · {fmtDate(r.approval.approved_at)}
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 14 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14, color: "hsl(40 20% 97%)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {r.label}
                   </div>
-                )}
+                  <div style={{ fontSize: 11, color: "hsl(30 8% 55%)", marginTop: 3, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {r.sub}
+                  </div>
+                  {approved && r.approval && (
+                    <div style={{ fontSize: 11, color: "hsl(140 30% 60%)", marginTop: 4, letterSpacing: "0.06em" }}>
+                      ✓ Approved{r.approval.approver_name ? ` by ${r.approval.approver_name}` : ""} · {fmtDate(r.approval.approved_at)}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <a className="crm-btn crm-btn--ghost crm-btn--sm" href={r.viewUrl} target="_blank" rel="noreferrer" title="View in new tab">
+                    <ExternalLink size={12} /> View
+                  </a>
+                  {approved ? (
+                    <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => r.onApprove(false)} disabled={r.busy} title="Remove approval">
+                      {r.busy ? <Loader2 size={12} className="animate-spin" /> : "Undo"}
+                    </button>
+                  ) : (
+                    <button className="crm-btn crm-btn--bronze crm-btn--sm" onClick={() => r.onApprove(true)} disabled={r.busy}>
+                      {r.busy ? <Loader2 size={12} className="animate-spin" /> : <><Check size={12} /> Approve</>}
+                    </button>
+                  )}
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <a
-                  className="crm-btn crm-btn--ghost crm-btn--sm"
-                  href={r.viewUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  title="View in new tab"
-                >
-                  <ExternalLink size={12} /> View
-                </a>
-                {approved ? (
-                  <button
-                    className="crm-btn crm-btn--ghost crm-btn--sm"
-                    onClick={() => r.onApprove(false)}
-                    disabled={r.busy}
-                    title="Remove approval"
-                  >
-                    {r.busy ? <Loader2 size={12} className="animate-spin" /> : "Undo"}
-                  </button>
-                ) : (
-                  <button
-                    className="crm-btn crm-btn--bronze crm-btn--sm"
-                    onClick={() => r.onApprove(true)}
-                    disabled={r.busy}
-                  >
-                    {r.busy ? <Loader2 size={12} className="animate-spin" /> : <><Check size={12} /> Approve</>}
-                  </button>
-                )}
-              </div>
+              {r.showComments && r.slug && r.path !== undefined && (
+                <PageCommentThread slug={r.slug} path={r.path} fmtDate={fmtDate} />
+              )}
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+type Comment = { id: string; author_name: string | null; body: string; created_at: string };
+
+function PageCommentThread({ slug, path, fmtDate }: { slug: string; path: string; fmtDate: (s: string) => string }) {
+  const [open, setOpen] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [name, setName] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const url = new URL(`${SUPABASE_URL}/functions/v1/preview-page-comments`);
+    url.searchParams.set("slug", slug);
+    url.searchParams.set("path", path);
+    const r = await fetch(url.toString(), { headers: { Authorization: `Bearer ${PUB_KEY}`, apikey: PUB_KEY } });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) setComments(j.comments || []);
+    setLoaded(true);
+  }, [slug, path]);
+
+  useEffect(() => { if (open && !loaded) void load(); }, [open, loaded, load]);
+
+  const submit = async () => {
+    const text = body.trim();
+    if (!text) return;
+    setBusy(true);
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/preview-page-comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}`, apikey: PUB_KEY },
+      body: JSON.stringify({ slug, path, author_name: name.trim() || null, body: text }),
+    });
+    const j = await r.json().catch(() => ({}));
+    setBusy(false);
+    if (!r.ok) { toast.error(j?.error || "Could not send comment"); return; }
+    setBody("");
+    setComments((prev) => [...prev, j.comment]);
+    toast.success("Comment sent");
+  };
+
+  return (
+    <div style={{ borderTop: "1px dashed hsl(30 8% 22%)", paddingTop: 10 }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="crm-btn crm-btn--ghost crm-btn--sm"
+        style={{ alignSelf: "flex-start" }}
+      >
+        <MessageSquare size={12} /> {open ? "Hide" : "Comments"}{comments.length > 0 ? ` (${comments.length})` : ""}
+      </button>
+      {open && (
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+          {loaded && comments.length === 0 && (
+            <div style={{ fontSize: 12, color: "hsl(30 8% 55%)" }}>No comments yet. Be the first to leave feedback.</div>
+          )}
+          {comments.map((c) => (
+            <div key={c.id} style={{ background: "hsl(30 6% 10%)", border: "1px solid hsl(30 8% 18%)", borderRadius: 4, padding: "8px 10px" }}>
+              <div style={{ fontSize: 11, color: "hsl(30 8% 62%)", marginBottom: 4, letterSpacing: "0.06em" }}>
+                {c.author_name || "Anonymous"} · {fmtDate(c.created_at)}
+              </div>
+              <div style={{ fontSize: 13, color: "hsl(40 20% 95%)", whiteSpace: "pre-wrap" }}>{c.body}</div>
+            </div>
+          ))}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name (optional)"
+              style={{ background: "transparent", border: "1px solid hsl(30 8% 22%)", borderRadius: 4, padding: "6px 10px", color: "hsl(40 20% 97%)", fontSize: 13 }}
+            />
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Share feedback for this page…"
+              rows={3}
+              style={{ background: "transparent", border: "1px solid hsl(30 8% 22%)", borderRadius: 4, padding: "8px 10px", color: "hsl(40 20% 97%)", fontSize: 13, fontFamily: "inherit", resize: "vertical" }}
+            />
+            <button className="crm-btn crm-btn--bronze crm-btn--sm" onClick={submit} disabled={busy || !body.trim()} style={{ alignSelf: "flex-end" }}>
+              {busy ? <Loader2 size={12} className="animate-spin" /> : <><Send size={12} /> Send</>}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
