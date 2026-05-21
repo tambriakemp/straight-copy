@@ -411,7 +411,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
 
 
         <TabsContent value="pages">
-      {isExternal ? (
+      {isExternal && (
         <ExternalPagesPanel
           baseUrl={project.external_base_url}
           pages={externalPages}
@@ -420,11 +420,14 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           crawling={crawling}
           lastCrawledAt={project.last_crawled_at}
         />
-      ) : (
-      <section style={{ marginBottom: 28 }}>
-        {pages.length === 0 && (
+      )}
+      <section style={{ marginBottom: 28, marginTop: isExternal ? 22 : 0 }}>
+        {isExternal && (
+          <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: "0 0 12px" }}>Uploaded Pages</h2>
+        )}
+        {pages.length === 0 && !isExternal && (
           <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 14, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
-            No pages yet. Upload HTML files from the <strong style={{ color: "var(--crm-warm-white)" }}>Files</strong> tab.
+            No pages yet. Upload HTML files from the <strong style={{ color: "var(--crm-warm-white)" }}>Files</strong> tab, or link an external site there.
           </div>
         )}
 
@@ -476,8 +479,8 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           </div>
         )}
       </section>
-      )}
         </TabsContent>
+
 
         <TabsContent value="comments">
           <ExternalCommentsPanel
