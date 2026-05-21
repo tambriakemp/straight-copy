@@ -6,10 +6,10 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 type Approval = { approver_name: string | null; approved_at: string } | null;
-type PageRow = { path: string; label?: string | null; isEntry: boolean; approval: Approval };
+type PageRow = { path: string; label?: string | null; isEntry: boolean; isExternal?: boolean; viewUrl?: string | null; approval: Approval };
 type AssetRow = { path: string; approval: Approval };
 type ListResp = {
-  project: { id: string; name: string; slug: string; entry_path: string; source_type?: string; external_base_url?: string | null };
+  project: { id: string; name: string; slug: string; entry_path: string; source_type?: string; external_base_url?: string | null; has_external?: boolean };
   pages: PageRow[];
   assets: AssetRow[];
 };
