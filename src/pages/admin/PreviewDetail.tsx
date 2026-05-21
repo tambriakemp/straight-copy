@@ -84,7 +84,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   useEffect(() => { if (project) loadMissing(); }, [project?.id, files.length]);
   useEffect(() => { const t = setInterval(load, 20000); return () => clearInterval(t); }, [id]);
 
-  const isExternal = project?.source_type === "external_url";
+  const isExternal = !!project?.external_base_url;
   const shareUrl = project
     ? (isExternal ? (project.external_base_url || "") : `${base}/p/${project.slug}`)
     : "";
