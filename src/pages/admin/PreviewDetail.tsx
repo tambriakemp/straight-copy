@@ -499,7 +499,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         externalBaseUrl={project.external_base_url}
         onSaved={load}
       />
-      {!isExternal && (
+      {(
       <section style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
           <h2 style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Upload Files</h2>
