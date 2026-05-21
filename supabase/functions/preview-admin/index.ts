@@ -60,16 +60,45 @@ Deno.serve(async (req) => {
             .order("created_at", { ascending: true });
           replies = data ?? [];
         }
-        return json({ project, files: files ?? [], comments: comments ?? [], replies });
+        const { data: external_pages } = await admin
+          .from("preview_external_pages")
+          .select("*")
+          .eq("project_id", id)
+          .order("order_index", { ascending: true });
+        const { data: page_comments } = await admin
+          .from("preview_page_comments")
+          .select("*")
+          .eq("project_id", id)
+          .order("created_at", { ascending: false });
+        return json({
+          project,
+          files: files ?? [],
+          comments: comments ?? [],
+          replies,
+          external_pages: external_pages ?? [],
+          page_comments: page_comments ?? [],
+        });
       }
 
       case "create": {
-        const { name, client_label, client_id, attach_to_project_id } = payload;
+        const { name, client_label, client_id, attach_to_project_id, source_type, external_base_url } = payload;
         if (!name) return json({ error: "name required" }, 400);
+        const stype = source_type === "external_url" ? "external_url" : "upload";
+        let extUrl: string | null = null;
+        if (stype === "external_url") {
+          const raw = String(external_base_url || "").trim();
+          if (!raw) return json({ error: "external_base_url required" }, 400);
+          try {
+            const u = new URL(raw);
+            if (!/^https?:$/.test(u.protocol)) throw new Error("bad");
+            extUrl = u.origin + (u.pathname === "/" ? "" : u.pathname.replace(/\/+$/, ""));
+          } catch {
+            return json({ error: "invalid URL" }, 400);
+          }
+        }
         const slug = genSlug();
         const id = crypto.randomUUID();
 
-        // If linked to an existing project, attach to it; otherwise (legacy) create a new site_preview client_project.
         let client_project_id: string | null = null;
         if (attach_to_project_id) {
           client_project_id = attach_to_project_id;
@@ -90,6 +119,8 @@ Deno.serve(async (req) => {
             slug,
             storage_prefix: `previews/${id}/`,
             client_project_id,
+            source_type: stype,
+            external_base_url: extUrl,
           })
           .select("*").single();
         if (error) throw error;
