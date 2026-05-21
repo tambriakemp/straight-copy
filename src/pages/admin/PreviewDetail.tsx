@@ -1138,14 +1138,14 @@ function ExternalCommentsPanel({
 }
 
 function ExternalLinkPanel({
-  projectId, sourceType, externalBaseUrl, onSaved,
+  projectId, externalBaseUrl, onSaved,
 }: {
   projectId: string;
-  sourceType: string;
+  sourceType?: string;
   externalBaseUrl: string | null;
   onSaved: () => void | Promise<void>;
 }) {
-  const isExternal = sourceType === "external_url";
+  const hasLink = !!externalBaseUrl;
   const [url, setUrl] = useState(externalBaseUrl ?? "");
   const [saving, setSaving] = useState(false);
   useEffect(() => { setUrl(externalBaseUrl ?? ""); }, [externalBaseUrl]);
@@ -1155,7 +1155,7 @@ function ExternalLinkPanel({
     if (!trimmed) { toast.error("Enter a URL"); return; }
     setSaving(true);
     const { data, error } = await supabase.functions.invoke("preview-admin", {
-      body: { action: "update", id: projectId, source_type: "external_url", external_base_url: trimmed },
+      body: { action: "update", id: projectId, external_base_url: trimmed },
     });
     setSaving(false);
     if (error || (data as any)?.error) { toast.error(error?.message || (data as any)?.error || "Failed"); return; }
@@ -1164,14 +1164,14 @@ function ExternalLinkPanel({
   };
 
   const clear = async () => {
-    if (!confirm("Remove the linked URL and switch back to file uploads?")) return;
+    if (!confirm("Remove the linked URL? Uploaded files will remain.")) return;
     setSaving(true);
     const { error } = await supabase.functions.invoke("preview-admin", {
-      body: { action: "update", id: projectId, source_type: "upload", external_base_url: null },
+      body: { action: "update", id: projectId, external_base_url: null },
     });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Reverted to upload mode");
+    toast.success("Link removed");
     await onSaved();
   };
 
@@ -1182,7 +1182,7 @@ function ExternalLinkPanel({
           External Link
         </h2>
         <span style={{ fontSize: 12, color: "var(--crm-taupe)" }}>
-          {isExternal ? "Active — uploads disabled" : "Optional — paste a live URL instead of uploading files"}
+          {hasLink ? "Linked — coexists with uploaded files" : "Optional — link a live URL in addition to or instead of uploads"}
         </span>
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1195,15 +1195,16 @@ function ExternalLinkPanel({
           style={{ flex: "1 1 320px", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 6, padding: "8px 12px", color: "var(--crm-warm-white)", fontSize: 14 }}
         />
         <button className="crm-btn crm-btn--primary crm-btn--sm" onClick={save} disabled={saving || !url.trim() || url.trim() === (externalBaseUrl ?? "")}>
-          {saving ? "Saving…" : isExternal ? "Update link" : "Link site"}
+          {saving ? "Saving…" : hasLink ? "Update link" : "Link site"}
         </button>
-        {isExternal && (
+        {hasLink && (
           <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={clear} disabled={saving}>
-            Switch to uploads
+            Remove link
           </button>
         )}
       </div>
     </section>
   );
 }
+
 
