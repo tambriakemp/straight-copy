@@ -1080,6 +1080,41 @@ export type Database = {
           },
         ]
       }
+      preview_external_pages: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          order_index: number
+          path: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          order_index?: number
+          path: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          order_index?: number
+          path?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preview_external_pages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "preview_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       preview_files: {
         Row: {
           content_type: string | null
@@ -1115,6 +1150,41 @@ export type Database = {
           },
         ]
       }
+      preview_page_comments: {
+        Row: {
+          author_name: string | null
+          body: string
+          created_at: string
+          id: string
+          path: string
+          project_id: string
+        }
+        Insert: {
+          author_name?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          path: string
+          project_id: string
+        }
+        Update: {
+          author_name?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          path?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preview_page_comments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "preview_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       preview_projects: {
         Row: {
           archived: boolean
@@ -1122,11 +1192,14 @@ export type Database = {
           client_project_id: string | null
           created_at: string
           entry_path: string
+          external_base_url: string | null
           feedback_enabled: boolean
           id: string
           is_multi_page: boolean
+          last_crawled_at: string | null
           name: string
           slug: string
+          source_type: string
           storage_prefix: string
           updated_at: string
         }
@@ -1136,11 +1209,14 @@ export type Database = {
           client_project_id?: string | null
           created_at?: string
           entry_path?: string
+          external_base_url?: string | null
           feedback_enabled?: boolean
           id?: string
           is_multi_page?: boolean
+          last_crawled_at?: string | null
           name: string
           slug: string
+          source_type?: string
           storage_prefix: string
           updated_at?: string
         }
@@ -1150,11 +1226,14 @@ export type Database = {
           client_project_id?: string | null
           created_at?: string
           entry_path?: string
+          external_base_url?: string | null
           feedback_enabled?: boolean
           id?: string
           is_multi_page?: boolean
+          last_crawled_at?: string | null
           name?: string
           slug?: string
+          source_type?: string
           storage_prefix?: string
           updated_at?: string
         }
