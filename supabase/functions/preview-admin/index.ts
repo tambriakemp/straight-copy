@@ -151,9 +151,9 @@ Deno.serve(async (req) => {
 
       case "crawl_external": {
         const { id } = payload;
-        const { data: proj } = await admin.from("preview_projects").select("id, external_base_url, source_type").eq("id", id).single();
-        if (!proj || proj.source_type !== "external_url" || !proj.external_base_url) {
-          return json({ error: "not an external preview" }, 400);
+        const { data: proj } = await admin.from("preview_projects").select("id, external_base_url").eq("id", id).single();
+        if (!proj || !proj.external_base_url) {
+          return json({ error: "no external URL linked" }, 400);
         }
         const key = Deno.env.get("FIRECRAWL_API_KEY");
         if (!key) return json({ error: "FIRECRAWL_API_KEY not configured" }, 500);
