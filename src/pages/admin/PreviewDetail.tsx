@@ -396,11 +396,9 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
       <Tabs defaultValue="pages" className="w-full">
         <TabsList style={{ background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 8, marginBottom: 18 }}>
           <TabsTrigger value="pages" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Pages</TabsTrigger>
-          {!isExternal && (
-            <TabsTrigger value="feedback" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-              Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="feedback" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+            Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
+          </TabsTrigger>
           {isExternal && (
             <TabsTrigger value="comments" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
               Comments {pageComments.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {pageComments.length}</span>}
@@ -409,6 +407,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           <TabsTrigger value="files" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Files</TabsTrigger>
           <TabsTrigger value="activity" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Activity</TabsTrigger>
         </TabsList>
+
 
 
         <TabsContent value="pages">
