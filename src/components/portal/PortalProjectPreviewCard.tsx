@@ -65,10 +65,12 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
     );
   }
 
-  const isExternal = list.project.source_type === "external_url";
-  const url = isExternal ? (list.project.external_base_url || "") : `${base}/p/${list.project.slug}`;
-  const pageUrl = (path: string) =>
-    isExternal ? `${list.project.external_base_url || ""}${path}` : `${base}/p/${list.project.slug}/${path}`;
+  const pageUrl = (row: PageRow) =>
+    row.viewUrl || `${base}/p/${list.project.slug}/${row.path}`;
+  const assetUrl = (path: string) => `${base}/p/${list.project.slug}/${path}`;
+
+  const uploadedPages = list.pages.filter((p) => !p.isExternal);
+  const externalPages = list.pages.filter((p) => p.isExternal);
 
   const totalItems = list.pages.length + list.assets.length;
   const approvedItems =
