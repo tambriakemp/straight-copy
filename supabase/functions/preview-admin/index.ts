@@ -130,8 +130,11 @@ Deno.serve(async (req) => {
       case "update": {
         const { id, ...patch } = payload;
         const allowed: any = {};
-        for (const k of ["name", "client_label", "feedback_enabled", "archived", "entry_path", "is_multi_page", "external_base_url"]) {
+        for (const k of ["name", "client_label", "feedback_enabled", "archived", "entry_path", "is_multi_page", "external_base_url", "source_type"]) {
           if (k in patch) allowed[k] = patch[k];
+        }
+        if ("source_type" in allowed && !["upload", "external_url"].includes(allowed.source_type)) {
+          return json({ error: "invalid source_type" }, 400);
         }
         if ("external_base_url" in allowed && allowed.external_base_url) {
           try {
