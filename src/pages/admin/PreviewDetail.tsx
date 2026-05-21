@@ -640,6 +640,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           </div>
         )}
       </section>
+      )}
         </TabsContent>
 
         <TabsContent value="feedback">
