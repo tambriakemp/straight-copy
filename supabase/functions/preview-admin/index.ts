@@ -130,14 +130,92 @@ Deno.serve(async (req) => {
       case "update": {
         const { id, ...patch } = payload;
         const allowed: any = {};
-        for (const k of ["name", "client_label", "feedback_enabled", "archived", "entry_path", "is_multi_page"]) {
+        for (const k of ["name", "client_label", "feedback_enabled", "archived", "entry_path", "is_multi_page", "external_base_url"]) {
           if (k in patch) allowed[k] = patch[k];
+        }
+        if ("external_base_url" in allowed && allowed.external_base_url) {
+          try {
+            const u = new URL(String(allowed.external_base_url).trim());
+            if (!/^https?:$/.test(u.protocol)) throw new Error();
+            allowed.external_base_url = u.origin + (u.pathname === "/" ? "" : u.pathname.replace(/\/+$/, ""));
+          } catch { return json({ error: "invalid URL" }, 400); }
         }
         const { data, error } = await admin
           .from("preview_projects").update(allowed).eq("id", id).select("*").single();
         if (error) throw error;
         return json({ project: data });
       }
+
+      case "crawl_external": {
+        const { id } = payload;
+        const { data: proj } = await admin.from("preview_projects").select("id, external_base_url, source_type").eq("id", id).single();
+        if (!proj || proj.source_type !== "external_url" || !proj.external_base_url) {
+          return json({ error: "not an external preview" }, 400);
+        }
+        const key = Deno.env.get("FIRECRAWL_API_KEY");
+        if (!key) return json({ error: "FIRECRAWL_API_KEY not configured" }, 500);
+        const base = new URL(proj.external_base_url);
+        const r = await fetch("https://api.firecrawl.dev/v2/map", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ url: proj.external_base_url, limit: 100, includeSubdomains: false }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) return json({ error: data?.error || `Firecrawl ${r.status}` }, 500);
+
+        // Firecrawl v2 returns { links: [{ url, title? }, ...] } or sometimes string[]
+        const rawLinks: any[] = Array.isArray(data?.links) ? data.links : Array.isArray(data?.data?.links) ? data.data.links : [];
+        const pages: { path: string; label: string }[] = [];
+        const seen = new Set<string>();
+        for (const item of rawLinks) {
+          const href = typeof item === "string" ? item : item?.url;
+          const title = typeof item === "object" ? item?.title : null;
+          if (!href) continue;
+          let u: URL;
+          try { u = new URL(href, proj.external_base_url); } catch { continue; }
+          if (u.host !== base.host) continue;
+          // Skip non-html assets
+          if (/\.(png|jpe?g|gif|webp|svg|ico|avif|css|js|mjs|json|pdf|zip|woff2?|ttf|otf|mp4|webm|xml)(\?|#|$)/i.test(u.pathname)) continue;
+          let path = u.pathname.replace(/\/+$/, "") || "/";
+          if (seen.has(path)) continue;
+          seen.add(path);
+          const label = title ? String(title).slice(0, 120) : labelFromPath(path);
+          pages.push({ path, label });
+        }
+        // Ensure root is first if present
+        pages.sort((a, b) => (a.path === "/" ? -1 : b.path === "/" ? 1 : a.path.localeCompare(b.path)));
+        await admin.from("preview_projects").update({ last_crawled_at: new Date().toISOString() }).eq("id", id);
+        return json({ pages });
+      }
+
+      case "external_pages_set": {
+        const { project_id, pages } = payload;
+        if (!project_id || !Array.isArray(pages)) return json({ error: "missing fields" }, 400);
+        await admin.from("preview_external_pages").delete().eq("project_id", project_id);
+        if (pages.length) {
+          const rows = pages.map((p: any, i: number) => ({
+            project_id,
+            path: String(p.path || "").replace(/\/+$/, "") || "/",
+            label: p.label ? String(p.label).slice(0, 120) : labelFromPath(String(p.path || "/")),
+            order_index: i,
+          }));
+          // De-dupe by path
+          const seen = new Set<string>();
+          const unique = rows.filter((r) => (seen.has(r.path) ? false : (seen.add(r.path), true)));
+          const { error } = await admin.from("preview_external_pages").insert(unique);
+          if (error) throw error;
+        }
+        const { data } = await admin.from("preview_external_pages").select("*").eq("project_id", project_id).order("order_index");
+        return json({ external_pages: data ?? [] });
+      }
+
+      case "page_comment_delete": {
+        const { id } = payload;
+        const { error } = await admin.from("preview_page_comments").delete().eq("id", id);
+        if (error) throw error;
+        return json({ ok: true });
+      }
+
 
       case "reply": {
         const { comment_id, body, author_name } = payload;
