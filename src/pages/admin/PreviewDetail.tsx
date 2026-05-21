@@ -396,16 +396,34 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
       <Tabs defaultValue="pages" className="w-full">
         <TabsList style={{ background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 8, marginBottom: 18 }}>
           <TabsTrigger value="pages" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Pages</TabsTrigger>
-          <TabsTrigger value="feedback" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-            Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
-          </TabsTrigger>
-          <TabsTrigger value="files" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Files</TabsTrigger>
+          {!isExternal && (
+            <TabsTrigger value="feedback" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+              Feedback Board {openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {openCount}</span>}
+            </TabsTrigger>
+          )}
+          {isExternal && (
+            <TabsTrigger value="comments" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+              Comments {pageComments.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {pageComments.length}</span>}
+            </TabsTrigger>
+          )}
+          {!isExternal && (
+            <TabsTrigger value="files" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Files</TabsTrigger>
+          )}
           <TabsTrigger value="activity" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Activity</TabsTrigger>
         </TabsList>
 
 
         <TabsContent value="pages">
-      {/* Pages list */}
+      {isExternal ? (
+        <ExternalPagesPanel
+          baseUrl={project.external_base_url}
+          pages={externalPages}
+          onSave={saveExternalPages}
+          onCrawl={crawlExternal}
+          crawling={crawling}
+          lastCrawledAt={project.last_crawled_at}
+        />
+      ) : (
       <section style={{ marginBottom: 28 }}>
         {pages.length === 0 && (
           <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 14, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
@@ -461,7 +479,18 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           </div>
         )}
       </section>
+      )}
         </TabsContent>
+
+        <TabsContent value="comments">
+          <ExternalCommentsPanel
+            baseUrl={project.external_base_url}
+            pages={externalPages}
+            comments={pageComments}
+            onDelete={deletePageComment}
+          />
+        </TabsContent>
+
 
         <TabsContent value="files">
       <section style={{ marginBottom: 28 }}>
