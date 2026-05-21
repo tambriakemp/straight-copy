@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ExternalLink, Loader2 } from "lucide-react";
+import { Check, ExternalLink, Loader2, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
