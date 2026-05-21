@@ -61,9 +61,13 @@ export function useAdminAuth() {
 
     // Then check existing session so an already-signed-in admin cannot get stuck loading.
     supabase.auth.getSession()
-      .then(({ data: { session: sess } }) => applySession(sess))
+      .then(({ data: { session: sess } }) => {
+        lastUserId = sess?.user?.id ?? null;
+        return applySession(sess);
+      })
       .catch(() => {
         if (!active) return;
+        lastUserId = null;
         setSession(null);
         setUser(null);
         setIsAdmin(false);
