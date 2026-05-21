@@ -375,6 +375,12 @@ function genSlug(): string {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
 }
 
+function labelFromPath(p: string): string {
+  if (!p || p === "/") return "Home";
+  const seg = p.replace(/\/+$/, "").split("/").filter(Boolean).pop() || "Home";
+  return seg.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, 120);
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
