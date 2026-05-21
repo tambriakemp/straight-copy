@@ -56,12 +56,12 @@ function buildEmailHtml(firstName: string, portalUrl: string) {
     <p style="font-size:16px;line-height:1.6;margin:0 0 12px;"><strong>How to review your preview:</strong></p>
     <ol style="font-size:15px;line-height:1.7;padding-left:22px;margin:0 0 22px;">
       <li>Click the button above to open your client portal.</li>
-      <li>Scroll to the <strong>Site Preview</strong> section — you'll see every page and asset listed.</li>
-      <li>Click <strong>View</strong> next to each page to open it in a new tab.</li>
-      <li>On each page, either:
+      <li>Scroll to the <strong>Site Preview</strong> section — you'll see every page listed.</li>
+      <li>Click <strong>View</strong> next to each page to open it in a new tab and look it over.</li>
+      <li>Back in the portal, for each page either:
         <ul style="margin:6px 0 0;padding-left:22px;">
-          <li>Click <strong>"Leave Feedback"</strong> in the bottom right and drop numbered pins anywhere on the page with your notes, or</li>
-          <li>Head back to the portal and click <strong>Approve</strong> on that page once you're happy with it.</li>
+          <li>Click <strong>Comments</strong> under the page to leave specific feedback (we'll see every note tied to that page), or</li>
+          <li>Click <strong>Approve</strong> once that page is good to go.</li>
         </ul>
       </li>
       <li>Repeat for every page so we know exactly what's approved and what still needs tweaks.</li>
