@@ -406,9 +406,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
               Comments {pageComments.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>· {pageComments.length}</span>}
             </TabsTrigger>
           )}
-          {!isExternal && (
-            <TabsTrigger value="files" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Files</TabsTrigger>
-          )}
+          <TabsTrigger value="files" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Files</TabsTrigger>
           <TabsTrigger value="activity" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Activity</TabsTrigger>
         </TabsList>
 
