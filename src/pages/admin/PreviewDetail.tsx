@@ -43,6 +43,8 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   const [files, setFiles] = useState<FileRow[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [replies, setReplies] = useState<Reply[]>([]);
+  const [externalPages, setExternalPages] = useState<Array<{ id: string; path: string; label: string | null; order_index: number }>>([]);
+  const [pageComments, setPageComments] = useState<Array<{ id: string; path: string; author_name: string | null; body: string; created_at: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -53,6 +55,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   const [pageFilter, setPageFilter] = useState<string>("__all__");
   const [dragOver, setDragOver] = useState<Status | null>(null);
   const [aiEditPath, setAiEditPath] = useState<string | null>(null);
+  const [crawling, setCrawling] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const filesInput = useRef<HTMLInputElement>(null);
   const zipInput = useRef<HTMLInputElement>(null);
@@ -67,6 +70,8 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
     setFiles(data?.files ?? []);
     setComments(data?.comments ?? []);
     setReplies(data?.replies ?? []);
+    setExternalPages(data?.external_pages ?? []);
+    setPageComments(data?.page_comments ?? []);
     setLoading(false);
   };
 
