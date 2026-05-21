@@ -143,18 +143,37 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
               />
             </div>
 
-            {list.pages.length > 0 && (
+            {uploadedPages.length > 0 && (
               <ApprovalGroup
                 title="Pages"
-                rows={list.pages.map((p) => ({
+                rows={uploadedPages.map((p) => ({
                   key: p.path,
                   label: (p.label || labelForPath(p.path)) + (p.isEntry ? " · entry" : ""),
                   sub: p.path,
-                  viewUrl: pageUrl(p.path),
+                  viewUrl: pageUrl(p),
                   approval: p.approval,
                   onApprove: (v: boolean) => setApproval("page", p.path, v),
                   busy: busy === `page:${p.path}`,
-                  showComments: isExternal,
+                  showComments: false,
+                  slug: list.project.slug,
+                  path: p.path,
+                }))}
+                fmtDate={fmtDate}
+              />
+            )}
+
+            {externalPages.length > 0 && (
+              <ApprovalGroup
+                title="External pages"
+                rows={externalPages.map((p) => ({
+                  key: `ext:${p.path}`,
+                  label: p.label || labelForPath(p.path),
+                  sub: p.path,
+                  viewUrl: pageUrl(p),
+                  approval: p.approval,
+                  onApprove: (v: boolean) => setApproval("page", p.path, v),
+                  busy: busy === `page:${p.path}`,
+                  showComments: true,
                   slug: list.project.slug,
                   path: p.path,
                 }))}
@@ -169,7 +188,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
                   key: a.path,
                   label: a.path.split("/").pop() || a.path,
                   sub: a.path,
-                  viewUrl: pageUrl(a.path),
+                  viewUrl: assetUrl(a.path),
                   approval: a.approval,
                   onApprove: (v: boolean) => setApproval("asset", a.path, v),
                   busy: busy === `asset:${a.path}`,
