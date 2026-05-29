@@ -413,6 +413,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
             <>
               <TabsTrigger value="proposals" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Proposals</TabsTrigger>
               <TabsTrigger value="schedule" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Payment Schedule</TabsTrigger>
+              <TabsTrigger value="tasks" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Tasks</TabsTrigger>
             </>
           )}
         </TabsList>
