@@ -483,6 +483,58 @@ function TaskDetailSheet({
             </Field>
           </div>
 
+          <Field label="Acceptance criteria">
+            <Textarea value={draft.acceptance_criteria ?? ""} rows={3}
+              placeholder="What must be true for this task to be considered done?"
+              onChange={(e) => setDraft({ ...draft, acceptance_criteria: e.target.value })}
+              onBlur={() => (draft.acceptance_criteria ?? "") !== (task.acceptance_criteria ?? "") && save({ acceptance_criteria: draft.acceptance_criteria })}
+              className={taskInputClass} />
+          </Field>
+
+          <Field label="Manual prerequisites">
+            <Textarea value={draft.manual_prereqs ?? ""} rows={2}
+              placeholder="Human-only blockers (access, approvals, vendor calls…)"
+              onChange={(e) => setDraft({ ...draft, manual_prereqs: e.target.value })}
+              onBlur={() => (draft.manual_prereqs ?? "") !== (task.manual_prereqs ?? "") && save({ manual_prereqs: draft.manual_prereqs })}
+              className={taskInputClass} />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Design URL">
+              <Input value={draft.design_url ?? ""}
+                placeholder="Figma / comps / brand kit"
+                onChange={(e) => setDraft({ ...draft, design_url: e.target.value })}
+                onBlur={() => (draft.design_url ?? "") !== (task.design_url ?? "") && save({ design_url: draft.design_url || null })}
+                className={taskInputClass} />
+            </Field>
+            <Field label="Size">
+              <Select value={draft.size ?? "none"} onValueChange={(v) => { const s = v === "none" ? null : (v as TaskSize); setDraft({ ...draft, size: s }); save({ size: s }); }}>
+                <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
+                <SelectContent className={taskSelectContentClass}>
+                  <SelectItem value="none">—</SelectItem>
+                  {TASK_SIZES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Platform">
+              <Select value={draft.platform ?? "none"} onValueChange={(v) => { const p = v === "none" ? null : (v as TaskPlatform); setDraft({ ...draft, platform: p }); save({ platform: p }); }}>
+                <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
+                <SelectContent className={taskSelectContentClass}>
+                  <SelectItem value="none">—</SelectItem>
+                  {TASK_PLATFORMS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Blocked by (task IDs)">
+              <Input
+                value={(draft.blocked_by ?? []).join(", ")}
+                placeholder="Comma-separated task UUIDs"
+                onChange={(e) => setDraft({ ...draft, blocked_by: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+                onBlur={() => save({ blocked_by: draft.blocked_by ?? [] })}
+                className={taskInputClass} />
+            </Field>
+          </div>
+
           <Field label="Tags (comma separated)">
             <Input value={draft.tags.join(", ")}
               onChange={(e) => setDraft({ ...draft, tags: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
