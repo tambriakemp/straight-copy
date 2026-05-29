@@ -506,13 +506,6 @@ function TaskDetailSheet({
             </Field>
           </div>
 
-          <Field label="Acceptance criteria">
-            <Textarea value={draft.acceptance_criteria ?? ""} rows={3}
-              placeholder="What must be true for this task to be considered done?"
-              onChange={(e) => setDraft({ ...draft, acceptance_criteria: e.target.value })}
-              onBlur={() => (draft.acceptance_criteria ?? "") !== (task.acceptance_criteria ?? "") && save({ acceptance_criteria: draft.acceptance_criteria })}
-              className={taskInputClass} />
-          </Field>
 
           <Field label="Manual prerequisites">
             <Textarea value={draft.manual_prereqs ?? ""} rows={2}
