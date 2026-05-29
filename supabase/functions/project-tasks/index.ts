@@ -2,7 +2,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import {
   serviceClient, listTasks, createTask, updateTask, deleteTask,
-  listEpics, createEpic, updateEpic, deleteEpic, TASK_STATUSES, TASK_PRIORITIES, ASSIGNEE_KINDS,
+  uploadTaskAttachment, listEpics, createEpic, updateEpic, deleteEpic, TASK_STATUSES, TASK_PRIORITIES, ASSIGNEE_KINDS,
 } from "../_shared/project-tasks.ts";
 
 const corsHeaders = {
@@ -71,23 +71,8 @@ Deno.serve(async (req) => {
       const form = await req.formData();
       const file = form.get("file") as File | null;
       if (!file) return json({ error: "file required" }, 400);
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_");
-      const storagePath = `${taskId}/${Date.now()}_${safeName}`;
       const buf = new Uint8Array(await file.arrayBuffer());
-      const up = await sb.storage.from("project-task-attachments")
-        .upload(storagePath, buf, { contentType: file.type || "application/octet-stream", upsert: false });
-      if (up.error) return json({ error: up.error.message }, 500);
-      const { data, error } = await sb.from("project_task_attachments").insert({
-        task_id: taskId,
-        storage_path: storagePath,
-        file_name: file.name,
-        mime_type: file.type || null,
-        size_bytes: file.size,
-        uploaded_by: guard.userId,
-      }).select("*").single();
-      if (error) return json({ error: error.message }, 500);
-      const signed = await sb.storage.from("project-task-attachments").createSignedUrl(storagePath, 3600);
-      return json({ attachment: { ...data, signed_url: signed.data?.signedUrl } });
+      return json({ attachment: await uploadTaskAttachment(sb, taskId, buf, file.name, file.type || null, guard.userId) });
     }
     if (parts[0] === "attachments" && parts[1] && method === "DELETE") {
       const { data: att } = await sb.from("project_task_attachments").select("storage_path").eq("id", parts[1]).maybeSingle();

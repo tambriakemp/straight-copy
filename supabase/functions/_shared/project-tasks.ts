@@ -145,6 +145,39 @@ export async function deleteTask(sb: SupabaseClient, id: string) {
   return { ok: true };
 }
 
+export async function uploadTaskAttachment(
+  sb: SupabaseClient,
+  taskId: string,
+  bytes: Uint8Array,
+  fileName: string,
+  mimeType: string | null = null,
+  uploadedBy: string | null = null,
+) {
+  if (!taskId || !fileName || bytes.byteLength === 0) {
+    throw new Error("task_id, file_name, and file content are required");
+  }
+  const safeName = fileName.replace(/[^a-zA-Z0-9._-]+/g, "_");
+  const storagePath = `${taskId}/${Date.now()}_${crypto.randomUUID()}_${safeName}`;
+  const contentType = mimeType || "application/octet-stream";
+
+  const up = await sb.storage.from("project-task-attachments")
+    .upload(storagePath, bytes, { contentType, upsert: false });
+  if (up.error) throw up.error;
+
+  const { data, error } = await sb.from("project_task_attachments").insert({
+    task_id: taskId,
+    storage_path: storagePath,
+    file_name: fileName,
+    mime_type: mimeType,
+    size_bytes: bytes.byteLength,
+    uploaded_by: uploadedBy,
+  }).select("*").single();
+  if (error) throw error;
+
+  const signed = await sb.storage.from("project-task-attachments").createSignedUrl(storagePath, 3600);
+  return { ...data, signed_url: signed.data?.signedUrl };
+}
+
 export async function listEpics(sb: SupabaseClient, projectId: string) {
   const { data, error } = await sb.from("project_task_epics")
     .select("*").eq("client_project_id", projectId).order("order_index");
