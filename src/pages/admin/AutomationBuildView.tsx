@@ -458,6 +458,7 @@ export default function AutomationBuildView() {
           <ProjectTabsList>
             <ProjectTabsTrigger value="journey">Journey</ProjectTabsTrigger>
             <ProjectTabsTrigger value="contract">Contract</ProjectTabsTrigger>
+            {projectId && <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>}
             <ProjectTabsTrigger value="settings">Settings</ProjectTabsTrigger>
           </ProjectTabsList>
 
