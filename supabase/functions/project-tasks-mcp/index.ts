@@ -239,6 +239,52 @@ mcp.tool("attach_file_to_task", {
   },
 });
 
+mcp.tool("add_acceptance_criterion", {
+  description: "Append a single acceptance-criteria checklist item to a task.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string" },
+      text: { type: "string" },
+      done: { type: "boolean", description: "Defaults to false." },
+    },
+    required: ["task_id", "text"],
+  },
+  handler: async ({ task_id, text, done }: { task_id: string; text: string; done?: boolean }) =>
+    textResult(await addAcceptanceCriterion(sb, task_id, text, done ?? false)),
+});
+
+mcp.tool("update_acceptance_criterion", {
+  description: "Edit text and/or done state of one acceptance-criteria item.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string" },
+      criterion_id: { type: "string" },
+      text: { type: "string" },
+      done: { type: "boolean" },
+    },
+    required: ["task_id", "criterion_id"],
+  },
+  handler: async ({ task_id, criterion_id, text, done }: {
+    task_id: string; criterion_id: string; text?: string; done?: boolean;
+  }) => textResult(await updateAcceptanceCriterion(sb, task_id, criterion_id, { text, done })),
+});
+
+mcp.tool("delete_acceptance_criterion", {
+  description: "Remove one acceptance-criteria item from a task.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string" },
+      criterion_id: { type: "string" },
+    },
+    required: ["task_id", "criterion_id"],
+  },
+  handler: async ({ task_id, criterion_id }: { task_id: string; criterion_id: string }) =>
+    textResult(await deleteAcceptanceCriterion(sb, task_id, criterion_id)),
+});
+
 mcp.tool("list_epics", {
   description: "List epics for a project.",
   inputSchema: { type: "object", properties: { project_id: { type: "string" } }, required: ["project_id"] },
