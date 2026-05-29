@@ -413,11 +413,11 @@ function TaskDetailSheet({
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-[560px] sm:max-w-[560px] bg-[#1a1612] border-l-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)] overflow-y-auto">
+      <SheetContent className={`w-[560px] sm:max-w-[560px] overflow-y-auto ${taskSurfaceClass}`}>
         <SheetHeader>
-          <SheetTitle className="text-[color:var(--crm-warm-white)] text-base flex items-center justify-between">
+          <SheetTitle className="!text-warm-white text-base flex items-center justify-between">
             <span>Task</span>
-            <button onClick={remove} className="text-xs text-[color:var(--crm-taupe)] hover:text-red-400 inline-flex items-center gap-1">
+            <button onClick={remove} className="text-xs !text-warm-white/80 hover:!text-destructive inline-flex items-center gap-1">
               <Trash2 size={12} /> Delete
             </button>
           </SheetTitle>
@@ -426,32 +426,32 @@ function TaskDetailSheet({
           <Field label="Name">
             <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               onBlur={() => draft.name !== task.name && save({ name: draft.name })}
-              className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]" />
+              className={taskInputClass} />
           </Field>
           <Field label="Description">
             <Textarea value={draft.description ?? ""} rows={5}
               onChange={(e) => setDraft({ ...draft, description: e.target.value })}
               onBlur={() => (draft.description ?? "") !== (task.description ?? "") && save({ description: draft.description })}
-              className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]" />
+              className={taskInputClass} />
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Status">
               <Select value={draft.status} onValueChange={(v) => { setDraft({ ...draft, status: v as TaskStatus }); save({ status: v as TaskStatus }); }}>
-                <SelectTrigger className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]"><SelectValue /></SelectTrigger>
-                <SelectContent>{TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}</SelectContent>
+                <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
+                <SelectContent className={taskSelectContentClass}>{TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}</SelectContent>
               </Select>
             </Field>
             <Field label="Priority">
               <Select value={draft.priority} onValueChange={(v) => { setDraft({ ...draft, priority: v as TaskPriority }); save({ priority: v as TaskPriority }); }}>
-                <SelectTrigger className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]"><SelectValue /></SelectTrigger>
-                <SelectContent>{PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
+                <SelectContent className={taskSelectContentClass}>{PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
               </Select>
             </Field>
             <Field label="Assignee">
               <Select value={draft.assignee_kind} onValueChange={(v) => { setDraft({ ...draft, assignee_kind: v as AssigneeKind }); save({ assignee_kind: v as AssigneeKind }); }}>
-                <SelectTrigger className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]"><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
+                <SelectContent className={taskSelectContentClass}>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="claude">Claude</SelectItem>
@@ -460,8 +460,8 @@ function TaskDetailSheet({
             </Field>
             <Field label="Epic">
               <Select value={draft.epic_id ?? "none"} onValueChange={(v) => { const id = v === "none" ? null : v; setDraft({ ...draft, epic_id: id }); save({ epic_id: id }); }}>
-                <SelectTrigger className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]"><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
+                <SelectContent className={taskSelectContentClass}>
                   <SelectItem value="none">None</SelectItem>
                   {epics.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
                 </SelectContent>
@@ -471,13 +471,13 @@ function TaskDetailSheet({
               <Input type="date" value={draft.due_date ?? ""}
                 onChange={(e) => setDraft({ ...draft, due_date: e.target.value || null })}
                 onBlur={() => (draft.due_date ?? "") !== (task.due_date ?? "") && save({ due_date: draft.due_date })}
-                className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]" />
+                className={taskInputClass} />
             </Field>
             <Field label="URL">
               <Input value={draft.url ?? ""}
                 onChange={(e) => setDraft({ ...draft, url: e.target.value })}
                 onBlur={() => (draft.url ?? "") !== (task.url ?? "") && save({ url: draft.url || null })}
-                className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]" />
+                className={taskInputClass} />
             </Field>
           </div>
 
@@ -485,7 +485,7 @@ function TaskDetailSheet({
             <Input value={draft.tags.join(", ")}
               onChange={(e) => setDraft({ ...draft, tags: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
               onBlur={() => save({ tags: draft.tags })}
-              className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]" />
+              className={taskInputClass} />
           </Field>
 
           {/* Attachments */}
