@@ -1564,60 +1564,78 @@ export type Database = {
       }
       project_tasks: {
         Row: {
+          acceptance_criteria: string | null
           assignee_admin_id: string | null
           assignee_kind: Database["public"]["Enums"]["project_task_assignee_kind"]
+          blocked_by: string[]
           client_project_id: string
           completed_at: string | null
           created_at: string
           created_by: string | null
           description: string | null
+          design_url: string | null
           due_date: string | null
           epic_id: string | null
           id: string
+          manual_prereqs: string | null
           name: string
           order_index: number
           parent_task_id: string | null
+          platform: string | null
           priority: Database["public"]["Enums"]["project_task_priority"]
+          size: string | null
           status: Database["public"]["Enums"]["project_task_status"]
           tags: string[]
           updated_at: string
           url: string | null
         }
         Insert: {
+          acceptance_criteria?: string | null
           assignee_admin_id?: string | null
           assignee_kind?: Database["public"]["Enums"]["project_task_assignee_kind"]
+          blocked_by?: string[]
           client_project_id: string
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          design_url?: string | null
           due_date?: string | null
           epic_id?: string | null
           id?: string
+          manual_prereqs?: string | null
           name: string
           order_index?: number
           parent_task_id?: string | null
+          platform?: string | null
           priority?: Database["public"]["Enums"]["project_task_priority"]
+          size?: string | null
           status?: Database["public"]["Enums"]["project_task_status"]
           tags?: string[]
           updated_at?: string
           url?: string | null
         }
         Update: {
+          acceptance_criteria?: string | null
           assignee_admin_id?: string | null
           assignee_kind?: Database["public"]["Enums"]["project_task_assignee_kind"]
+          blocked_by?: string[]
           client_project_id?: string
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          design_url?: string | null
           due_date?: string | null
           epic_id?: string | null
           id?: string
+          manual_prereqs?: string | null
           name?: string
           order_index?: number
           parent_task_id?: string | null
+          platform?: string | null
           priority?: Database["public"]["Enums"]["project_task_priority"]
+          size?: string | null
           status?: Database["public"]["Enums"]["project_task_status"]
           tags?: string[]
           updated_at?: string
