@@ -214,7 +214,7 @@ function tabBtnStyle(active: boolean): React.CSSProperties {
     color: active ? "hsl(var(--accent-foreground))" : "hsl(var(--warm-white))",
     border: "none",
     padding: "6px 12px",
-    fontSize: 12,
+    fontSize: 14,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
     cursor: "pointer",
@@ -243,10 +243,10 @@ function KanbanColumn({
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 4px 8px" }}>
         <span style={{ width: 8, height: 8, borderRadius: 999, background: STATUS_COLORS[status] }} />
-        <span style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "hsl(var(--warm-white))" }}>
+        <span style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "hsl(var(--warm-white))" }}>
           {STATUS_LABELS[status]}
         </span>
-        <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.7)", fontSize: 12 }}>{tasks.length}</span>
+        <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.7)", fontSize: 14 }}>{tasks.length}</span>
       </div>
       {tasks.map((t) => (
         <DraggableCard key={t.id} task={t} epics={epics}
@@ -290,30 +290,30 @@ function TaskCard({ task, epics, subtaskCount, dragging }: {
       boxShadow: dragging ? "0 8px 24px rgba(0,0,0,0.4)" : "none",
     }}>
       {epic && (
-        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase",
+        <div style={{ fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase",
           color: epic.color ?? "hsl(var(--warm-white))", marginBottom: 6 }}>
           {epic.name}
         </div>
       )}
-      <div style={{ color: "hsl(var(--warm-white))", fontSize: 13, lineHeight: 1.4, marginBottom: 8 }}>
+      <div style={{ color: "hsl(var(--warm-white))", fontSize: 15, lineHeight: 1.4, marginBottom: 8 }}>
         {task.name}
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: PRIORITY_COLORS[task.priority] }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: PRIORITY_COLORS[task.priority] }}>
           <Flag size={10} /> {task.priority}
         </span>
         {task.assignee_kind !== "unassigned" && (
-          <span style={{ fontSize: 10, color: "hsl(var(--warm-white) / 0.7)" }}>
+          <span style={{ fontSize: 12, color: "hsl(var(--warm-white) / 0.7)" }}>
             {task.assignee_kind === "claude" ? "🤖 Claude" : "👤 Admin"}
           </span>
         )}
         {task.due_date && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "hsl(var(--warm-white) / 0.7)" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "hsl(var(--warm-white) / 0.7)" }}>
             <Calendar size={10} /> {task.due_date}
           </span>
         )}
         {subtaskCount > 0 && (
-          <span style={{ fontSize: 10, color: "hsl(var(--warm-white) / 0.7)" }}>{subtaskCount} subtask{subtaskCount > 1 ? "s" : ""}</span>
+          <span style={{ fontSize: 12, color: "hsl(var(--warm-white) / 0.7)" }}>{subtaskCount} subtask{subtaskCount > 1 ? "s" : ""}</span>
         )}
         {task.url && <ExternalLink size={10} style={{ color: "hsl(var(--warm-white) / 0.7)" }} />}
         {(task.attachments?.length ?? 0) > 0 && <Paperclip size={10} style={{ color: "hsl(var(--warm-white) / 0.7)" }} />}
@@ -335,9 +335,9 @@ function ListView({ tasks, epics, subtasksByParent, onOpen }: {
 }) {
   return (
     <div style={{ border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 8, overflow: "hidden" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
         <thead>
-          <tr style={{ background: "rgba(255,255,255,0.03)", color: "hsl(var(--warm-white) / 0.7)", textAlign: "left", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          <tr style={{ background: "rgba(255,255,255,0.03)", color: "hsl(var(--warm-white) / 0.7)", textAlign: "left", fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>
             <th style={th}>Name</th><th style={th}>Status</th><th style={th}>Priority</th>
             <th style={th}>Epic</th><th style={th}>Assignee</th><th style={th}>Due</th><th style={th}>Subs</th>
           </tr>
@@ -604,7 +604,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 const subLabel: React.CSSProperties = {
-  fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase",
+  fontSize: 13, letterSpacing: "0.1em", textTransform: "uppercase",
   color: "hsl(var(--warm-white))", marginBottom: 6,
 };
 

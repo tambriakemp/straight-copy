@@ -154,7 +154,7 @@ export default function Previews() {
                     <div>
                       <label className="crm-label">Site URL *</label>
                       <input className="crm-input" value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)} placeholder="https://menovia-landing.lovable.app" />
-                      <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 6 }}>
+                      <div style={{ fontSize: 14, color: "var(--crm-taupe)", marginTop: 6 }}>
                         We'll auto-discover the site's pages so clients can review each one.
                       </div>
                     </div>
@@ -175,8 +175,8 @@ export default function Previews() {
           <div style={{ padding: "48px 0", color: "var(--crm-taupe)", fontStyle: "italic" }}>Loading…</div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: "60px 0", color: "var(--crm-taupe)", textAlign: "center", border: "1px dashed var(--crm-border-dark)", borderRadius: 12 }}>
-            <div style={{ fontSize: 13, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 8 }}>No previews</div>
-            <div style={{ fontSize: 16 }}>Create your first preview project above.</div>
+            <div style={{ fontSize: 15, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 8 }}>No previews</div>
+            <div style={{ fontSize: 18 }}>Create your first preview project above.</div>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
@@ -201,21 +201,21 @@ export default function Previews() {
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--crm-border-dark)"; }}
                 >
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: p.archived ? "hsl(0 50% 65%)" : "var(--crm-accent)" }}>
+                    <span style={{ fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: p.archived ? "hsl(0 50% 65%)" : "var(--crm-accent)" }}>
                       {p.archived ? "Archived" : p.feedback_enabled ? "Live" : "Feedback off"}
                     </span>
-                    <span style={{ fontSize: 13, color: "var(--crm-taupe)" }}>{new Date(p.created_at).toLocaleDateString()}</span>
+                    <span style={{ fontSize: 15, color: "var(--crm-taupe)" }}>{new Date(p.created_at).toLocaleDateString()}</span>
                   </div>
                   <div>
-                    <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 26, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
+                    <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 28, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
                       {p.name}
                     </h3>
                     {p.client_label && (
-                      <div style={{ marginTop: 6, fontSize: 14, color: "var(--crm-stone)" }}>{p.client_label}</div>
+                      <div style={{ marginTop: 6, fontSize: 16, color: "var(--crm-stone)" }}>{p.client_label}</div>
                     )}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 8, borderTop: "1px solid var(--crm-border-dark)" }}>
-                    <code style={{ flex: 1, fontSize: 13, color: "var(--crm-taupe)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <code style={{ flex: 1, fontSize: 15, color: "var(--crm-taupe)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       /p/{p.slug.slice(0, 12)}…
                     </code>
                     <button

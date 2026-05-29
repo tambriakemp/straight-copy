@@ -81,7 +81,7 @@ export default function Tokens() {
         {/* ── MCP Connection ── */}
         <div style={{ background: "hsl(36 5% 16%)", padding: 28, marginBottom: 24 }}>
           <h2 className="font-serif italic text-xl" style={{ color: "hsl(40 20% 97%)", marginBottom: 4 }}>MCP Connection</h2>
-          <p style={{ fontSize: 15, color: "hsl(30 8% 62%)", marginBottom: 20 }}>
+          <p style={{ fontSize: 17, color: "hsl(30 8% 62%)", marginBottom: 20 }}>
             Connect Claude or any MCP client to manage tasks via natural language.
           </p>
 
@@ -92,7 +92,7 @@ export default function Tokens() {
                 <code
                   style={{
                     flex: 1,
-                    fontFamily: "monospace", fontSize: 13,
+                    fontFamily: "monospace", fontSize: 15,
                     color: "hsl(40 20% 97%)", background: "hsl(40 8% 10%)",
                     padding: "10px 12px", border: "1px solid hsl(40 20% 97% / 0.08)",
                     wordBreak: "break-all",
@@ -109,7 +109,7 @@ export default function Tokens() {
               </div>
             </div>
 
-            <div style={{ fontSize: 14, color: "hsl(30 8% 62%)", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 16, color: "hsl(30 8% 62%)", lineHeight: 1.6 }}>
               <p style={{ marginBottom: 8 }}><strong style={{ color: "hsl(40 20% 97%)" }}>How to connect in Claude:</strong></p>
               <ol style={{ paddingLeft: 20, margin: 0 }}>
                 <li>Open <em>Claude.ai</em> → Settings → Connectors</li>
@@ -121,7 +121,7 @@ export default function Tokens() {
             </div>
 
             <div style={{
-              fontSize: 13, color: "hsl(30 8% 52%)",
+              fontSize: 15, color: "hsl(30 8% 52%)",
               borderTop: "1px solid hsl(40 20% 97% / 0.06)",
               paddingTop: 12,
             }}>
@@ -133,9 +133,9 @@ export default function Tokens() {
         {/* ── API Tokens ── */}
         <div style={{ background: "hsl(36 5% 16%)", padding: 28, marginBottom: 24 }}>
           <h2 className="font-serif italic text-xl" style={{ color: "hsl(40 20% 97%)", marginBottom: 4 }}>API Tokens</h2>
-          <p style={{ fontSize: 15, color: "hsl(30 8% 62%)", marginBottom: 20 }}>
+          <p style={{ fontSize: 17, color: "hsl(30 8% 62%)", marginBottom: 20 }}>
             Bearer tokens for the public REST API. Endpoint:{" "}
-            <code style={{ fontFamily: "monospace", fontSize: 13, color: "hsl(40 20% 97%)", background: "hsl(40 8% 10%)", padding: "2px 6px" }}>
+            <code style={{ fontFamily: "monospace", fontSize: 15, color: "hsl(40 20% 97%)", background: "hsl(40 8% 10%)", padding: "2px 6px" }}>
               {apiUrl}
             </code>
           </p>
@@ -177,17 +177,17 @@ export default function Tokens() {
                     className="roster__row"
                     style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1.2fr", cursor: "default" }}
                   >
-                    <div className="roster__name" style={{ fontSize: 18 }}>{t.label}</div>
-                    <div style={{ fontSize: 13, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
+                    <div className="roster__name" style={{ fontSize: 20 }}>{t.label}</div>
+                    <div style={{ fontSize: 15, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
                       {format(new Date(t.created_at), "MMM d, yyyy")}
                     </div>
-                    <div style={{ fontSize: 13, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
+                    <div style={{ fontSize: 15, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
                       {t.last_used_at ? format(new Date(t.last_used_at), "MMM d, HH:mm") : "—"}
                     </div>
                     <div>
                       <span style={{
                         display: "inline-flex", alignItems: "center", gap: 8,
-                        fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase",
+                        fontSize: 14, letterSpacing: "0.2em", textTransform: "uppercase",
                         color: t.revoked ? "hsl(8 55% 70%)" : "hsl(150 35% 70%)",
                       }}>
                         <span style={{
@@ -219,7 +219,7 @@ export default function Tokens() {
             <DialogHeader>
               <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Your new token</DialogTitle>
             </DialogHeader>
-            <p style={{ fontSize: 15, color: "hsl(30 8% 62%)", margin: "8px 0" }}>
+            <p style={{ fontSize: 17, color: "hsl(30 8% 62%)", margin: "8px 0" }}>
               Copy this now. You won't see it again.
             </p>
             <div style={{
@@ -227,7 +227,7 @@ export default function Tokens() {
               color: "hsl(40 20% 97%)",
               padding: 14,
               fontFamily: "monospace",
-              fontSize: 14,
+              fontSize: 16,
               wordBreak: "break-all",
               border: "1px solid hsl(40 20% 97% / 0.08)",
             }}>

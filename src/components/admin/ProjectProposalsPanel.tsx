@@ -138,7 +138,7 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
   return (
     <>
       <div className="roster__toolbar">
-        <div style={{ flex: 1, fontSize: 13, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+        <div style={{ flex: 1, fontSize: 15, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
           Proposals ({proposals.length})
         </div>
         {portalUrl && (
@@ -155,8 +155,8 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
         <div style={{ padding: 40, color: "var(--crm-taupe)" }}>Loading…</div>
       ) : proposals.length === 0 ? (
         <div style={{ padding: "60px 0", color: "var(--crm-taupe)", textAlign: "center", border: "1px dashed var(--crm-border-dark)", borderRadius: 12, marginTop: 16 }}>
-          <div style={{ fontSize: 13, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 8 }}>No proposals yet</div>
-          <div style={{ fontSize: 16 }}>Upload your first proposal PDF to send for signature.</div>
+          <div style={{ fontSize: 15, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 8 }}>No proposals yet</div>
+          <div style={{ fontSize: 18 }}>Upload your first proposal PDF to send for signature.</div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
@@ -172,18 +172,18 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
               }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", marginBottom: 6 }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", marginBottom: 6 }}>
                       <FileSignature size={12} /> Proposal
                     </div>
-                    <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 22, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
+                    <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 24, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
                       {p.title}
                     </h3>
                     {p.description && (
-                      <p style={{ marginTop: 6, color: "var(--crm-stone)", fontSize: 14 }}>{p.description}</p>
+                      <p style={{ marginTop: 6, color: "var(--crm-stone)", fontSize: 16 }}>{p.description}</p>
                     )}
                   </div>
                   <span style={{
-                    fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+                    fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase",
                     padding: "4px 10px", borderRadius: 999,
                     background: isSigned ? "hsl(120 30% 50% / 0.15)" : isVoided ? "hsl(0 30% 50% / 0.15)" : "hsl(40 20% 97% / 0.06)",
                     color: isSigned ? "hsl(120 60% 70%)" : isVoided ? "hsl(0 60% 70%)" : "var(--crm-taupe)",
@@ -191,7 +191,7 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
                   }}>{p.status}</span>
                 </div>
 
-                <div style={{ fontSize: 13, color: "var(--crm-taupe)" }}>
+                <div style={{ fontSize: 15, color: "var(--crm-taupe)" }}>
                   Uploaded {new Date(p.created_at).toLocaleDateString()}
                   {p.client_signed_at && (
                     <> · Signed {new Date(p.client_signed_at).toLocaleDateString()} by {p.client_signature_name}</>
@@ -236,7 +236,7 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
             <div>
               <label className="crm-label">PDF file *</label>
               <input ref={fileRef} type="file" accept="application/pdf" className="crm-input" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-              {file && <div style={{ marginTop: 6, fontSize: 12, color: "var(--crm-taupe)" }}>{file.name} · {(file.size / 1024).toFixed(0)} KB</div>}
+              {file && <div style={{ marginTop: 6, fontSize: 14, color: "var(--crm-taupe)" }}>{file.name} · {(file.size / 1024).toFixed(0)} KB</div>}
             </div>
           </div>
           <DialogFooter>

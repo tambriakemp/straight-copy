@@ -96,13 +96,13 @@ export default function ProjectResourcesSheet({
     borderRadius: 6,
     padding: "10px 12px",
     color: CREAM,
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: "inherit",
     outline: "none",
   };
 
   const sectionLabel: React.CSSProperties = {
-    fontSize: 11,
+    fontSize: 13,
     letterSpacing: "0.3em",
     textTransform: "uppercase",
     color: TAUPE,
@@ -126,7 +126,7 @@ export default function ProjectResourcesSheet({
                 fontFamily: "var(--crm-font-serif, 'Cormorant Garamond', serif)",
                 fontStyle: "italic",
                 fontWeight: 300,
-                fontSize: 32,
+                fontSize: 34,
                 color: CREAM,
                 lineHeight: 1.1,
               }}
@@ -134,7 +134,7 @@ export default function ProjectResourcesSheet({
               Project resources
             </SheetTitle>
             {projectName && (
-              <SheetDescription style={{ color: TAUPE, fontSize: 13, marginTop: 4 }}>
+              <SheetDescription style={{ color: TAUPE, fontSize: 15, marginTop: 4 }}>
                 {projectName}
               </SheetDescription>
             )}
@@ -172,7 +172,7 @@ export default function ProjectResourcesSheet({
                   border: `1px solid ${BORDER}`,
                   background: "transparent",
                   color: CREAM,
-                  fontSize: 12,
+                  fontSize: 14,
                   letterSpacing: "0.2em",
                   textTransform: "uppercase",
                   borderRadius: 4,
@@ -185,9 +185,9 @@ export default function ProjectResourcesSheet({
             </div>
 
             {loading ? (
-              <div style={{ fontSize: 13, color: TAUPE }}>Loading…</div>
+              <div style={{ fontSize: 15, color: TAUPE }}>Loading…</div>
             ) : links.length === 0 ? (
-              <div style={{ fontSize: 13, color: TAUPE, fontStyle: "italic" }}>No links yet.</div>
+              <div style={{ fontSize: 15, color: TAUPE, fontStyle: "italic" }}>No links yet.</div>
             ) : (
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
                 {links.map((l) => (
@@ -204,14 +204,14 @@ export default function ProjectResourcesSheet({
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, color: CREAM, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: 16, color: CREAM, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {l.label}
                       </div>
                       <a
                         href={l.url}
                         target="_blank"
                         rel="noreferrer"
-                        style={{ display: "block", fontSize: 12, color: TAUPE, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                        style={{ display: "block", fontSize: 14, color: TAUPE, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                       >
                         {l.url}
                       </a>
@@ -262,7 +262,7 @@ export default function ProjectResourcesSheet({
                   border: `1px solid ${BORDER}`,
                   background: "transparent",
                   color: CREAM,
-                  fontSize: 12,
+                  fontSize: 14,
                   letterSpacing: "0.2em",
                   textTransform: "uppercase",
                   borderRadius: 4,
@@ -275,7 +275,7 @@ export default function ProjectResourcesSheet({
             </div>
 
             {loading ? null : notes.length === 0 ? (
-              <div style={{ fontSize: 13, color: TAUPE, fontStyle: "italic" }}>No notes yet.</div>
+              <div style={{ fontSize: 15, color: TAUPE, fontStyle: "italic" }}>No notes yet.</div>
             ) : (
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10 }}>
                 {notes.map((n) => (
@@ -289,7 +289,7 @@ export default function ProjectResourcesSheet({
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                      <div style={{ flex: 1, fontSize: 14, color: CREAM, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
+                      <div style={{ flex: 1, fontSize: 16, color: CREAM, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
                         {n.body}
                       </div>
                       <button
@@ -300,7 +300,7 @@ export default function ProjectResourcesSheet({
                         <Trash2 size={14} />
                       </button>
                     </div>
-                    <div style={{ marginTop: 10, fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(40 10% 55%)" }}>
+                    <div style={{ marginTop: 10, fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(40 10% 55%)" }}>
                       {new Date(n.created_at).toLocaleString()}
                     </div>
                   </li>

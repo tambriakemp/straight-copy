@@ -210,10 +210,10 @@ export default function Dashboard() {
                     {[r.contact_name, r.contact_email].filter(Boolean).join(" · ") || "—"}
                   </div>
                 </div>
-                <div style={{ textAlign: "right", color: "var(--crm-taupe)", fontSize: 18 }}>→</div>
+                <div style={{ textAlign: "right", color: "var(--crm-taupe)", fontSize: 20 }}>→</div>
               </div>
             ))}
-            <div style={{ marginTop: 16, fontSize: 12, color: "var(--crm-taupe)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+            <div style={{ marginTop: 16, fontSize: 14, color: "var(--crm-taupe)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
               Sort: <button className="roster__col-h" style={{ marginLeft: 8 }} onClick={() => toggleSort("business_name")}>Name ↕</button>
               <button className="roster__col-h" style={{ marginLeft: 8 }} onClick={() => toggleSort("created_at")}>Created ↕</button>
             </div>

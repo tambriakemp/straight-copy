@@ -70,7 +70,7 @@ export default function Profile() {
       <div style={{ maxWidth: 560, padding: "32px 0" }}>
         <div
           style={{
-            fontSize: 13,
+            fontSize: 15,
             letterSpacing: "0.35em",
             textTransform: "uppercase",
             color: "hsl(30 10% 78%)",
@@ -83,7 +83,7 @@ export default function Profile() {
           style={{
             fontFamily: "Cormorant Garamond, serif",
             fontWeight: 300,
-            fontSize: 44,
+            fontSize: 46,
             lineHeight: 1,
             color: "hsl(40 20% 97%)",
             margin: "0 0 12px 0",
@@ -111,7 +111,7 @@ export default function Profile() {
           }}
         >
           <div className="crm-label">Signed in as</div>
-          <div style={{ color: "hsl(40 20% 97%)", fontSize: 16 }}>
+          <div style={{ color: "hsl(40 20% 97%)", fontSize: 18 }}>
             {user?.email ?? "—"}
           </div>
         </div>
@@ -127,7 +127,7 @@ export default function Profile() {
             style={{
               fontFamily: "Cormorant Garamond, serif",
               fontWeight: 300,
-              fontSize: 28,
+              fontSize: 30,
               color: "hsl(40 20% 97%)",
               margin: "0 0 20px 0",
             }}
@@ -183,14 +183,14 @@ export default function Profile() {
             style={{
               fontFamily: "Cormorant Garamond, serif",
               fontWeight: 300,
-              fontSize: 28,
+              fontSize: 30,
               color: "hsl(40 20% 97%)",
               margin: "0 0 8px 0",
             }}
           >
             SureContact <em style={{ color: "hsl(30 25% 44%)" }}>templates</em>
           </h2>
-          <p style={{ color: "hsl(30 10% 70%)", fontSize: 14, margin: "0 0 18px 0" }}>
+          <p style={{ color: "hsl(30 10% 70%)", fontSize: 16, margin: "0 0 18px 0" }}>
             List your SureContact email templates and copy their UUIDs (used for API-triggered transactional sends).
           </p>
           <button
@@ -205,7 +205,7 @@ export default function Profile() {
           {templates && (
             <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8 }}>
               {templates.length === 0 && (
-                <div style={{ color: "hsl(30 10% 70%)", fontSize: 14 }}>No templates found.</div>
+                <div style={{ color: "hsl(30 10% 70%)", fontSize: 16 }}>No templates found.</div>
               )}
               {templates.map((t) => (
                 <div
@@ -221,17 +221,17 @@ export default function Profile() {
                   }}
                 >
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ color: "hsl(40 20% 97%)", fontSize: 15, marginBottom: 4 }}>
+                    <div style={{ color: "hsl(40 20% 97%)", fontSize: 17, marginBottom: 4 }}>
                       {t.name}
                     </div>
                     {t.subject && (
-                      <div style={{ color: "hsl(30 10% 70%)", fontSize: 12, marginBottom: 4 }}>
+                      <div style={{ color: "hsl(30 10% 70%)", fontSize: 14, marginBottom: 4 }}>
                         {t.subject}
                       </div>
                     )}
                     <code
                       style={{
-                        fontSize: 12,
+                        fontSize: 14,
                         color: "hsl(30 10% 60%)",
                         wordBreak: "break-all",
                       }}

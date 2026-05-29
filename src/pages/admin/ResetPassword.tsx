@@ -56,7 +56,7 @@ export default function ResetPassword() {
         >
           <div
             style={{
-              fontSize: 13,
+              fontSize: 15,
               letterSpacing: "0.35em",
               textTransform: "uppercase",
               color: "hsl(30 10% 78%)",
@@ -69,7 +69,7 @@ export default function ResetPassword() {
             style={{
               fontFamily: "Cormorant Garamond, serif",
               fontWeight: 300,
-              fontSize: 40,
+              fontSize: 42,
               lineHeight: 1,
               color: "hsl(40 20% 97%)",
               margin: "0 0 12px 0",
@@ -79,7 +79,7 @@ export default function ResetPassword() {
             Reset <em style={{ color: "hsl(30 25% 44%)" }}>password</em>.
           </h1>
           <hr style={{ width: 48, height: 1, background: "hsl(30 25% 44%)", border: 0, margin: "0 0 24px 0" }} />
-          <p style={{ color: "hsl(30 8% 62%)", fontSize: 15, marginBottom: 28 }}>
+          <p style={{ color: "hsl(30 8% 62%)", fontSize: 17, marginBottom: 28 }}>
             {checking
               ? "Verifying recovery link…"
               : hasSession
