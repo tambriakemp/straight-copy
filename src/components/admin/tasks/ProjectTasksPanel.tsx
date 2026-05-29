@@ -208,8 +208,8 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
 
 function tabBtnStyle(active: boolean): React.CSSProperties {
   return {
-    background: active ? "var(--crm-accent)" : "transparent",
-    color: "var(--crm-warm-white)",
+    background: active ? "hsl(var(--accent))" : "transparent",
+    color: active ? "hsl(var(--accent-foreground))" : "hsl(var(--warm-white))",
     border: "none",
     padding: "6px 12px",
     fontSize: 12,
@@ -233,7 +233,7 @@ function KanbanColumn({
   return (
     <div ref={setNodeRef} style={{
       background: isOver ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.02)",
-      border: "1px solid var(--crm-border-dark)",
+      border: "1px solid hsl(var(--warm-white) / 0.12)",
       borderRadius: 8,
       padding: 10,
       minHeight: 200,
@@ -241,10 +241,10 @@ function KanbanColumn({
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 4px 8px" }}>
         <span style={{ width: 8, height: 8, borderRadius: 999, background: STATUS_COLORS[status] }} />
-        <span style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--crm-warm-white)" }}>
+        <span style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "hsl(var(--warm-white))" }}>
           {STATUS_LABELS[status]}
         </span>
-        <span style={{ marginLeft: "auto", color: "var(--crm-taupe)", fontSize: 12 }}>{tasks.length}</span>
+        <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.7)", fontSize: 12 }}>{tasks.length}</span>
       </div>
       {tasks.map((t) => (
         <DraggableCard key={t.id} task={t} epics={epics}
@@ -282,18 +282,18 @@ function TaskCard({ task, epics, subtaskCount, dragging }: {
   return (
     <div style={{
       background: "rgba(20,16,12,0.6)",
-      border: "1px solid var(--crm-border-dark)",
+      border: "1px solid hsl(var(--warm-white) / 0.12)",
       borderRadius: 6,
       padding: 10,
       boxShadow: dragging ? "0 8px 24px rgba(0,0,0,0.4)" : "none",
     }}>
       {epic && (
         <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase",
-          color: epic.color ?? "var(--crm-accent)", marginBottom: 6 }}>
+          color: epic.color ?? "hsl(var(--warm-white))", marginBottom: 6 }}>
           {epic.name}
         </div>
       )}
-      <div style={{ color: "var(--crm-warm-white)", fontSize: 13, lineHeight: 1.4, marginBottom: 8 }}>
+      <div style={{ color: "hsl(var(--warm-white))", fontSize: 13, lineHeight: 1.4, marginBottom: 8 }}>
         {task.name}
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
@@ -301,17 +301,17 @@ function TaskCard({ task, epics, subtaskCount, dragging }: {
           <Flag size={10} /> {task.priority}
         </span>
         {task.assignee_kind !== "unassigned" && (
-          <span style={{ fontSize: 10, color: "var(--crm-taupe)" }}>
+          <span style={{ fontSize: 10, color: "hsl(var(--warm-white) / 0.7)" }}>
             {task.assignee_kind === "claude" ? "🤖 Claude" : "👤 Admin"}
           </span>
         )}
         {task.due_date && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--crm-taupe)" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "hsl(var(--warm-white) / 0.7)" }}>
             <Calendar size={10} /> {task.due_date}
           </span>
         )}
         {subtaskCount > 0 && (
-          <span style={{ fontSize: 10, color: "var(--crm-taupe)" }}>{subtaskCount} subtask{subtaskCount > 1 ? "s" : ""}</span>
+          <span style={{ fontSize: 10, color: "hsl(var(--warm-white) / 0.7)" }}>{subtaskCount} subtask{subtaskCount > 1 ? "s" : ""}</span>
         )}
         {task.url && <ExternalLink size={10} style={{ color: "var(--crm-taupe)" }} />}
         {(task.attachments?.length ?? 0) > 0 && <Paperclip size={10} style={{ color: "var(--crm-taupe)" }} />}
