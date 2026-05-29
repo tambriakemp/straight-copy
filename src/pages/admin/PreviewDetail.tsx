@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import AiEditDialog from "@/components/admin/preview/AiEditDialog";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
+import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 
 type Project = any; type FileRow = any; type Comment = any; type Reply = any;
 type Status = "open" | "in_progress" | "resolved";
