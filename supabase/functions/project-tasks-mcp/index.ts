@@ -113,8 +113,19 @@ mcp.tool("get_task", {
 });
 
 const EXTRA_FIELD_PROPS = {
-  acceptance_criteria: { type: "string", description: "Definition of done — what must be true to mark complete." },
-  design_url: { type: "string", description: "Link to Figma, comps, or brand kit for design-dependent work." },
+  acceptance_criteria: {
+    type: "array",
+    description: "Definition-of-done checklist. Each item: { id?, text, done }. Replaces the whole list — use the dedicated add/update/delete criterion tools for surgical edits.",
+    items: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        text: { type: "string" },
+        done: { type: "boolean" },
+      },
+      required: ["text"],
+    },
+  },
   blocked_by: {
     type: "array",
     items: { type: "string" },
