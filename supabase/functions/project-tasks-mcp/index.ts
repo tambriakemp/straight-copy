@@ -203,6 +203,7 @@ mcp.tool("create_epic", {
 
 const app = new Hono().basePath("/project-tasks-mcp");
 const transport = new StreamableHttpTransport();
+const mcpHandler = transport.bind(mcp);
 
 app.options("/*", (c) => new Response(null, { headers: corsHeaders }));
 
