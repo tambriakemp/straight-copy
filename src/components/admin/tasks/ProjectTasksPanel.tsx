@@ -21,6 +21,10 @@ interface Props { clientProjectId: string }
 
 type ViewMode = "kanban" | "list";
 
+const taskSurfaceClass = "bg-ink border-warm-white/15 !text-warm-white [&_*]:!text-warm-white [&_input]:!text-warm-white [&_textarea]:!text-warm-white [&_input::placeholder]:!text-taupe [&_textarea::placeholder]:!text-taupe";
+const taskInputClass = "bg-transparent border-warm-white/20 !text-warm-white placeholder:!text-taupe";
+const taskSelectContentClass = "bg-ink border-warm-white/15 !text-warm-white [&_*]:!text-warm-white";
+
 export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [epics, setEpics] = useState<Epic[]>([]);
@@ -113,10 +117,10 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         </div>
 
         <Select value={filterEpic} onValueChange={setFilterEpic}>
-          <SelectTrigger className="w-[180px] bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]">
+          <SelectTrigger className="w-[180px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
             <SelectValue placeholder="Epic" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className={taskSelectContentClass}>
             <SelectItem value="all">All epics</SelectItem>
             <SelectItem value="none">No epic</SelectItem>
             {epics.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
@@ -124,10 +128,10 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         </Select>
 
         <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-          <SelectTrigger className="w-[180px] bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]">
+          <SelectTrigger className="w-[180px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
             <SelectValue placeholder="Assignee" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className={taskSelectContentClass}>
             <SelectItem value="all">All assignees</SelectItem>
             <SelectItem value="unassigned">Unassigned</SelectItem>
             <SelectItem value="admin">Admin</SelectItem>
