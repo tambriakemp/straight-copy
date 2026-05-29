@@ -427,20 +427,26 @@ function TaskDetailSheet({
           </SheetTitle>
         </SheetHeader>
         <div className="space-y-4 mt-4">
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded border border-warm-white/15 bg-warm-white/5">
-            <span className="text-xs uppercase tracking-wider !text-warm-white/60">Task ID</span>
-            <code className="text-xs !text-warm-white font-mono truncate flex-1">{task.id}</code>
-            <button
-              type="button"
-              onClick={async () => {
-                try { await navigator.clipboard.writeText(task.id); toast.success("Task ID copied"); }
-                catch { toast.error("Copy failed"); }
-              }}
-              className="inline-flex items-center gap-1 text-xs !text-warm-white/80 hover:!text-warm-white px-2 py-1 rounded border border-warm-white/15 hover:border-warm-white/30"
-              title="Copy task ID"
-            >
-              <Copy size={12} /> Copy
-            </button>
+          <div className="flex justify-end">
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try { await navigator.clipboard.writeText(task.id); toast.success("Task ID copied"); }
+                      catch { toast.error("Copy failed"); }
+                    }}
+                    className="inline-flex items-center gap-1 text-xs !text-warm-white/80 hover:!text-warm-white px-2 py-1 rounded border border-warm-white/15 hover:border-warm-white/30"
+                  >
+                    <Copy size={12} /> Copy ID
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="bg-ink border border-warm-white/15 !text-warm-white font-mono text-xs">
+                  {task.id}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <Field label="Name">
             <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
