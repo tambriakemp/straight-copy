@@ -27,7 +27,7 @@ export default function AppDevelopmentView() {
   const [project, setProject] = useState<Project | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"proposals" | "schedule" | "preview" | "tasks">("proposals");
+  const [tab, setTab] = useState<"tasks" | "proposals" | "schedule" | "preview">("tasks");
 
   const portalUrl = client?.id ? `${window.location.origin}/portal/${client.id}` : "";
 
@@ -74,11 +74,15 @@ export default function AppDevelopmentView() {
 
         <ProjectTabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mt-8">
           <ProjectTabsList>
+            <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>
             <ProjectTabsTrigger value="proposals">Proposals</ProjectTabsTrigger>
             <ProjectTabsTrigger value="schedule">Payment Schedule</ProjectTabsTrigger>
             <ProjectTabsTrigger value="preview">Preview</ProjectTabsTrigger>
-            <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>
           </ProjectTabsList>
+
+          <ProjectTabsContent value="tasks">
+            <ProjectTasksPanel clientProjectId={projectId!} />
+          </ProjectTabsContent>
 
           <ProjectTabsContent value="proposals">
             <ProjectProposalsPanel clientId={clientId!} clientProjectId={projectId!} portalUrl={portalUrl} />
@@ -96,10 +100,6 @@ export default function AppDevelopmentView() {
               clientLabel={client.business_name}
               embedded
             />
-          </ProjectTabsContent>
-
-          <ProjectTabsContent value="tasks">
-            <ProjectTasksPanel clientProjectId={projectId!} />
           </ProjectTabsContent>
         </ProjectTabs>
       </div>
