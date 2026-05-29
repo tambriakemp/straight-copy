@@ -50,7 +50,7 @@ async function pkceVerify(verifier: string, challenge: string, method: string) {
   return b64url(digest) === challenge;
 }
 
-const app = new Hono();
+const app = new Hono().basePath("/mcp-oauth");
 
 app.options("/*", (c) => new Response(null, { headers: cors }));
 
