@@ -9,11 +9,13 @@ type Props = {
   clientProjectId: string;
   projectName: string;
   clientLabel?: string | null;
+  /** When true, renders the inner preview directly without the collapsible card chrome. */
+  embedded?: boolean;
 };
 
 type PreviewRow = { id: string; slug: string; name: string };
 
-export default function ProjectPreviewCard({ clientId, clientProjectId, projectName, clientLabel }: Props) {
+export default function ProjectPreviewCard({ clientId, clientProjectId, projectName, clientLabel, embedded }: Props) {
   const [preview, setPreview] = useState<PreviewRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);

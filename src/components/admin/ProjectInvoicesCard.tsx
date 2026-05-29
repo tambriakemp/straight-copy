@@ -33,8 +33,8 @@ const fmtUSD = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 
 export default function ProjectInvoicesCard({
-  clientId, clientProjectId,
-}: { clientId: string; clientProjectId: string }) {
+  clientId, clientProjectId, embedded,
+}: { clientId: string; clientProjectId: string; embedded?: boolean }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -178,11 +178,12 @@ export default function ProjectInvoicesCard({
   };
 
   return (
-    <div style={{
+    <div style={embedded ? { padding: 0 } : {
       background: "hsl(40 20% 97% / 0.03)",
       border: "1px solid var(--crm-border-dark)",
       borderRadius: 12, padding: "22px 24px", marginTop: 24,
     }}>
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 6 }}>
