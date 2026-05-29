@@ -58,8 +58,7 @@ const textResult = (data: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
 });
 
-mcp.tool({
-  name: "list_projects",
+mcp.tool("list_projects", {
   description: "List all active client projects (id, name, type, client business name).",
   inputSchema: { type: "object", properties: {} },
   handler: async () => {
@@ -71,8 +70,7 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "list_tasks",
+mcp.tool("list_tasks", {
   description: "List tasks for a project. Optionally filter by status.",
   inputSchema: {
     type: "object",
@@ -89,8 +87,7 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "get_task",
+mcp.tool("get_task", {
   description: "Fetch a single task by id with subtasks and attachments.",
   inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
   handler: async ({ id }: { id: string }) => {
@@ -105,8 +102,7 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "create_task",
+mcp.tool("create_task", {
   description: "Create a task or subtask. For subtask, supply parent_task_id.",
   inputSchema: {
     type: "object",
@@ -128,8 +124,7 @@ mcp.tool({
   handler: async (args: any) => textResult(await createTask(sb, args, null)),
 });
 
-mcp.tool({
-  name: "update_task",
+mcp.tool("update_task", {
   description: "Update any task fields.",
   inputSchema: {
     type: "object",
@@ -150,8 +145,7 @@ mcp.tool({
   handler: async ({ id, ...rest }: any) => textResult(await updateTask(sb, id, rest)),
 });
 
-mcp.tool({
-  name: "move_task_status",
+mcp.tool("move_task_status", {
   description: "Shortcut to change a task's status.",
   inputSchema: {
     type: "object",
@@ -165,8 +159,7 @@ mcp.tool({
     textResult(await updateTask(sb, id, { status: status as any })),
 });
 
-mcp.tool({
-  name: "add_comment_to_task",
+mcp.tool("add_comment_to_task", {
   description: "Append a Claude-authored comment to a task's description (timestamped).",
   inputSchema: {
     type: "object",
@@ -182,22 +175,19 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "delete_task",
+mcp.tool("delete_task", {
   description: "Delete a task and its subtasks + attachments.",
   inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
   handler: async ({ id }: { id: string }) => textResult(await deleteTask(sb, id)),
 });
 
-mcp.tool({
-  name: "list_epics",
+mcp.tool("list_epics", {
   description: "List epics for a project.",
   inputSchema: { type: "object", properties: { project_id: { type: "string" } }, required: ["project_id"] },
   handler: async ({ project_id }: { project_id: string }) => textResult(await listEpics(sb, project_id)),
 });
 
-mcp.tool({
-  name: "create_epic",
+mcp.tool("create_epic", {
   description: "Create an epic for a project.",
   inputSchema: {
     type: "object",
