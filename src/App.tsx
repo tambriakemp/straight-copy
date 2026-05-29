@@ -19,6 +19,7 @@ const Portal = lazy(() => import("./pages/Portal.tsx"));
 const PortalProject = lazy(() => import("./pages/PortalProject.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin.tsx"));
+const McpAuthorize = lazy(() => import("./pages/admin/McpAuthorize.tsx"));
 const ResetPassword = lazy(() => import("./pages/admin/ResetPassword.tsx"));
 const Profile = lazy(() => import("./pages/admin/Profile.tsx"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard.tsx"));
@@ -66,6 +67,7 @@ const App = () => (
             <Route path="/portal/:clientId" element={<Portal />} />
             <Route path="/portal/:clientId/projects/:projectId" element={<PortalProject />} />
             <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/mcp-authorize" element={<McpAuthorize />} />
             <Route path="/admin/reset-password" element={<ResetPassword />} />
             <Route path="/admin" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
             <Route path="/admin/profile" element={<RequireAdmin><Profile /></RequireAdmin>} />
