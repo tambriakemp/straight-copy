@@ -22,6 +22,12 @@ export type TaskSize = typeof TASK_SIZES[number];
 export const TASK_PLATFORMS = ["web", "native", "backend", "all"] as const;
 export type TaskPlatform = typeof TASK_PLATFORMS[number];
 
+export interface AcceptanceCriterion {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
 export const TASK_FIELDS =
   "id, client_project_id, parent_task_id, epic_id, name, description, status, priority, " +
   "assignee_kind, assignee_admin_id, url, due_date, tags, order_index, created_by, completed_at, created_at, updated_at, " +
@@ -41,12 +47,29 @@ export interface TaskInput {
   due_date?: string | null;
   tags?: string[];
   order_index?: number;
-  acceptance_criteria?: string | null;
+  acceptance_criteria?: AcceptanceCriterion[];
   design_url?: string | null;
   blocked_by?: string[];
   manual_prereqs?: string | null;
   size?: TaskSize | null;
   platform?: TaskPlatform | null;
+}
+
+function normalizeCriteria(input: unknown): AcceptanceCriterion[] {
+  if (!Array.isArray(input)) return [];
+  const out: AcceptanceCriterion[] = [];
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") continue;
+    const r = raw as Record<string, unknown>;
+    const text = typeof r.text === "string" ? r.text : "";
+    if (!text.trim()) continue;
+    out.push({
+      id: typeof r.id === "string" && r.id ? r.id : crypto.randomUUID(),
+      text,
+      done: r.done === true,
+    });
+  }
+  return out;
 }
 
 export async function listTasks(
