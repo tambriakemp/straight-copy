@@ -802,10 +802,10 @@ function TagsInput({ value, onChange, inputCls }: {
   return (
     <div className={`${inputCls} min-h-10 w-full rounded-md border px-2 py-1.5 flex flex-wrap gap-1.5 items-center`}>
       {value.map((t) => (
-        <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/10 text-xs !text-white">
+        <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warm-white/10 text-xs !text-warm-white">
           {t}
           <button type="button" onClick={() => onChange(value.filter((x) => x !== t))}
-            className="!text-white/60 hover:!text-white"><X size={10} /></button>
+            className="!text-warm-white/60 hover:!text-warm-white"><X size={10} /></button>
         </span>
       ))}
       <input
@@ -814,7 +814,7 @@ function TagsInput({ value, onChange, inputCls }: {
         onKeyDown={onKey}
         onBlur={() => { if (draft.trim()) { add(draft); setDraft(""); } }}
         placeholder={value.length === 0 ? "Type and press Enter…" : ""}
-        className="flex-1 min-w-[120px] bg-transparent text-sm !text-white placeholder:!text-white/60 outline-none"
+        className="flex-1 min-w-[120px] bg-transparent text-sm !text-warm-white placeholder:!text-taupe outline-none"
       />
     </div>
   );
@@ -827,7 +827,7 @@ function AttachmentsPicker({ files, onChange }: {
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <label className="inline-flex items-center gap-2 px-3 py-2 border border-dashed border-white/30 rounded-md cursor-pointer hover:bg-white/5 !text-white/70 text-sm w-fit">
+      <label className="inline-flex items-center gap-2 px-3 py-2 border border-dashed border-warm-white/30 rounded-md cursor-pointer hover:bg-warm-white/5 !text-warm-white/70 text-sm w-fit">
         <Paperclip size={14} />
         <span>Add files</span>
         <input
@@ -844,13 +844,13 @@ function AttachmentsPicker({ files, onChange }: {
       {files.length > 0 && (
         <div className="flex flex-col gap-1">
           {files.map((f, i) => (
-            <div key={`${f.name}-${i}`} className="flex items-center justify-between px-2 py-1 rounded border border-white/20 text-xs !text-white">
+            <div key={`${f.name}-${i}`} className="flex items-center justify-between px-2 py-1 rounded border border-warm-white/20 text-xs !text-warm-white">
               <span className="inline-flex items-center gap-2 truncate">
                 <Paperclip size={11} /> {f.name}
-                <span className="!text-white/50">({Math.round(f.size / 1024)} KB)</span>
+                <span className="!text-warm-white/60">({Math.round(f.size / 1024)} KB)</span>
               </span>
               <button type="button" onClick={() => onChange(files.filter((_, idx) => idx !== i))}
-                className="!text-white/60 hover:!text-red-400"><X size={12} /></button>
+                className="!text-warm-white/60 hover:!text-destructive"><X size={12} /></button>
             </div>
           ))}
         </div>
