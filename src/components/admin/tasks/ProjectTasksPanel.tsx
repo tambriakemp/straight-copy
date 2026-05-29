@@ -104,7 +104,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   };
 
   return (
-    <div>
+    <div className="text-warm-white">
       {/* Toolbar */}
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
         <div style={{ display: "inline-flex", border: "1px solid var(--crm-border-dark)", borderRadius: 6, overflow: "hidden" }}>
@@ -141,18 +141,18 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <Button variant="outline" size="sm" onClick={() => setEpicsOpen(true)}
-            className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)] hover:bg-[color:var(--crm-accent)]">
+            className="bg-transparent border-warm-white/20 !text-warm-white hover:bg-warm-white/10">
             Manage epics
           </Button>
           <Button size="sm" onClick={() => setCreating(true)}
-            className="bg-[color:var(--crm-accent)] text-[color:var(--crm-warm-white)] hover:bg-[color:var(--crm-accent-hover)]">
+            className="bg-accent !text-accent-foreground hover:bg-accent/90">
             <Plus size={14} style={{ marginRight: 6 }} /> New task
           </Button>
         </div>
       </div>
 
       {loading ? (
-        <div style={{ color: "var(--crm-taupe)", padding: 24 }}>Loading tasks…</div>
+        <div className="p-6 text-warm-white/70">Loading tasks…</div>
       ) : view === "kanban" ? (
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
           <div style={{ display: "grid", gridAutoFlow: "column", gridAutoColumns: "minmax(260px, 1fr)", gap: 12, overflowX: "auto", paddingBottom: 8 }}>
