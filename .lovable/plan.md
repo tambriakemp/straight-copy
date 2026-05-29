@@ -1,59 +1,93 @@
+
 ## Goal
 
-Replace the stacked/expandable section layout on every project detail page with a clean horizontal tabbed layout. Each project type shows only the tabs that apply to it, on both the admin side and the client portal side.
+Add an **admin-only** "Tasks" tab to every client project that functions as a project task board. Claude Code accesses it via REST + MCP and moves tasks through statuses.
 
-## Tab map per project type
+## Statuses (fixed enum)
 
-App Development / Web Development / Marketing
-- Proposals
-- Payment Schedule
-- Preview
+`backlog` · `ready_for_claude` · `in_progress` · `needs_review` · `blocked` · `complete`
 
-Site Preview
-- Preview (keeps its existing internal Pages/Files/Comments/Settings sub-tabs)
-- Proposals
-- Payment Schedule
+Kanban is the default view; a List view toggle is available.
 
-Automation Build
-- Journey (existing journey board)
-- Contract
-- Brand Voice / Brand Kit (admin: links; portal: chat + confirmation)
-- Account Access (portal-only)
-- Subscription
-- Payment Schedule
+## Database (migration)
 
-The header (project name, eyebrow, back link) stays above the tab bar. The current "expandable Preview" card on the portal becomes a regular tab — no more accordion.
+New tables, all admin-only RLS (`is_admin(auth.uid())`) + service role:
 
-## Admin side changes
+**`project_task_epics`** — `id, client_project_id, name, color, order_index, created_at, updated_at`
 
-`src/pages/admin/AppDevelopmentView.tsx`
-- Wrap the existing Proposals list, `ProjectInvoicesCard`, and `ProjectPreviewCard` in a `Tabs` component (`@/components/ui/tabs`) styled to match the CRM dark theme.
-- Tabs: Proposals (default) · Payment Schedule · Preview.
-- Keep the existing "Upload proposal / Copy portal link" toolbar inside the Proposals tab only.
+**`project_tasks`** — fields:
+- `id`, `client_project_id`, `parent_task_id` (nullable, self-FK → subtasks)
+- `epic_id` (nullable → `project_task_epics`)
+- `name`, `description` (markdown)
+- `status` (enum above, default `backlog`)
+- `priority` (`low|normal|high|urgent`)
+- `assignee_admin_id` (nullable → `admin_users.id`)
+- `assignee_kind` (`admin|claude|unassigned`) — lets us assign "Claude" without a real user row
+- `url` (text), `due_date` (date)
+- `tags` (`text[]`)
+- `order_index` (for Kanban ordering within a column)
+- `created_at`, `updated_at`, `created_by`, `completed_at`
 
-`src/pages/admin/AutomationBuildView.tsx`
-- Identify the existing top-level sections (journey board, AdminContractSection, brand voice/kit blocks, subscription/invoices area) and group them under tabs: Journey · Contract · Brand Kit · Subscription · Payment Schedule.
-- The journey board stays the default tab so today's workflow is unchanged.
-- No business-logic changes — just move existing JSX blocks into `TabsContent` wrappers.
+**`project_task_attachments`** — `id, task_id, storage_path, file_name, mime_type, size_bytes, uploaded_by, created_at`
 
-`src/pages/admin/PreviewDetail.tsx` (site_preview)
-- Wrap the whole detail in an outer `Tabs`: Preview (default, contains the existing Pages/Files/Comments/Settings tabs untouched) · Proposals · Payment Schedule.
-- Reuse the proposals list block from `AppDevelopmentView` (extract into a small shared `ProjectProposalsPanel` component to avoid duplication) and `ProjectInvoicesCard` for the schedule tab.
+New private storage bucket **`project-task-attachments`** with admin-only RLS on `storage.objects`.
 
-## Portal side changes
+Indexes on `(client_project_id, status, order_index)` and `(parent_task_id)`.
 
-`src/pages/PortalProject.tsx`
-- Replace the long stacked `<section>` blocks (Contract, Preview, Proposals, BrandVoice, AccountAccess, Subscription, BrandKit, Invoice) with a single `Tabs` element below the project header.
-- Tab visibility is driven by the existing `isAutomation` / `isPreviewable` / `currentProject` flags so each project type only sees relevant tabs.
-- Default tab per type: automation_build → Contract; app/web/marketing → Proposals; site_preview → Preview.
-- `PortalProjectPreviewCard` is rendered in the Preview tab as a flat panel — drop the expand/collapse chrome.
+## Edge functions
 
-## Shared work
+**`project-tasks`** (admin JWT auth, used by the UI)
+- `GET    /tasks?project_id=…` — list with epics, subtasks, attachments (signed URLs)
+- `POST   /tasks` — create (task or subtask via `parent_task_id`)
+- `PATCH  /tasks/:id` — update any field, including status moves and reordering
+- `DELETE /tasks/:id` — cascade subtasks/attachments
+- `POST   /tasks/:id/attachments` — multipart upload → bucket
+- `DELETE /attachments/:id`
+- `GET/POST/PATCH/DELETE /epics` — CRUD epics for a project
 
-- Add a small `ProjectTabs` wrapper around `@/components/ui/tabs` with CRM-themed classes (borderless underline tabs, serif italic active state, taupe inactive) so admin and portal share styling.
-- Extract `ProjectProposalsPanel` (admin) so `AppDevelopmentView` and `PreviewDetail` can both mount it.
-- No edge function, schema, or data-fetching changes. URL routes stay the same; tab state is local (`useState`) and not persisted in the URL unless you want it (open question below).
+**`project-tasks-mcp`** (token auth via existing `api_tokens` table; thin MCP wrapper using `mcp-lite`)
+- Tools exposed to Claude Code:
+  - `list_projects`, `list_tasks(project_id, status?)`, `get_task(id)`
+  - `create_task`, `update_task`, `move_task_status`, `add_comment_to_task` (stored in description append for v1)
+  - `list_epics`, `create_epic`
+- Reuses the same DB logic as the REST function (shared helpers in `_shared/tasks.ts`).
+- Server URL surfaced in the new Admin "API Tokens" page so the user can paste it into Claude Code.
 
-## Open question
+Both functions deploy with `verify_jwt = false` and validate in code (JWT for REST, bearer token hash lookup for MCP).
 
-Persist the active tab in the URL (`?tab=preview`) so reloads and shared links land on the same tab? Default plan is local state only; happy to add the query param if you want shareable deep links.
+## Frontend
+
+**New tab** "Tasks" added to:
+- `AppDevelopmentView` (app/web/marketing)
+- `AutomationBuildView`
+- `PreviewDetail` (when linked to a client project)
+
+Tab is **admin-only** by definition (these views already live in `AdminLayout` + `RequireAdmin`), so no extra gating needed. **Not** added to the client portal (`PortalProject.tsx`).
+
+**New components** under `src/components/admin/tasks/`:
+- `ProjectTasksPanel.tsx` — top-level: view toggle (Kanban default / List), filters (epic, assignee, tag, priority), "+ New task", "+ Manage epics"
+- `TaskBoard.tsx` — Kanban with 6 columns; drag-and-drop via `@dnd-kit/core` (already a peer of existing deps; add if missing) to move tasks across statuses and reorder
+- `TaskList.tsx` — table view (sortable columns)
+- `TaskCard.tsx` — compact card on the board
+- `TaskDetailDrawer.tsx` — full editor (Sheet) with all fields, subtasks panel (inline CRUD, same fields), attachments uploader, epic selector with inline create
+- `EpicManagerDialog.tsx` — CRUD epics
+- `tasksApi.ts` — typed wrappers around the `project-tasks` edge function
+
+Realtime: subscribe to `project_tasks` and `project_task_epics` filtered by `client_project_id` so Claude's status changes appear live.
+
+Styling uses existing `ProjectTabs` and CRM tokens (`--crm-*`); status columns use the existing accent palette.
+
+## Out of scope (v1)
+
+- Per-task comment threads (Claude's "comments" land as description appends for now)
+- Client portal visibility
+- Recurring tasks, time tracking, multi-assignee
+
+## Build order
+
+1. Migration (tables, bucket, RLS, GRANTs)
+2. `_shared/tasks.ts` helpers + `project-tasks` edge function + API tokens surface for MCP URL
+3. `project-tasks-mcp` edge function (mcp-lite)
+4. `tasksApi.ts` + `ProjectTasksPanel` + Kanban/List + detail drawer + epic manager
+5. Wire "Tasks" tab into the three admin project views
+6. Smoke test: create epic → create task with subtask + attachment → drag to "Ready for Claude" → hit MCP endpoint to list and move it
