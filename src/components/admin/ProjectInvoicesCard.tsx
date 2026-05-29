@@ -186,11 +186,11 @@ export default function ProjectInvoicesCard({
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <div style={{ fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 6 }}>
             <DollarSign size={12} /> Payment Schedule
           </div>
-          <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 22, color: "var(--crm-warm-white)", margin: 0 }}>
-            Invoices {invoices.length > 0 && <span style={{ color: "var(--crm-taupe)", fontSize: 16 }}>· {fmtUSD(paid)} of {fmtUSD(total)} paid</span>}
+          <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 24, color: "var(--crm-warm-white)", margin: 0 }}>
+            Invoices {invoices.length > 0 && <span style={{ color: "var(--crm-taupe)", fontSize: 18 }}>· {fmtUSD(paid)} of {fmtUSD(total)} paid</span>}
           </h3>
         </div>
         {!editing && (
@@ -203,7 +203,7 @@ export default function ProjectInvoicesCard({
       {loading && <div style={{ color: "var(--crm-taupe)" }}>Loading…</div>}
 
       {!loading && !editing && invoices.length === 0 && (
-        <div style={{ color: "var(--crm-taupe)", fontSize: 14, padding: "16px 0" }}>
+        <div style={{ color: "var(--crm-taupe)", fontSize: 16, padding: "16px 0" }}>
           No payment schedule yet. Set up milestones to invoice the client through SureCart.
         </div>
       )}
@@ -217,22 +217,22 @@ export default function ProjectInvoicesCard({
                 display: "grid", gridTemplateColumns: "auto 1fr auto auto auto", gap: 12, alignItems: "center",
                 padding: "12px 14px", border: "1px solid var(--crm-border-dark)", borderRadius: 8,
               }}>
-                <div style={{ fontFamily: "var(--crm-font-serif)", fontSize: 18, color: "var(--crm-taupe)", width: 28, textAlign: "center" }}>
+                <div style={{ fontFamily: "var(--crm-font-serif)", fontSize: 20, color: "var(--crm-taupe)", width: 28, textAlign: "center" }}>
                   {inv.sequence}
                 </div>
                 <div>
-                  <div style={{ color: "var(--crm-warm-white)", fontSize: 15 }}>{inv.label}</div>
-                  <div style={{ fontSize: 12, color: "var(--crm-taupe)" }}>
+                  <div style={{ color: "var(--crm-warm-white)", fontSize: 17 }}>{inv.label}</div>
+                  <div style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
                     {inv.due_date ? `Due ${new Date(inv.due_date).toLocaleDateString()}` : "No due date"}
                     {inv.paid_at && ` · Paid ${new Date(inv.paid_at).toLocaleDateString()}`}
                     {inv.sent_at && !inv.paid_at && ` · Sent ${new Date(inv.sent_at).toLocaleDateString()}`}
                   </div>
                 </div>
-                <div style={{ color: "var(--crm-warm-white)", fontSize: 16, fontVariantNumeric: "tabular-nums" }}>
+                <div style={{ color: "var(--crm-warm-white)", fontSize: 18, fontVariantNumeric: "tabular-nums" }}>
                   {fmtUSD(inv.amount_cents)}
                 </div>
                 <span style={{
-                  fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+                  fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase",
                   padding: "3px 9px", borderRadius: 999, background: sc.bg, color: sc.fg,
                 }}>{inv.status}</span>
                 <div style={{ display: "flex", gap: 4 }}>

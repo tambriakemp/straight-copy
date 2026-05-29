@@ -57,7 +57,7 @@ export default function AppDevelopmentView() {
   return (
     <AdminLayout>
       <div className="roster">
-        <Link to={`/admin/clients/${clientId}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
+        <Link to={`/admin/clients/${clientId}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 15, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
           <ArrowLeft size={14} /> Back to {client.business_name ?? "client"}
         </Link>
 

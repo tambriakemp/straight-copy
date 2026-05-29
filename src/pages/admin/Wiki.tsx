@@ -22,16 +22,16 @@ const ACCENT = "hsl(28 30% 45%)";
 
 const pageScroll: React.CSSProperties = { flex: 1, minHeight: 0, overflowY: "auto", width: "100%" };
 const page: React.CSSProperties = { padding: "56px 52px 120px", maxWidth: 1280, margin: "0 auto", color: CREAM };
-const eyebrow: React.CSSProperties = { fontSize: 12, letterSpacing: "0.35em", textTransform: "uppercase", color: TAUPE, marginBottom: 16 };
-const title: React.CSSProperties = { fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontSize: 56, lineHeight: 1.05, margin: 0, letterSpacing: "-0.01em" };
+const eyebrow: React.CSSProperties = { fontSize: 14, letterSpacing: "0.35em", textTransform: "uppercase", color: TAUPE, marginBottom: 16 };
+const title: React.CSSProperties = { fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, fontSize: 58, lineHeight: 1.05, margin: 0, letterSpacing: "-0.01em" };
 const titleEm: React.CSSProperties = { fontStyle: "italic", color: ACCENT };
 const rule: React.CSSProperties = { width: 48, height: 1, background: ACCENT, border: 0, margin: "20px 0 24px" };
-const sub: React.CSSProperties = { color: TAUPE, fontSize: 15, lineHeight: 1.7, margin: 0, maxWidth: 620 };
-const sectionLabel: React.CSSProperties = { fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: STONE, marginBottom: 14 };
+const sub: React.CSSProperties = { color: TAUPE, fontSize: 17, lineHeight: 1.7, margin: 0, maxWidth: 620 };
+const sectionLabel: React.CSSProperties = { fontSize: 13, letterSpacing: "0.3em", textTransform: "uppercase", color: STONE, marginBottom: 14 };
 
 const btn: React.CSSProperties = {
   background: "transparent", border: `1px solid ${BORDER}`, color: CREAM,
-  padding: "10px 18px", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+  padding: "10px 18px", fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase",
   cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 8,
 };
 const btnPrimary: React.CSSProperties = { ...btn, background: CREAM, color: INK, borderColor: CREAM };
@@ -39,14 +39,14 @@ const btnAccent: React.CSSProperties = { ...btn, background: ACCENT, color: CREA
 
 const input: React.CSSProperties = {
   width: "100%", background: "transparent", border: `1px solid ${BORDER}`,
-  color: CREAM, padding: "10px 14px", fontSize: 14, fontFamily: "inherit", outline: "none",
+  color: CREAM, padding: "10px 14px", fontSize: 16, fontFamily: "inherit", outline: "none",
 };
 const select: React.CSSProperties = { ...input, appearance: "none", cursor: "pointer" };
 
 function Badge({ children, tone = STONE }: { children: React.ReactNode; tone?: string }) {
   return (
     <span style={{
-      display: "inline-block", padding: "3px 10px", fontSize: 10, letterSpacing: "0.18em",
+      display: "inline-block", padding: "3px 10px", fontSize: 12, letterSpacing: "0.18em",
       textTransform: "uppercase", color: tone, border: `1px solid ${tone}40`, background: `${tone}10`,
     }}>{children}</span>
   );
@@ -141,7 +141,7 @@ export function WikiList() {
           <div style={{
             display: "grid", gridTemplateColumns: "1fr 180px 140px 110px 140px",
             gap: 16, padding: "14px 24px", borderBottom: `1px solid ${BORDER}`,
-            fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase", color: STONE,
+            fontSize: 12, letterSpacing: "0.25em", textTransform: "uppercase", color: STONE,
           }}>
             <div>Title</div><div>Department</div><div>Type</div><div>Status</div><div>Updated</div>
           </div>
@@ -156,17 +156,17 @@ export function WikiList() {
               onMouseEnter={e => (e.currentTarget.style.background = "hsl(36 5% 18%)")}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
               <div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 300, color: CREAM, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, color: CREAM, display: "flex", alignItems: "center", gap: 10 }}>
                   {d.title}
-                  {isStale(d.last_reviewed_at) && <span title="Not reviewed in 6+ months" style={{ color: "hsl(8 55% 70%)", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>· stale</span>}
-                  {d.access_level === "Founder Only" && <span title="Founder Only" style={{ color: ACCENT, fontSize: 10 }}>● founder</span>}
+                  {isStale(d.last_reviewed_at) && <span title="Not reviewed in 6+ months" style={{ color: "hsl(8 55% 70%)", fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>· stale</span>}
+                  {d.access_level === "Founder Only" && <span title="Founder Only" style={{ color: ACCENT, fontSize: 12 }}>● founder</span>}
                 </div>
-                {d.tags.length > 0 && <div style={{ fontSize: 12, color: TAUPE, marginTop: 4 }}>{d.tags.map(t => `#${t}`).join(" ")}</div>}
+                {d.tags.length > 0 && <div style={{ fontSize: 14, color: TAUPE, marginTop: 4 }}>{d.tags.map(t => `#${t}`).join(" ")}</div>}
               </div>
-              <div style={{ fontSize: 12, color: TAUPE, letterSpacing: "0.05em" }}>{d.department}</div>
+              <div style={{ fontSize: 14, color: TAUPE, letterSpacing: "0.05em" }}>{d.department}</div>
               <div><Badge>{d.doc_type}</Badge></div>
               <div><Badge tone={statusTone(d.status)}>{d.status}</Badge></div>
-              <div style={{ fontSize: 12, color: TAUPE }}>{fmtDate(d.updated_at)}</div>
+              <div style={{ fontSize: 14, color: TAUPE }}>{fmtDate(d.updated_at)}</div>
             </div>
           ))}
         </div>
@@ -313,7 +313,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
         <input
           value={doc.title || ""} onChange={e => setDoc({ ...doc, title: e.target.value })}
           placeholder="Document title"
-          style={{ ...input, fontFamily: "'Cormorant Garamond', serif", fontSize: 42, fontWeight: 300, padding: "12px 0", border: 0, borderBottom: `1px solid ${BORDER}`, marginBottom: 32 }}
+          style={{ ...input, fontFamily: "'Cormorant Garamond', serif", fontSize: 44, fontWeight: 300, padding: "12px 0", border: 0, borderBottom: `1px solid ${BORDER}`, marginBottom: 32 }}
         />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 24 }}>
@@ -355,7 +355,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
             {SOP_SECTIONS.map(s => (
               <div key={s.key}>
-                <div style={{ ...sectionLabel, marginBottom: 10, color: CREAM, fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 300, letterSpacing: 0, textTransform: "none" }}>
+                <div style={{ ...sectionLabel, marginBottom: 10, color: CREAM, fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, letterSpacing: 0, textTransform: "none" }}>
                   {s.heading}
                 </div>
                 <WikiEditor
@@ -458,7 +458,7 @@ export function WikiDetail() {
 
           <aside style={{ background: CHARCOAL, border: `1px solid ${BORDER}`, padding: 24, alignSelf: "start" }}>
             <div style={sectionLabel}>Details</div>
-            <dl style={{ margin: 0, fontSize: 13 }}>
+            <dl style={{ margin: 0, fontSize: 15 }}>
               {[
                 ["Department", doc.department],
                 ["Type", doc.doc_type],
@@ -469,7 +469,7 @@ export function WikiDetail() {
                 ["Reviewed", doc.last_reviewed_at ? fmtDate(doc.last_reviewed_at) : "Never"],
               ].map(([k, v]) => (
                 <div key={k as string} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderBottom: `1px solid ${BORDER}` }}>
-                  <dt style={{ color: STONE, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>{k}</dt>
+                  <dt style={{ color: STONE, fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>{k}</dt>
                   <dd style={{ margin: 0, color: CREAM, textAlign: "right" }}>{v}</dd>
                 </div>
               ))}
@@ -483,7 +483,7 @@ export function WikiDetail() {
               </>
             )}
             {isStale(doc.last_reviewed_at) && (
-              <div style={{ marginTop: 20, padding: 12, border: `1px solid hsl(8 55% 70% / 0.4)`, color: "hsl(8 55% 80%)", fontSize: 12 }}>
+              <div style={{ marginTop: 20, padding: 12, border: `1px solid hsl(8 55% 70% / 0.4)`, color: "hsl(8 55% 80%)", fontSize: 14 }}>
                 ⚠ This doc hasn't been reviewed in 6+ months.
               </div>
             )}
@@ -565,8 +565,8 @@ export function WikiHistory() {
           ) : revs.map(r => (
             <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, padding: "16px 24px", borderBottom: `1px solid ${BORDER}` }}>
               <div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, color: CREAM }}>{r.title}</div>
-                <div style={{ fontSize: 12, color: TAUPE, marginTop: 4 }}>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, color: CREAM }}>{r.title}</div>
+                <div style={{ fontSize: 14, color: TAUPE, marginTop: 4 }}>
                   {fmtDate(r.edited_at)} · {r.edited_by_name || "—"}{r.change_note ? ` · ${r.change_note}` : ""}
                 </div>
               </div>
@@ -584,7 +584,7 @@ export function WikiHistory() {
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 24 }}>
                 <div>
                   <p style={eyebrow}>Snapshot · {fmtDate(viewing.edited_at)}</p>
-                  <h2 style={{ ...title, fontSize: 36 }}>{viewing.title}</h2>
+                  <h2 style={{ ...title, fontSize: 38 }}>{viewing.title}</h2>
                 </div>
                 <button onClick={() => setViewing(null)} style={btn}>Close</button>
               </div>
@@ -664,8 +664,8 @@ export function WikiUsers() {
            rows.length === 0 ? <div style={{ padding: 32, textAlign: "center", color: TAUPE, fontStyle: "italic" }}>No additional users.</div> :
            rows.map(r => (
             <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1.4fr 1.4fr 1fr 90px 200px", gap: 16, padding: "16px 24px", borderBottom: `1px solid ${BORDER}`, alignItems: "center" }}>
-              <div><div style={{ color: CREAM, fontSize: 14 }}>{r.name}</div><div style={{ fontSize: 11, color: STONE, letterSpacing: "0.05em" }}>{r.user_id}</div></div>
-              <div style={{ color: TAUPE, fontSize: 13 }}>{r.email}</div>
+              <div><div style={{ color: CREAM, fontSize: 16 }}>{r.name}</div><div style={{ fontSize: 13, color: STONE, letterSpacing: "0.05em" }}>{r.user_id}</div></div>
+              <div style={{ color: TAUPE, fontSize: 15 }}>{r.email}</div>
               <Badge tone={r.role === "founder" ? ACCENT : STONE}>{r.role}</Badge>
               <Badge tone={r.active ? "hsl(150 35% 65%)" : "hsl(8 55% 70%)"}>{r.active ? "Active" : "Inactive"}</Badge>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>

@@ -35,7 +35,7 @@ export default function McpAuthorize() {
             style={{
               fontFamily: "var(--crm-font-serif)",
               fontWeight: 300,
-              fontSize: 42,
+              fontSize: 44,
               lineHeight: 1,
               color: "var(--crm-warm-white)",
               margin: "0 0 12px 0",
@@ -44,7 +44,7 @@ export default function McpAuthorize() {
             Connect <em style={{ color: "var(--crm-accent)" }}>{values.clientName}</em>.
           </h1>
           <hr style={{ width: 48, height: 1, background: "var(--crm-accent)", border: 0, margin: "0 0 24px 0" }} />
-          <p style={{ color: "var(--crm-taupe)", fontSize: 15, marginBottom: 28, lineHeight: 1.7 }}>
+          <p style={{ color: "var(--crm-taupe)", fontSize: 17, marginBottom: 28, lineHeight: 1.7 }}>
             Approve access to the Project Tasks workspace with an admin account.
           </p>
 
@@ -57,7 +57,7 @@ export default function McpAuthorize() {
                 color: "hsl(0 55% 86%)",
                 padding: "12px 14px",
                 marginBottom: 20,
-                fontSize: 14,
+                fontSize: 16,
               }}
             >
               {missingDetails ? "This OAuth request is missing required details. Start the connector setup again from Claude." : values.error}

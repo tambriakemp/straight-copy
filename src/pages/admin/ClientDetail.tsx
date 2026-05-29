@@ -167,7 +167,7 @@ export default function ClientDetail() {
   return (
     <AdminLayout>
       <div className="roster">
-        <Link to="/admin" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
+        <Link to="/admin" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 15, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
           <ArrowLeft size={14} /> Back to clients
         </Link>
 
@@ -185,7 +185,7 @@ export default function ClientDetail() {
         </div>
 
         <div className="roster__toolbar" style={{ marginTop: 24 }}>
-          <div style={{ flex: 1, fontSize: 13, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+          <div style={{ flex: 1, fontSize: 15, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
             Projects ({projects.length})
           </div>
           <Dialog open={openNew} onOpenChange={setOpenNew}>
@@ -232,8 +232,8 @@ export default function ClientDetail() {
 
         {projects.length === 0 ? (
           <div style={{ padding: "60px 0", color: "var(--crm-taupe)", textAlign: "center", border: "1px dashed var(--crm-border-dark)", borderRadius: 12, marginTop: 16 }}>
-            <div style={{ fontSize: 13, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 8 }}>No projects yet</div>
-            <div style={{ fontSize: 16 }}>Create the first project for this client above.</div>
+            <div style={{ fontSize: 15, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 8 }}>No projects yet</div>
+            <div style={{ fontSize: 18 }}>Create the first project for this client above.</div>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16, marginTop: 16 }}>
@@ -285,14 +285,14 @@ export default function ClientDetail() {
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--crm-border-dark)"; }}
                 >
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)" }}>
                       <Icon size={12} /> {TYPE_LABEL[p.type]}
                     </span>
                     <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                       {isBuild ? (
                         <span className={`roster__tier roster__tier--${tierForCard.toLowerCase()}`}>{tierLabel(tierForCard)}</span>
                       ) : (
-                        <span style={{ fontSize: 12, color: "var(--crm-taupe)", textTransform: "uppercase", letterSpacing: "0.2em" }}>{p.status}</span>
+                        <span style={{ fontSize: 14, color: "var(--crm-taupe)", textTransform: "uppercase", letterSpacing: "0.2em" }}>{p.status}</span>
                       )}
                       <button
                         className="crm-btn crm-btn--ghost crm-btn--sm"
@@ -304,7 +304,7 @@ export default function ClientDetail() {
                     </div>
                   </div>
                   <div>
-                    <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 24, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
+                    <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 26, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
                       {p.name}
                     </h3>
                   </div>
@@ -313,34 +313,34 @@ export default function ClientDetail() {
                     <>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "end", paddingTop: 4 }}>
                         <div>
-                          <div className="roster__stage" style={{ fontSize: 16, lineHeight: 1.2 }}>{stageLabel}</div>
+                          <div className="roster__stage" style={{ fontSize: 18, lineHeight: 1.2 }}>{stageLabel}</div>
                           <span className="roster__stage-hint">
                             {String(stageIdx).padStart(2, "0")} / {String(total || 0).padStart(2, "0")}
                           </span>
                         </div>
                         <div style={{ textAlign: "right" }}>
-                          <div className="roster__days" style={{ fontSize: 24 }}>{daysSince}d</div>
+                          <div className="roster__days" style={{ fontSize: 26 }}>{daysSince}d</div>
                           <span className="roster__days-date">since start</span>
                         </div>
                       </div>
-                      <div style={{ fontFamily: "var(--crm-font-serif)", fontStyle: "italic", color: "var(--crm-stone)", fontSize: 14 }}>
+                      <div style={{ fontFamily: "var(--crm-font-serif)", fontStyle: "italic", color: "var(--crm-stone)", fontSize: 16 }}>
                         {nextAction}
                       </div>
-                      <div className="roster__status" style={{ fontSize: 11 }}>
+                      <div className="roster__status" style={{ fontSize: 13 }}>
                         <span className={`status-dot status-dot--${stageStatus}`} /> {statusText}
                       </div>
                     </>
                   )}
 
                   {!isBuild && (
-                    <div style={{ marginTop: 6, fontSize: 13, color: "var(--crm-stone)" }}>
+                    <div style={{ marginTop: 6, fontSize: 15, color: "var(--crm-stone)" }}>
                       Updated {new Date(p.updated_at).toLocaleDateString()}
                     </div>
                   )}
 
                   {preview && (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 8, borderTop: "1px solid var(--crm-border-dark)" }}>
-                      <code style={{ flex: 1, fontSize: 13, color: "var(--crm-taupe)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <code style={{ flex: 1, fontSize: 15, color: "var(--crm-taupe)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         /p/{preview.slug.slice(0, 12)}…
                       </code>
                       <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={(e) => copy(e, preview.slug, p.id)} title="Copy share link">

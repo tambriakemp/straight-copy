@@ -201,17 +201,17 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
         }}
       >
         <DialogHeader>
-          <DialogTitle style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: "'Cormorant Garamond', Georgia, serif", fontWeight: 300, fontSize: 24, color: "hsl(40 20% 97%)" }}>
+          <DialogTitle style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: "'Cormorant Garamond', Georgia, serif", fontWeight: 300, fontSize: 26, color: "hsl(40 20% 97%)" }}>
             <Sparkles size={18} style={{ color: "hsl(30 25% 44%)" }} />
             Edit page with AI
           </DialogTitle>
-          <DialogDescription style={{ fontSize: 13, color: "hsl(30 8% 62%)", fontFamily: "monospace", marginTop: 4 }}>{pagePath}</DialogDescription>
+          <DialogDescription style={{ fontSize: 15, color: "hsl(30 8% 62%)", fontFamily: "monospace", marginTop: 4 }}>{pagePath}</DialogDescription>
         </DialogHeader>
 
         <div style={{ display: "grid", gap: 16, marginTop: 8 }}>
           {/* Attachments */}
           <div>
-            <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
+            <div style={{ fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
               Image Attachments (optional)
             </div>
             <input ref={fileInput} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
@@ -228,7 +228,7 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
               }}
             >
               {attachments.length === 0 ? (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--crm-taupe)", fontSize: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--crm-taupe)", fontSize: 16 }}>
                   <Upload size={14} /> Drop images here or click to browse
                 </div>
               ) : (
@@ -242,12 +242,12 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
                       >
                         <X size={12} />
                       </button>
-                      <div style={{ padding: "4px 6px", fontSize: 11, color: "var(--crm-taupe)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.targetPath}</div>
+                      <div style={{ padding: "4px 6px", fontSize: 13, color: "var(--crm-taupe)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.targetPath}</div>
                     </div>
                   ))}
                   <button
                     onClick={(e) => { e.stopPropagation(); fileInput.current?.click(); }}
-                    style={{ minHeight: 90, border: "1px dashed var(--crm-border-dark)", borderRadius: 6, background: "transparent", color: "var(--crm-taupe)", cursor: "pointer", fontSize: 13 }}
+                    style={{ minHeight: 90, border: "1px dashed var(--crm-border-dark)", borderRadius: 6, background: "transparent", color: "var(--crm-taupe)", cursor: "pointer", fontSize: 15 }}
                   >
                     + Add more
                   </button>
@@ -258,7 +258,7 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
 
           {/* Prompt */}
           <div>
-            <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
+            <div style={{ fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
               Instruction
             </div>
             <textarea
@@ -274,13 +274,13 @@ export default function AiEditDialog({ open, onOpenChange, projectId, pagePath, 
                 borderRadius: 8,
                 padding: "12px 14px",
                 color: "hsl(40 20% 97%)",
-                fontSize: 15,
+                fontSize: 17,
                 fontFamily: "inherit",
                 resize: "vertical",
                 outline: "none",
               }}
             />
-            <div style={{ marginTop: 6, fontSize: 12, color: "var(--crm-taupe)" }}>
+            <div style={{ marginTop: 6, fontSize: 14, color: "var(--crm-taupe)" }}>
               Tip: attach a screenshot of the area you want changed — the AI will see it. Edits are HTML-only unless you ask for JS.
             </div>
           </div>
