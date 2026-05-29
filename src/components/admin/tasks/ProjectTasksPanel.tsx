@@ -14,7 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import {
   tasksApi, TASK_STATUSES, STATUS_LABELS, STATUS_COLORS, PRIORITIES, PRIORITY_COLORS,
+  TASK_SIZES, TASK_PLATFORMS,
   type Task, type Epic, type TaskStatus, type TaskPriority, type AssigneeKind,
+  type TaskSize, type TaskPlatform,
 } from "./tasksApi";
 
 interface Props { clientProjectId: string }
