@@ -5,7 +5,7 @@ import { Hono } from "hono";
 import { McpServer, StreamableHttpTransport } from "mcp-lite";
 import {
   serviceClient, listTasks, createTask, updateTask, deleteTask,
-  listEpics, createEpic, TASK_STATUSES, TASK_PRIORITIES,
+  uploadTaskAttachment, listEpics, createEpic, TASK_STATUSES, TASK_PRIORITIES,
 } from "../_shared/project-tasks.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -57,6 +57,14 @@ const mcp = new McpServer({ name: "project-tasks-mcp", version: "1.0.0" });
 const textResult = (data: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
 });
+
+function base64ToBytes(value: string) {
+  const clean = value.includes(",") ? value.split(",").pop()! : value;
+  const binary = atob(clean.replace(/\s/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
 
 mcp.tool("list_projects", {
   description: "List all active client projects (id, name, type, client business name).",
@@ -179,6 +187,27 @@ mcp.tool("delete_task", {
   description: "Delete a task and its subtasks + attachments.",
   inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
   handler: async ({ id }: { id: string }) => textResult(await deleteTask(sb, id)),
+});
+
+mcp.tool("attach_file_to_task", {
+  description: "Attach an image, PDF, document, or other file to an existing task. Provide file_base64 as raw base64 or a data URL.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string", description: "project_tasks.id" },
+      file_name: { type: "string", description: "Original file name, including extension" },
+      file_base64: { type: "string", description: "File content encoded as base64, or a data URL" },
+      mime_type: { type: "string", description: "Optional MIME type, for example image/png or application/pdf" },
+    },
+    required: ["task_id", "file_name", "file_base64"],
+  },
+  handler: async ({ task_id, file_name, file_base64, mime_type }: {
+    task_id: string; file_name: string; file_base64: string; mime_type?: string;
+  }) => {
+    const bytes = base64ToBytes(file_base64);
+    if (bytes.byteLength > 15 * 1024 * 1024) throw new Error("Attachment must be 15MB or smaller");
+    return textResult(await uploadTaskAttachment(sb, task_id, bytes, file_name, mime_type ?? null, null));
+  },
 });
 
 mcp.tool("list_epics", {
