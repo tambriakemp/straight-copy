@@ -28,6 +28,7 @@ export default function Tokens() {
   const [revealed, setRevealed] = useState<string | null>(null);
 
   const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crm-api`;
+  const mcpUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/project-tasks-mcp`;
 
   const load = async () => {
     const { data, error } = await supabase
