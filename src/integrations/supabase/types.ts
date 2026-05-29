@@ -1364,6 +1364,162 @@ export type Database = {
         }
         Relationships: []
       }
+      project_task_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string
+          task_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          task_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          task_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_task_attachments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_task_epics: {
+        Row: {
+          client_project_id: string
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          order_index: number
+          updated_at: string
+        }
+        Insert: {
+          client_project_id: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          order_index?: number
+          updated_at?: string
+        }
+        Update: {
+          client_project_id?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          order_index?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      project_tasks: {
+        Row: {
+          assignee_admin_id: string | null
+          assignee_kind: Database["public"]["Enums"]["project_task_assignee_kind"]
+          client_project_id: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          epic_id: string | null
+          id: string
+          name: string
+          order_index: number
+          parent_task_id: string | null
+          priority: Database["public"]["Enums"]["project_task_priority"]
+          status: Database["public"]["Enums"]["project_task_status"]
+          tags: string[]
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          assignee_admin_id?: string | null
+          assignee_kind?: Database["public"]["Enums"]["project_task_assignee_kind"]
+          client_project_id: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          epic_id?: string | null
+          id?: string
+          name: string
+          order_index?: number
+          parent_task_id?: string | null
+          priority?: Database["public"]["Enums"]["project_task_priority"]
+          status?: Database["public"]["Enums"]["project_task_status"]
+          tags?: string[]
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          assignee_admin_id?: string | null
+          assignee_kind?: Database["public"]["Enums"]["project_task_assignee_kind"]
+          client_project_id?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          epic_id?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+          parent_task_id?: string | null
+          priority?: Database["public"]["Enums"]["project_task_priority"]
+          status?: Database["public"]["Enums"]["project_task_status"]
+          tags?: string[]
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_tasks_assignee_admin_id_fkey"
+            columns: ["assignee_admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_tasks_epic_id_fkey"
+            columns: ["epic_id"]
+            isOneToOne: false
+            referencedRelation: "project_task_epics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -1611,6 +1767,15 @@ export type Database = {
       }
     }
     Enums: {
+      project_task_assignee_kind: "unassigned" | "admin" | "claude"
+      project_task_priority: "low" | "normal" | "high" | "urgent"
+      project_task_status:
+        | "backlog"
+        | "ready_for_claude"
+        | "in_progress"
+        | "needs_review"
+        | "blocked"
+        | "complete"
       wiki_access_level: "Founder Only" | "All Staff"
       wiki_doc_status: "Draft" | "Active" | "Archived"
       wiki_role: "founder" | "intern" | "contractor"
@@ -1741,6 +1906,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      project_task_assignee_kind: ["unassigned", "admin", "claude"],
+      project_task_priority: ["low", "normal", "high", "urgent"],
+      project_task_status: [
+        "backlog",
+        "ready_for_claude",
+        "in_progress",
+        "needs_review",
+        "blocked",
+        "complete",
+      ],
       wiki_access_level: ["Founder Only", "All Staff"],
       wiki_doc_status: ["Draft", "Active", "Archived"],
       wiki_role: ["founder", "intern", "contractor"],
