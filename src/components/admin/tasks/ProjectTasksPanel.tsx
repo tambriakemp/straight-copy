@@ -107,7 +107,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     <div className="text-warm-white">
       {/* Toolbar */}
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
-        <div style={{ display: "inline-flex", border: "1px solid var(--crm-border-dark)", borderRadius: 6, overflow: "hidden" }}>
+        <div style={{ display: "inline-flex", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 6, overflow: "hidden" }}>
           <button onClick={() => setView("kanban")} style={tabBtnStyle(view === "kanban")}>
             <LayoutGrid size={14} style={{ marginRight: 6 }} /> Kanban
           </button>
@@ -499,7 +499,7 @@ function TaskDetailSheet({
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {(task.attachments ?? []).map((a) => (
-                <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", border: "1px solid var(--crm-border-dark)", borderRadius: 4 }}>
+                <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 4 }}>
                   <a href={a.signed_url} target="_blank" rel="noreferrer" className="text-xs !text-warm-white hover:!text-warm-white/80 inline-flex items-center gap-2">
                     <Paperclip size={11} /> {a.file_name}
                   </a>
@@ -519,7 +519,7 @@ function TaskDetailSheet({
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {subtasks.map((st) => (
-                  <div key={st.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", border: "1px solid var(--crm-border-dark)", borderRadius: 4 }}>
+                  <div key={st.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 4 }}>
                     <span style={{ width: 6, height: 6, borderRadius: 999, background: STATUS_COLORS[st.status] }} />
                     <span className="text-xs !text-warm-white flex-1 truncate">{st.name}</span>
                     <Select value={st.status} onValueChange={(v) => tasksApi.update(st.id, { status: v as TaskStatus }).then(onChanged)}>
@@ -757,7 +757,7 @@ function EpicCombobox({ epics, value, onChange, clientProjectId, inputCls }: {
               <button key={e.id} type="button"
                 onClick={() => { onChange(e.id); setOpen(false); setQuery(""); }}
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-warm-white/5 flex items-center gap-2 !text-warm-white">
-                <span style={{ width: 8, height: 8, borderRadius: 999, background: e.color ?? "var(--crm-accent)" }} />
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: e.color ?? "hsl(var(--accent))" }} />
                 {e.name}
               </button>
             ))}
