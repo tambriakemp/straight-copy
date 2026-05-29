@@ -560,34 +560,40 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>("backlog");
   const [priority, setPriority] = useState<TaskPriority>("normal");
-  const [epicId, setEpicId] = useState<string>("none");
+  const [epicId, setEpicId] = useState<string | null>(null);
   const [assigneeKind, setAssigneeKind] = useState<AssigneeKind>("unassigned");
   const [dueDate, setDueDate] = useState<string>("");
   const [url, setUrl] = useState<string>("");
-  const [tags, setTags] = useState<string>("");
+  const [tagList, setTagList] = useState<string[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const reset = () => {
     setName(""); setDescription(""); setStatus("backlog"); setPriority("normal");
-    setEpicId("none"); setAssigneeKind("unassigned"); setDueDate(""); setUrl(""); setTags("");
+    setEpicId(null); setAssigneeKind("unassigned"); setDueDate(""); setUrl("");
+    setTagList([]); setFiles([]);
   };
 
   const submit = async () => {
     if (!name.trim()) return;
     setSubmitting(true);
     try {
-      await tasksApi.create({
+      const { task } = await tasksApi.create({
         client_project_id: clientProjectId,
         name: name.trim(),
         description: description || null,
-        status,
-        priority,
-        epic_id: epicId === "none" ? null : epicId,
+        status, priority,
+        epic_id: epicId,
         assignee_kind: assigneeKind,
         due_date: dueDate || null,
         url: url || null,
-        tags: tags.split(",").map((s) => s.trim()).filter(Boolean),
+        tags: tagList,
       });
+      // Upload staged files after task exists
+      for (const f of files) {
+        try { await tasksApi.uploadAttachment(task.id, f); }
+        catch (e) { toast.error(`Upload failed: ${f.name}`); }
+      }
       await onCreated(); reset(); onOpenChange(false);
     } catch (e) { toast.error(e instanceof Error ? e.message : "Create failed"); }
     finally { setSubmitting(false); }
@@ -607,7 +613,6 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
             New task
           </DialogTitle>
         </DialogHeader>
-
 
         <div className="px-6 py-5 space-y-5">
           <Input
@@ -646,13 +651,13 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
             </Select>
 
             <span style={subLabel} className="!m-0">Epic</span>
-            <Select value={epicId} onValueChange={setEpicId}>
-              <SelectTrigger className={inputCls}><SelectValue placeholder="No epic" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No epic</SelectItem>
-                {epics.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <EpicCombobox
+              epics={epics}
+              value={epicId}
+              onChange={setEpicId}
+              clientProjectId={clientProjectId}
+              inputCls={inputCls}
+            />
 
             <span style={subLabel} className="!m-0">Due date</span>
             <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} />
@@ -661,7 +666,10 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
             <Input placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} className={inputCls} />
 
             <span style={subLabel} className="!m-0">Tags</span>
-            <Input placeholder="comma, separated, tags" value={tags} onChange={(e) => setTags(e.target.value)} className={inputCls} />
+            <TagsInput value={tagList} onChange={setTagList} inputCls={inputCls} />
+
+            <span style={subLabel} className="!m-0">Attachments</span>
+            <AttachmentsPicker files={files} onChange={setFiles} />
           </div>
 
           <div>
@@ -676,12 +684,12 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-[color:var(--crm-border-dark)] flex justify-end gap-2">
+        <div className="px-6 py-4 border-t border-white/20 flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             onClick={submit}
             disabled={submitting || !name.trim()}
-            className="bg-[color:var(--crm-accent)] text-[color:var(--crm-warm-white)] hover:bg-[color:var(--crm-accent-hover)]"
+            className="bg-[color:var(--crm-accent)] !text-white hover:bg-[color:var(--crm-accent-hover)]"
           >
             {submitting ? "Creating…" : "Create task"}
           </Button>
@@ -690,6 +698,164 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
     </Dialog>
   );
 }
+
+/* ---------------- Epic combobox (search + create inline) ---------------- */
+
+function EpicCombobox({ epics, value, onChange, clientProjectId, inputCls }: {
+  epics: Epic[]; value: string | null; onChange: (id: string | null) => void;
+  clientProjectId: string; inputCls: string;
+}) {
+  const selected = value ? epics.find((e) => e.id === value) : null;
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const filtered = epics.filter((e) => e.name.toLowerCase().includes(query.toLowerCase()));
+  const exact = epics.find((e) => e.name.toLowerCase() === query.trim().toLowerCase());
+  const canCreate = query.trim().length > 0 && !exact;
+
+  const create = async () => {
+    setCreating(true);
+    try {
+      const { epic } = await tasksApi.createEpic(clientProjectId, query.trim());
+      onChange(epic.id);
+      setQuery(""); setOpen(false);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Create epic failed"); }
+    finally { setCreating(false); }
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`${inputCls} h-10 w-full rounded-md border px-3 text-left text-sm flex items-center justify-between`}
+      >
+        <span className={selected ? "" : "!text-white/60"}>
+          {selected ? selected.name : "No epic"}
+        </span>
+        <span className="!text-white/60 text-xs">▾</span>
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-white/20 bg-[#1a1612] shadow-xl">
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search or create epic…"
+            className="w-full bg-transparent border-b border-white/20 px-3 py-2 text-sm !text-white placeholder:!text-white/60 outline-none"
+          />
+          <div className="max-h-48 overflow-y-auto py-1">
+            <button type="button" onClick={() => { onChange(null); setOpen(false); setQuery(""); }}
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-white/5 !text-white/70">
+              No epic
+            </button>
+            {filtered.map((e) => (
+              <button key={e.id} type="button"
+                onClick={() => { onChange(e.id); setOpen(false); setQuery(""); }}
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-white/5 flex items-center gap-2">
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: e.color ?? "var(--crm-accent)" }} />
+                {e.name}
+              </button>
+            ))}
+            {canCreate && (
+              <button type="button" onClick={create} disabled={creating}
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-white/5 border-t border-white/10 !text-[color:var(--crm-accent)]">
+                {creating ? "Creating…" : `+ Create "${query.trim()}"`}
+              </button>
+            )}
+            {filtered.length === 0 && !canCreate && (
+              <div className="px-3 py-2 text-xs !text-white/50">No epics.</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Tags chip input ---------------- */
+
+function TagsInput({ value, onChange, inputCls }: {
+  value: string[]; onChange: (tags: string[]) => void; inputCls: string;
+}) {
+  const [draft, setDraft] = useState("");
+
+  const add = (raw: string) => {
+    const t = raw.trim().replace(/,$/, "").trim();
+    if (!t || value.includes(t)) return;
+    onChange([...value, t]);
+  };
+
+  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      if (draft.trim()) { add(draft); setDraft(""); }
+    } else if (e.key === "Backspace" && !draft && value.length > 0) {
+      onChange(value.slice(0, -1));
+    }
+  };
+
+  return (
+    <div className={`${inputCls} min-h-10 w-full rounded-md border px-2 py-1.5 flex flex-wrap gap-1.5 items-center`}>
+      {value.map((t) => (
+        <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/10 text-xs !text-white">
+          {t}
+          <button type="button" onClick={() => onChange(value.filter((x) => x !== t))}
+            className="!text-white/60 hover:!text-white"><X size={10} /></button>
+        </span>
+      ))}
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={onKey}
+        onBlur={() => { if (draft.trim()) { add(draft); setDraft(""); } }}
+        placeholder={value.length === 0 ? "Type and press Enter…" : ""}
+        className="flex-1 min-w-[120px] bg-transparent text-sm !text-white placeholder:!text-white/60 outline-none"
+      />
+    </div>
+  );
+}
+
+/* ---------------- Attachments picker (staged before create) ---------------- */
+
+function AttachmentsPicker({ files, onChange }: {
+  files: File[]; onChange: (files: File[]) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="inline-flex items-center gap-2 px-3 py-2 border border-dashed border-white/30 rounded-md cursor-pointer hover:bg-white/5 !text-white/70 text-sm w-fit">
+        <Paperclip size={14} />
+        <span>Add files</span>
+        <input
+          type="file"
+          multiple
+          hidden
+          onChange={(e) => {
+            const picked = Array.from(e.target.files ?? []);
+            if (picked.length) onChange([...files, ...picked]);
+            e.target.value = "";
+          }}
+        />
+      </label>
+      {files.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {files.map((f, i) => (
+            <div key={`${f.name}-${i}`} className="flex items-center justify-between px-2 py-1 rounded border border-white/20 text-xs !text-white">
+              <span className="inline-flex items-center gap-2 truncate">
+                <Paperclip size={11} /> {f.name}
+                <span className="!text-white/50">({Math.round(f.size / 1024)} KB)</span>
+              </span>
+              <button type="button" onClick={() => onChange(files.filter((_, idx) => idx !== i))}
+                className="!text-white/60 hover:!text-red-400"><X size={12} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 /* ---------------- Epic manager ---------------- */
 
