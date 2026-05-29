@@ -216,15 +216,46 @@ const transport = new StreamableHttpTransport();
 
 app.options("/*", (c) => new Response(null, { headers: corsHeaders }));
 
+// OAuth discovery — Claude.ai probes these on the resource URL to start the auth flow.
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
+app.get("/.well-known/oauth-protected-resource", () =>
+  new Response(JSON.stringify({
+    resource: MCP_URL,
+    authorization_servers: [OAUTH_BASE],
+    bearer_methods_supported: ["header"],
+    scopes_supported: ["mcp"],
+  }), { headers: jsonHeaders }),
+);
+
+// Some clients look for the auth-server metadata on the resource URL too.
+app.get("/.well-known/oauth-authorization-server", () =>
+  new Response(JSON.stringify({
+    issuer: OAUTH_BASE,
+    authorization_endpoint: `${OAUTH_BASE}/authorize`,
+    token_endpoint: `${OAUTH_BASE}/token`,
+    registration_endpoint: `${OAUTH_BASE}/register`,
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code"],
+    code_challenge_methods_supported: ["S256", "plain"],
+    token_endpoint_auth_methods_supported: ["none"],
+    scopes_supported: ["mcp"],
+  }), { headers: jsonHeaders }),
+);
+
 app.all("/*", async (c) => {
   const ok = await checkToken(c.req.raw);
   if (!ok) {
-    return new Response(JSON.stringify({ error: "Invalid or missing token" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ error: "invalid_token" }), {
+      status: 401,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "WWW-Authenticate": `Bearer realm="mcp", resource_metadata="${RESOURCE_METADATA_URL}"`,
+      },
     });
   }
   const res = await transport.handleRequest(c.req.raw, mcp);
-  // Merge CORS headers
   const headers = new Headers(res.headers);
   for (const [k, v] of Object.entries(corsHeaders)) headers.set(k, v);
   return new Response(res.body, { status: res.status, headers });
