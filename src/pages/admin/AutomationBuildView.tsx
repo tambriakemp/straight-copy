@@ -93,7 +93,7 @@ interface Client {
 
 // ---------- Page ----------
 export default function AutomationBuildView() {
-  const { id } = useParams<{ id: string }>();
+  const { id, projectId } = useParams<{ id: string; projectId?: string }>();
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
   const [nodes, setNodes] = useState<JourneyNode[]>([]);
