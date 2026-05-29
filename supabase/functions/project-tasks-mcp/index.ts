@@ -7,6 +7,7 @@ import {
   serviceClient, listTasks, createTask, updateTask, deleteTask,
   uploadTaskAttachment, listEpics, createEpic, TASK_STATUSES, TASK_PRIORITIES,
   TASK_SIZES, TASK_PLATFORMS,
+  addAcceptanceCriterion, updateAcceptanceCriterion, deleteAcceptanceCriterion,
 } from "../_shared/project-tasks.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -112,7 +113,19 @@ mcp.tool("get_task", {
 });
 
 const EXTRA_FIELD_PROPS = {
-  acceptance_criteria: { type: "string", description: "Definition of done — what must be true to mark complete." },
+  acceptance_criteria: {
+    type: "array",
+    description: "Definition-of-done checklist. Each item: { id?, text, done }. Replaces the whole list — use the dedicated add/update/delete criterion tools for surgical edits.",
+    items: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        text: { type: "string" },
+        done: { type: "boolean" },
+      },
+      required: ["text"],
+    },
+  },
   design_url: { type: "string", description: "Link to Figma, comps, or brand kit for design-dependent work." },
   blocked_by: {
     type: "array",
@@ -224,6 +237,52 @@ mcp.tool("attach_file_to_task", {
     if (bytes.byteLength > 15 * 1024 * 1024) throw new Error("Attachment must be 15MB or smaller");
     return textResult(await uploadTaskAttachment(sb, task_id, bytes, file_name, mime_type ?? null, null));
   },
+});
+
+mcp.tool("add_acceptance_criterion", {
+  description: "Append a single acceptance-criteria checklist item to a task.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string" },
+      text: { type: "string" },
+      done: { type: "boolean", description: "Defaults to false." },
+    },
+    required: ["task_id", "text"],
+  },
+  handler: async ({ task_id, text, done }: { task_id: string; text: string; done?: boolean }) =>
+    textResult(await addAcceptanceCriterion(sb, task_id, text, done ?? false)),
+});
+
+mcp.tool("update_acceptance_criterion", {
+  description: "Edit text and/or done state of one acceptance-criteria item.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string" },
+      criterion_id: { type: "string" },
+      text: { type: "string" },
+      done: { type: "boolean" },
+    },
+    required: ["task_id", "criterion_id"],
+  },
+  handler: async ({ task_id, criterion_id, text, done }: {
+    task_id: string; criterion_id: string; text?: string; done?: boolean;
+  }) => textResult(await updateAcceptanceCriterion(sb, task_id, criterion_id, { text, done })),
+});
+
+mcp.tool("delete_acceptance_criterion", {
+  description: "Remove one acceptance-criteria item from a task.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string" },
+      criterion_id: { type: "string" },
+    },
+    required: ["task_id", "criterion_id"],
+  },
+  handler: async ({ task_id, criterion_id }: { task_id: string; criterion_id: string }) =>
+    textResult(await deleteAcceptanceCriterion(sb, task_id, criterion_id)),
 });
 
 mcp.tool("list_epics", {

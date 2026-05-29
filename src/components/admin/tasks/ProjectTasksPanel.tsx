@@ -11,12 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import {
   tasksApi, TASK_STATUSES, STATUS_LABELS, STATUS_COLORS, PRIORITIES, PRIORITY_COLORS,
   TASK_SIZES, TASK_PLATFORMS,
   type Task, type Epic, type TaskStatus, type TaskPriority, type AssigneeKind,
-  type TaskSize, type TaskPlatform,
+  type TaskSize, type TaskPlatform, type AcceptanceCriterion,
 } from "./tasksApi";
 
 interface Props { clientProjectId: string }
@@ -425,20 +427,26 @@ function TaskDetailSheet({
           </SheetTitle>
         </SheetHeader>
         <div className="space-y-4 mt-4">
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded border border-warm-white/15 bg-warm-white/5">
-            <span className="text-xs uppercase tracking-wider !text-warm-white/60">Task ID</span>
-            <code className="text-xs !text-warm-white font-mono truncate flex-1">{task.id}</code>
-            <button
-              type="button"
-              onClick={async () => {
-                try { await navigator.clipboard.writeText(task.id); toast.success("Task ID copied"); }
-                catch { toast.error("Copy failed"); }
-              }}
-              className="inline-flex items-center gap-1 text-xs !text-warm-white/80 hover:!text-warm-white px-2 py-1 rounded border border-warm-white/15 hover:border-warm-white/30"
-              title="Copy task ID"
-            >
-              <Copy size={12} /> Copy
-            </button>
+          <div className="flex justify-end">
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try { await navigator.clipboard.writeText(task.id); toast.success("Task ID copied"); }
+                      catch { toast.error("Copy failed"); }
+                    }}
+                    className="inline-flex items-center gap-1 text-xs !text-warm-white/80 hover:!text-warm-white px-2 py-1 rounded border border-warm-white/15 hover:border-warm-white/30"
+                  >
+                    <Copy size={12} /> Copy ID
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="bg-ink border border-warm-white/15 !text-warm-white font-mono text-xs">
+                  {task.id}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <Field label="Name">
             <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
@@ -498,13 +506,6 @@ function TaskDetailSheet({
             </Field>
           </div>
 
-          <Field label="Acceptance criteria">
-            <Textarea value={draft.acceptance_criteria ?? ""} rows={3}
-              placeholder="What must be true for this task to be considered done?"
-              onChange={(e) => setDraft({ ...draft, acceptance_criteria: e.target.value })}
-              onBlur={() => (draft.acceptance_criteria ?? "") !== (task.acceptance_criteria ?? "") && save({ acceptance_criteria: draft.acceptance_criteria })}
-              className={taskInputClass} />
-          </Field>
 
           <Field label="Manual prerequisites">
             <Textarea value={draft.manual_prereqs ?? ""} rows={2}
@@ -556,6 +557,16 @@ function TaskDetailSheet({
               onBlur={() => save({ tags: draft.tags })}
               className={taskInputClass} />
           </Field>
+
+          <AcceptanceCriteriaChecklist
+            items={draft.acceptance_criteria ?? []}
+            onChange={(items) => {
+              setDraft({ ...draft, acceptance_criteria: items });
+              save({ acceptance_criteria: items });
+            }}
+          />
+
+
 
           {/* Attachments */}
           <div>
@@ -622,6 +633,97 @@ const subLabel: React.CSSProperties = {
   fontSize: 13, letterSpacing: "0.1em", textTransform: "uppercase",
   color: "hsl(var(--warm-white))", marginBottom: 6,
 };
+
+/* ---------------- Acceptance criteria checklist ---------------- */
+
+function AcceptanceCriteriaChecklist({ items, onChange }: {
+  items: AcceptanceCriterion[]; onChange: (items: AcceptanceCriterion[]) => void;
+}) {
+  const [draftText, setDraftText] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+
+  const newId = () =>
+    (typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+  const addItem = () => {
+    const text = draftText.trim();
+    if (!text) return;
+    onChange([...items, { id: newId(), text, done: false }]);
+    setDraftText("");
+  };
+  const toggle = (id: string) =>
+    onChange(items.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
+  const remove = (id: string) => onChange(items.filter((i) => i.id !== id));
+  const commitEdit = () => {
+    if (!editingId) return;
+    const t = editText.trim();
+    if (!t) { setEditingId(null); return; }
+    onChange(items.map((i) => (i.id === editingId ? { ...i, text: t } : i)));
+    setEditingId(null);
+  };
+
+  return (
+    <div>
+      <div style={subLabel}>Acceptance criteria</div>
+      <div className="flex flex-col gap-1.5">
+        {items.length === 0 && (
+          <div className="text-xs !text-warm-white/60">No criteria yet — add the first thing that must be true to mark this done.</div>
+        )}
+        {items.map((item) => (
+          <div key={item.id} className="flex items-start gap-2 px-2 py-1.5 rounded border border-warm-white/10 bg-warm-white/[0.03]">
+            <Checkbox
+              checked={item.done}
+              onCheckedChange={() => toggle(item.id)}
+              className="mt-0.5 border-warm-white/40"
+            />
+            {editingId === item.id ? (
+              <Input
+                autoFocus
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                onBlur={commitEdit}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitEdit(); } if (e.key === "Escape") setEditingId(null); }}
+                className={`${taskInputClass} h-7 text-sm flex-1`}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setEditingId(item.id); setEditText(item.text); }}
+                className={`flex-1 text-left text-sm !text-warm-white hover:!text-warm-white/80 ${item.done ? "line-through opacity-60" : ""}`}
+              >
+                {item.text}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => remove(item.id)}
+              className="!text-warm-white/60 hover:!text-destructive shrink-0 mt-0.5"
+              title="Delete criterion"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2 mt-2">
+        <Input
+          value={draftText}
+          onChange={(e) => setDraftText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }}
+          placeholder="Add a criterion and press Enter"
+          className={`${taskInputClass} h-8 text-sm`}
+        />
+        <Button type="button" size="sm" onClick={addItem} className="bg-transparent border border-warm-white/20 !text-warm-white hover:bg-warm-white/10 h-8">
+          <Plus size={14} className="mr-1" /> Add
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 
 /* ---------------- New task dialog ---------------- */
 

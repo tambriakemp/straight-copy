@@ -1564,7 +1564,7 @@ export type Database = {
       }
       project_tasks: {
         Row: {
-          acceptance_criteria: string | null
+          acceptance_criteria: Json
           assignee_admin_id: string | null
           assignee_kind: Database["public"]["Enums"]["project_task_assignee_kind"]
           blocked_by: string[]
@@ -1590,7 +1590,7 @@ export type Database = {
           url: string | null
         }
         Insert: {
-          acceptance_criteria?: string | null
+          acceptance_criteria?: Json
           assignee_admin_id?: string | null
           assignee_kind?: Database["public"]["Enums"]["project_task_assignee_kind"]
           blocked_by?: string[]
@@ -1616,7 +1616,7 @@ export type Database = {
           url?: string | null
         }
         Update: {
-          acceptance_criteria?: string | null
+          acceptance_criteria?: Json
           assignee_admin_id?: string | null
           assignee_kind?: Database["public"]["Enums"]["project_task_assignee_kind"]
           blocked_by?: string[]

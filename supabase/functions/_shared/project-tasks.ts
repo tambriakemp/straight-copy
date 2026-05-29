@@ -22,6 +22,12 @@ export type TaskSize = typeof TASK_SIZES[number];
 export const TASK_PLATFORMS = ["web", "native", "backend", "all"] as const;
 export type TaskPlatform = typeof TASK_PLATFORMS[number];
 
+export interface AcceptanceCriterion {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
 export const TASK_FIELDS =
   "id, client_project_id, parent_task_id, epic_id, name, description, status, priority, " +
   "assignee_kind, assignee_admin_id, url, due_date, tags, order_index, created_by, completed_at, created_at, updated_at, " +
@@ -41,12 +47,29 @@ export interface TaskInput {
   due_date?: string | null;
   tags?: string[];
   order_index?: number;
-  acceptance_criteria?: string | null;
+  acceptance_criteria?: AcceptanceCriterion[];
   design_url?: string | null;
   blocked_by?: string[];
   manual_prereqs?: string | null;
   size?: TaskSize | null;
   platform?: TaskPlatform | null;
+}
+
+function normalizeCriteria(input: unknown): AcceptanceCriterion[] {
+  if (!Array.isArray(input)) return [];
+  const out: AcceptanceCriterion[] = [];
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") continue;
+    const r = raw as Record<string, unknown>;
+    const text = typeof r.text === "string" ? r.text : "";
+    if (!text.trim()) continue;
+    out.push({
+      id: typeof r.id === "string" && r.id ? r.id : crypto.randomUUID(),
+      text,
+      done: r.done === true,
+    });
+  }
+  return out;
 }
 
 export async function listTasks(
@@ -127,7 +150,7 @@ export async function createTask(sb: SupabaseClient, input: TaskInput, createdBy
     tags: input.tags ?? [],
     order_index: input.order_index ?? nextOrder,
     created_by: createdBy,
-    acceptance_criteria: input.acceptance_criteria ?? null,
+    acceptance_criteria: normalizeCriteria(input.acceptance_criteria ?? []),
     design_url: input.design_url ?? null,
     blocked_by: input.blocked_by ?? [],
     manual_prereqs: input.manual_prereqs ?? null,
@@ -143,14 +166,61 @@ export async function updateTask(sb: SupabaseClient, id: string, input: TaskInpu
   for (const k of [
     "parent_task_id", "epic_id", "name", "description", "status", "priority",
     "assignee_kind", "assignee_admin_id", "url", "due_date", "tags", "order_index",
-    "acceptance_criteria", "design_url", "blocked_by", "manual_prereqs", "size", "platform",
+    "design_url", "blocked_by", "manual_prereqs", "size", "platform",
   ] as const) {
     if (k in input) patch[k] = (input as any)[k];
+  }
+  if ("acceptance_criteria" in input) {
+    patch.acceptance_criteria = normalizeCriteria(input.acceptance_criteria ?? []);
   }
   const { data, error } = await sb.from("project_tasks")
     .update(patch).eq("id", id).select(TASK_FIELDS).single();
   if (error) throw error;
   return data;
+}
+
+// ---- Acceptance criteria CRUD ----
+async function fetchCriteria(sb: SupabaseClient, taskId: string): Promise<AcceptanceCriterion[]> {
+  const { data, error } = await sb.from("project_tasks")
+    .select("acceptance_criteria").eq("id", taskId).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Task not found");
+  return normalizeCriteria(data.acceptance_criteria ?? []);
+}
+
+async function writeCriteria(sb: SupabaseClient, taskId: string, items: AcceptanceCriterion[]) {
+  const { data, error } = await sb.from("project_tasks")
+    .update({ acceptance_criteria: items }).eq("id", taskId)
+    .select("id, acceptance_criteria").single();
+  if (error) throw error;
+  return data;
+}
+
+export async function addAcceptanceCriterion(sb: SupabaseClient, taskId: string, text: string, done = false) {
+  const items = await fetchCriteria(sb, taskId);
+  const item: AcceptanceCriterion = { id: crypto.randomUUID(), text, done };
+  items.push(item);
+  await writeCriteria(sb, taskId, items);
+  return item;
+}
+
+export async function updateAcceptanceCriterion(
+  sb: SupabaseClient, taskId: string, criterionId: string,
+  patch: { text?: string; done?: boolean },
+) {
+  const items = await fetchCriteria(sb, taskId);
+  const idx = items.findIndex((c) => c.id === criterionId);
+  if (idx === -1) throw new Error("Criterion not found");
+  if (typeof patch.text === "string") items[idx].text = patch.text;
+  if (typeof patch.done === "boolean") items[idx].done = patch.done;
+  await writeCriteria(sb, taskId, items);
+  return items[idx];
+}
+
+export async function deleteAcceptanceCriterion(sb: SupabaseClient, taskId: string, criterionId: string) {
+  const items = (await fetchCriteria(sb, taskId)).filter((c) => c.id !== criterionId);
+  await writeCriteria(sb, taskId, items);
+  return { ok: true };
 }
 
 export async function deleteTask(sb: SupabaseClient, id: string) {
