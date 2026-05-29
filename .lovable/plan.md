@@ -1,93 +1,84 @@
+# Add OAuth 2.1 to the Project Tasks MCP server
 
-## Goal
+Goal: make the MCP endpoint connectable from claude.ai's "Custom connector" UI (no Claude Desktop / `mcp-remote` needed) by implementing the OAuth flow Claude expects.
 
-Add an **admin-only** "Tasks" tab to every client project that functions as a project task board. Claude Code accesses it via REST + MCP and moves tasks through statuses.
+## What Claude.ai expects
 
-## Statuses (fixed enum)
+When you paste a remote MCP URL into claude.ai, it:
 
-`backlog` · `ready_for_claude` · `in_progress` · `needs_review` · `blocked` · `complete`
+1. Hits `/.well-known/oauth-protected-resource` on the MCP host to discover the auth server.
+2. Hits `/.well-known/oauth-authorization-server` to discover endpoints.
+3. POSTs to `/register` (Dynamic Client Registration, RFC 7591) to get a `client_id`.
+4. Redirects the user's browser to `/authorize` with PKCE.
+5. After consent, redirects back to Claude with a `code`.
+6. POSTs `code + code_verifier` to `/token`, gets an `access_token`.
+7. Calls the MCP endpoint with `Authorization: Bearer <access_token>`.
 
-Kanban is the default view; a List view toggle is available.
+## Architecture
 
-## Database (migration)
+One new edge function `mcp-oauth` handles all OAuth endpoints. The existing `project-tasks-mcp` function is updated to accept OAuth bearer tokens (in addition to the existing static API tokens, so Claude Desktop setups keep working).
 
-New tables, all admin-only RLS (`is_admin(auth.uid())`) + service role:
+```text
+claude.ai  ──►  /functions/v1/mcp-oauth/.well-known/oauth-authorization-server
+              /functions/v1/mcp-oauth/register
+              /functions/v1/mcp-oauth/authorize   ──► consent page (admin login)
+              /functions/v1/mcp-oauth/token
+              /functions/v1/project-tasks-mcp     (validates OAuth or API token)
+```
 
-**`project_task_epics`** — `id, client_project_id, name, color, order_index, created_at, updated_at`
+## Database
 
-**`project_tasks`** — fields:
-- `id`, `client_project_id`, `parent_task_id` (nullable, self-FK → subtasks)
-- `epic_id` (nullable → `project_task_epics`)
-- `name`, `description` (markdown)
-- `status` (enum above, default `backlog`)
-- `priority` (`low|normal|high|urgent`)
-- `assignee_admin_id` (nullable → `admin_users.id`)
-- `assignee_kind` (`admin|claude|unassigned`) — lets us assign "Claude" without a real user row
-- `url` (text), `due_date` (date)
-- `tags` (`text[]`)
-- `order_index` (for Kanban ordering within a column)
-- `created_at`, `updated_at`, `created_by`, `completed_at`
+New tables (all admin-only, service-role accessed):
 
-**`project_task_attachments`** — `id, task_id, storage_path, file_name, mime_type, size_bytes, uploaded_by, created_at`
+- `mcp_oauth_clients` — dynamically registered Claude clients (`client_id`, `client_name`, `redirect_uris[]`, `created_at`).
+- `mcp_oauth_codes` — short-lived auth codes (`code`, `client_id`, `redirect_uri`, `code_challenge`, `code_challenge_method`, `user_id`, `scope`, `expires_at`).
+- `mcp_oauth_tokens` — issued access tokens (`token_hash`, `client_id`, `user_id`, `scope`, `expires_at`, `revoked`).
 
-New private storage bucket **`project-task-attachments`** with admin-only RLS on `storage.objects`.
+All RLS-locked to admins only; the edge function uses the service role.
 
-Indexes on `(client_project_id, status, order_index)` and `(parent_task_id)`.
+## Consent / login page
 
-## Edge functions
+`/authorize` renders a minimal HTML page (server-rendered from the edge function) that:
 
-**`project-tasks`** (admin JWT auth, used by the UI)
-- `GET    /tasks?project_id=…` — list with epics, subtasks, attachments (signed URLs)
-- `POST   /tasks` — create (task or subtask via `parent_task_id`)
-- `PATCH  /tasks/:id` — update any field, including status moves and reordering
-- `DELETE /tasks/:id` — cascade subtasks/attachments
-- `POST   /tasks/:id/attachments` — multipart upload → bucket
-- `DELETE /attachments/:id`
-- `GET/POST/PATCH/DELETE /epics` — CRUD epics for a project
+- Shows "Claude is requesting access to your Project Tasks".
+- Requires the user to sign in with their existing admin Supabase account (email + password form, posted back to the same function).
+- On success, generates the auth code and 302s back to Claude's `redirect_uri`.
 
-**`project-tasks-mcp`** (token auth via existing `api_tokens` table; thin MCP wrapper using `mcp-lite`)
-- Tools exposed to Claude Code:
-  - `list_projects`, `list_tasks(project_id, status?)`, `get_task(id)`
-  - `create_task`, `update_task`, `move_task_status`, `add_comment_to_task` (stored in description append for v1)
-  - `list_epics`, `create_epic`
-- Reuses the same DB logic as the REST function (shared helpers in `_shared/tasks.ts`).
-- Server URL surfaced in the new Admin "API Tokens" page so the user can paste it into Claude Code.
+Non-admins are rejected (checked via `has_role(user, 'admin')`).
 
-Both functions deploy with `verify_jwt = false` and validate in code (JWT for REST, bearer token hash lookup for MCP).
+## MCP endpoint changes
 
-## Frontend
+`checkToken` in `project-tasks-mcp/index.ts` is extended:
 
-**New tab** "Tasks" added to:
-- `AppDevelopmentView` (app/web/marketing)
-- `AutomationBuildView`
-- `PreviewDetail` (when linked to a client project)
+1. If the bearer matches a row in `api_tokens` → allow (current behavior).
+2. Else hash and look up in `mcp_oauth_tokens`; if found, not revoked, not expired → allow.
+3. Else 401 with `WWW-Authenticate: Bearer resource_metadata="<…/.well-known/oauth-protected-resource>"` so Claude knows where to start the flow.
 
-Tab is **admin-only** by definition (these views already live in `AdminLayout` + `RequireAdmin`), so no extra gating needed. **Not** added to the client portal (`PortalProject.tsx`).
+Also add `/.well-known/oauth-protected-resource` to the MCP function pointing at the new auth server.
 
-**New components** under `src/components/admin/tasks/`:
-- `ProjectTasksPanel.tsx` — top-level: view toggle (Kanban default / List), filters (epic, assignee, tag, priority), "+ New task", "+ Manage epics"
-- `TaskBoard.tsx` — Kanban with 6 columns; drag-and-drop via `@dnd-kit/core` (already a peer of existing deps; add if missing) to move tasks across statuses and reorder
-- `TaskList.tsx` — table view (sortable columns)
-- `TaskCard.tsx` — compact card on the board
-- `TaskDetailDrawer.tsx` — full editor (Sheet) with all fields, subtasks panel (inline CRUD, same fields), attachments uploader, epic selector with inline create
-- `EpicManagerDialog.tsx` — CRUD epics
-- `tasksApi.ts` — typed wrappers around the `project-tasks` edge function
+## UI changes
 
-Realtime: subscribe to `project_tasks` and `project_task_epics` filtered by `client_project_id` so Claude's status changes appear live.
+Small addition to `/admin/tokens`: a section listing connected Claude clients and active OAuth sessions, with a "Revoke" button per token. No new page needed.
 
-Styling uses existing `ProjectTabs` and CRM tokens (`--crm-*`); status columns use the existing accent palette.
+## User flow after this ships
 
-## Out of scope (v1)
+1. In claude.ai → Settings → Connectors → Add custom connector.
+2. Paste `https://<project>.supabase.co/functions/v1/project-tasks-mcp`.
+3. Claude opens our consent page in a popup → user signs in with their admin email/password → approves.
+4. Connector becomes active; tools appear in Claude's chat.
 
-- Per-task comment threads (Claude's "comments" land as description appends for now)
-- Client portal visibility
-- Recurring tasks, time tracking, multi-assignee
+## Files
 
-## Build order
+New:
+- `supabase/migrations/<ts>_mcp_oauth.sql` — three tables + RLS + grants.
+- `supabase/functions/mcp-oauth/index.ts` — discovery, register, authorize (GET+POST), token, plus consent HTML.
 
-1. Migration (tables, bucket, RLS, GRANTs)
-2. `_shared/tasks.ts` helpers + `project-tasks` edge function + API tokens surface for MCP URL
-3. `project-tasks-mcp` edge function (mcp-lite)
-4. `tasksApi.ts` + `ProjectTasksPanel` + Kanban/List + detail drawer + epic manager
-5. Wire "Tasks" tab into the three admin project views
-6. Smoke test: create epic → create task with subtask + attachment → drag to "Ready for Claude" → hit MCP endpoint to list and move it
+Edited:
+- `supabase/functions/project-tasks-mcp/index.ts` — dual token validation + `WWW-Authenticate` + resource metadata route.
+- `src/pages/admin/TokensView.tsx` (or wherever `/admin/tokens` lives) — small "Claude OAuth sessions" panel.
+
+## Notes / scope limits
+
+- Refresh tokens omitted in v1; access tokens last 30 days, Claude can just re-auth.
+- Only the `admin` role can complete the consent step.
+- The existing static-bearer flow keeps working, so nothing breaks for Claude Desktop users.

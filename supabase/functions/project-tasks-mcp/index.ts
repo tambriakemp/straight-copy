@@ -8,11 +8,17 @@ import {
   listEpics, createEpic, TASK_STATUSES, TASK_PRIORITIES,
 } from "../_shared/project-tasks.ts";
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const PROJECT_ORIGIN = new URL(SUPABASE_URL).origin;
+const OAUTH_BASE = `${PROJECT_ORIGIN}/functions/v1/mcp-oauth`;
+const MCP_URL = `${PROJECT_ORIGIN}/functions/v1/project-tasks-mcp`;
+const RESOURCE_METADATA_URL = `${MCP_URL}/.well-known/oauth-protected-resource`;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, content-type, mcp-session-id",
   "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-  "Access-Control-Expose-Headers": "mcp-session-id",
+  "Access-Control-Expose-Headers": "mcp-session-id, www-authenticate",
 };
 
 async function sha256(text: string) {
@@ -23,12 +29,26 @@ async function sha256(text: string) {
 async function checkToken(req: Request): Promise<boolean> {
   const auth = req.headers.get("Authorization");
   if (!auth?.startsWith("Bearer ")) return false;
-  const hash = await sha256(auth.slice(7).trim());
+  const token = auth.slice(7).trim();
+  const hash = await sha256(token);
   const sb = serviceClient();
-  const { data } = await sb.from("api_tokens").select("id, revoked").eq("token_hash", hash).maybeSingle();
-  if (!data || data.revoked) return false;
-  sb.from("api_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", data.id).then(() => {});
-  return true;
+
+  // 1) Static API token
+  const { data: apiTok } = await sb.from("api_tokens").select("id, revoked").eq("token_hash", hash).maybeSingle();
+  if (apiTok && !apiTok.revoked) {
+    sb.from("api_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", apiTok.id).then(() => {});
+    return true;
+  }
+
+  // 2) OAuth access token
+  const { data: oauthTok } = await sb.from("mcp_oauth_tokens")
+    .select("id, revoked, expires_at").eq("token_hash", hash).maybeSingle();
+  if (oauthTok && !oauthTok.revoked && new Date(oauthTok.expires_at).getTime() > Date.now()) {
+    sb.from("mcp_oauth_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", oauthTok.id).then(() => {});
+    return true;
+  }
+
+  return false;
 }
 
 const sb = serviceClient();
@@ -38,8 +58,7 @@ const textResult = (data: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
 });
 
-mcp.tool({
-  name: "list_projects",
+mcp.tool("list_projects", {
   description: "List all active client projects (id, name, type, client business name).",
   inputSchema: { type: "object", properties: {} },
   handler: async () => {
@@ -51,8 +70,7 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "list_tasks",
+mcp.tool("list_tasks", {
   description: "List tasks for a project. Optionally filter by status.",
   inputSchema: {
     type: "object",
@@ -69,8 +87,7 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "get_task",
+mcp.tool("get_task", {
   description: "Fetch a single task by id with subtasks and attachments.",
   inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
   handler: async ({ id }: { id: string }) => {
@@ -85,8 +102,7 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "create_task",
+mcp.tool("create_task", {
   description: "Create a task or subtask. For subtask, supply parent_task_id.",
   inputSchema: {
     type: "object",
@@ -108,8 +124,7 @@ mcp.tool({
   handler: async (args: any) => textResult(await createTask(sb, args, null)),
 });
 
-mcp.tool({
-  name: "update_task",
+mcp.tool("update_task", {
   description: "Update any task fields.",
   inputSchema: {
     type: "object",
@@ -130,8 +145,7 @@ mcp.tool({
   handler: async ({ id, ...rest }: any) => textResult(await updateTask(sb, id, rest)),
 });
 
-mcp.tool({
-  name: "move_task_status",
+mcp.tool("move_task_status", {
   description: "Shortcut to change a task's status.",
   inputSchema: {
     type: "object",
@@ -145,8 +159,7 @@ mcp.tool({
     textResult(await updateTask(sb, id, { status: status as any })),
 });
 
-mcp.tool({
-  name: "add_comment_to_task",
+mcp.tool("add_comment_to_task", {
   description: "Append a Claude-authored comment to a task's description (timestamped).",
   inputSchema: {
     type: "object",
@@ -162,22 +175,19 @@ mcp.tool({
   },
 });
 
-mcp.tool({
-  name: "delete_task",
+mcp.tool("delete_task", {
   description: "Delete a task and its subtasks + attachments.",
   inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
   handler: async ({ id }: { id: string }) => textResult(await deleteTask(sb, id)),
 });
 
-mcp.tool({
-  name: "list_epics",
+mcp.tool("list_epics", {
   description: "List epics for a project.",
   inputSchema: { type: "object", properties: { project_id: { type: "string" } }, required: ["project_id"] },
   handler: async ({ project_id }: { project_id: string }) => textResult(await listEpics(sb, project_id)),
 });
 
-mcp.tool({
-  name: "create_epic",
+mcp.tool("create_epic", {
   description: "Create an epic for a project.",
   inputSchema: {
     type: "object",
@@ -191,20 +201,51 @@ mcp.tool({
   handler: async ({ project_id, name, color }: any) => textResult(await createEpic(sb, project_id, name, color)),
 });
 
-const app = new Hono();
+const app = new Hono().basePath("/project-tasks-mcp");
 const transport = new StreamableHttpTransport();
 
 app.options("/*", (c) => new Response(null, { headers: corsHeaders }));
 
+// OAuth discovery — Claude.ai probes these on the resource URL to start the auth flow.
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
+app.get("/.well-known/oauth-protected-resource", () =>
+  new Response(JSON.stringify({
+    resource: MCP_URL,
+    authorization_servers: [OAUTH_BASE],
+    bearer_methods_supported: ["header"],
+    scopes_supported: ["mcp"],
+  }), { headers: jsonHeaders }),
+);
+
+// Some clients look for the auth-server metadata on the resource URL too.
+app.get("/.well-known/oauth-authorization-server", () =>
+  new Response(JSON.stringify({
+    issuer: OAUTH_BASE,
+    authorization_endpoint: `${OAUTH_BASE}/authorize`,
+    token_endpoint: `${OAUTH_BASE}/token`,
+    registration_endpoint: `${OAUTH_BASE}/register`,
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code"],
+    code_challenge_methods_supported: ["S256", "plain"],
+    token_endpoint_auth_methods_supported: ["none"],
+    scopes_supported: ["mcp"],
+  }), { headers: jsonHeaders }),
+);
+
 app.all("/*", async (c) => {
   const ok = await checkToken(c.req.raw);
   if (!ok) {
-    return new Response(JSON.stringify({ error: "Invalid or missing token" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ error: "invalid_token" }), {
+      status: 401,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "WWW-Authenticate": `Bearer realm="mcp", resource_metadata="${RESOURCE_METADATA_URL}"`,
+      },
     });
   }
   const res = await transport.handleRequest(c.req.raw, mcp);
-  // Merge CORS headers
   const headers = new Headers(res.headers);
   for (const [k, v] of Object.entries(corsHeaders)) headers.set(k, v);
   return new Response(res.body, { status: res.status, headers });
