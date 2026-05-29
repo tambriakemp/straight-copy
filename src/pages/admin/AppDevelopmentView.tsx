@@ -27,7 +27,7 @@ export default function AppDevelopmentView() {
   const [project, setProject] = useState<Project | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"proposals" | "schedule" | "preview">("proposals");
+  const [tab, setTab] = useState<"proposals" | "schedule" | "preview" | "tasks">("proposals");
 
   const portalUrl = client?.id ? `${window.location.origin}/portal/${client.id}` : "";
 
