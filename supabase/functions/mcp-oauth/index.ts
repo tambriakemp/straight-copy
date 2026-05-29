@@ -16,7 +16,7 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const PROJECT_ORIGIN = new URL(SUPABASE_URL).origin;
 const BASE = `${PROJECT_ORIGIN}/functions/v1/mcp-oauth`;
 const MCP_URL = `${PROJECT_ORIGIN}/functions/v1/project-tasks-mcp`;
-const APP_ORIGIN = Deno.env.get("MCP_OAUTH_APP_ORIGIN") ?? "https://cre8visions.com";
+const APP_ORIGIN = Deno.env.get("MCP_OAUTH_APP_ORIGIN") ?? "https://id-preview--3041a012-dbf6-44ce-a5eb-1891a44da04b.lovable.app";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
