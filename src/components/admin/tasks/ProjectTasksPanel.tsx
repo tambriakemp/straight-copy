@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useDraggable, useDroppable, useSensor, useSensors,
 } from "@dnd-kit/core";
-import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag } from "lucide-react";
+import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
