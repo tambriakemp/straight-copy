@@ -483,84 +483,144 @@ export default function PortalProject() {
             </section>
           )}
 
-          {/* Contract — automation_build only */}
-          {isAutomation && (
-            <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
-              <ContractSection clientId={clientId!} contactName={client.contact_name} />
-            </div>
-          )}
+          {/* Tabbed project sections */}
+          {currentProject && (() => {
+            const tabs: { value: string; label: string; node: React.ReactNode }[] = [];
 
-          {/* Preview link — preview-eligible projects only */}
-          {isPreviewable && currentProject && (
-            <div id="portal-preview" style={{ scrollMarginTop: 24 }}>
-              <PortalProjectPreviewCard clientProjectId={currentProject.id} contactName={client.contact_name} />
-            </div>
-          )}
+            if (isAutomation) {
+              tabs.push({
+                value: "contract",
+                label: "Contract",
+                node: (
+                  <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
+                    <ContractSection clientId={clientId!} contactName={client.contact_name} />
+                  </div>
+                ),
+              });
+            }
 
-          {/* Proposals — scoped to this project */}
-          {currentProject && (
-            <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
-              <ProposalsSection clientId={clientId!} contactName={client.contact_name} projectId={currentProject.id} />
-            </div>
-          )}
+            if (isPreviewable) {
+              tabs.push({
+                value: "preview",
+                label: "Preview",
+                node: (
+                  <div id="portal-preview" style={{ scrollMarginTop: 24 }}>
+                    <PortalProjectPreviewCard clientProjectId={currentProject.id} contactName={client.contact_name} />
+                  </div>
+                ),
+              });
+            }
 
-          {/* Brand Voice intake chat — automation_build only */}
-          {isAutomation && !!onboardingInvite && (
-            <BrandVoiceAccordion
-              token={onboardingInvite.token}
-              completed={onboardingInvite.completed}
-            />
-          )}
+            tabs.push({
+              value: "proposals",
+              label: "Proposals",
+              node: (
+                <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
+                  <ProposalsSection clientId={clientId!} contactName={client.contact_name} projectId={currentProject.id} />
+                </div>
+              ),
+            });
 
-          {/* Account Access — automation_build only */}
-          {isAutomation && (
-            <AccountAccessSection
-              clientId={clientId!}
-              tier={client.tier}
-              initial={accountAccess}
-            />
-          )}
+            if (isAutomation && !!onboardingInvite) {
+              tabs.push({
+                value: "brand-voice",
+                label: "Brand Voice",
+                node: (
+                  <BrandVoiceAccordion
+                    token={onboardingInvite.token}
+                    completed={onboardingInvite.completed}
+                  />
+                ),
+              });
+            }
 
-          {/* Subscription — automation_build only */}
-          {isAutomation && (
-            <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
-              <SubscriptionSection
-                clientId={clientId!}
-                tier={client.tier}
-                initial={subscription}
-              />
-            </div>
-          )}
+            if (isAutomation) {
+              tabs.push({
+                value: "account",
+                label: "Account Access",
+                node: (
+                  <AccountAccessSection
+                    clientId={clientId!}
+                    tier={client.tier}
+                    initial={accountAccess}
+                  />
+                ),
+              });
+              tabs.push({
+                value: "subscription",
+                label: "Subscription",
+                node: (
+                  <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
+                    <SubscriptionSection
+                      clientId={clientId!}
+                      tier={client.tier}
+                      initial={subscription}
+                    />
+                  </div>
+                ),
+              });
+            }
 
-          {/* Brand Kit chat / confirmation — automation_build only */}
-          {isAutomation && (isBrandKitDone || isBrandKitActive) && (
-            <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
-              {isBrandKitDone ? (
-                <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
-              ) : (
-                <BrandKitChat
-                  node={node!}
-                  stage={stage}
-                  messages={messages}
-                  input={input}
-                  setInput={setInput}
-                  isStreaming={isStreaming}
-                  readyToSubmit={readyToSubmit}
-                  submitting={submitting}
-                  onSend={send}
-                  onSubmit={submit}
-                  scrollRef={scrollRef}
-                />
-              )}
-            </div>
-          )}
+            if (isAutomation && (isBrandKitDone || isBrandKitActive)) {
+              tabs.push({
+                value: "brand-kit",
+                label: "Brand Kit",
+                node: (
+                  <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
+                    {isBrandKitDone ? (
+                      <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
+                    ) : (
+                      <BrandKitChat
+                        node={node!}
+                        stage={stage}
+                        messages={messages}
+                        input={input}
+                        setInput={setInput}
+                        isStreaming={isStreaming}
+                        readyToSubmit={readyToSubmit}
+                        submitting={submitting}
+                        onSend={send}
+                        onSubmit={submit}
+                        scrollRef={scrollRef}
+                      />
+                    )}
+                  </div>
+                ),
+              });
+            }
 
-          {/* Payment Schedule — always last */}
-          {currentProject && (
-            <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
-              <InvoiceSection clientId={clientId!} projectId={currentProject.id} />
-            </div>
-          )}
+            tabs.push({
+              value: "schedule",
+              label: "Payment Schedule",
+              node: (
+                <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
+                  <InvoiceSection clientId={clientId!} projectId={currentProject.id} />
+                </div>
+              ),
+            });
+
+            // Deep-link support: focus=contract|brand-kit picks the tab.
+            const initialTab =
+              focus === "contract" && tabs.find((t) => t.value === "contract") ? "contract"
+              : focus === "brand-kit" && tabs.find((t) => t.value === "brand-kit") ? "brand-kit"
+              : tabs[0]?.value;
+
+            if (!initialTab) return null;
+
+            return (
+              <ProjectTabs defaultValue={initialTab} style={{ marginTop: 24 }}>
+                <ProjectTabsList style={{ flexWrap: "wrap" }}>
+                  {tabs.map((t) => (
+                    <ProjectTabsTrigger key={t.value} value={t.value}>{t.label}</ProjectTabsTrigger>
+                  ))}
+                </ProjectTabsList>
+                {tabs.map((t) => (
+                  <ProjectTabsContent key={t.value} value={t.value}>{t.node}</ProjectTabsContent>
+                ))}
+              </ProjectTabs>
+            );
+          })()}
+
         </main>
       </div>
     </div>
