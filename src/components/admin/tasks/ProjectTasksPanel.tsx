@@ -492,7 +492,7 @@ function TaskDetailSheet({
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <span style={subLabel}>Attachments</span>
-              <label className="text-xs text-[color:var(--crm-accent)] cursor-pointer hover:underline">
+              <label className="text-xs !text-warm-white cursor-pointer hover:underline">
                 + Upload
                 <input type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadAttachment(f); e.target.value = ""; }} />
               </label>
@@ -500,13 +500,13 @@ function TaskDetailSheet({
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {(task.attachments ?? []).map((a) => (
                 <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", border: "1px solid var(--crm-border-dark)", borderRadius: 4 }}>
-                  <a href={a.signed_url} target="_blank" rel="noreferrer" className="text-xs text-[color:var(--crm-warm-white)] hover:text-[color:var(--crm-accent)] inline-flex items-center gap-2">
+                  <a href={a.signed_url} target="_blank" rel="noreferrer" className="text-xs !text-warm-white hover:!text-warm-white/80 inline-flex items-center gap-2">
                     <Paperclip size={11} /> {a.file_name}
                   </a>
-                  <button onClick={async () => { await tasksApi.deleteAttachment(a.id); await onChanged(); }} className="text-[color:var(--crm-taupe)] hover:text-red-400"><X size={12} /></button>
+                  <button onClick={async () => { await tasksApi.deleteAttachment(a.id); await onChanged(); }} className="!text-warm-white/70 hover:!text-destructive"><X size={12} /></button>
                 </div>
               ))}
-              {(task.attachments?.length ?? 0) === 0 && <div className="text-xs text-[color:var(--crm-taupe)]">No attachments.</div>}
+              {(task.attachments?.length ?? 0) === 0 && <div className="text-xs !text-warm-white/70">No attachments.</div>}
             </div>
           </div>
 
@@ -515,26 +515,26 @@ function TaskDetailSheet({
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <span style={subLabel}>Subtasks</span>
-                <button onClick={addSubtask} className="text-xs text-[color:var(--crm-accent)] hover:underline">+ Add subtask</button>
+                <button onClick={addSubtask} className="text-xs !text-warm-white hover:underline">+ Add subtask</button>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {subtasks.map((st) => (
                   <div key={st.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", border: "1px solid var(--crm-border-dark)", borderRadius: 4 }}>
                     <span style={{ width: 6, height: 6, borderRadius: 999, background: STATUS_COLORS[st.status] }} />
-                    <span className="text-xs text-[color:var(--crm-warm-white)] flex-1 truncate">{st.name}</span>
+                    <span className="text-xs !text-warm-white flex-1 truncate">{st.name}</span>
                     <Select value={st.status} onValueChange={(v) => tasksApi.update(st.id, { status: v as TaskStatus }).then(onChanged)}>
-                      <SelectTrigger className="h-7 w-[140px] bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)] text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>{TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}</SelectContent>
+                      <SelectTrigger className={`${taskInputClass} h-7 w-[140px] text-xs [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
+                      <SelectContent className={taskSelectContentClass}>{TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}</SelectContent>
                     </Select>
-                    <button onClick={async () => { if (confirm("Delete subtask?")) { await tasksApi.remove(st.id); await onChanged(); } }} className="text-[color:var(--crm-taupe)] hover:text-red-400"><X size={12} /></button>
+                    <button onClick={async () => { if (confirm("Delete subtask?")) { await tasksApi.remove(st.id); await onChanged(); } }} className="!text-warm-white/70 hover:!text-destructive"><X size={12} /></button>
                   </div>
                 ))}
-                {subtasks.length === 0 && <div className="text-xs text-[color:var(--crm-taupe)]">No subtasks.</div>}
+                {subtasks.length === 0 && <div className="text-xs !text-warm-white/70">No subtasks.</div>}
               </div>
             </div>
           )}
 
-          {saving && <div className="text-xs text-[color:var(--crm-taupe)]">Saving…</div>}
+          {saving && <div className="text-xs !text-warm-white/70">Saving…</div>}
         </div>
       </SheetContent>
     </Sheet>
