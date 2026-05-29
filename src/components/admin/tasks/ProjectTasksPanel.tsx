@@ -561,56 +561,130 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
   const [status, setStatus] = useState<TaskStatus>("backlog");
   const [priority, setPriority] = useState<TaskPriority>("normal");
   const [epicId, setEpicId] = useState<string>("none");
+  const [assigneeKind, setAssigneeKind] = useState<AssigneeKind>("unassigned");
+  const [dueDate, setDueDate] = useState<string>("");
+  const [url, setUrl] = useState<string>("");
+  const [tags, setTags] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
-  const reset = () => { setName(""); setDescription(""); setStatus("backlog"); setPriority("normal"); setEpicId("none"); };
+  const reset = () => {
+    setName(""); setDescription(""); setStatus("backlog"); setPriority("normal");
+    setEpicId("none"); setAssigneeKind("unassigned"); setDueDate(""); setUrl(""); setTags("");
+  };
 
   const submit = async () => {
     if (!name.trim()) return;
     setSubmitting(true);
     try {
       await tasksApi.create({
-        client_project_id: clientProjectId, name: name.trim(), description: description || null,
-        status, priority, epic_id: epicId === "none" ? null : epicId,
+        client_project_id: clientProjectId,
+        name: name.trim(),
+        description: description || null,
+        status,
+        priority,
+        epic_id: epicId === "none" ? null : epicId,
+        assignee_kind: assigneeKind,
+        due_date: dueDate || null,
+        url: url || null,
+        tags: tags.split(",").map((s) => s.trim()).filter(Boolean),
       });
       await onCreated(); reset(); onOpenChange(false);
     } catch (e) { toast.error(e instanceof Error ? e.message : "Create failed"); }
     finally { setSubmitting(false); }
   };
 
+  const inputCls =
+    "bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)] " +
+    "placeholder:text-[color:var(--crm-taupe)]";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#1a1612] border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]">
-        <DialogHeader><DialogTitle className="text-[color:var(--crm-warm-white)]">New task</DialogTitle></DialogHeader>
-        <div className="space-y-3 mt-2">
-          <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)}
-            className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]" />
-          <Textarea placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)}
-            className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]" />
-          <div className="grid grid-cols-3 gap-2">
+      <DialogContent
+        aria-describedby={undefined}
+        className="bg-[#1a1612] border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)] max-w-3xl w-[92vw] max-h-[88vh] overflow-y-auto p-0"
+      >
+        <DialogHeader className="px-6 pt-6 pb-3 border-b border-[color:var(--crm-border-dark)]">
+          <DialogTitle className="text-[color:var(--crm-warm-white)] text-base font-normal tracking-[0.12em] uppercase">
+            New task
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="px-6 py-5 space-y-5">
+          <Input
+            autoFocus
+            placeholder="Task name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={`${inputCls} text-lg h-12 border-0 border-b rounded-none px-0 focus-visible:ring-0`}
+          />
+
+          <div className="grid grid-cols-[120px_1fr] gap-x-4 gap-y-3 items-center text-sm">
+            <span style={subLabel} className="!m-0">Status</span>
             <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
-              <SelectTrigger className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]"><SelectValue /></SelectTrigger>
-              <SelectContent>{TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}</SelectContent>
+              <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
+              </SelectContent>
             </Select>
+
+            <span style={subLabel} className="!m-0">Priority</span>
             <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
-              <SelectTrigger className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]"><SelectValue /></SelectTrigger>
-              <SelectContent>{PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+              <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
             </Select>
+
+            <span style={subLabel} className="!m-0">Assignee</span>
+            <Select value={assigneeKind} onValueChange={(v) => setAssigneeKind(v as AssigneeKind)}>
+              <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="claude">🤖 Claude</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <span style={subLabel} className="!m-0">Epic</span>
             <Select value={epicId} onValueChange={setEpicId}>
-              <SelectTrigger className="bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)]"><SelectValue placeholder="Epic" /></SelectTrigger>
+              <SelectTrigger className={inputCls}><SelectValue placeholder="No epic" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No epic</SelectItem>
                 {epics.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
               </SelectContent>
             </Select>
+
+            <span style={subLabel} className="!m-0">Due date</span>
+            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} />
+
+            <span style={subLabel} className="!m-0">URL</span>
+            <Input placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} className={inputCls} />
+
+            <span style={subLabel} className="!m-0">Tags</span>
+            <Input placeholder="comma, separated, tags" value={tags} onChange={(e) => setTags(e.target.value)} className={inputCls} />
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={submit} disabled={submitting || !name.trim()}
-              className="bg-[color:var(--crm-accent)] text-[color:var(--crm-warm-white)] hover:bg-[color:var(--crm-accent-hover)]">
-              Create
-            </Button>
+
+          <div>
+            <div style={subLabel}>Description</div>
+            <Textarea
+              placeholder="Add a description, acceptance criteria, links…"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={7}
+              className={inputCls}
+            />
           </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-[color:var(--crm-border-dark)] flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={submit}
+            disabled={submitting || !name.trim()}
+            className="bg-[color:var(--crm-accent)] text-[color:var(--crm-warm-white)] hover:bg-[color:var(--crm-accent-hover)]"
+          >
+            {submitting ? "Creating…" : "Create task"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
