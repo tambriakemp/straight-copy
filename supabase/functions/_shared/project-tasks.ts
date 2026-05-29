@@ -17,9 +17,15 @@ export function serviceClient(): SupabaseClient {
   );
 }
 
+export const TASK_SIZES = ["S", "M", "L"] as const;
+export type TaskSize = typeof TASK_SIZES[number];
+export const TASK_PLATFORMS = ["web", "native", "backend", "all"] as const;
+export type TaskPlatform = typeof TASK_PLATFORMS[number];
+
 export const TASK_FIELDS =
   "id, client_project_id, parent_task_id, epic_id, name, description, status, priority, " +
-  "assignee_kind, assignee_admin_id, url, due_date, tags, order_index, created_by, completed_at, created_at, updated_at";
+  "assignee_kind, assignee_admin_id, url, due_date, tags, order_index, created_by, completed_at, created_at, updated_at, " +
+  "acceptance_criteria, design_url, blocked_by, manual_prereqs, size, platform";
 
 export interface TaskInput {
   client_project_id?: string;
@@ -35,6 +41,12 @@ export interface TaskInput {
   due_date?: string | null;
   tags?: string[];
   order_index?: number;
+  acceptance_criteria?: string | null;
+  design_url?: string | null;
+  blocked_by?: string[];
+  manual_prereqs?: string | null;
+  size?: TaskSize | null;
+  platform?: TaskPlatform | null;
 }
 
 export async function listTasks(
@@ -115,6 +127,12 @@ export async function createTask(sb: SupabaseClient, input: TaskInput, createdBy
     tags: input.tags ?? [],
     order_index: input.order_index ?? nextOrder,
     created_by: createdBy,
+    acceptance_criteria: input.acceptance_criteria ?? null,
+    design_url: input.design_url ?? null,
+    blocked_by: input.blocked_by ?? [],
+    manual_prereqs: input.manual_prereqs ?? null,
+    size: input.size ?? null,
+    platform: input.platform ?? null,
   }).select(TASK_FIELDS).single();
   if (error) throw error;
   return data;
@@ -125,6 +143,7 @@ export async function updateTask(sb: SupabaseClient, id: string, input: TaskInpu
   for (const k of [
     "parent_task_id", "epic_id", "name", "description", "status", "priority",
     "assignee_kind", "assignee_admin_id", "url", "due_date", "tags", "order_index",
+    "acceptance_criteria", "design_url", "blocked_by", "manual_prereqs", "size", "platform",
   ] as const) {
     if (k in input) patch[k] = (input as any)[k];
   }

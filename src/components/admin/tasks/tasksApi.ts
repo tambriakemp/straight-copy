@@ -54,6 +54,11 @@ export interface Attachment {
   created_at: string;
 }
 
+export const TASK_SIZES = ["S", "M", "L"] as const;
+export type TaskSize = typeof TASK_SIZES[number];
+export const TASK_PLATFORMS = ["web", "native", "backend", "all"] as const;
+export type TaskPlatform = typeof TASK_PLATFORMS[number];
+
 export interface Task {
   id: string;
   client_project_id: string;
@@ -72,6 +77,12 @@ export interface Task {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  acceptance_criteria: string | null;
+  design_url: string | null;
+  blocked_by: string[];
+  manual_prereqs: string | null;
+  size: TaskSize | null;
+  platform: TaskPlatform | null;
   attachments?: Attachment[];
 }
 

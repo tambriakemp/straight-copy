@@ -2,7 +2,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import {
   serviceClient, listTasks, createTask, updateTask, deleteTask,
-  uploadTaskAttachment, listEpics, createEpic, updateEpic, deleteEpic, TASK_STATUSES, TASK_PRIORITIES, ASSIGNEE_KINDS,
+  uploadTaskAttachment, listEpics, createEpic, updateEpic, deleteEpic,
+  TASK_STATUSES, TASK_PRIORITIES, ASSIGNEE_KINDS, TASK_SIZES, TASK_PLATFORMS,
 } from "../_shared/project-tasks.ts";
 
 const corsHeaders = {
@@ -100,7 +101,7 @@ Deno.serve(async (req) => {
     }
 
     if (parts[0] === "meta" && method === "GET") {
-      return json({ statuses: TASK_STATUSES, priorities: TASK_PRIORITIES, assignee_kinds: ASSIGNEE_KINDS });
+      return json({ statuses: TASK_STATUSES, priorities: TASK_PRIORITIES, assignee_kinds: ASSIGNEE_KINDS, sizes: TASK_SIZES, platforms: TASK_PLATFORMS });
     }
 
     return json({ error: "Not found", path, method }, 404);

@@ -6,6 +6,7 @@ import { McpServer, StreamableHttpTransport } from "mcp-lite";
 import {
   serviceClient, listTasks, createTask, updateTask, deleteTask,
   uploadTaskAttachment, listEpics, createEpic, TASK_STATUSES, TASK_PRIORITIES,
+  TASK_SIZES, TASK_PLATFORMS,
 } from "../_shared/project-tasks.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -110,6 +111,19 @@ mcp.tool("get_task", {
   },
 });
 
+const EXTRA_FIELD_PROPS = {
+  acceptance_criteria: { type: "string", description: "Definition of done — what must be true to mark complete." },
+  design_url: { type: "string", description: "Link to Figma, comps, or brand kit for design-dependent work." },
+  blocked_by: {
+    type: "array",
+    items: { type: "string" },
+    description: "Array of project_tasks.id values that must complete first.",
+  },
+  manual_prereqs: { type: "string", description: "Human-only prerequisites that block automated work." },
+  size: { type: "string", enum: TASK_SIZES as unknown as string[], description: "Effort tee-shirt size." },
+  platform: { type: "string", enum: TASK_PLATFORMS as unknown as string[], description: "Target platform." },
+};
+
 mcp.tool("create_task", {
   description: "Create a task or subtask. For subtask, supply parent_task_id.",
   inputSchema: {
@@ -126,6 +140,7 @@ mcp.tool("create_task", {
       url: { type: "string" },
       due_date: { type: "string", description: "YYYY-MM-DD" },
       tags: { type: "array", items: { type: "string" } },
+      ...EXTRA_FIELD_PROPS,
     },
     required: ["client_project_id", "name"],
   },
@@ -147,6 +162,7 @@ mcp.tool("update_task", {
       url: { type: "string" },
       due_date: { type: "string" },
       tags: { type: "array", items: { type: "string" } },
+      ...EXTRA_FIELD_PROPS,
     },
     required: ["id"],
   },
