@@ -734,41 +734,41 @@ function EpicCombobox({ epics, value, onChange, clientProjectId, inputCls }: {
         onClick={() => setOpen((o) => !o)}
         className={`${inputCls} h-10 w-full rounded-md border px-3 text-left text-sm flex items-center justify-between`}
       >
-        <span className={selected ? "" : "!text-white/60"}>
+        <span className={selected ? "" : "!text-warm-white/60"}>
           {selected ? selected.name : "No epic"}
         </span>
-        <span className="!text-white/60 text-xs">▾</span>
+        <span className="!text-warm-white/60 text-xs">▾</span>
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-white/20 bg-[#1a1612] shadow-xl">
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-warm-white/20 bg-ink shadow-xl">
           <input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search or create epic…"
-            className="w-full bg-transparent border-b border-white/20 px-3 py-2 text-sm !text-white placeholder:!text-white/60 outline-none"
+            className="w-full bg-transparent border-b border-warm-white/20 px-3 py-2 text-sm !text-warm-white placeholder:!text-taupe outline-none"
           />
           <div className="max-h-48 overflow-y-auto py-1">
             <button type="button" onClick={() => { onChange(null); setOpen(false); setQuery(""); }}
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-white/5 !text-white/70">
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-warm-white/5 !text-warm-white/70">
               No epic
             </button>
             {filtered.map((e) => (
               <button key={e.id} type="button"
                 onClick={() => { onChange(e.id); setOpen(false); setQuery(""); }}
-                className="w-full text-left px-3 py-1.5 text-sm hover:bg-white/5 flex items-center gap-2">
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-warm-white/5 flex items-center gap-2 !text-warm-white">
                 <span style={{ width: 8, height: 8, borderRadius: 999, background: e.color ?? "var(--crm-accent)" }} />
                 {e.name}
               </button>
             ))}
             {canCreate && (
               <button type="button" onClick={create} disabled={creating}
-                className="w-full text-left px-3 py-1.5 text-sm hover:bg-white/5 border-t border-white/10 !text-[color:var(--crm-accent)]">
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-warm-white/5 border-t border-warm-white/10 !text-warm-white">
                 {creating ? "Creating…" : `+ Create "${query.trim()}"`}
               </button>
             )}
             {filtered.length === 0 && !canCreate && (
-              <div className="px-3 py-2 text-xs !text-white/50">No epics.</div>
+              <div className="px-3 py-2 text-xs !text-warm-white/60">No epics.</div>
             )}
           </div>
         </div>
