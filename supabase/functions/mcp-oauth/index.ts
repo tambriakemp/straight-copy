@@ -16,6 +16,7 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const PROJECT_ORIGIN = new URL(SUPABASE_URL).origin;
 const BASE = `${PROJECT_ORIGIN}/functions/v1/mcp-oauth`;
 const MCP_URL = `${PROJECT_ORIGIN}/functions/v1/project-tasks-mcp`;
+const APP_ORIGIN = Deno.env.get("MCP_OAUTH_APP_ORIGIN") ?? "https://cre8visions.com";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -118,7 +119,19 @@ app.post("/register", async (c) => {
   }, 201);
 });
 
-// ---------- authorize (GET = consent UI) ----------
+// ---------- authorize (GET = app-hosted consent UI) ----------
+function appAuthorizeUrl(params: Record<string, string | null | undefined>) {
+  const dest = new URL("/admin/mcp-authorize", APP_ORIGIN);
+  for (const [key, value] of Object.entries(params)) {
+    if (value) dest.searchParams.set(key, value);
+  }
+  return dest.toString();
+}
+
+function redirectToApp(params: Record<string, string | null | undefined>) {
+  return new Response(null, { status: 302, headers: { Location: appAuthorizeUrl(params), ...cors } });
+}
+
 function consentHtml(params: {
   client_id: string;
   client_name: string | null;
@@ -178,18 +191,16 @@ app.get("/authorize", async (c) => {
   const scope = u.searchParams.get("scope") ?? "mcp";
   const response_type = u.searchParams.get("response_type") ?? "code";
 
-  if (response_type !== "code") return new Response("unsupported_response_type", { status: 400 });
-  if (!client_id || !redirect_uri || !code_challenge) return new Response("invalid_request", { status: 400 });
+  const passthrough = { client_id, redirect_uri, state, code_challenge, code_challenge_method, scope };
+  if (response_type !== "code") return redirectToApp({ ...passthrough, error: "Unsupported OAuth response type." });
+  if (!client_id || !redirect_uri || !code_challenge) return redirectToApp({ ...passthrough, error: "Missing OAuth authorization details." });
 
   const sb = svc();
   const { data: client } = await sb.from("mcp_oauth_clients").select("client_name, redirect_uris").eq("client_id", client_id).maybeSingle();
-  if (!client) return new Response("unknown client_id", { status: 400 });
-  if (!client.redirect_uris.includes(redirect_uri)) return new Response("invalid redirect_uri", { status: 400 });
+  if (!client) return redirectToApp({ ...passthrough, error: "Unknown OAuth client. Try adding the connector again in Claude." });
+  if (!client.redirect_uris.includes(redirect_uri)) return redirectToApp({ ...passthrough, error: "Invalid OAuth redirect URL." });
 
-  return new Response(consentHtml({
-    client_id, client_name: client.client_name, redirect_uri, state,
-    code_challenge, code_challenge_method, scope,
-  }), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  return redirectToApp({ ...passthrough, client_name: client.client_name ?? "Claude" });
 });
 
 app.post("/authorize", async (c) => {
@@ -207,10 +218,10 @@ app.post("/authorize", async (c) => {
   const { data: client } = await sb.from("mcp_oauth_clients").select("client_name, redirect_uris").eq("client_id", client_id).maybeSingle();
   if (!client || !client.redirect_uris.includes(redirect_uri)) return new Response("invalid_request", { status: 400 });
 
-  const renderErr = (msg: string) => new Response(consentHtml({
+  const renderErr = (msg: string) => redirectToApp({
     client_id, client_name: client.client_name, redirect_uri, state,
     code_challenge, code_challenge_method, scope, error: msg,
-  }), { status: 401, headers: { "Content-Type": "text/html; charset=utf-8" } });
+  });
 
   // Verify credentials using anon client (no session persistence).
   const anon = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } });
