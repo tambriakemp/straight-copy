@@ -77,6 +77,7 @@ export default function AppDevelopmentView() {
             <ProjectTabsTrigger value="proposals">Proposals</ProjectTabsTrigger>
             <ProjectTabsTrigger value="schedule">Payment Schedule</ProjectTabsTrigger>
             <ProjectTabsTrigger value="preview">Preview</ProjectTabsTrigger>
+            <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>
           </ProjectTabsList>
 
           <ProjectTabsContent value="proposals">
