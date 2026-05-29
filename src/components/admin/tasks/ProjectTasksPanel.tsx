@@ -313,10 +313,10 @@ function TaskCard({ task, epics, subtaskCount, dragging }: {
         {subtaskCount > 0 && (
           <span style={{ fontSize: 10, color: "hsl(var(--warm-white) / 0.7)" }}>{subtaskCount} subtask{subtaskCount > 1 ? "s" : ""}</span>
         )}
-        {task.url && <ExternalLink size={10} style={{ color: "var(--crm-taupe)" }} />}
-        {(task.attachments?.length ?? 0) > 0 && <Paperclip size={10} style={{ color: "var(--crm-taupe)" }} />}
+        {task.url && <ExternalLink size={10} style={{ color: "hsl(var(--warm-white) / 0.7)" }} />}
+        {(task.attachments?.length ?? 0) > 0 && <Paperclip size={10} style={{ color: "hsl(var(--warm-white) / 0.7)" }} />}
         {task.tags?.map((tag) => (
-          <Badge key={tag} variant="outline" className="text-[9px] py-0 px-1 border-[color:var(--crm-border-dark)] text-[color:var(--crm-taupe)]">
+          <Badge key={tag} variant="outline" className="text-[9px] py-0 px-1 border-warm-white/15 !text-warm-white/70">
             {tag}
           </Badge>
         ))}
@@ -332,10 +332,10 @@ function ListView({ tasks, epics, subtasksByParent, onOpen }: {
   onOpen: (id: string) => void;
 }) {
   return (
-    <div style={{ border: "1px solid var(--crm-border-dark)", borderRadius: 8, overflow: "hidden" }}>
+    <div style={{ border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 8, overflow: "hidden" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
         <thead>
-          <tr style={{ background: "rgba(255,255,255,0.03)", color: "var(--crm-taupe)", textAlign: "left", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          <tr style={{ background: "rgba(255,255,255,0.03)", color: "hsl(var(--warm-white) / 0.7)", textAlign: "left", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
             <th style={th}>Name</th><th style={th}>Status</th><th style={th}>Priority</th>
             <th style={th}>Epic</th><th style={th}>Assignee</th><th style={th}>Due</th><th style={th}>Subs</th>
           </tr>
@@ -343,7 +343,7 @@ function ListView({ tasks, epics, subtasksByParent, onOpen }: {
         <tbody>
           {tasks.map((t) => (
             <tr key={t.id} onClick={() => onOpen(t.id)}
-              style={{ borderTop: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", cursor: "pointer" }}>
+              style={{ borderTop: "1px solid hsl(var(--warm-white) / 0.12)", color: "hsl(var(--warm-white))", cursor: "pointer" }}>
               <td style={td}>{t.name}</td>
               <td style={td}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -359,7 +359,7 @@ function ListView({ tasks, epics, subtasksByParent, onOpen }: {
             </tr>
           ))}
           {tasks.length === 0 && (
-            <tr><td colSpan={7} style={{ ...td, color: "var(--crm-taupe)", textAlign: "center" }}>No tasks.</td></tr>
+            <tr><td colSpan={7} style={{ ...td, color: "hsl(var(--warm-white) / 0.7)", textAlign: "center" }}>No tasks.</td></tr>
           )}
         </tbody>
       </table>
