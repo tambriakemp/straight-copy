@@ -203,6 +203,7 @@ mcp.tool("create_epic", {
 
 const app = new Hono().basePath("/project-tasks-mcp");
 const transport = new StreamableHttpTransport();
+const mcpHandler = transport.bind(mcp);
 
 app.options("/*", (c) => new Response(null, { headers: corsHeaders }));
 
@@ -245,7 +246,7 @@ app.all("/*", async (c) => {
       },
     });
   }
-  const res = await transport.handleRequest(c.req.raw, mcp);
+  const res = await mcpHandler(c.req.raw);
   const headers = new Headers(res.headers);
   for (const [k, v] of Object.entries(corsHeaders)) headers.set(k, v);
   return new Response(res.body, { status: res.status, headers });

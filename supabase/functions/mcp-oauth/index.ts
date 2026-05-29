@@ -61,19 +61,23 @@ const json = (data: unknown, status = 200, extra: Record<string, string> = {}) =
   });
 
 // ---------- discovery ----------
-app.get("/.well-known/oauth-authorization-server", () =>
-  json({
-    issuer: BASE,
-    authorization_endpoint: `${BASE}/authorize`,
-    token_endpoint: `${BASE}/token`,
-    registration_endpoint: `${BASE}/register`,
-    response_types_supported: ["code"],
-    grant_types_supported: ["authorization_code"],
-    code_challenge_methods_supported: ["S256", "plain"],
-    token_endpoint_auth_methods_supported: ["none"],
-    scopes_supported: ["mcp"],
-  })
-);
+const metadata = () => ({
+  issuer: BASE,
+  authorization_endpoint: `${BASE}/authorize`,
+  token_endpoint: `${BASE}/token`,
+  registration_endpoint: `${BASE}/register`,
+  response_types_supported: ["code"],
+  grant_types_supported: ["authorization_code"],
+  code_challenge_methods_supported: ["S256", "plain"],
+  token_endpoint_auth_methods_supported: ["none"],
+  scopes_supported: ["mcp"],
+  subject_types_supported: ["public"],
+  id_token_signing_alg_values_supported: ["none"],
+});
+
+app.get("/.well-known/oauth-authorization-server", () => json(metadata()));
+// Claude's connector probes OIDC discovery too — serve the same payload.
+app.get("/.well-known/openid-configuration", () => json(metadata()));
 
 app.get("/.well-known/oauth-protected-resource", () =>
   json({
