@@ -594,20 +594,20 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
   };
 
   const inputCls =
-    "bg-transparent border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)] " +
-    "placeholder:text-[color:var(--crm-taupe)]";
+    "bg-transparent border-white/30 !text-white placeholder:!text-white/60";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         aria-describedby={undefined}
-        className="bg-[#1a1612] border-[color:var(--crm-border-dark)] text-[color:var(--crm-warm-white)] max-w-3xl w-[92vw] max-h-[88vh] overflow-y-auto p-0"
+        className="bg-[#1a1612] border-white/20 !text-white max-w-3xl w-[92vw] max-h-[88vh] overflow-y-auto p-0 [&_*]:!text-white [&_input]:!text-white [&_textarea]:!text-white [&_input::placeholder]:!text-white/60 [&_textarea::placeholder]:!text-white/60"
       >
-        <DialogHeader className="px-6 pt-6 pb-3 border-b border-[color:var(--crm-border-dark)]">
-          <DialogTitle className="text-[color:var(--crm-warm-white)] text-base font-normal tracking-[0.12em] uppercase">
+        <DialogHeader className="px-6 pt-6 pb-3 border-b border-white/20">
+          <DialogTitle className="!text-white text-base font-normal tracking-[0.12em] uppercase">
             New task
           </DialogTitle>
         </DialogHeader>
+
 
         <div className="px-6 py-5 space-y-5">
           <Input
