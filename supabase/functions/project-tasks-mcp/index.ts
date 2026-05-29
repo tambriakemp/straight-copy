@@ -8,11 +8,17 @@ import {
   listEpics, createEpic, TASK_STATUSES, TASK_PRIORITIES,
 } from "../_shared/project-tasks.ts";
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const PROJECT_ORIGIN = new URL(SUPABASE_URL).origin;
+const OAUTH_BASE = `${PROJECT_ORIGIN}/functions/v1/mcp-oauth`;
+const MCP_URL = `${PROJECT_ORIGIN}/functions/v1/project-tasks-mcp`;
+const RESOURCE_METADATA_URL = `${MCP_URL}/.well-known/oauth-protected-resource`;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, content-type, mcp-session-id",
   "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-  "Access-Control-Expose-Headers": "mcp-session-id",
+  "Access-Control-Expose-Headers": "mcp-session-id, www-authenticate",
 };
 
 async function sha256(text: string) {
@@ -23,12 +29,26 @@ async function sha256(text: string) {
 async function checkToken(req: Request): Promise<boolean> {
   const auth = req.headers.get("Authorization");
   if (!auth?.startsWith("Bearer ")) return false;
-  const hash = await sha256(auth.slice(7).trim());
+  const token = auth.slice(7).trim();
+  const hash = await sha256(token);
   const sb = serviceClient();
-  const { data } = await sb.from("api_tokens").select("id, revoked").eq("token_hash", hash).maybeSingle();
-  if (!data || data.revoked) return false;
-  sb.from("api_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", data.id).then(() => {});
-  return true;
+
+  // 1) Static API token
+  const { data: apiTok } = await sb.from("api_tokens").select("id, revoked").eq("token_hash", hash).maybeSingle();
+  if (apiTok && !apiTok.revoked) {
+    sb.from("api_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", apiTok.id).then(() => {});
+    return true;
+  }
+
+  // 2) OAuth access token
+  const { data: oauthTok } = await sb.from("mcp_oauth_tokens")
+    .select("id, revoked, expires_at").eq("token_hash", hash).maybeSingle();
+  if (oauthTok && !oauthTok.revoked && new Date(oauthTok.expires_at).getTime() > Date.now()) {
+    sb.from("mcp_oauth_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", oauthTok.id).then(() => {});
+    return true;
+  }
+
+  return false;
 }
 
 const sb = serviceClient();
