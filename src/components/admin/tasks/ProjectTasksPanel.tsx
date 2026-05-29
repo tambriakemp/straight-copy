@@ -634,6 +634,97 @@ const subLabel: React.CSSProperties = {
   color: "hsl(var(--warm-white))", marginBottom: 6,
 };
 
+/* ---------------- Acceptance criteria checklist ---------------- */
+
+function AcceptanceCriteriaChecklist({ items, onChange }: {
+  items: AcceptanceCriterion[]; onChange: (items: AcceptanceCriterion[]) => void;
+}) {
+  const [draftText, setDraftText] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+
+  const newId = () =>
+    (typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+  const addItem = () => {
+    const text = draftText.trim();
+    if (!text) return;
+    onChange([...items, { id: newId(), text, done: false }]);
+    setDraftText("");
+  };
+  const toggle = (id: string) =>
+    onChange(items.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
+  const remove = (id: string) => onChange(items.filter((i) => i.id !== id));
+  const commitEdit = () => {
+    if (!editingId) return;
+    const t = editText.trim();
+    if (!t) { setEditingId(null); return; }
+    onChange(items.map((i) => (i.id === editingId ? { ...i, text: t } : i)));
+    setEditingId(null);
+  };
+
+  return (
+    <div>
+      <div style={subLabel}>Acceptance criteria</div>
+      <div className="flex flex-col gap-1.5">
+        {items.length === 0 && (
+          <div className="text-xs !text-warm-white/60">No criteria yet — add the first thing that must be true to mark this done.</div>
+        )}
+        {items.map((item) => (
+          <div key={item.id} className="flex items-start gap-2 px-2 py-1.5 rounded border border-warm-white/10 bg-warm-white/[0.03]">
+            <Checkbox
+              checked={item.done}
+              onCheckedChange={() => toggle(item.id)}
+              className="mt-0.5 border-warm-white/40"
+            />
+            {editingId === item.id ? (
+              <Input
+                autoFocus
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                onBlur={commitEdit}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitEdit(); } if (e.key === "Escape") setEditingId(null); }}
+                className={`${taskInputClass} h-7 text-sm flex-1`}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setEditingId(item.id); setEditText(item.text); }}
+                className={`flex-1 text-left text-sm !text-warm-white hover:!text-warm-white/80 ${item.done ? "line-through opacity-60" : ""}`}
+              >
+                {item.text}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => remove(item.id)}
+              className="!text-warm-white/60 hover:!text-destructive shrink-0 mt-0.5"
+              title="Delete criterion"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2 mt-2">
+        <Input
+          value={draftText}
+          onChange={(e) => setDraftText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItem(); } }}
+          placeholder="Add a criterion and press Enter"
+          className={`${taskInputClass} h-8 text-sm`}
+        />
+        <Button type="button" size="sm" onClick={addItem} className="bg-transparent border border-warm-white/20 !text-warm-white hover:bg-warm-white/10 h-8">
+          <Plus size={14} className="mr-1" /> Add
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+
 /* ---------------- New task dialog ---------------- */
 
 function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }: {
