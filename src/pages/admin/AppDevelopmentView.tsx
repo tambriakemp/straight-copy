@@ -97,6 +97,10 @@ export default function AppDevelopmentView() {
               embedded
             />
           </ProjectTabsContent>
+
+          <ProjectTabsContent value="tasks">
+            <ProjectTasksPanel clientProjectId={projectId!} />
+          </ProjectTabsContent>
         </ProjectTabs>
       </div>
     </AdminLayout>
