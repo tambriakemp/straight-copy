@@ -7,6 +7,7 @@ import {
   serviceClient, listTasks, createTask, updateTask, deleteTask,
   uploadTaskAttachment, listEpics, createEpic, TASK_STATUSES, TASK_PRIORITIES,
   TASK_SIZES, TASK_PLATFORMS,
+  addAcceptanceCriterion, updateAcceptanceCriterion, deleteAcceptanceCriterion,
 } from "../_shared/project-tasks.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
