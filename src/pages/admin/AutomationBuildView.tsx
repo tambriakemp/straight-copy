@@ -3,6 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import AdminContractSection from "@/components/admin/AdminContractSection";
+import {
+  ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
+} from "@/components/ProjectTabs";
 import { toast } from "sonner";
 import { differenceInCalendarDays, format } from "date-fns";
 import { syncChecklist, templateIdFor, type ChecklistItem as ChecklistItemTpl } from "@/lib/journey-checklists";
@@ -450,32 +453,47 @@ export default function AutomationBuildView() {
           </div>
         </div>
 
-        <div className="crm-shell">
-          <div className="journey-cards">
-            {nodes.map((n, i) => (
-              <JourneyNodeCard
-                key={n.id}
-                client={client}
-                node={n}
-                index={i}
-                total={total}
-                state={stateFor(i)}
-                open={openIds.has(n.id)}
-                onToggle={() => toggleNode(n.id)}
-                onUpdate={(patch) => updateNode(n.id, patch)}
-                onReload={load}
-              />
-            ))}
-            {nodes.length === 0 && (
-              <div className="journey-cards__empty">No journey stages yet.</div>
-            )}
-          </div>
-        </div>
+        <ProjectTabs defaultValue="journey" className="mt-6">
+          <ProjectTabsList>
+            <ProjectTabsTrigger value="journey">Journey</ProjectTabsTrigger>
+            <ProjectTabsTrigger value="contract">Contract</ProjectTabsTrigger>
+            <ProjectTabsTrigger value="settings">Settings</ProjectTabsTrigger>
+          </ProjectTabsList>
 
-        <AdminContractSection clientId={client.id} />
+          <ProjectTabsContent value="journey">
+            <div className="crm-shell">
+              <div className="journey-cards">
+                {nodes.map((n, i) => (
+                  <JourneyNodeCard
+                    key={n.id}
+                    client={client}
+                    node={n}
+                    index={i}
+                    total={total}
+                    state={stateFor(i)}
+                    open={openIds.has(n.id)}
+                    onToggle={() => toggleNode(n.id)}
+                    onUpdate={(patch) => updateNode(n.id, patch)}
+                    onReload={load}
+                  />
+                ))}
+                {nodes.length === 0 && (
+                  <div className="journey-cards__empty">No journey stages yet.</div>
+                )}
+              </div>
+            </div>
+          </ProjectTabsContent>
 
-        <HeyGenKeyPanel client={client} />
+          <ProjectTabsContent value="contract">
+            <AdminContractSection clientId={client.id} />
+          </ProjectTabsContent>
+
+          <ProjectTabsContent value="settings">
+            <HeyGenKeyPanel client={client} />
+          </ProjectTabsContent>
+        </ProjectTabs>
       </div>
+
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-[480px]">
