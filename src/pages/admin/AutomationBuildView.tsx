@@ -493,6 +493,12 @@ export default function AutomationBuildView() {
           <ProjectTabsContent value="settings">
             <HeyGenKeyPanel client={client} />
           </ProjectTabsContent>
+
+          {projectId && (
+            <ProjectTabsContent value="tasks">
+              <ProjectTasksPanel clientProjectId={projectId} />
+            </ProjectTabsContent>
+          )}
         </ProjectTabs>
       </div>
 
