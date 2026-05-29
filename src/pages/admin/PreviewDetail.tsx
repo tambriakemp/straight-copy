@@ -773,6 +773,9 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                 embedded
               />
             </TabsContent>
+            <TabsContent value="tasks">
+              <ProjectTasksPanel clientProjectId={project.client_project_id} />
+            </TabsContent>
           </>
         )}
 
