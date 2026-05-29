@@ -17,9 +17,15 @@ export function serviceClient(): SupabaseClient {
   );
 }
 
+export const TASK_SIZES = ["S", "M", "L"] as const;
+export type TaskSize = typeof TASK_SIZES[number];
+export const TASK_PLATFORMS = ["web", "native", "backend", "all"] as const;
+export type TaskPlatform = typeof TASK_PLATFORMS[number];
+
 export const TASK_FIELDS =
   "id, client_project_id, parent_task_id, epic_id, name, description, status, priority, " +
-  "assignee_kind, assignee_admin_id, url, due_date, tags, order_index, created_by, completed_at, created_at, updated_at";
+  "assignee_kind, assignee_admin_id, url, due_date, tags, order_index, created_by, completed_at, created_at, updated_at, " +
+  "acceptance_criteria, design_url, blocked_by, manual_prereqs, size, platform";
 
 export interface TaskInput {
   client_project_id?: string;
@@ -35,6 +41,12 @@ export interface TaskInput {
   due_date?: string | null;
   tags?: string[];
   order_index?: number;
+  acceptance_criteria?: string | null;
+  design_url?: string | null;
+  blocked_by?: string[];
+  manual_prereqs?: string | null;
+  size?: TaskSize | null;
+  platform?: TaskPlatform | null;
 }
 
 export async function listTasks(
