@@ -880,7 +880,7 @@ function EpicManagerDialog({ open, onOpenChange, epics, clientProjectId, onChang
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-ink border-warm-white/10 text-warm-white [&_*]:!text-warm-white [&_input]:!text-warm-white [&_input::placeholder]:!text-taupe">
+      <DialogContent className={taskSurfaceClass}>
         <DialogHeader>
           <DialogTitle className="font-serif text-2xl font-light text-warm-white">
             Manage epics
@@ -895,18 +895,18 @@ function EpicManagerDialog({ open, onOpenChange, epics, clientProjectId, onChang
                   className="h-6 w-6 bg-transparent border-0 cursor-pointer" />
                 <Input defaultValue={e.name}
                   onBlur={(ev) => ev.target.value !== e.name && tasksApi.updateEpic(e.id, { name: ev.target.value }).then(onChanged)}
-                  className="flex-1 border-warm-white/15 bg-transparent !text-warm-white placeholder:text-taupe" />
+                  className={taskInputClass} />
                 <button onClick={async () => { if (confirm(`Delete epic "${e.name}"?`)) { await tasksApi.deleteEpic(e.id); await onChanged(); } }}
-                  className="text-taupe hover:text-destructive"><Trash2 size={14} /></button>
+                  className="!text-warm-white/70 hover:!text-destructive"><Trash2 size={14} /></button>
               </div>
             ))}
-            {epics.length === 0 && <div className="text-xs text-taupe">No epics yet.</div>}
+            {epics.length === 0 && <div className="text-xs !text-warm-white/70">No epics yet.</div>}
           </div>
           <div className="flex items-center gap-2 border-t border-warm-white/10 pt-3">
             <input type="color" value={color} onChange={(e) => setColor(e.target.value)}
               className="h-9 w-9 bg-transparent border-0 cursor-pointer" />
             <Input placeholder="New epic name" value={name} onChange={(e) => setName(e.target.value)}
-              className="flex-1 border-warm-white/15 bg-transparent !text-warm-white placeholder:text-taupe" />
+              className={taskInputClass} />
             <Button onClick={create} disabled={!name.trim()}
               className="bg-accent text-accent-foreground hover:bg-accent/90">
               <Plus size={14} />
