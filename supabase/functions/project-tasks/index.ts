@@ -22,9 +22,9 @@ async function requireAdmin(req: Request): Promise<{ userId: string } | Response
     Deno.env.get("SUPABASE_ANON_KEY")!,
     { global: { headers: { Authorization: auth } } },
   );
-  const { data, error } = await client.auth.getClaims(token);
-  if (error || !data?.claims) return json({ error: "Unauthorized" }, 401);
-  const userId = data.claims.sub as string;
+  const { data, error } = await client.auth.getUser(token);
+  if (error || !data?.user) return json({ error: "Unauthorized" }, 401);
+  const userId = data.user.id;
   const sb = serviceClient();
   const { data: admin } = await sb.from("admin_users").select("id").eq("user_id", userId).maybeSingle();
   if (!admin) return json({ error: "Forbidden" }, 403);
