@@ -126,6 +126,7 @@ const EXTRA_FIELD_PROPS = {
       required: ["text"],
     },
   },
+  design_url: { type: "string", description: "Link to Figma, comps, or brand kit for design-dependent work." },
   blocked_by: {
     type: "array",
     items: { type: "string" },
