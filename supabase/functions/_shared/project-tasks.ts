@@ -150,7 +150,7 @@ export async function createTask(sb: SupabaseClient, input: TaskInput, createdBy
     tags: input.tags ?? [],
     order_index: input.order_index ?? nextOrder,
     created_by: createdBy,
-    acceptance_criteria: input.acceptance_criteria ?? null,
+    acceptance_criteria: normalizeCriteria(input.acceptance_criteria ?? []),
     design_url: input.design_url ?? null,
     blocked_by: input.blocked_by ?? [],
     manual_prereqs: input.manual_prereqs ?? null,
