@@ -227,12 +227,12 @@
 .crm-shell .topnav__wordmark {
   font-family: var(--crm-font-serif); font-weight: 300;
   letter-spacing: 0.25em; text-transform: uppercase;
-  color: var(--crm-warm-white); font-size: 19px;
+  color: var(--crm-warm-white); font-size: 17px;
 }
 .crm-shell .topnav__wordmark .dot { color: var(--crm-accent); margin: 0 6px; font-style: normal; }
 .crm-shell .topnav__nav { display: flex; gap: 36px; }
 .crm-shell .topnav__item {
-  font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase;
+  font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase;
   color: var(--crm-stone);
   background: transparent; border: 0; padding: 6px 0;
   cursor: pointer; position: relative;
@@ -250,16 +250,16 @@
 }
 .crm-shell .topnav__right {
   display: flex; align-items: center; gap: 32px;
-  font-size: 15px; letter-spacing: 0.15em; color: var(--crm-stone);
+  font-size: 13px; letter-spacing: 0.15em; color: var(--crm-stone);
 }
 .crm-shell .topnav__email {
   font-family: var(--crm-font-serif); font-style: italic;
-  letter-spacing: 0.02em; font-size: 17px;
+  letter-spacing: 0.02em; font-size: 15px;
 }
 .crm-shell .topnav__signout {
   display: inline-flex; align-items: center; gap: 8px;
   background: transparent; border: 0; color: var(--crm-stone);
-  font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase;
+  font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase;
   cursor: pointer; transition: color var(--crm-dur-base);
   font-family: var(--crm-font-sans);
 }
