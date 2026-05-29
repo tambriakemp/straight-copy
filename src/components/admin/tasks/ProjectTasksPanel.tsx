@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useDraggable, useDroppable, useSensor, useSensors,
 } from "@dnd-kit/core";
-import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag } from "lucide-react";
+import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -425,6 +425,21 @@ function TaskDetailSheet({
           </SheetTitle>
         </SheetHeader>
         <div className="space-y-4 mt-4">
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded border border-warm-white/15 bg-warm-white/5">
+            <span className="text-xs uppercase tracking-wider !text-warm-white/60">Task ID</span>
+            <code className="text-xs !text-warm-white font-mono truncate flex-1">{task.id}</code>
+            <button
+              type="button"
+              onClick={async () => {
+                try { await navigator.clipboard.writeText(task.id); toast.success("Task ID copied"); }
+                catch { toast.error("Copy failed"); }
+              }}
+              className="inline-flex items-center gap-1 text-xs !text-warm-white/80 hover:!text-warm-white px-2 py-1 rounded border border-warm-white/15 hover:border-warm-white/30"
+              title="Copy task ID"
+            >
+              <Copy size={12} /> Copy
+            </button>
+          </div>
           <Field label="Name">
             <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               onBlur={() => draft.name !== task.name && save({ name: draft.name })}
