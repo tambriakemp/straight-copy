@@ -551,7 +551,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 const subLabel: React.CSSProperties = {
   fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase",
-  color: "var(--crm-taupe)", marginBottom: 6,
+  color: "hsl(var(--warm-white))", marginBottom: 6,
 };
 
 /* ---------------- New task dialog ---------------- */
@@ -603,17 +603,16 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
     finally { setSubmitting(false); }
   };
 
-  const inputCls =
-    "bg-transparent border-white/30 !text-white placeholder:!text-white/60";
+  const inputCls = taskInputClass;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         aria-describedby={undefined}
-        className="bg-[#1a1612] border-white/20 !text-white max-w-3xl w-[92vw] max-h-[88vh] overflow-y-auto p-0 [&_*]:!text-white [&_input]:!text-white [&_textarea]:!text-white [&_input::placeholder]:!text-white/60 [&_textarea::placeholder]:!text-white/60"
+        className={`${taskSurfaceClass} max-w-3xl w-[92vw] max-h-[88vh] overflow-y-auto p-0`}
       >
-        <DialogHeader className="px-6 pt-6 pb-3 border-b border-white/20">
-          <DialogTitle className="!text-white text-base font-normal tracking-[0.12em] uppercase">
+        <DialogHeader className="px-6 pt-6 pb-3 border-b border-warm-white/20">
+          <DialogTitle className="!text-warm-white text-base font-normal tracking-[0.12em] uppercase">
             New task
           </DialogTitle>
         </DialogHeader>
@@ -631,7 +630,7 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
             <span style={subLabel} className="!m-0">Status</span>
             <Select value={status} onValueChange={(v) => setStatus(v as TaskStatus)}>
               <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className={taskSelectContentClass}>
                 {TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -639,7 +638,7 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
             <span style={subLabel} className="!m-0">Priority</span>
             <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
               <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className={taskSelectContentClass}>
                 {PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -647,7 +646,7 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
             <span style={subLabel} className="!m-0">Assignee</span>
             <Select value={assigneeKind} onValueChange={(v) => setAssigneeKind(v as AssigneeKind)}>
               <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className={taskSelectContentClass}>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="claude">🤖 Claude</SelectItem>
@@ -688,12 +687,12 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-white/20 flex justify-end gap-2">
+        <div className="px-6 py-4 border-t border-warm-white/20 flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             onClick={submit}
             disabled={submitting || !name.trim()}
-            className="bg-[color:var(--crm-accent)] !text-white hover:bg-[color:var(--crm-accent-hover)]"
+            className="bg-accent !text-accent-foreground hover:bg-accent/90"
           >
             {submitting ? "Creating…" : "Create task"}
           </Button>
