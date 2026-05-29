@@ -127,6 +127,12 @@ export async function createTask(sb: SupabaseClient, input: TaskInput, createdBy
     tags: input.tags ?? [],
     order_index: input.order_index ?? nextOrder,
     created_by: createdBy,
+    acceptance_criteria: input.acceptance_criteria ?? null,
+    design_url: input.design_url ?? null,
+    blocked_by: input.blocked_by ?? [],
+    manual_prereqs: input.manual_prereqs ?? null,
+    size: input.size ?? null,
+    platform: input.platform ?? null,
   }).select(TASK_FIELDS).single();
   if (error) throw error;
   return data;
@@ -137,6 +143,7 @@ export async function updateTask(sb: SupabaseClient, id: string, input: TaskInpu
   for (const k of [
     "parent_task_id", "epic_id", "name", "description", "status", "priority",
     "assignee_kind", "assignee_admin_id", "url", "due_date", "tags", "order_index",
+    "acceptance_criteria", "design_url", "blocked_by", "manual_prereqs", "size", "platform",
   ] as const) {
     if (k in input) patch[k] = (input as any)[k];
   }
