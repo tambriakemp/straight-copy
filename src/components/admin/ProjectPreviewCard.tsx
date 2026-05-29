@@ -9,11 +9,13 @@ type Props = {
   clientProjectId: string;
   projectName: string;
   clientLabel?: string | null;
+  /** When true, renders the inner preview directly without the collapsible card chrome. */
+  embedded?: boolean;
 };
 
 type PreviewRow = { id: string; slug: string; name: string };
 
-export default function ProjectPreviewCard({ clientId, clientProjectId, projectName, clientLabel }: Props) {
+export default function ProjectPreviewCard({ clientId, clientProjectId, projectName, clientLabel, embedded }: Props) {
   const [preview, setPreview] = useState<PreviewRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -64,8 +66,64 @@ export default function ProjectPreviewCard({ clientId, clientProjectId, projectN
     setTimeout(() => setCopied(false), 1500);
   };
 
+  if (embedded) {
+    if (loading) return <div style={{ padding: 24, color: "var(--crm-taupe)" }}>Loading…</div>;
+    if (!preview) {
+      return (
+        <div style={{ padding: "40px 0", textAlign: "center" }}>
+          <div style={{ color: "var(--crm-taupe)", fontSize: 14, marginBottom: 14 }}>
+            No preview attached to this project yet.
+          </div>
+          <button className="crm-btn crm-btn--primary" onClick={create} disabled={creating}>
+            <Plus size={14} /> {creating ? "Creating…" : "Create preview"}
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+          <MonitorSmartphone size={14} style={{ color: "var(--crm-accent)" }} />
+          <PreviewNameInline
+            name={preview.name}
+            onSave={async (next) => {
+              const { data } = await supabase.functions.invoke("preview-admin", {
+                body: { action: "update", id: preview.id, name: next },
+              });
+              if (data?.project) setPreview({ ...preview, name: data.project.name });
+              else await load();
+              toast.success("Renamed");
+            }}
+          />
+          <code style={{ fontSize: 12, color: "var(--crm-taupe)", fontFamily: "monospace" }}>
+            /p/{preview.slug.slice(0, 12)}…
+          </code>
+          <span
+            role="button"
+            onClick={(e) => { e.stopPropagation(); void copy(); }}
+            className="crm-btn crm-btn--ghost crm-btn--sm"
+            title="Copy share link"
+          >
+            {copied ? <Check size={12} /> : <Copy size={12} />}
+          </span>
+          <a
+            href={`${base}/p/${preview.slug}`}
+            target="_blank"
+            rel="noreferrer"
+            className="crm-btn crm-btn--ghost crm-btn--sm"
+            title="Open preview"
+          >
+            <ExternalLink size={12} />
+          </a>
+        </div>
+        <PreviewDetail overrideId={preview.id} embedded />
+      </div>
+    );
+  }
+
   return (
     <div style={{
+
       marginTop: 24,
       background: "hsl(40 20% 97% / 0.03)",
       border: "1px solid var(--crm-border-dark)",

@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import AiEditDialog from "@/components/admin/preview/AiEditDialog";
+import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
+import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
 
 type Project = any; type FileRow = any; type Comment = any; type Reply = any;
 type Status = "open" | "in_progress" | "resolved";
@@ -406,7 +408,14 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           )}
           <TabsTrigger value="files" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Files</TabsTrigger>
           <TabsTrigger value="activity" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Activity</TabsTrigger>
+          {!embedded && project.client_id && project.client_project_id && (
+            <>
+              <TabsTrigger value="proposals" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Proposals</TabsTrigger>
+              <TabsTrigger value="schedule" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Payment Schedule</TabsTrigger>
+            </>
+          )}
         </TabsList>
+
 
 
 
@@ -745,6 +754,26 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         <TabsContent value="activity">
           <ApprovalActivity projectId={project.id} />
         </TabsContent>
+
+        {!embedded && project.client_id && project.client_project_id && (
+          <>
+            <TabsContent value="proposals">
+              <ProjectProposalsPanel
+                clientId={project.client_id}
+                clientProjectId={project.client_project_id}
+                portalUrl={`${base}/portal/${project.client_id}`}
+              />
+            </TabsContent>
+            <TabsContent value="schedule">
+              <ProjectInvoicesCard
+                clientId={project.client_id}
+                clientProjectId={project.client_project_id}
+                embedded
+              />
+            </TabsContent>
+          </>
+        )}
+
       </Tabs>
       </div>
 

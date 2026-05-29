@@ -1,60 +1,59 @@
 ## Goal
 
-Let admins add an external URL (e.g. `https://menovia-landing.lovable.app`) as a preview. The system auto-discovers the site's pages via Firecrawl, lists each in admin + the client portal with a **View** button, a **Comments thread**, and an **Approve / Unapprove** button. Approvals feed the existing Activity log.
+Replace the stacked/expandable section layout on every project detail page with a clean horizontal tabbed layout. Each project type shows only the tabs that apply to it, on both the admin side and the client portal side.
 
-## Why no in-page pins
+## Tab map per project type
 
-Sites we don't host block iframe embedding (X-Frame-Options/CSP) and cross-origin script injection, so the existing pin/comment widget can't be injected into an external site. Per-page comment threads are the reliable replacement.
+App Development / Web Development / Marketing
+- Proposals
+- Payment Schedule
+- Preview
 
-## What changes
+Site Preview
+- Preview (keeps its existing internal Pages/Files/Comments/Settings sub-tabs)
+- Proposals
+- Payment Schedule
 
-### 1. Database (one migration)
+Automation Build
+- Journey (existing journey board)
+- Contract
+- Brand Voice / Brand Kit (admin: links; portal: chat + confirmation)
+- Account Access (portal-only)
+- Subscription
+- Payment Schedule
 
-- **`preview_projects`** — add columns:
-  - `source_type text not null default 'upload'` — `'upload'` | `'external_url'`
-  - `external_base_url text` — e.g. `https://menovia-landing.lovable.app`
-  - `last_crawled_at timestamptz`
-- **`preview_external_pages`** — new table for the discovered page list:
-  - `project_id`, `path` (e.g. `/about`), `label`, `order_index`, timestamps
-  - Admin-manageable + service role policies (same pattern as other preview_* tables)
-- **`preview_page_comments`** — new table for per-page client comments on external previews:
-  - `project_id`, `path`, `author_name`, `body`, `created_at`
-  - Public insert via edge function only; admin select/manage; service role manages
+The header (project name, eyebrow, back link) stays above the tab bar. The current "expandable Preview" card on the portal becomes a regular tab — no more accordion.
 
-### 2. Firecrawl connector
+## Admin side changes
 
-Add the Firecrawl connector (server-side `FIRECRAWL_API_KEY`). Used only at create-time and on "Re-crawl" to call `POST /v2/map` and get the URL list. Admin reviews and edits the list before saving.
+`src/pages/admin/AppDevelopmentView.tsx`
+- Wrap the existing Proposals list, `ProjectInvoicesCard`, and `ProjectPreviewCard` in a `Tabs` component (`@/components/ui/tabs`) styled to match the CRM dark theme.
+- Tabs: Proposals (default) · Payment Schedule · Preview.
+- Keep the existing "Upload proposal / Copy portal link" toolbar inside the Proposals tab only.
 
-### 3. Edge functions
+`src/pages/admin/AutomationBuildView.tsx`
+- Identify the existing top-level sections (journey board, AdminContractSection, brand voice/kit blocks, subscription/invoices area) and group them under tabs: Journey · Contract · Brand Kit · Subscription · Payment Schedule.
+- The journey board stays the default tab so today's workflow is unchanged.
+- No business-logic changes — just move existing JSX blocks into `TabsContent` wrappers.
 
-- **`preview-crawl`** (new) — admin-only. Body `{ url }` → calls Firecrawl `map`, returns deduped list of relative paths + suggested labels.
-- **`preview-approvals`** (existing) — already path/kind based; works as-is for external previews (`kind = 'page'`, `path = '/about'`).
-- **`preview-page-comments`** (new) — `GET ?project_id&path` lists comments, `POST` adds one (name + body), `DELETE` for admin removal. Public read/write for the client portal.
+`src/pages/admin/PreviewDetail.tsx` (site_preview)
+- Wrap the whole detail in an outer `Tabs`: Preview (default, contains the existing Pages/Files/Comments/Settings tabs untouched) · Proposals · Payment Schedule.
+- Reuse the proposals list block from `AppDevelopmentView` (extract into a small shared `ProjectProposalsPanel` component to avoid duplication) and `ProjectInvoicesCard` for the schedule tab.
 
-### 4. Admin UI (`/admin/previews` + `PreviewDetail`)
+## Portal side changes
 
-- **New "Add preview" flow** with a type toggle: **Upload files** | **External URL**.
-- External URL form: paste base URL → "Crawl pages" button calls `preview-crawl` → editable list (add/remove/rename/reorder rows) → Save.
-- `PreviewDetail` for external previews: hides upload/file UI, shows the pages table with View link, manual add/remove, "Re-crawl" button, and the existing Activity tab (unchanged — already path-based).
+`src/pages/PortalProject.tsx`
+- Replace the long stacked `<section>` blocks (Contract, Preview, Proposals, BrandVoice, AccountAccess, Subscription, BrandKit, Invoice) with a single `Tabs` element below the project header.
+- Tab visibility is driven by the existing `isAutomation` / `isPreviewable` / `currentProject` flags so each project type only sees relevant tabs.
+- Default tab per type: automation_build → Contract; app/web/marketing → Proposals; site_preview → Preview.
+- `PortalProjectPreviewCard` is rendered in the Preview tab as a flat panel — drop the expand/collapse chrome.
 
-### 5. Client portal (`PortalProjectPreviewCard`)
+## Shared work
 
-- For external previews, render each discovered page as a row with:
-  - **View** button → opens `external_base_url + path` in a new tab
-  - **Approve / Undo** (reuses existing `preview-approvals` call)
-  - **Comments** disclosure: thread of prior comments + name + textarea + "Send"
-- Approvals continue to flow into the Activity log automatically.
+- Add a small `ProjectTabs` wrapper around `@/components/ui/tabs` with CRM-themed classes (borderless underline tabs, serif italic active state, taupe inactive) so admin and portal share styling.
+- Extract `ProjectProposalsPanel` (admin) so `AppDevelopmentView` and `PreviewDetail` can both mount it.
+- No edge function, schema, or data-fetching changes. URL routes stay the same; tab state is local (`useState`) and not persisted in the URL unless you want it (open question below).
 
-### 6. Review email
+## Open question
 
-`send-preview-review-email` instructions updated to mention that for linked sites, clients leave feedback as comments under each page (since pins aren't available).
-
-## Out of scope
-
-- No iframe embedding attempt, no pin/selector capture on external sites.
-- No automatic re-crawl on a schedule — admin triggers it.
-- No screenshot capture per page (can add later if useful).
-
-## Secrets needed
-
-- `FIRECRAWL_API_KEY` — added via Firecrawl connector after you approve the plan.
+Persist the active tab in the URL (`?tab=preview`) so reloads and shared links land on the same tab? Default plan is local state only; happy to add the query param if you want shareable deep links.
