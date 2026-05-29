@@ -877,37 +877,35 @@ function EpicManagerDialog({ open, onOpenChange, epics, clientProjectId, onChang
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#1a1612] border-[color:var(--crm-border-dark)]" style={{ color: "var(--crm-warm-white)" }}>
+      <DialogContent className="bg-ink border-warm-white/10 text-warm-white [&_*]:!text-warm-white [&_input]:!text-warm-white [&_input::placeholder]:!text-taupe">
         <DialogHeader>
-          <DialogTitle style={{ color: "var(--crm-warm-white)", fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 24 }}>
+          <DialogTitle className="font-serif text-2xl font-light text-warm-white">
             Manage epics
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div className="flex flex-col gap-2">
             {epics.map((e) => (
-              <div key={e.id} className="flex items-center gap-2 p-2 border border-[color:var(--crm-border-dark)] rounded">
+              <div key={e.id} className="flex items-center gap-2 rounded border border-warm-white/10 p-2 text-warm-white">
                 <input type="color" defaultValue={e.color ?? "#a87a3a"}
                   onChange={(ev) => tasksApi.updateEpic(e.id, { color: ev.target.value }).then(onChanged)}
                   className="h-6 w-6 bg-transparent border-0 cursor-pointer" />
                 <Input defaultValue={e.name}
                   onBlur={(ev) => ev.target.value !== e.name && tasksApi.updateEpic(e.id, { name: ev.target.value }).then(onChanged)}
-                  className="flex-1 bg-transparent border-[color:var(--crm-border-dark)] placeholder:text-[color:var(--crm-taupe)]"
-                  style={{ color: "var(--crm-warm-white)" }} />
+                  className="flex-1 border-warm-white/15 bg-transparent !text-warm-white placeholder:text-taupe" />
                 <button onClick={async () => { if (confirm(`Delete epic "${e.name}"?`)) { await tasksApi.deleteEpic(e.id); await onChanged(); } }}
-                  className="text-[color:var(--crm-taupe)] hover:text-red-400"><Trash2 size={14} /></button>
+                  className="text-taupe hover:text-destructive"><Trash2 size={14} /></button>
               </div>
             ))}
-            {epics.length === 0 && <div className="text-xs" style={{ color: "var(--crm-taupe)" }}>No epics yet.</div>}
+            {epics.length === 0 && <div className="text-xs text-taupe">No epics yet.</div>}
           </div>
-          <div className="border-t border-[color:var(--crm-border-dark)] pt-3 flex gap-2 items-center">
+          <div className="flex items-center gap-2 border-t border-warm-white/10 pt-3">
             <input type="color" value={color} onChange={(e) => setColor(e.target.value)}
               className="h-9 w-9 bg-transparent border-0 cursor-pointer" />
             <Input placeholder="New epic name" value={name} onChange={(e) => setName(e.target.value)}
-              className="flex-1 bg-transparent border-[color:var(--crm-border-dark)] placeholder:text-[color:var(--crm-taupe)]"
-              style={{ color: "var(--crm-warm-white)" }} />
+              className="flex-1 border-warm-white/15 bg-transparent !text-warm-white placeholder:text-taupe" />
             <Button onClick={create} disabled={!name.trim()}
-              style={{ background: "var(--crm-accent)", color: "var(--crm-ink)" }}>
+              className="bg-accent text-accent-foreground hover:bg-accent/90">
               <Plus size={14} />
             </Button>
           </div>
