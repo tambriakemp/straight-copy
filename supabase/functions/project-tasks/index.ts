@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
     }
 
     if (parts[0] === "meta" && method === "GET") {
-      return json({ statuses: TASK_STATUSES, priorities: TASK_PRIORITIES, assignee_kinds: ASSIGNEE_KINDS });
+      return json({ statuses: TASK_STATUSES, priorities: TASK_PRIORITIES, assignee_kinds: ASSIGNEE_KINDS, sizes: TASK_SIZES, platforms: TASK_PLATFORMS });
     }
 
     return json({ error: "Not found", path, method }, 404);
