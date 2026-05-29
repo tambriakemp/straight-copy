@@ -28,6 +28,7 @@ export default function Tokens() {
   const [revealed, setRevealed] = useState<string | null>(null);
 
   const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crm-api`;
+  const mcpUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/project-tasks-mcp`;
 
   const load = async () => {
     const { data, error } = await supabase
@@ -69,89 +70,149 @@ export default function Tokens() {
         <div className="roster__head">
           <div className="roster__title-block">
             <div className="roster__eyebrow">Integrations</div>
-            <h1 className="roster__title">API <em>tokens</em></h1>
+            <h1 className="roster__title"><em>Settings</em></h1>
             <hr className="roster__rule" />
             <p className="roster__sub">
-              Bearer tokens for the public REST API. Endpoint:{" "}
-              <code style={{ fontFamily: "monospace", fontSize: 14, color: "hsl(40 20% 97%)", background: "hsl(36 5% 16%)", padding: "2px 6px" }}>
-                {apiUrl}
-              </code>
+              API tokens and MCP connection settings.
             </p>
           </div>
         </div>
 
-        <div style={{ background: "hsl(36 5% 16%)", padding: 28, marginBottom: 24, display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <label className="crm-label">Token label</label>
-            <input
-              className="crm-input"
-              placeholder="e.g. Zapier production"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-            />
+        {/* ── MCP Connection ── */}
+        <div style={{ background: "hsl(36 5% 16%)", padding: 28, marginBottom: 24 }}>
+          <h2 className="font-serif italic text-xl" style={{ color: "hsl(40 20% 97%)", marginBottom: 4 }}>MCP Connection</h2>
+          <p style={{ fontSize: 15, color: "hsl(30 8% 62%)", marginBottom: 20 }}>
+            Connect Claude or any MCP client to manage tasks via natural language.
+          </p>
+
+          <div style={{ display: "grid", gap: 16 }}>
+            <div>
+              <label className="crm-label">MCP Server URL</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <code
+                  style={{
+                    flex: 1,
+                    fontFamily: "monospace", fontSize: 13,
+                    color: "hsl(40 20% 97%)", background: "hsl(40 8% 10%)",
+                    padding: "10px 12px", border: "1px solid hsl(40 20% 97% / 0.08)",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {mcpUrl}
+                </code>
+                <button
+                  className="crm-btn crm-btn--ghost crm-btn--sm"
+                  onClick={() => { navigator.clipboard.writeText(mcpUrl); toast.success("Copied"); }}
+                >
+                  <Copy className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 14, color: "hsl(30 8% 62%)", lineHeight: 1.6 }}>
+              <p style={{ marginBottom: 8 }}><strong style={{ color: "hsl(40 20% 97%)" }}>How to connect in Claude:</strong></p>
+              <ol style={{ paddingLeft: 20, margin: 0 }}>
+                <li>Open <em>Claude.ai</em> → Settings → Connectors</li>
+                <li>Click "Add custom connector"</li>
+                <li>Paste the MCP Server URL above</li>
+                <li>Sign in with your admin credentials when prompted</li>
+                <li>Approve access — your task tools will appear in chat</li>
+              </ol>
+            </div>
+
+            <div style={{
+              fontSize: 13, color: "hsl(30 8% 52%)",
+              borderTop: "1px solid hsl(40 20% 97% / 0.06)",
+              paddingTop: 12,
+            }}>
+              OAuth sessions are tied to your admin account. Revoke access by deleting tokens below.
+            </div>
           </div>
-          <button className="crm-btn crm-btn--bronze" onClick={create} disabled={busy}>
-            Generate
-          </button>
         </div>
 
-        {tokens.length === 0 ? (
-          <div className="crm-empty">
-            <div className="crm-empty__glyph">∅</div>
-            <div className="crm-empty__title">No <em>tokens</em> yet.</div>
-            <div className="crm-empty__sub">Generate a token above to use the public REST API.</div>
+        {/* ── API Tokens ── */}
+        <div style={{ background: "hsl(36 5% 16%)", padding: 28, marginBottom: 24 }}>
+          <h2 className="font-serif italic text-xl" style={{ color: "hsl(40 20% 97%)", marginBottom: 4 }}>API Tokens</h2>
+          <p style={{ fontSize: 15, color: "hsl(30 8% 62%)", marginBottom: 20 }}>
+            Bearer tokens for the public REST API. Endpoint:{" "}
+            <code style={{ fontFamily: "monospace", fontSize: 13, color: "hsl(40 20% 97%)", background: "hsl(40 8% 10%)", padding: "2px 6px" }}>
+              {apiUrl}
+            </code>
+          </p>
+
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 24 }}>
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <label className="crm-label">Token label</label>
+              <input
+                className="crm-input"
+                placeholder="e.g. Zapier production"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+            </div>
+            <button className="crm-btn crm-btn--bronze" onClick={create} disabled={busy}>
+              Generate
+            </button>
           </div>
-        ) : (
-          <>
-            <div className="roster__head-row" style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1.2fr" }}>
-              <div className="roster__col-h" style={{ cursor: "default" }}>Label</div>
-              <div className="roster__col-h" style={{ cursor: "default" }}>Created</div>
-              <div className="roster__col-h" style={{ cursor: "default" }}>Last used</div>
-              <div className="roster__col-h" style={{ cursor: "default" }}>Status</div>
-              <div className="roster__col-h" style={{ cursor: "default", justifyContent: "flex-end" }}>Actions</div>
+
+          {tokens.length === 0 ? (
+            <div className="crm-empty">
+              <div className="crm-empty__glyph">∅</div>
+              <div className="crm-empty__title">No <em>tokens</em> yet.</div>
+              <div className="crm-empty__sub">Generate a token above to use the public REST API.</div>
             </div>
-            <div className="roster__list">
-              {tokens.map((t) => (
-                <div
-                  key={t.id}
-                  className="roster__row"
-                  style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1.2fr", cursor: "default" }}
-                >
-                  <div className="roster__name" style={{ fontSize: 18 }}>{t.label}</div>
-                  <div style={{ fontSize: 13, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
-                    {format(new Date(t.created_at), "MMM d, yyyy")}
-                  </div>
-                  <div style={{ fontSize: 13, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
-                    {t.last_used_at ? format(new Date(t.last_used_at), "MMM d, HH:mm") : "—"}
-                  </div>
-                  <div>
-                    <span style={{
-                      display: "inline-flex", alignItems: "center", gap: 8,
-                      fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase",
-                      color: t.revoked ? "hsl(8 55% 70%)" : "hsl(150 35% 70%)",
-                    }}>
+          ) : (
+            <>
+              <div className="roster__head-row" style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1.2fr" }}>
+                <div className="roster__col-h" style={{ cursor: "default" }}>Label</div>
+                <div className="roster__col-h" style={{ cursor: "default" }}>Created</div>
+                <div className="roster__col-h" style={{ cursor: "default" }}>Last used</div>
+                <div className="roster__col-h" style={{ cursor: "default" }}>Status</div>
+                <div className="roster__col-h" style={{ cursor: "default", justifyContent: "flex-end" }}>Actions</div>
+              </div>
+              <div className="roster__list">
+                {tokens.map((t) => (
+                  <div
+                    key={t.id}
+                    className="roster__row"
+                    style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1.2fr", cursor: "default" }}
+                  >
+                    <div className="roster__name" style={{ fontSize: 18 }}>{t.label}</div>
+                    <div style={{ fontSize: 13, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
+                      {format(new Date(t.created_at), "MMM d, yyyy")}
+                    </div>
+                    <div style={{ fontSize: 13, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
+                      {t.last_used_at ? format(new Date(t.last_used_at), "MMM d, HH:mm") : "—"}
+                    </div>
+                    <div>
                       <span style={{
-                        display: "inline-block", width: 8, height: 8, borderRadius: "50%",
-                        background: t.revoked ? "hsl(8 55% 55%)" : "hsl(150 30% 55%)",
-                      }} />
-                      {t.revoked ? "Revoked" : "Active"}
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                    {!t.revoked && (
-                      <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => revoke(t.id)}>
-                        Revoke
+                        display: "inline-flex", alignItems: "center", gap: 8,
+                        fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase",
+                        color: t.revoked ? "hsl(8 55% 70%)" : "hsl(150 35% 70%)",
+                      }}>
+                        <span style={{
+                          display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                          background: t.revoked ? "hsl(8 55% 55%)" : "hsl(150 30% 55%)",
+                        }} />
+                        {t.revoked ? "Revoked" : "Active"}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                      {!t.revoked && (
+                        <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => revoke(t.id)}>
+                          Revoke
+                        </button>
+                      )}
+                      <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => remove(t.id)}>
+                        <Trash2 className="h-3 w-3" />
                       </button>
-                    )}
-                    <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => remove(t.id)}>
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
+                ))}
+              </div>
+            </>
+          )}
+        </div>
 
         <Dialog open={!!revealed} onOpenChange={(o) => !o && setRevealed(null)}>
           <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md">
