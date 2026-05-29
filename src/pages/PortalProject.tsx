@@ -8,6 +8,10 @@ import ProposalsSection from "@/components/portal/ProposalsSection";
 import InvoiceSection from "@/components/portal/InvoiceSection";
 import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
 import PortalProjectPreviewCard from "@/components/portal/PortalProjectPreviewCard";
+import {
+  ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
+} from "@/components/ProjectTabs";
+
 
 type ProjectRow = { id: string; type: string; name: string; status: string; updated_at: string };
 
