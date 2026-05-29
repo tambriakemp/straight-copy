@@ -246,7 +246,7 @@ app.all("/*", async (c) => {
       },
     });
   }
-  const res = await transport.handleRequest(c.req.raw, mcp);
+  const res = await mcpHandler(c.req.raw);
   const headers = new Headers(res.headers);
   for (const [k, v] of Object.entries(corsHeaders)) headers.set(k, v);
   return new Response(res.body, { status: res.status, headers });
