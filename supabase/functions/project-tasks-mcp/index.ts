@@ -211,7 +211,7 @@ mcp.tool({
   handler: async ({ project_id, name, color }: any) => textResult(await createEpic(sb, project_id, name, color)),
 });
 
-const app = new Hono();
+const app = new Hono().basePath("/project-tasks-mcp");
 const transport = new StreamableHttpTransport();
 
 app.options("/*", (c) => new Response(null, { headers: corsHeaders }));
