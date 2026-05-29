@@ -558,6 +558,16 @@ function TaskDetailSheet({
               className={taskInputClass} />
           </Field>
 
+          <AcceptanceCriteriaChecklist
+            items={draft.acceptance_criteria ?? []}
+            onChange={(items) => {
+              setDraft({ ...draft, acceptance_criteria: items });
+              save({ acceptance_criteria: items });
+            }}
+          />
+
+
+
           {/* Attachments */}
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
