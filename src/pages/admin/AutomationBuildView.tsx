@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import AdminContractSection from "@/components/admin/AdminContractSection";
+import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
 } from "@/components/ProjectTabs";
@@ -92,7 +93,7 @@ interface Client {
 
 // ---------- Page ----------
 export default function AutomationBuildView() {
-  const { id } = useParams<{ id: string }>();
+  const { id, projectId } = useParams<{ id: string; projectId?: string }>();
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
   const [nodes, setNodes] = useState<JourneyNode[]>([]);
@@ -457,6 +458,7 @@ export default function AutomationBuildView() {
           <ProjectTabsList>
             <ProjectTabsTrigger value="journey">Journey</ProjectTabsTrigger>
             <ProjectTabsTrigger value="contract">Contract</ProjectTabsTrigger>
+            {projectId && <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>}
             <ProjectTabsTrigger value="settings">Settings</ProjectTabsTrigger>
           </ProjectTabsList>
 
@@ -491,6 +493,12 @@ export default function AutomationBuildView() {
           <ProjectTabsContent value="settings">
             <HeyGenKeyPanel client={client} />
           </ProjectTabsContent>
+
+          {projectId && (
+            <ProjectTabsContent value="tasks">
+              <ProjectTasksPanel clientProjectId={projectId} />
+            </ProjectTabsContent>
+          )}
         </ProjectTabs>
       </div>
 

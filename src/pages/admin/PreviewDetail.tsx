@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import AiEditDialog from "@/components/admin/preview/AiEditDialog";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
+import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 
 type Project = any; type FileRow = any; type Comment = any; type Reply = any;
 type Status = "open" | "in_progress" | "resolved";
@@ -412,6 +413,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
             <>
               <TabsTrigger value="proposals" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Proposals</TabsTrigger>
               <TabsTrigger value="schedule" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Payment Schedule</TabsTrigger>
+              <TabsTrigger value="tasks" style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>Tasks</TabsTrigger>
             </>
           )}
         </TabsList>
@@ -770,6 +772,9 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                 clientProjectId={project.client_project_id}
                 embedded
               />
+            </TabsContent>
+            <TabsContent value="tasks">
+              <ProjectTasksPanel clientProjectId={project.client_project_id} />
             </TabsContent>
           </>
         )}

@@ -7,6 +7,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
 import ProjectPreviewCard from "@/components/admin/ProjectPreviewCard";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
+import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
 } from "@/components/ProjectTabs";
@@ -26,7 +27,7 @@ export default function AppDevelopmentView() {
   const [project, setProject] = useState<Project | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"proposals" | "schedule" | "preview">("proposals");
+  const [tab, setTab] = useState<"proposals" | "schedule" | "preview" | "tasks">("proposals");
 
   const portalUrl = client?.id ? `${window.location.origin}/portal/${client.id}` : "";
 
@@ -76,6 +77,7 @@ export default function AppDevelopmentView() {
             <ProjectTabsTrigger value="proposals">Proposals</ProjectTabsTrigger>
             <ProjectTabsTrigger value="schedule">Payment Schedule</ProjectTabsTrigger>
             <ProjectTabsTrigger value="preview">Preview</ProjectTabsTrigger>
+            <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>
           </ProjectTabsList>
 
           <ProjectTabsContent value="proposals">
@@ -94,6 +96,10 @@ export default function AppDevelopmentView() {
               clientLabel={client.business_name}
               embedded
             />
+          </ProjectTabsContent>
+
+          <ProjectTabsContent value="tasks">
+            <ProjectTasksPanel clientProjectId={projectId!} />
           </ProjectTabsContent>
         </ProjectTabs>
       </div>
