@@ -288,55 +288,8 @@ export default function AccountAccessSection({
                     </div>
                   )}
 
-                  {a.key === "heygen" && (
-                    <div className="portal-access__subs" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      <label className="portal-access__sub">
-                        <input
-                          type="checkbox"
-                          checked={!!checks.heygen_use_mcp}
-                          onChange={() =>
-                            setChecks((prev) => ({ ...prev, heygen_use_mcp: !prev.heygen_use_mcp }))
-                          }
-                        />
-                        <span>I prefer to use an MCP server (no API key needed)</span>
-                      </label>
 
-                      {!checks.heygen_use_mcp && (
-                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          <input
-                            type="password"
-                            style={{
-                              flex: 1,
-                              minWidth: 220,
-                              height: 38,
-                              padding: "0 12px",
-                              fontFamily: "monospace",
-                              fontSize: 15,
-                              background: "rgba(0,0,0,0.25)",
-                              border: "1px solid hsl(30 8% 28%)",
-                              borderRadius: 4,
-                              color: "hsl(40 20% 92%)",
-                            }}
-                            placeholder="Paste your HeyGen API key…"
-                            value={heygenKeyDraft}
-                            onChange={(e) => setHeygenKeyDraft(e.target.value)}
-                            autoComplete="off"
-                            spellCheck={false}
-                          />
-                          <button
-                            type="button"
-                            className="crm-btn crm-btn--bronze crm-btn--sm"
-                            onClick={() =>
-                              setFields((prev) => ({ ...prev, heygen_api_key: heygenKeyDraft.trim() }))
-                            }
-                            disabled={!heygenKeyDraft.trim() || heygenKeyDraft.trim() === fields.heygen_api_key}
-                          >
-                            {fields.heygen_api_key && fields.heygen_api_key === heygenKeyDraft.trim() ? "Saved" : "Save"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
+
                 </li>
               );
             })}
