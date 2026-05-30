@@ -375,7 +375,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     title: "Pricing Decision",
     subtitle: "Guide.",
     filenamePrefix: "pricing-decision-guide",
-    enabled: false,
-    buildPrompt: PLACEHOLDER("Pricing Decision Guide"),
+    enabled: true,
+    buildPrompt: PRICING_DECISION_PROMPT,
   },
 ];
