@@ -576,18 +576,9 @@ export default function PortalProject() {
                         }}
                       />
                     ) : (
-                      <BrandKitChat
-                        node={node!}
-                        stage={stage}
-                        messages={messages}
-                        input={input}
-                        setInput={setInput}
-                        isStreaming={isStreaming}
-                        readyToSubmit={readyToSubmit}
-                        submitting={submitting}
-                        onSend={send}
-                        onSubmit={submit}
-                        scrollRef={scrollRef}
+                      <BrandKitChatLauncher
+                        clientId={clientId!}
+                        hasConversation={messages.length > 0}
                         onSwitchToFast={() => setBkPath("yes")}
                       />
                     )}
