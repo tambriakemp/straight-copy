@@ -183,6 +183,7 @@ export default function ClientDetail() {
               {client.contact_name ? `${client.contact_name} · ` : ""}{client.contact_email || "no email"}{client.contact_phone ? ` · ${client.contact_phone}` : ""}
             </p>
           </div>
+          <ClientPortalActions clientId={client.id} />
         </div>
 
         <div className="roster__toolbar" style={{ marginTop: 24 }}>
