@@ -8,6 +8,7 @@ import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
 import ProjectPreviewCard from "@/components/admin/ProjectPreviewCard";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
+import ClientPortalActions from "@/components/admin/ClientPortalActions";
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
 } from "@/components/ProjectTabs";
