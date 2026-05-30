@@ -554,7 +554,7 @@ export default function PortalProject() {
               });
             }
 
-            if (isAutomation && (isBrandKitDone || isBrandKitActive)) {
+            if (isAutomation) {
               clientTaskPanels.push({
                 value: "brand-kit",
                 label: "Brand Kit",
