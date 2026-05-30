@@ -317,6 +317,25 @@ const WIKI_DOC_TYPES = ["SOP","Vendor Info","Client Resource","Reference","Polic
 const WIKI_STATUSES = ["Draft","Active","Archived"] as const;
 const WIKI_ACCESS = ["Founder Only","All Staff"] as const;
 
+// SOP 8-section template. The wiki editor parses content by these <h2> headings,
+// so SOPs MUST be serialized in this exact structure or they render as one blob.
+const SOP_SECTIONS: { key: string; heading: string; guidance: string }[] = [
+  { key: "purpose",  heading: "1. Purpose",                guidance: "One or two sentences. Why this SOP exists and what outcome it produces." },
+  { key: "when",     heading: "2. When to Run This SOP",   guidance: "The specific trigger: date, cadence, threshold, or event. Avoid 'as needed'." },
+  { key: "inputs",   heading: "3. Inputs Required",        guidance: "What must be on hand before starting (data, access, prior docs). Use bullets." },
+  { key: "tools",    heading: "4. Tools / Systems Used",   guidance: "Every app, file, or platform touched. Include links where helpful." },
+  { key: "steps",    heading: "5. Step-by-Step Process",   guidance: "Numbered steps, one discrete action each. State judgment criteria where needed." },
+  { key: "outputs",  heading: "6. Outputs / Deliverables", guidance: "What exists at the end that didn't exist at the start." },
+  { key: "done",     heading: "7. Definition of Done",     guidance: "Checklist a reviewer would use to confirm the SOP was completed correctly." },
+  { key: "pitfalls", heading: "8. Common Pitfalls",        guidance: "Mistakes made before or easy to make. Save future-you the pain." },
+];
+
+function serializeSopSections(sections: Record<string, string>): string {
+  return SOP_SECTIONS
+    .map(s => `<h2>${s.heading}</h2>\n${(sections[s.key] || "").trim() || "<p></p>"}`)
+    .join("\n");
+}
+
 function wikiSlugify(s: string) {
   return s.toLowerCase().trim()
     .replace(/[^a-z0-9\s-]/g, "")
