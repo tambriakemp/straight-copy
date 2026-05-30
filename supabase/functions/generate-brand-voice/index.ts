@@ -250,16 +250,66 @@ Deno.serve(async (req) => {
         })
         .eq("id", clientId);
 
-      // Update brand_voice journey_node (best-effort)
+      // Update brand_voice journey_node (best-effort) — this also flips the
+      // mirrored "document_generated" task via the bidirectional sync trigger.
       await supabase
         .from("journey_nodes")
         .update({
           asset_url: pdfUrl,
           asset_label: "Brand Voice Document (PDF)",
-          status: "complete",
         })
         .eq("client_id", clientId)
         .eq("key", "brand_voice");
+
+      // Flip checklist item explicitly so the task auto-completes.
+      try {
+        const { data: node } = await supabase
+          .from("journey_nodes")
+          .select("id, checklist, client_project_id")
+          .eq("client_id", clientId)
+          .eq("key", "brand_voice")
+          .maybeSingle();
+        if (node) {
+          const list = Array.isArray(node.checklist) ? node.checklist as any[] : [];
+          const next = list.map((it) =>
+            it && it.key === "brand_voice.document_generated" ? { ...it, done: true } : it,
+          );
+          await supabase.from("journey_nodes").update({ checklist: next }).eq("id", node.id);
+
+          // Mirror URL + PDF attachment onto the task.
+          if (node.client_project_id) {
+            const { data: task } = await supabase
+              .from("project_tasks")
+              .select("id")
+              .eq("client_project_id", node.client_project_id)
+              .eq("journey_item_key", "brand_voice.document_generated")
+              .maybeSingle();
+            if (task?.id) {
+              await supabase
+                .from("project_tasks")
+                .update({ url: pdfUrl })
+                .eq("id", task.id);
+              const fileName = pdfPath.split("/").pop() ?? "brand-voice.pdf";
+              const { data: existing } = await supabase
+                .from("project_task_attachments")
+                .select("id")
+                .eq("task_id", task.id)
+                .eq("storage_path", pdfPath)
+                .maybeSingle();
+              if (!existing) {
+                await supabase.from("project_task_attachments").insert({
+                  task_id: task.id,
+                  storage_path: pdfPath,
+                  file_name: fileName,
+                  mime_type: "application/pdf",
+                });
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[generate-brand-voice] task sync failed (non-fatal):", e);
+      }
     } catch (pdfErr) {
       pdfWarning = pdfErr instanceof Error ? pdfErr.message : String(pdfErr);
       console.error("[generate-brand-voice] PDF step failed:", pdfWarning);
