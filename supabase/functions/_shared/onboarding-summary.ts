@@ -20,6 +20,19 @@ export const SUMMARY_TOOL = {
       what_they_do: { type: "string" },
       primary_offer: { type: "string" },
       price_point: { type: "string" },
+      business_one_liner: {
+        type: "string",
+        description: "One sentence describing what they do and who they help — usable verbatim as a landing-page subhead",
+      },
+      // Lead capture / Automation 01 inputs
+      lead_magnet: {
+        type: "string",
+        description: "The free resource or offer they use (or want to use) to capture leads. If they don't have one, return 'None'.",
+      },
+      landing_page_cta: {
+        type: "string",
+        description: "Primary CTA the landing page should drive — e.g. 'Book a call', 'Download a resource', 'Join a waitlist', 'Submit an inquiry'.",
+      },
       // Brand voice
       brand_voice: { type: "string", description: "1-2 sentence summary of overall brand voice and personality" },
       tone_words: { type: "array", items: { type: "string" } },
@@ -29,6 +42,16 @@ export const SUMMARY_TOOL = {
       ideal_customer: { type: "string" },
       customer_struggles: { type: "string" },
       customer_outcome: { type: "string" },
+      // Content / Automation 02 inputs
+      content_topics: {
+        type: "array",
+        items: { type: "string" },
+        description: "3 to 5 specific topics the client wants to post about regularly",
+      },
+      posting_goal: {
+        type: "string",
+        description: "What they want their content to do — build authority, generate leads, educate, sell, etc.",
+      },
       // Channels & ops
       platforms: { type: "array", items: { type: "string" } },
       tools: { type: "array", items: { type: "string" } },
@@ -55,11 +78,16 @@ export const SUMMARY_TOOL = {
       "what_they_do",
       "primary_offer",
       "price_point",
+      "business_one_liner",
+      "lead_magnet",
+      "landing_page_cta",
       "brand_voice",
       "tone_words",
       "ideal_customer",
       "customer_struggles",
       "customer_outcome",
+      "content_topics",
+      "posting_goal",
       "platforms",
       "biggest_time_drain",
       "wants_automated_first",
