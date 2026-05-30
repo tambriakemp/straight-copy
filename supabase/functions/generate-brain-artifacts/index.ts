@@ -5,9 +5,13 @@
 // For each enabled artifact in prompts.ts that does not already have an
 // attachment on the "Generate Brain Artifacts" task, we:
 //   1. Call Anthropic with the configured prompt + business context.
-//   2. Render the response as an editorial PDF (same style as brand voice).
+//   2. Render the response as an editorial PDF (or raw markdown for skill files).
 //   3. Upload to the client-assets bucket.
 //   4. Insert a project_task_attachments row pointing to the file.
+//
+// PDF artifacts also persist a sibling `<prefix>.md` so skill files generated
+// later (which reference prior artifact bodies) can load the raw markdown on
+// re-runs even when in-memory accumulation isn't available.
 //
 // We deliberately do NOT auto-check the acceptance criterion — the criterion
 // text says "generated and reviewed" so a human still flips it.
@@ -32,6 +36,7 @@ type ArtifactResult = {
   status: "generated" | "skipped" | "failed" | "disabled";
   message?: string;
   pdfPath?: string;
+  mdPath?: string;
 };
 
 async function callClaude(apiKey: string, prompt: string): Promise<string> {
@@ -109,16 +114,49 @@ Deno.serve(async (req) => {
     if (taskErr) throw taskErr;
     if (!task) throw new Error(`Task with journey_item_key=${TASK_KEY} not found for this project`);
 
-    // ---- Existing attachments for idempotency ----
+    // ---- Existing attachments for idempotency + loading prior markdown ----
     const { data: existingAtts } = await supabase
       .from("project_task_attachments")
-      .select("storage_path, file_name")
+      .select("storage_path, file_name, bucket, mime_type")
       .eq("task_id", task.id);
-    const existingPrefixes = new Set(
-      (existingAtts ?? []).map((a: any) => (a.file_name as string).split("__")[0]),
-    );
 
-    const ctx: BrainArtifactContext = {
+    // Idempotency tracks prefixes that already produced any file. We add a
+    // suffix so the .md sibling for a PDF artifact doesn't make us skip
+    // regenerating just because the markdown is present.
+    const completedKeys = new Set<string>(); // artifact filename prefixes that already have output
+    type AttRow = { storage_path: string; file_name: string; bucket: string | null; mime_type: string | null };
+    const attachmentsByPrefix = new Map<string, AttRow[]>();
+    for (const a of (existingAtts ?? []) as AttRow[]) {
+      const prefix = a.file_name.split("__")[0];
+      completedKeys.add(prefix);
+      const arr = attachmentsByPrefix.get(prefix) ?? [];
+      arr.push(a);
+      attachmentsByPrefix.set(prefix, arr);
+    }
+
+    // Build previousArtifacts map from any stored .md (or text/markdown) attachments
+    // so chained skill prompts can reference earlier artifact bodies on re-runs.
+    const previousArtifacts: Record<string, string> = {};
+    for (const artifact of BRAIN_ARTIFACTS) {
+      const candidates = attachmentsByPrefix.get(artifact.filenamePrefix) ?? [];
+      // Prefer .md file; fall back to most recent
+      const md = candidates.find((a) =>
+        a.file_name.toLowerCase().endsWith(".md") || a.mime_type === "text/markdown"
+      );
+      const target = md ?? null;
+      if (!target) continue;
+      try {
+        const bucket = target.bucket || BUCKET;
+        const dl = await supabase.storage.from(bucket).download(target.storage_path);
+        if (dl.data) {
+          previousArtifacts[artifact.key] = await dl.data.text();
+        }
+      } catch (_e) {
+        // best-effort
+      }
+    }
+
+    const baseCtx: Omit<BrainArtifactContext, "previousArtifacts"> = {
       businessName: client.business_name || "Untitled Brand",
       intake: (client.intake_data as Record<string, unknown>) ?? {},
       brandKit: (client.brand_kit_intake as Record<string, unknown>) ?? {},
@@ -136,45 +174,79 @@ Deno.serve(async (req) => {
         results.push({ key: artifact.key, status: "disabled", message: "Prompt not yet configured" });
         continue;
       }
-      if (!force && existingPrefixes.has(artifact.filenamePrefix)) {
+      if (!force && completedKeys.has(artifact.filenamePrefix)) {
         results.push({ key: artifact.key, status: "skipped", message: "Attachment already exists" });
         continue;
       }
       try {
+        const ctx: BrainArtifactContext = { ...baseCtx, previousArtifacts };
         const prompt = artifact.buildPrompt(ctx);
         const markdown = await callClaude(ANTHROPIC_API_KEY, prompt);
 
+        // Accumulate so subsequent prompts in this same run can reference it.
+        previousArtifacts[artifact.key] = markdown;
+
         const generatedAt = new Date();
-        const pdfBytes = await renderArtifactPdf(
-          markdown, ctx.businessName, artifact.title, artifact.subtitle, generatedAt,
-        );
         const ts = generatedAt.toISOString().replace(/[:.]/g, "-");
-        const fileName = `${artifact.filenamePrefix}__${ts}.pdf`;
-        const storagePath = `clients/${project.client_id}/brain-artifacts/${fileName}`;
+        const result: ArtifactResult = { key: artifact.key, status: "generated" };
 
-        const { error: upErr } = await supabase.storage.from(BUCKET).upload(storagePath, pdfBytes, {
-          contentType: "application/pdf", upsert: false,
-        });
-        if (upErr) throw new Error(`Storage upload failed: ${upErr.message}`);
+        if (artifact.format === "pdf") {
+          // Render & upload the editorial PDF.
+          const pdfBytes = await renderArtifactPdf(
+            markdown, ctx.businessName, artifact.title, artifact.subtitle, generatedAt,
+          );
+          const pdfName = `${artifact.filenamePrefix}__${ts}.pdf`;
+          const pdfPath = `clients/${project.client_id}/brain-artifacts/${pdfName}`;
+          const upPdf = await supabase.storage.from(BUCKET).upload(pdfPath, pdfBytes, {
+            contentType: "application/pdf", upsert: false,
+          });
+          if (upPdf.error) throw new Error(`PDF upload failed: ${upPdf.error.message}`);
+          await supabase.from("project_task_attachments").insert({
+            task_id: task.id, storage_path: pdfPath, bucket: BUCKET,
+            file_name: pdfName, mime_type: "application/pdf", size_bytes: pdfBytes.byteLength,
+          });
+          result.pdfPath = pdfPath;
 
-        await supabase.from("project_task_attachments").insert({
-          task_id: task.id,
-          storage_path: storagePath,
-          bucket: BUCKET,
-          file_name: fileName,
-          mime_type: "application/pdf",
-          size_bytes: pdfBytes.byteLength,
-        });
+          // Also persist the raw markdown as a sibling attachment so future
+          // skill-file runs can load it from storage.
+          const mdName = `${artifact.filenamePrefix}__${ts}.md`;
+          const mdPath = `clients/${project.client_id}/brain-artifacts/${mdName}`;
+          const mdBytes = new TextEncoder().encode(markdown);
+          const upMd = await supabase.storage.from(BUCKET).upload(mdPath, mdBytes, {
+            contentType: "text/markdown", upsert: false,
+          });
+          if (!upMd.error) {
+            await supabase.from("project_task_attachments").insert({
+              task_id: task.id, storage_path: mdPath, bucket: BUCKET,
+              file_name: mdName, mime_type: "text/markdown", size_bytes: mdBytes.byteLength,
+            });
+            result.mdPath = mdPath;
+          }
+        } else {
+          // Markdown-only artifact (skill files). Upload as .md.
+          const mdName = `${artifact.filenamePrefix}__${ts}.md`;
+          const mdPath = `clients/${project.client_id}/brain-artifacts/${mdName}`;
+          const mdBytes = new TextEncoder().encode(markdown);
+          const upMd = await supabase.storage.from(BUCKET).upload(mdPath, mdBytes, {
+            contentType: "text/markdown", upsert: false,
+          });
+          if (upMd.error) throw new Error(`Markdown upload failed: ${upMd.error.message}`);
+          await supabase.from("project_task_attachments").insert({
+            task_id: task.id, storage_path: mdPath, bucket: BUCKET,
+            file_name: mdName, mime_type: "text/markdown", size_bytes: mdBytes.byteLength,
+          });
+          result.mdPath = mdPath;
+        }
 
         // Activity log
         await supabase.from("project_task_activity").insert({
           task_id: task.id,
           kind: "attachment",
           message: `Generated brain artifact: ${artifact.title} ${artifact.subtitle}`.replace(/\.$/, ""),
-          metadata: { artifactKey: artifact.key, storagePath },
+          metadata: { artifactKey: artifact.key, format: artifact.format, pdfPath: result.pdfPath, mdPath: result.mdPath },
         });
 
-        results.push({ key: artifact.key, status: "generated", pdfPath: storagePath });
+        results.push(result);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error(`[generate-brain-artifacts] ${artifact.key} failed:`, msg);
