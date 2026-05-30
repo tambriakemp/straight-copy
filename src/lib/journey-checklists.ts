@@ -80,6 +80,13 @@ export const CHECKLIST_TEMPLATES: Record<TemplateId, ChecklistItemTemplate[]> = 
     { key: "brand_kit.send_to_client_for_approval", label: "Send Brand Kit to client for approval",   owner: "agency" },
     { key: "brand_kit.approved",                    label: "Brand kit approved",                      owner: "client", auto_key: "brand_kit_approved" },
   ],
+  "growth:brain_setup": [
+    { key: "brain_setup.generate_artifacts", label: "Generate Brain Artifacts",                       owner: "auto" },
+    { key: "brain_setup.generate_skills",    label: "Generate Skill Files",                           owner: "auto" },
+    { key: "brain_setup.deliver_assets",     label: "Deliver Brain Assets to Client Portal",          owner: "auto" },
+    { key: "brain_setup.client_setup",       label: "Client Brain Setup",                             owner: "client" },
+    { key: "brain_setup.verification",       label: "Brain Verification and Optional Setup Call",     owner: "agency" },
+  ],
 };
 
 const norm = (s: unknown) => (typeof s === "string" ? s.trim().toLowerCase() : "");

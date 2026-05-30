@@ -1995,6 +1995,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      brain_setup_criteria_for: { Args: { _key: string }; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -2002,6 +2003,10 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      ensure_brain_setup_tasks_for_project: {
+        Args: { _client_project_id: string }
+        Returns: undefined
       }
       ensure_brand_kit_tasks_for_project: {
         Args: { _client_project_id: string }
