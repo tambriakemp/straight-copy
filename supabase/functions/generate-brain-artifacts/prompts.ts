@@ -548,6 +548,7 @@ ${SKILL_OUTPUT_RULES}`;
 export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
   {
     key: "icp",
+    taskKey: "brain_setup.generate_artifacts",
     criterionText: "Ideal Customer Profile generated and reviewed",
     title: "Ideal Customer",
     subtitle: "Profile.",
@@ -558,6 +559,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
   },
   {
     key: "offer_suite",
+    taskKey: "brain_setup.generate_artifacts",
     criterionText: "Offer Suite generated and reviewed",
     title: "Offer",
     subtitle: "Suite.",
@@ -568,6 +570,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
   },
   {
     key: "lead_intake_sop",
+    taskKey: "brain_setup.generate_artifacts",
     criterionText: "Lead Intake SOP generated and reviewed",
     title: "Lead Intake",
     subtitle: "SOP.",
@@ -578,6 +581,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
   },
   {
     key: "client_onboarding_sop",
+    taskKey: "brain_setup.generate_artifacts",
     criterionText: "Client Onboarding SOP generated and reviewed",
     title: "Client Onboarding",
     subtitle: "SOP.",
@@ -588,6 +592,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
   },
   {
     key: "content_creation_sop",
+    taskKey: "brain_setup.generate_artifacts",
     criterionText: "Content Creation SOP generated and reviewed",
     title: "Content Creation",
     subtitle: "SOP.",
@@ -598,6 +603,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
   },
   {
     key: "weekly_review",
+    taskKey: "brain_setup.generate_artifacts",
     criterionText: "Weekly Review Checklist generated and reviewed",
     title: "Weekly Review",
     subtitle: "Checklist.",
@@ -608,6 +614,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
   },
   {
     key: "pricing_guide",
+    taskKey: "brain_setup.generate_artifacts",
     criterionText: "Pricing Decision Guide generated and reviewed",
     title: "Pricing Decision",
     subtitle: "Guide.",
@@ -616,55 +623,62 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     format: "pdf",
     buildPrompt: PRICING_DECISION_PROMPT,
   },
-  // ---- Skill files (markdown). Run in order; later skills reference earlier ones. ----
+  // ---- Skill files (markdown attached to brain_setup.generate_skills task).
+  //      Order matters — later skills reference earlier artifacts. ----
   {
     key: "skill_content_writer",
-    criterionText: "content-writer skill file generated and reviewed",
+    taskKey: "brain_setup.generate_skills",
+    criterionText: "content-writer.md uploaded",
     title: "Skill",
     subtitle: "content-writer.",
-    filenamePrefix: "skill-content-writer",
+    filenamePrefix: "content-writer",
     enabled: true,
     format: "md",
     buildPrompt: CONTENT_WRITER_SKILL,
   },
   {
     key: "skill_sop_builder",
-    criterionText: "sop-builder skill file generated and reviewed",
+    taskKey: "brain_setup.generate_skills",
+    criterionText: "sop-builder.md generated and reviewed",
     title: "Skill",
     subtitle: "sop-builder.",
-    filenamePrefix: "skill-sop-builder",
+    filenamePrefix: "sop-builder",
     enabled: true,
     format: "md",
     buildPrompt: SOP_BUILDER_SKILL,
   },
   {
     key: "skill_email_responder",
-    criterionText: "email-responder skill file generated and reviewed",
+    taskKey: "brain_setup.generate_skills",
+    criterionText: "email-responder.md generated and reviewed",
     title: "Skill",
     subtitle: "email-responder.",
-    filenamePrefix: "skill-email-responder",
+    filenamePrefix: "email-responder",
     enabled: true,
     format: "md",
     buildPrompt: EMAIL_RESPONDER_SKILL,
   },
   {
     key: "skill_offer_builder",
-    criterionText: "offer-builder skill file generated and reviewed",
+    taskKey: "brain_setup.generate_skills",
+    criterionText: "offer-builder.md generated and reviewed",
     title: "Skill",
     subtitle: "offer-builder.",
-    filenamePrefix: "skill-offer-builder",
+    filenamePrefix: "offer-builder",
     enabled: true,
     format: "md",
     buildPrompt: OFFER_BUILDER_SKILL,
   },
   {
     key: "skill_weekly_review",
-    criterionText: "weekly-review skill file generated and reviewed",
+    taskKey: "brain_setup.generate_skills",
+    criterionText: "weekly-review.md generated and reviewed",
     title: "Skill",
     subtitle: "weekly-review.",
-    filenamePrefix: "skill-weekly-review",
+    filenamePrefix: "weekly-review",
     enabled: true,
     format: "md",
     buildPrompt: WEEKLY_REVIEW_SKILL,
   },
 ];
+
