@@ -465,27 +465,14 @@ export default function AutomationBuildView() {
           </ProjectTabsList>
 
           <ProjectTabsContent value="journey" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
-            <div className="crm-shell">
-              <div className="journey-cards">
-                {nodes.map((n, i) => (
-                  <JourneyNodeCard
-                    key={n.id}
-                    client={client}
-                    node={n}
-                    index={i}
-                    total={total}
-                    state={stateFor(i)}
-                    open={openIds.has(n.id)}
-                    onToggle={() => toggleNode(n.id)}
-                    onUpdate={(patch) => updateNode(n.id, patch)}
-                    onReload={load}
-                  />
-                ))}
-                {nodes.length === 0 && (
-                  <div className="journey-cards__empty">No journey stages yet.</div>
-                )}
-              </div>
-            </div>
+            <JourneyTasksBoard
+              client={client}
+              nodes={nodes}
+              openIds={openIds}
+              onToggleOpen={toggleNode}
+              onUpdate={updateNode}
+              onReload={load}
+            />
           </ProjectTabsContent>
 
           <ProjectTabsContent value="subscription" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
@@ -1722,5 +1709,401 @@ function OnboardingChatLinkPanel({ client }: { client: Client }) {
         )}
       </div>
     </section>
+  );
+}
+
+// ============================================================
+// Journey Tasks Board — renders journey_nodes in a tasks-board
+// visual style. Source of truth stays journey_nodes; all DB
+// triggers / automation continue to drive it.
+// ============================================================
+
+type OwnerFilter = "all" | ChecklistOwner;
+type StatusFilter = "all" | "notstarted" | "inprog" | "complete";
+
+const OWNER_META: Record<ChecklistOwner, { label: string; icon: string; chipClass: string }> = {
+  auto:   { label: "Auto",   icon: "🤖", chipClass: "border-warm-white/20 bg-warm-white/[0.04] text-taupe" },
+  client: { label: "Client", icon: "👤", chipClass: "border-[hsl(30_45%_55%)]/40 bg-[hsl(30_45%_55%)]/10 text-[hsl(30_55%_75%)]" },
+  agency: { label: "Agency", icon: "✦",  chipClass: "border-warm-white/30 bg-transparent text-warm-white" },
+};
+
+function JourneyTasksBoard({
+  client, nodes, openIds, onToggleOpen, onUpdate, onReload,
+}: {
+  client: Client;
+  nodes: JourneyNode[];
+  openIds: Set<string>;
+  onToggleOpen: (id: string) => void;
+  onUpdate: (id: string, patch: Partial<JourneyNode>) => void;
+  onReload: () => void;
+}) {
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+  const visibleNodes = useMemo(() => {
+    if (statusFilter === "all") return nodes;
+    return nodes.filter((n) => {
+      if (statusFilter === "complete") return n.status === "complete";
+      if (statusFilter === "inprog") return n.status === "in_progress";
+      return n.status === "pending";
+    });
+  }, [nodes, statusFilter]);
+
+  const expandAll = () => nodes.forEach((n) => { if (!openIds.has(n.id)) onToggleOpen(n.id); });
+  const collapseAll = () => nodes.forEach((n) => { if (openIds.has(n.id)) onToggleOpen(n.id); });
+
+  return (
+    <div className="px-6 text-warm-white">
+      {/* Toolbar */}
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <div className="inline-flex overflow-hidden rounded border border-warm-white/15">
+          {(["all","auto","client","agency"] as OwnerFilter[]).map((o) => (
+            <button
+              key={o}
+              onClick={() => setOwnerFilter(o)}
+              className={`px-3 py-1.5 text-xs uppercase tracking-[0.2em] ${
+                ownerFilter === o ? "bg-warm-white/10 text-warm-white" : "text-taupe hover:text-warm-white"
+              }`}
+            >
+              {o === "all" ? "All owners" : OWNER_META[o as ChecklistOwner].label}
+            </button>
+          ))}
+        </div>
+        <div className="inline-flex overflow-hidden rounded border border-warm-white/15">
+          {(["all","notstarted","inprog","complete"] as StatusFilter[]).map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 text-xs uppercase tracking-[0.2em] ${
+                statusFilter === s ? "bg-warm-white/10 text-warm-white" : "text-taupe hover:text-warm-white"
+              }`}
+            >
+              {s === "all" ? "All stages" : s === "notstarted" ? "Not started" : s === "inprog" ? "In progress" : "Complete"}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex gap-2">
+          <button onClick={expandAll} className="rounded border border-warm-white/15 px-3 py-1.5 text-xs uppercase tracking-[0.2em] text-taupe hover:text-warm-white">Expand all</button>
+          <button onClick={collapseAll} className="rounded border border-warm-white/15 px-3 py-1.5 text-xs uppercase tracking-[0.2em] text-taupe hover:text-warm-white">Collapse all</button>
+        </div>
+      </div>
+
+      {/* Epics */}
+      <div className="flex flex-col gap-4">
+        {visibleNodes.map((node, i) => {
+          // Locked = previous (by template order) is not complete
+          const trueIdx = nodes.findIndex((n) => n.id === node.id);
+          const prev = trueIdx > 0 ? nodes[trueIdx - 1] : null;
+          const locked = !!prev && prev.status !== "complete" && node.status !== "complete";
+          return (
+            <JourneyEpicCard
+              key={node.id}
+              client={client}
+              node={node}
+              index={trueIdx}
+              total={nodes.length}
+              locked={locked}
+              open={openIds.has(node.id)}
+              ownerFilter={ownerFilter}
+              onToggleOpen={() => onToggleOpen(node.id)}
+              onUpdate={(patch) => onUpdate(node.id, patch)}
+              onReload={onReload}
+            />
+          );
+        })}
+        {visibleNodes.length === 0 && (
+          <div className="rounded border border-dashed border-warm-white/15 p-10 text-center text-taupe italic">
+            No stages match these filters.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function JourneyEpicCard({
+  client, node, index, total, locked, open, ownerFilter, onToggleOpen, onUpdate, onReload,
+}: {
+  client: Client;
+  node: JourneyNode;
+  index: number;
+  total: number;
+  locked: boolean;
+  open: boolean;
+  ownerFilter: OwnerFilter;
+  onToggleOpen: () => void;
+  onUpdate: (patch: Partial<JourneyNode>) => void;
+  onReload: () => void;
+}) {
+  const items: ChecklistItem[] = Array.isArray(node.checklist) ? node.checklist : [];
+  const doneCount = items.filter((i) => i.done).length;
+
+  const statusPill =
+    node.status === "complete"    ? { label: "Complete",    cls: "border-[hsl(140_40%_55%)]/40 bg-[hsl(140_40%_55%)]/10 text-[hsl(140_50%_70%)]" }
+    : node.status === "in_progress" ? { label: "In Progress", cls: "border-[hsl(40_60%_60%)]/40 bg-[hsl(40_60%_60%)]/10 text-[hsl(40_60%_75%)]" }
+    : { label: "Not Started", cls: "border-warm-white/20 bg-transparent text-taupe" };
+
+  const stageNum = String(index + 1).padStart(2, "0");
+
+  // Items shown according to ownerFilter
+  const filteredItems = ownerFilter === "all" ? items : items.filter((i) => i.owner === ownerFilter);
+
+  return (
+    <div className={`rounded-lg border bg-ink ${locked ? "border-warm-white/[0.06] opacity-60" : "border-warm-white/15"}`}>
+      <button
+        type="button"
+        onClick={onToggleOpen}
+        className="flex w-full items-center gap-4 px-5 py-4 text-left"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="text-xs uppercase tracking-[0.35em] text-taupe">
+            Stage {stageNum} <span className="mx-1">·</span> of {String(total).padStart(2, "0")}
+            {locked && <span className="ml-3 text-[hsl(10_40%_65%)]">⛔ Locked until previous stage completes</span>}
+          </div>
+          <div className="mt-1 font-serif text-2xl text-warm-white">{node.label}</div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-xs uppercase tracking-[0.2em] text-taupe">
+            {doneCount} / {items.length}
+          </span>
+          <span className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs uppercase tracking-[0.2em] ${statusPill.cls}`}>
+            ● {statusPill.label}
+          </span>
+          <span className={`text-taupe transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="border-t border-warm-white/10 px-5 py-5">
+          {/* Status segmented */}
+          <div className="mb-5">
+            <div className="mb-2 text-xs uppercase tracking-[0.35em] text-taupe">Status</div>
+            <div className="inline-flex overflow-hidden rounded border border-warm-white/15">
+              {([
+                { key: "pending",     label: "Not Started" },
+                { key: "in_progress", label: "In Progress" },
+                { key: "complete",    label: "Complete" },
+              ] as { key: NodeStatus; label: string }[]).map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => onUpdate({ status: s.key })}
+                  className={`px-3 py-1.5 text-xs uppercase tracking-[0.2em] ${
+                    node.status === s.key ? "bg-warm-white/10 text-warm-white" : "text-taupe hover:text-warm-white"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tasks (checklist items) grouped by owner */}
+          <div className="mb-6">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-xs uppercase tracking-[0.35em] text-taupe">Tasks</div>
+            </div>
+            <JourneyTaskList items={items} filteredItems={filteredItems} locked={locked} onUpdate={onUpdate} />
+          </div>
+
+          {/* Stage-specific tools */}
+          <div className="mb-6 border-t border-warm-white/10 pt-5">
+            <div className="mb-3 text-xs uppercase tracking-[0.35em] text-taupe">Stage tools</div>
+            <div className="crm-shell">
+              {node.key === "brand_voice" && <BrandVoicePanel client={client} onReload={onReload} />}
+              {node.key === "brand_kit" && <BrandKitPanel client={client} />}
+              {node.key === "intake" && (
+                <>
+                  <OnboardingChatLinkPanel client={client} />
+                  <EmailTrackingPanel client={client} onReload={onReload} />
+                  <BuildSchedulePanel client={client} onReload={onReload} />
+                </>
+              )}
+              {node.key === "delivery" && (
+                <ClientFieldEditor
+                  client={client}
+                  field="delivery_video_url"
+                  title="Delivery Video"
+                  label="Video URL"
+                  placeholder="https://… (Loom, Vimeo, YouTube)"
+                  helpText="Pasting a link here makes it visible to the client in their portal."
+                  onReload={onReload}
+                />
+              )}
+              {node.key === "automation_02" && (
+                <ClientFieldEditor
+                  client={client}
+                  field="build_update_note"
+                  title="Build Update Note"
+                  label="Note for client"
+                  placeholder="What should the client know about this update?"
+                  helpText="Saved here and synced to SureContact. When this stage is marked complete, your SureContact automation can use this note in the email it sends the client."
+                  multiline
+                  onReload={onReload}
+                />
+              )}
+              <JourneyAssetAndNotes node={node} onUpdate={onUpdate} />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JourneyTaskList({
+  items, filteredItems, locked, onUpdate,
+}: {
+  items: ChecklistItem[];
+  filteredItems: ChecklistItem[];
+  locked: boolean;
+  onUpdate: (patch: Partial<JourneyNode>) => void;
+}) {
+  const SYSTEM_MANAGED_KEYS = new Set<string>(["intake.contract_countersigned"]);
+  const isReadonly = (it: ChecklistItem) =>
+    locked || it.owner === "auto" || it.owner === "client" ||
+    SYSTEM_MANAGED_KEYS.has(it.key ?? it.id ?? "");
+
+  const toggle = (it: ChecklistItem) => {
+    if (isReadonly(it)) return;
+    const next = items.map((x) => (x === it ? { ...x, done: !x.done } : x));
+    onUpdate({ checklist: next });
+  };
+
+  if (filteredItems.length === 0) {
+    return <div className="text-sm italic text-taupe">No tasks match this filter.</div>;
+  }
+
+  // Group by owner
+  const groups: { owner: ChecklistOwner; rows: ChecklistItem[] }[] = [];
+  for (const owner of ["auto","client","agency"] as ChecklistOwner[]) {
+    const rows = filteredItems.filter((i) => i.owner === owner);
+    if (rows.length) groups.push({ owner, rows });
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {groups.map((g) => {
+        const meta = OWNER_META[g.owner];
+        const done = g.rows.filter((i) => i.done).length;
+        return (
+          <div key={g.owner}>
+            <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-taupe">
+              <span>{meta.icon}</span>
+              <span>{meta.label}</span>
+              <span className="text-warm-white/40">·</span>
+              <span>{done}/{g.rows.length}</span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {g.rows.map((it, idx) => {
+                const readonly = isReadonly(it);
+                return (
+                  <div
+                    key={(it.key ?? it.id ?? `idx:${idx}`) + ":" + idx}
+                    onClick={() => toggle(it)}
+                    role={readonly ? undefined : "button"}
+                    tabIndex={readonly ? -1 : 0}
+                    onKeyDown={(e) => {
+                      if (readonly) return;
+                      if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggle(it); }
+                    }}
+                    className={`group flex items-center gap-3 rounded border px-3 py-2.5 transition ${
+                      it.done
+                        ? "border-warm-white/10 bg-warm-white/[0.02]"
+                        : "border-warm-white/15 bg-warm-white/[0.03] hover:border-warm-white/25"
+                    } ${readonly ? "cursor-default opacity-80" : "cursor-pointer"}`}
+                    title={readonly ? (locked ? "Locked until previous stage completes" : "System-managed") : undefined}
+                  >
+                    <span
+                      aria-hidden
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
+                        it.done ? "border-[hsl(140_40%_55%)] bg-[hsl(140_40%_55%)]/20 text-[hsl(140_50%_70%)]" : "border-warm-white/30"
+                      }`}
+                    >
+                      {it.done ? "✓" : ""}
+                    </span>
+                    <span className={`flex-1 text-sm ${it.done ? "line-through text-taupe" : "text-warm-white"}`}>
+                      {it.label}
+                    </span>
+                    <span className={`shrink-0 rounded border px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] ${OWNER_META[it.owner].chipClass}`}>
+                      {OWNER_META[it.owner].label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function JourneyAssetAndNotes({
+  node, onUpdate,
+}: {
+  node: JourneyNode;
+  onUpdate: (patch: Partial<JourneyNode>) => void;
+}) {
+  const [notes, setNotes] = useState(node.notes || "");
+  const [assetLabel, setAssetLabel] = useState(node.asset_label || "");
+  const [assetUrl, setAssetUrl] = useState(node.asset_url || "");
+
+  useEffect(() => {
+    setNotes(node.notes || "");
+    setAssetLabel(node.asset_label || "");
+    setAssetUrl(node.asset_url || "");
+  }, [node.id]);
+
+  const saveNotes = () => { if (notes !== (node.notes || "")) onUpdate({ notes: notes || null }); };
+  const saveAssetLabel = () => { if (assetLabel !== (node.asset_label || "")) onUpdate({ asset_label: assetLabel || null }); };
+  const saveAssetUrl = () => { if (assetUrl !== (node.asset_url || "")) onUpdate({ asset_url: assetUrl || null }); };
+
+  return (
+    <>
+      <section>
+        <div className="crm-modal__section-head">
+          <div className="crm-modal__section-title">Linked Asset</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <input
+            className="crm-input"
+            placeholder="Asset label (e.g. Brand Voice doc)"
+            value={assetLabel}
+            onChange={(e) => setAssetLabel(e.target.value)}
+            onBlur={saveAssetLabel}
+          />
+          <input
+            className="crm-input"
+            placeholder="https://…"
+            value={assetUrl}
+            onChange={(e) => setAssetUrl(e.target.value)}
+            onBlur={saveAssetUrl}
+          />
+          {node.asset_url && (
+            <a href={node.asset_url} target="_blank" rel="noreferrer" className="crm-attach">
+              <span className="crm-attach__icon">URL</span>
+              <div className="crm-attach__info">
+                <span className="crm-attach__name">{node.asset_label || node.asset_url}</span>
+                <span className="crm-attach__meta">External link</span>
+              </div>
+              <span className="crm-attach__action">Open →</span>
+            </a>
+          )}
+        </div>
+      </section>
+
+      <section>
+        <div className="crm-modal__section-head">
+          <div className="crm-modal__section-title">Internal Notes</div>
+        </div>
+        <textarea
+          className="crm-notes-area"
+          placeholder="Notes only visible to the Cre8 team..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          onBlur={saveNotes}
+        />
+      </section>
+    </>
   );
 }

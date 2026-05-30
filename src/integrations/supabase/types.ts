@@ -1912,7 +1912,13 @@ export type Database = {
       }
     }
     Enums: {
-      project_task_assignee_kind: "unassigned" | "admin" | "claude"
+      project_task_assignee_kind:
+        | "unassigned"
+        | "admin"
+        | "claude"
+        | "auto"
+        | "client"
+        | "agency"
       project_task_priority: "low" | "normal" | "high" | "urgent"
       project_task_status:
         | "backlog"
@@ -2051,7 +2057,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      project_task_assignee_kind: ["unassigned", "admin", "claude"],
+      project_task_assignee_kind: [
+        "unassigned",
+        "admin",
+        "claude",
+        "auto",
+        "client",
+        "agency",
+      ],
       project_task_priority: ["low", "normal", "high", "urgent"],
       project_task_status: [
         "backlog",
