@@ -443,22 +443,48 @@ const WIKI_META_PROPS = {
   slug: { type: "string", description: "Optional. Auto-generated from title if omitted." },
 };
 
+mcp.tool("get_sop_template", {
+  description: "Return the required 8-section SOP template (Purpose, When, Inputs, Tools, Steps, Outputs, Definition of Done, Pitfalls). ALWAYS call this before drafting an SOP and structure content with these exact <h2> headings — otherwise the wiki editor renders the SOP as one blob instead of separate sections. When creating an SOP via create_wiki_document, prefer passing `sections` (keyed object) over `content`.",
+  inputSchema: { type: "object", properties: {} },
+  handler: async () => textResult({
+    note: "SOPs must use these 8 <h2> headings in order. Use the `sections` arg on create_wiki_document / update_wiki_document and the server will serialize them correctly.",
+    sections: SOP_SECTIONS,
+    example_content: serializeSopSections({
+      purpose: "<p>Example purpose paragraph.</p>",
+      steps: "<ol><li>First step</li><li>Second step</li></ol>",
+    }),
+  }),
+});
+
+const SOP_SECTIONS_SCHEMA = {
+  type: "object",
+  description: "SOP-only. Keyed body HTML for each of the 8 sections. If provided, overrides `content`. Keys: purpose, when, inputs, tools, steps, outputs, done, pitfalls.",
+  properties: Object.fromEntries(SOP_SECTIONS.map(s => [s.key, { type: "string", description: s.guidance }])),
+};
+
 mcp.tool("create_wiki_document", {
-  description: "Create a new knowledge base document (SOP, vendor info, policy, reference, etc.). New docs start as Draft and are NOT visible to staff until published via publish_wiki_document.",
+  description: "Create a knowledge base document. New docs start as Draft and are NOT visible to staff until publish_wiki_document is called. For SOPs: call get_sop_template first, then pass `sections` (keyed object) instead of `content` so the 8-section structure renders correctly. For non-SOP docs, pass `content` as HTML.",
   inputSchema: {
     type: "object",
     properties: {
       title: { type: "string" },
-      content: { type: "string", description: "Markdown body of the initial draft." },
+      content: { type: "string", description: "HTML body. For SOPs, prefer `sections` instead." },
+      sections: SOP_SECTIONS_SCHEMA,
       ...WIKI_META_PROPS,
     },
-    required: ["title", "content", "department", "doc_type"],
+    required: ["title", "department", "doc_type"],
   },
   handler: async (args: any) => {
     const base = wikiSlugify(args.slug || args.title);
     const slug = await uniqueWikiSlug(base);
-    // New docs: live fields stay empty (no published version yet).
-    // Draft fields hold the initial content. Status = Draft until published.
+    const isSop = args.doc_type === "SOP";
+    let draftContent: string = args.content ?? "";
+    if (args.sections && typeof args.sections === "object") {
+      draftContent = serializeSopSections(args.sections);
+    } else if (isSop && !draftContent) {
+      draftContent = serializeSopSections({});
+    }
+    if (!draftContent) throw new Error("Provide `content` or `sections`.");
     const row = {
       title: args.title,
       slug,
@@ -471,7 +497,7 @@ mcp.tool("create_wiki_document", {
       tags: args.tags ?? [],
       folder_id: args.folder_id ?? null,
       draft_title: args.title,
-      draft_content: args.content,
+      draft_content: draftContent,
       draft_updated_at: new Date().toISOString(),
       has_draft: true,
       published_at: null,
