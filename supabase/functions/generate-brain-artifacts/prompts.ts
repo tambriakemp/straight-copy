@@ -83,6 +83,151 @@ QUALITY STANDARDS:
 - If information for a specific field is not available in the attached documents, make a reasonable inference based on the business type and note it with (inferred).
 - Format the output with markdown headers (## for major sections, ### for subsections, - for bullets).`;
 
+// ---- 2. Offer Suite ---------------------------------------------------------
+const OFFER_SUITE_PROMPT = (ctx: BrainArtifactContext) => `You are building a business intelligence document for a client's AI Business Brain. Using the brand voice document and brand kit attached, generate a complete Offer Suite document for this business.
+${contextBlock(ctx)}
+The Offer Suite must include the following for each offer:
+
+## OFFER NAME
+
+### OFFER TYPE
+(service, product, course, membership, retainer, etc.)
+
+### WHO IT'S FOR
+One sentence describing the ideal buyer.
+
+### THE PROBLEM IT SOLVES
+Two to three sentences.
+
+### THE TRANSFORMATION
+What the client's life or business looks like after.
+
+### WHAT'S INCLUDED
+Bullet list of deliverables or components.
+
+### HOW IT'S DELIVERED
+Format, timeline, and access method.
+
+### INVESTMENT
+Price point or range.
+
+### THE PROMISE
+One bold sentence that captures what this offer guarantees.
+
+### BEST FOR CONVERSATIONS WHEN
+Triggers that signal this offer is the right fit.
+
+---
+
+After listing all offers, add a final section called **OFFER ECOSYSTEM** that shows how the offers relate to each other — which one is the entry point, which one is the ascension path, and what the client journey looks like from first purchase to highest tier.
+
+QUALITY STANDARDS:
+- Write in clear, specific language. Every section should be immediately usable by an AI assistant to recommend the right offer in sales conversations and content.
+- If specific information is not available, make a reasonable inference based on the business type and note it with (inferred).
+- Format the output with markdown headers (## for offer names, ### for subsections, - for bullets).`;
+
+// ---- 3. Lead Intake SOP -----------------------------------------------------
+const LEAD_INTAKE_PROMPT = (ctx: BrainArtifactContext) => `You are building an operational document for a client's AI Business Brain. Using the brand voice document and brand kit attached, generate a Lead Intake SOP for this business.
+
+This SOP defines exactly what happens from the moment a new inquiry arrives to the moment the lead is either converted or archived. It will be used to train an AI assistant to handle leads in the client's voice.
+${contextBlock(ctx)}
+The Lead Intake SOP must include:
+
+## PURPOSE
+Why this SOP exists and what outcome it produces.
+
+## TRIGGER
+What counts as a new lead — DM, website form submission, email inquiry, referral, etc.
+
+## RESPONSE TIME STANDARD
+How quickly leads must be responded to and why.
+
+## STEP-BY-STEP PROCESS
+1. How the lead is received and logged
+2. The first response — what to say, what tone to use, what questions to ask
+3. How to qualify the lead — what questions determine fit
+4. What happens if the lead is a fit — next steps
+5. What happens if the lead is not a fit — how to decline gracefully
+6. Follow-up cadence — when and how many times to follow up before archiving
+7. How to archive unresponsive or unconverted leads
+
+## AI RESPONSE TEMPLATES
+Write three template responses in the client's brand voice:
+
+### Initial response to a new inquiry
+### Follow-up message for a lead who hasn't responded
+### Graceful decline for a lead who is not a fit
+
+Write everything in plain language. The AI assistant will use this SOP as a reference every time a new inquiry arrives. Format with markdown headers (## major sections, ### subsections, numbered/bulleted lists).`;
+
+// ---- 4. Client Onboarding SOP -----------------------------------------------
+const CLIENT_ONBOARDING_PROMPT = (ctx: BrainArtifactContext) => `You are building an operational document for a client's AI Business Brain. Using the brand voice document and brand kit attached, generate a Client Onboarding SOP for this business.
+
+This SOP defines exactly what happens from the moment a new client pays to the moment they are fully set up and active. It will be used by the client and their AI assistant to onboard every new client consistently.
+${contextBlock(ctx)}
+The Client Onboarding SOP must include:
+
+## PURPOSE
+Why this SOP exists and what it produces.
+
+## TRIGGER
+What starts the onboarding process — payment received, contract signed, etc.
+
+## ONBOARDING TIMELINE
+Day by day or step by step — what happens and in what order from day 1 through the client's first full week.
+
+## STEP-BY-STEP PROCESS
+1. What the client sends or confirms immediately after signing
+2. What the business delivers in the first 24 hours
+3. What the client needs to complete before work begins
+4. How the first working session or delivery is structured
+5. What the client receives at the end of onboarding that confirms they are fully set up
+
+## WELCOME COMMUNICATION TEMPLATES
+Write two template messages in the client's brand voice:
+
+### Welcome message sent immediately after payment
+### Day 3 check-in to confirm the client is set up and has everything they need
+
+## WHAT GREAT ONBOARDING LOOKS LIKE
+Two to three sentences describing what a client should feel and know by the end of onboarding.
+
+Write everything in clear, specific language that the client can use today. Format with markdown headers.`;
+
+// ---- 5. Content Creation SOP ------------------------------------------------
+const CONTENT_CREATION_PROMPT = (ctx: BrainArtifactContext) => `You are building an operational document for a client's AI Business Brain. Using the brand voice document and brand kit attached, generate a Content Creation SOP for this business.
+
+This SOP defines how content is created, approved, and published for this business. It will be used by the client and their AI assistant to produce consistent, on-brand content every week.
+${contextBlock(ctx)}
+The Content Creation SOP must include:
+
+## PURPOSE
+Why this SOP exists and what it produces.
+
+## CONTENT PILLARS
+Three to five topics this business consistently creates content around. Each pillar should have a name, a one-sentence description, and an example content angle.
+
+## CONTENT TYPES AND CADENCE
+- What types of content are produced (posts, reels, stories, emails, etc.)
+- How often each type is published
+- Which platforms each type goes to
+
+## CONTENT CREATION PROCESS
+Step by step from idea to published:
+1. Where ideas come from — prompts, client submissions, content calendar
+2. How captions are written — tone, structure, length, call to action format
+3. How visuals are selected or created — what fits the brand, what doesn't
+4. How content is approved before publishing
+5. How content is scheduled and published
+
+## BRAND VOICE QUICK RULES FOR CONTENT
+Pull the most important voice rules from the brand voice document and restate them here as a short checklist the AI checks every caption against before finalizing.
+
+## WHAT TO NEVER POST
+Three to five things that are off-brand for this business — topics, tones, or styles to avoid.
+
+Write everything in clear, specific language the AI can use to generate on-brand content without additional guidance. Format with markdown headers.`;
+
 // ---- Placeholder prompts (fill in then flip enabled=true) -------------------
 const PLACEHOLDER = (label: string) => (_ctx: BrainArtifactContext) =>
   `TODO: ${label} prompt not yet configured.`;
@@ -103,8 +248,8 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     title: "Offer",
     subtitle: "Suite.",
     filenamePrefix: "offer-suite",
-    enabled: false,
-    buildPrompt: PLACEHOLDER("Offer Suite"),
+    enabled: true,
+    buildPrompt: OFFER_SUITE_PROMPT,
   },
   {
     key: "lead_intake_sop",
@@ -112,8 +257,8 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     title: "Lead Intake",
     subtitle: "SOP.",
     filenamePrefix: "lead-intake-sop",
-    enabled: false,
-    buildPrompt: PLACEHOLDER("Lead Intake SOP"),
+    enabled: true,
+    buildPrompt: LEAD_INTAKE_PROMPT,
   },
   {
     key: "client_onboarding_sop",
@@ -121,8 +266,8 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     title: "Client Onboarding",
     subtitle: "SOP.",
     filenamePrefix: "client-onboarding-sop",
-    enabled: false,
-    buildPrompt: PLACEHOLDER("Client Onboarding SOP"),
+    enabled: true,
+    buildPrompt: CLIENT_ONBOARDING_PROMPT,
   },
   {
     key: "content_creation_sop",
@@ -130,9 +275,10 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     title: "Content Creation",
     subtitle: "SOP.",
     filenamePrefix: "content-creation-sop",
-    enabled: false,
-    buildPrompt: PLACEHOLDER("Content Creation SOP"),
+    enabled: true,
+    buildPrompt: CONTENT_CREATION_PROMPT,
   },
+
   {
     key: "weekly_review",
     criterionText: "Weekly Review Checklist generated and reviewed",
