@@ -143,16 +143,28 @@ Deno.serve(async (req) => {
     if (!pdfOnly || !brandVoiceDoc) {
       if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
+      const intake = summary ?? (clientRow.intake_data as Record<string, unknown>) ?? {};
+      // Guard: refuse to generate without real intake. Prevents the
+      // "PDF created before chat was completed" bug.
+      const hasIntake = intake && typeof intake === "object" && Object.keys(intake).length > 0
+        && (intake.what_they_do || intake.primary_offer || intake.tone_words);
+      if (!hasIntake) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Cannot generate brand voice: onboarding intake is empty. Have the client complete the onboarding chat first.",
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       await supabase
         .from("clients")
         .update({
+          intake_data: intake,
           brand_voice_status: "in_progress",
           brand_voice_started_at: new Date().toISOString(),
           pipeline_stage: "brand_voice_generating",
         })
         .eq("id", clientId);
 
-      const intake = summary ?? (clientRow.intake_data as Record<string, unknown>) ?? {};
       const prompt = buildBrandVoicePrompt(intake);
 
       const claudeResp = await fetch(ANTHROPIC_API, {
