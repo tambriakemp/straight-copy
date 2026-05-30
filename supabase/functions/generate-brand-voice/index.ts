@@ -143,16 +143,28 @@ Deno.serve(async (req) => {
     if (!pdfOnly || !brandVoiceDoc) {
       if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
+      const intake = summary ?? (clientRow.intake_data as Record<string, unknown>) ?? {};
+      // Guard: refuse to generate without real intake. Prevents the
+      // "PDF created before chat was completed" bug.
+      const hasIntake = intake && typeof intake === "object" && Object.keys(intake).length > 0
+        && (intake.what_they_do || intake.primary_offer || intake.tone_words);
+      if (!hasIntake) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Cannot generate brand voice: onboarding intake is empty. Have the client complete the onboarding chat first.",
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       await supabase
         .from("clients")
         .update({
+          intake_data: intake,
           brand_voice_status: "in_progress",
           brand_voice_started_at: new Date().toISOString(),
           pipeline_stage: "brand_voice_generating",
         })
         .eq("id", clientId);
 
-      const intake = summary ?? (clientRow.intake_data as Record<string, unknown>) ?? {};
       const prompt = buildBrandVoicePrompt(intake);
 
       const claudeResp = await fetch(ANTHROPIC_API, {
@@ -238,16 +250,66 @@ Deno.serve(async (req) => {
         })
         .eq("id", clientId);
 
-      // Update brand_voice journey_node (best-effort)
+      // Update brand_voice journey_node (best-effort) — this also flips the
+      // mirrored "document_generated" task via the bidirectional sync trigger.
       await supabase
         .from("journey_nodes")
         .update({
           asset_url: pdfUrl,
           asset_label: "Brand Voice Document (PDF)",
-          status: "complete",
         })
         .eq("client_id", clientId)
         .eq("key", "brand_voice");
+
+      // Flip checklist item explicitly so the task auto-completes.
+      try {
+        const { data: node } = await supabase
+          .from("journey_nodes")
+          .select("id, checklist, client_project_id")
+          .eq("client_id", clientId)
+          .eq("key", "brand_voice")
+          .maybeSingle();
+        if (node) {
+          const list = Array.isArray(node.checklist) ? node.checklist as any[] : [];
+          const next = list.map((it) =>
+            it && it.key === "brand_voice.document_generated" ? { ...it, done: true } : it,
+          );
+          await supabase.from("journey_nodes").update({ checklist: next }).eq("id", node.id);
+
+          // Mirror URL + PDF attachment onto the task.
+          if (node.client_project_id) {
+            const { data: task } = await supabase
+              .from("project_tasks")
+              .select("id")
+              .eq("client_project_id", node.client_project_id)
+              .eq("journey_item_key", "brand_voice.document_generated")
+              .maybeSingle();
+            if (task?.id) {
+              await supabase
+                .from("project_tasks")
+                .update({ url: pdfUrl })
+                .eq("id", task.id);
+              const fileName = pdfPath.split("/").pop() ?? "brand-voice.pdf";
+              const { data: existing } = await supabase
+                .from("project_task_attachments")
+                .select("id")
+                .eq("task_id", task.id)
+                .eq("storage_path", pdfPath)
+                .maybeSingle();
+              if (!existing) {
+                await supabase.from("project_task_attachments").insert({
+                  task_id: task.id,
+                  storage_path: pdfPath,
+                  file_name: fileName,
+                  mime_type: "application/pdf",
+                });
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[generate-brand-voice] task sync failed (non-fatal):", e);
+      }
     } catch (pdfErr) {
       pdfWarning = pdfErr instanceof Error ? pdfErr.message : String(pdfErr);
       console.error("[generate-brand-voice] PDF step failed:", pdfWarning);
@@ -260,16 +322,10 @@ Deno.serve(async (req) => {
         .eq("id", clientId);
     }
 
-    // Mark journey node complete even if PDF failed (doc exists)
-    if (!pdfWarning) {
-      // already done above
-    } else {
-      await supabase
-        .from("journey_nodes")
-        .update({ status: "complete" })
-        .eq("client_id", clientId)
-        .eq("key", "brand_voice");
-    }
+    // Note: journey node completion now happens automatically when all 3
+    // brand_voice checklist items are done (handled by auto_complete_journey_node).
+
+
 
     return new Response(
       JSON.stringify({
