@@ -1805,19 +1805,6 @@ function JourneyTasksBoard({
     <div className="px-6 text-warm-white">
       {/* Toolbar */}
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="inline-flex overflow-hidden rounded border border-warm-white/15">
-          {(["all","auto","client","agency"] as OwnerFilter[]).map((o) => (
-            <button
-              key={o}
-              onClick={() => setOwnerFilter(o)}
-              className={`px-3 py-1.5 text-xs uppercase tracking-[0.2em] ${
-                ownerFilter === o ? "bg-warm-white/10 text-warm-white" : "text-taupe hover:text-warm-white"
-              }`}
-            >
-              {o === "all" ? "All owners" : OWNER_META[o as ChecklistOwner].label}
-            </button>
-          ))}
-        </div>
         <div className="ml-auto text-xs uppercase tracking-[0.25em] text-taupe">
           {nodes.filter((n) => n.status === "complete").length} / {nodes.length} stages complete
         </div>
