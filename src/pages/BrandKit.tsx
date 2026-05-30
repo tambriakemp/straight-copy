@@ -264,11 +264,91 @@ export default function BrandKit() {
 
     setIsStreaming(false);
     if (detectedComplete) setReadyToSubmit(true);
+    // Detect logo-upload request marker AFTER stream completes so the upload UI
+    // appears once the assistant has finished its prompt.
+    if (assistantText.includes("[[REQUEST_LOGO_UPLOAD]]") && !logoFile) {
+      setAwaitingLogoUpload(true);
+    }
   };
 
   const start = () => {
     setView("chat");
     streamReply([]);
+  };
+
+  // Upload the chosen logo to storage, extract dominant colors, and surface
+  // them to the client for approval. After approval, a synthetic user message
+  // is injected so the AI can acknowledge and continue the conversation.
+  const handleLogoFile = async (file: File) => {
+    if (!clientId || !file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Image required", description: "Please upload a PNG, JPG, or SVG of your logo.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast({ title: "Too large", description: "Logo must be 8MB or smaller.", variant: "destructive" });
+      return;
+    }
+    setLogoUploading(true);
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+      const path = `brand-kit/${clientId}/${Date.now()}-${safeName}`;
+      const { error } = await supabase.storage.from("client-assets").upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || undefined,
+      });
+      if (error) throw new Error(error.message);
+      const { data: signed } = await supabase.storage.from("client-assets").createSignedUrl(path, 60 * 60 * 24 * 7);
+      const meta: LogoFileMeta = {
+        path,
+        name: file.name,
+        size: file.size,
+        mime: file.type || "",
+        signedUrl: signed?.signedUrl,
+      };
+      setLogoFile(meta);
+      // Only attempt color extraction for raster images (SVGs can't be drawn without parsing).
+      if (file.type !== "image/svg+xml") {
+        try {
+          const colors = await extractDominantColors(file, 5);
+          setExtractedColors(colors);
+          setColorsApprovalPending(colors.length > 0);
+        } catch (e) {
+          console.warn("color extraction failed:", e);
+        }
+      }
+      setAwaitingLogoUpload(false);
+      // If no colors were extracted, send the file confirmation immediately.
+      if (file.type === "image/svg+xml") {
+        sendLogoConfirmation(meta, [], "pending");
+      }
+    } catch (e) {
+      toast({
+        title: "Upload failed",
+        description: e instanceof Error ? e.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const sendLogoConfirmation = (meta: LogoFileMeta, colors: string[], approval: "approved" | "rejected" | "pending") => {
+    const parts: string[] = [];
+    parts.push(`I uploaded my logo (${meta.name}).`);
+    if (colors.length > 0) {
+      parts.push(`The dominant colors detected are: ${colors.join(", ")}.`);
+      if (approval === "approved") parts.push("Yes — these are my brand colors.");
+      else if (approval === "rejected") parts.push("Those aren't quite my brand colors. I'll describe what they should be.");
+    } else {
+      parts.push("Please continue with the rest of the brand kit questions.");
+    }
+    const text = parts.join(" ");
+    const next: Msg[] = [...messages, { role: "user", content: text }];
+    setMessages(next);
+    setColorsApprovalPending(false);
+    streamReply(next);
   };
 
   const send = () => {
@@ -280,6 +360,7 @@ export default function BrandKit() {
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     streamReply(next);
   };
+
 
   const submit = async () => {
     if (!clientId) return;
