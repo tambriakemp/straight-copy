@@ -433,6 +433,147 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ---------- FAST COMPLETE ----------
+    // Skips the conversational chat. Caller (portal Fast Submit form) passes a
+    // structured intake payload (logo file/url, optional colors, fonts, guidelines).
+    // We persist it, advance Node 03 with the same auto-checklist matching used by
+    // `complete`, and fire the same team notification email.
+    if (action === "fast-complete") {
+      const payload = (body.intake && typeof body.intake === "object")
+        ? body.intake as Record<string, unknown>
+        : {};
+
+      const trimStr = (v: unknown, max = 2000) =>
+        typeof v === "string" ? v.trim().slice(0, max) : "";
+      const sanFile = (f: any) => f && typeof f === "object" && typeof f.path === "string"
+        ? {
+            path: f.path.slice(0, 500),
+            name: typeof f.name === "string" ? f.name.slice(0, 200) : "",
+            size: typeof f.size === "number" ? f.size : 0,
+            mime: typeof f.mime === "string" ? f.mime.slice(0, 100) : "",
+          }
+        : null;
+
+      const logoFile = sanFile((payload as any).logo_file);
+      const guidelinesFile = sanFile((payload as any).guidelines_file);
+      const websiteUrl = trimStr((payload as any).website_url, 500);
+      const colors = trimStr((payload as any).colors, 1000);
+      const fonts = trimStr((payload as any).typography, 1000);
+
+      if (!logoFile && !websiteUrl) {
+        return new Response(JSON.stringify({ error: "Provide a logo file or a website link." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const intake: Record<string, unknown> = {
+        fast_submit: true,
+        logo: logoFile
+          ? `Existing logo uploaded${logoFile.name ? `: ${logoFile.name}` : ""}.${websiteUrl ? ` Live site: ${websiteUrl}` : ""}`
+          : `Use brand assets from existing site: ${websiteUrl}`,
+        logo_files: logoFile ? [logoFile] : [],
+        website_url: websiteUrl || null,
+        colors: colors || "",
+        typography: fonts || "",
+        references: websiteUrl ? [websiteUrl] : [],
+        dos: [],
+        donts: [],
+        formats: [],
+        scope: "Fast-submit intake — client supplied existing assets via portal short form.",
+        guidelines: guidelinesFile ? [guidelinesFile] : [],
+      };
+
+      const submittedAt = new Date().toISOString();
+
+      // 1. Persist intake on clients row.
+      const { error: updErr } = await supabase
+        .from("clients")
+        .update({
+          brand_kit_intake: intake,
+          brand_kit_intake_submitted_at: submittedAt,
+        })
+        .eq("id", clientId);
+      if (updErr) throw new Error(`Save intake failed: ${updErr.message}`);
+
+      // 2. Advance Node 03 — same auto-checklist matching as `complete`.
+      const { data: bkNode } = await supabase
+        .from("journey_nodes")
+        .select("id, started_at, checklist")
+        .eq("client_id", clientId)
+        .eq("key", "brand_kit")
+        .maybeSingle();
+      if (bkNode) {
+        const filled = (val: unknown): boolean => {
+          if (val == null) return false;
+          if (typeof val === "string") return val.trim().length > 0;
+          if (Array.isArray(val)) return val.length > 0;
+          if (typeof val === "object") return Object.keys(val as object).length > 0;
+          return Boolean(val);
+        };
+        const autoKeyMatches: Record<string, boolean> = {
+          brand_kit_logos:      filled(intake.logo_files) || filled(intake.logo) || filled((intake as any).website_url),
+          brand_kit_colors:     filled(intake.colors),
+          brand_kit_typography: filled(intake.typography),
+          brand_kit_references: filled(intake.references),
+          brand_kit_guidelines: filled(intake.guidelines) || filled(intake.scope),
+        };
+        const currentChecklist = Array.isArray(bkNode.checklist) ? bkNode.checklist as any[] : [];
+        const keyOrAutoKeyMatches = (it: any): boolean => {
+          if (!it) return false;
+          if (typeof it.key === "string") {
+            const short = it.key.split(".").pop();
+            if (short && autoKeyMatches[`brand_kit_${short}`]) return true;
+          }
+          if (typeof it.auto_key === "string" && autoKeyMatches[it.auto_key]) return true;
+          return false;
+        };
+        const nextChecklist = currentChecklist.map((it: any) =>
+          keyOrAutoKeyMatches(it) ? { ...it, done: true } : it,
+        );
+
+        await supabase
+          .from("journey_nodes")
+          .update({
+            status: "client_submitted",
+            started_at: bkNode.started_at ?? submittedAt,
+            notes: "Client submitted Brand Kit intake via portal Fast Submit.",
+            checklist: nextChecklist,
+          })
+          .eq("id", bkNode.id);
+      }
+
+      // 3. Notify the team (best-effort).
+      try {
+        const { data: row } = await supabase
+          .from("clients")
+          .select("contact_email, contact_name, business_name")
+          .eq("id", clientId)
+          .maybeSingle();
+        await supabase.functions.invoke("send-transactional-email", {
+          body: {
+            templateName: "brand-kit-notification",
+            recipientEmail: "hello@cre8visions.com",
+            idempotencyKey: `brand-kit-${clientId}-${submittedAt}`,
+            templateData: {
+              clientId,
+              businessName: row?.business_name,
+              contactName: row?.contact_name,
+              contactEmail: row?.contact_email,
+              intake,
+            },
+          },
+        });
+      } catch (mailErr) {
+        console.error("[brand-kit-intake] fast-complete email failed (non-fatal):", mailErr);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, intake, submittedAt }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // ---------- ACCOUNT ACCESS: RESOLVE ----------
     if (action === "account-access-resolve") {
       const { data: row } = await supabase
