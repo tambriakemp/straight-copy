@@ -468,8 +468,6 @@ export default function AutomationBuildView() {
             <JourneyTasksBoard
               client={client}
               nodes={nodes}
-              openIds={openIds}
-              onToggleOpen={toggleNode}
               onUpdate={updateNode}
               onReload={load}
             />
