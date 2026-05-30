@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useDraggable, useDroppable, useSensor, useSensors,
 } from "@dnd-kit/core";
-import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag, Copy } from "lucide-react";
+import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag, Copy, ChevronDown, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -386,6 +386,227 @@ const td: React.CSSProperties = { padding: "10px 12px" };
 
 /* ---------------- Task detail sheet ---------------- */
 
+// ============================================================
+// TaskDetailSheet — editorial side-panel redesign
+// 720px wide on desktop, collapses to full-width under 768px.
+// Scoped via the tp- class prefix so it doesn't leak globally.
+// ============================================================
+
+const TASK_PANEL_STYLE = `
+.tp-root { --tp-panel-w: 720px; --tp-row-gap: 22px; --tp-field-h: 46px; --tp-sec-gap: 38px;
+  --tp-border: hsl(40 20% 97% / 0.08); --tp-border-strong: hsl(40 20% 97% / 0.18);
+  --tp-accent: hsl(30 25% 44%); --tp-ink: hsl(40 8% 10%); --tp-charcoal: hsl(36 5% 16%);
+  --tp-warm: hsl(40 20% 97%); --tp-stone: hsl(30 10% 78%); --tp-taupe: hsl(30 8% 62%);
+  --tp-serif: 'Cormorant Garamond','EB Garamond',Georgia,serif;
+  --tp-sans: 'Karla','Inter',system-ui,sans-serif;
+  position: relative; height: 100%; width: 100%;
+  background: var(--tp-charcoal); color: var(--tp-warm);
+  font-family: var(--tp-sans); font-weight: 300;
+  display: flex; flex-direction: column;
+}
+.tp-root::before { content:''; position:absolute; left:0; top:0; bottom:0; width:2px;
+  background: linear-gradient(to bottom, var(--tp-accent), hsl(30 25% 44% / 0) 55%); pointer-events:none; }
+.tp-header { flex-shrink:0; padding: 22px 38px 20px; border-bottom: 1px solid var(--tp-border);
+  background: linear-gradient(to bottom, var(--tp-charcoal), hsl(36 5% 16% / 0.96));
+  position: relative; z-index: 4; }
+.tp-h-top { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.tp-eyebrow { display:flex; align-items:center; gap:14px; font-size:10px; letter-spacing:0.32em;
+  text-transform:uppercase; color: var(--tp-stone); }
+.tp-id { display:inline-flex; align-items:center; gap:8px; font: inherit; font-size:10px;
+  letter-spacing:0.12em; color: var(--tp-taupe); cursor:pointer; padding:5px 10px;
+  border:1px solid var(--tp-border); background: var(--tp-ink); white-space:nowrap;
+  transition: color .3s, border-color .3s; }
+.tp-id:hover { color: var(--tp-warm); border-color: var(--tp-accent); }
+.tp-id svg { width:11px; height:11px; opacity:0.8; }
+.tp-actions { display:flex; align-items:center; gap:10px; }
+.tp-iconbtn { width:34px; height:34px; display:grid; place-items:center; background:transparent;
+  border:1px solid var(--tp-border); color: var(--tp-stone); cursor:pointer;
+  transition: color .3s, border-color .3s, background .3s; }
+.tp-iconbtn:hover { color: var(--tp-warm); border-color: var(--tp-accent); }
+.tp-iconbtn.tp-danger:hover { color: hsl(8 60% 70%); border-color: hsl(8 55% 50%); background: hsl(8 55% 50% / 0.08); }
+.tp-iconbtn svg { width:15px; height:15px; }
+.tp-statuschip { display:inline-flex; align-items:center; gap:9px; padding:7px 14px 7px 12px;
+  border:1px solid var(--tp-border); font-size:10px; letter-spacing:0.22em;
+  text-transform:uppercase; color: var(--tp-stone); white-space:nowrap; }
+.tp-statuschip .d { width:8px; height:8px; border-radius:50%; background: var(--tp-accent);
+  box-shadow: 0 0 0 4px hsl(30 25% 44% / 0.18); }
+
+.tp-body { flex:1; min-height:0; overflow-y:auto; padding: 30px 38px 64px;
+  display:flex; flex-direction:column; gap: var(--tp-sec-gap); }
+.tp-body::-webkit-scrollbar { width:9px; }
+.tp-body::-webkit-scrollbar-track { background: transparent; }
+.tp-body::-webkit-scrollbar-thumb { background: hsl(40 20% 97% / 0.08); }
+.tp-body::-webkit-scrollbar-thumb:hover { background: var(--tp-accent); }
+
+.tp-hero { display:flex; flex-direction:column; gap:10px; }
+.tp-hero-title { width:100%; background:transparent; border:0; outline:none;
+  font-family: var(--tp-serif); font-weight:300; font-size:38px; line-height:1.06;
+  color: var(--tp-warm); letter-spacing:-0.01em; padding:4px 0;
+  border-bottom: 1px solid transparent; transition: border-color .3s; }
+.tp-hero-title:focus { border-bottom-color: var(--tp-accent); }
+.tp-hero-title::placeholder { color: var(--tp-taupe); font-style: italic; }
+
+.tp-sec { display:flex; flex-direction:column; }
+.tp-sec-head { display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding-bottom:14px; margin-bottom:22px; border-bottom: 1px solid var(--tp-border);
+  cursor:pointer; user-select:none; }
+.tp-sec-label { display:flex; align-items:center; gap:12px; font-size:10px; letter-spacing:0.32em;
+  text-transform:uppercase; color: var(--tp-stone); }
+.tp-sec-count { min-width:20px; height:20px; padding:0 6px; display:inline-grid; place-items:center;
+  font-size:10px; letter-spacing:0.05em; color: var(--tp-taupe);
+  border:1px solid var(--tp-border); background: var(--tp-ink); }
+.tp-sec-right { display:flex; align-items:center; gap:14px; }
+.tp-sec-chev { color: var(--tp-taupe); transition: transform .3s, color .3s; display:inline-flex; }
+.tp-sec-head:hover .tp-sec-chev { color: var(--tp-stone); }
+.tp-sec.is-collapsed .tp-sec-chev { transform: rotate(-90deg); }
+.tp-sec.is-collapsed .tp-sec-body { display:none; }
+
+.tp-addlink { display:inline-flex; align-items:center; gap:7px; background:transparent; border:0;
+  cursor:pointer; font: inherit; font-size:10px; letter-spacing:0.22em; text-transform:uppercase;
+  color: var(--tp-accent); transition: color .3s; }
+.tp-addlink:hover { color: var(--tp-warm); }
+.tp-addlink .plus { width:16px; height:16px; display:grid; place-items:center;
+  border:1px solid currentColor; font-size:12px; line-height:1; }
+
+.tp-grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: var(--tp-row-gap) 24px; }
+.tp-field { display:flex; flex-direction:column; gap:9px; min-width:0; }
+.tp-field--full { grid-column: 1 / -1; }
+.tp-label { font-size:10px; letter-spacing:0.26em; text-transform:uppercase; color: var(--tp-taupe); }
+
+.tp-input, .tp-select, .tp-textarea { width:100%; background: var(--tp-ink);
+  border:1px solid var(--tp-border); color: var(--tp-warm); font-family: var(--tp-sans);
+  font-weight:300; font-size:14px; letter-spacing:0.01em; outline:none;
+  transition: border-color .3s, background .3s; }
+.tp-input, .tp-select { height: var(--tp-field-h); padding: 0 16px; }
+.tp-input:hover, .tp-select:hover, .tp-textarea:hover { border-color: var(--tp-border-strong); }
+.tp-input:focus, .tp-select:focus, .tp-textarea:focus { border-color: var(--tp-accent); background: hsl(40 8% 8%); }
+.tp-input::placeholder, .tp-textarea::placeholder { color: var(--tp-taupe); font-style: italic;
+  font-family: var(--tp-serif); font-size:15px; }
+.tp-textarea { padding:14px 16px; min-height:96px; line-height:1.7; resize: vertical; }
+.tp-select { appearance:none; cursor:pointer; padding-right:38px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--tp-stone) 50%),
+                    linear-gradient(135deg, var(--tp-stone) 50%, transparent 50%);
+  background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+.tp-select option { background: var(--tp-charcoal); color: var(--tp-warm); }
+.tp-input[type=date] { color-scheme: dark; }
+
+.tp-seg { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:3px; padding:3px;
+  background: var(--tp-ink); border:1px solid var(--tp-border); height: var(--tp-field-h); }
+.tp-seg-btn { background:transparent; border:0; cursor:pointer; color: var(--tp-taupe);
+  font: inherit; font-size:10px; letter-spacing:0.14em; text-transform:uppercase;
+  display:flex; align-items:center; justify-content:center; gap:7px;
+  transition: all .3s; padding:0 4px; white-space:nowrap; }
+.tp-seg-btn .d { width:7px; height:7px; border-radius:50%; background: currentColor; opacity:0.7; }
+.tp-seg-btn:hover { color: var(--tp-stone); }
+.tp-seg-btn.is-on { background: var(--tp-charcoal); color: var(--tp-warm); box-shadow: 0 1px 0 hsl(40 8% 4% / 0.4); }
+.tp-seg-btn.is-on.t-prog { color: var(--tp-accent); }
+.tp-seg-btn.is-on.t-review { color: hsl(265 30% 74%); }
+.tp-seg-btn.is-on.t-high { color: hsl(8 60% 70%); }
+.tp-seg-btn.is-on.t-urgent { color: hsl(8 70% 68%); }
+
+.tp-glyph { position:relative; }
+.tp-glyph .gly { position:absolute; left:14px; top:50%; transform:translateY(-50%);
+  font-size:13px; pointer-events:none; color: var(--tp-stone); }
+.tp-glyph .tp-select { padding-left:38px; }
+
+.tp-tags { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.tp-tag { display:inline-flex; align-items:center; gap:8px; padding:7px 8px 7px 12px;
+  background: var(--tp-ink); border:1px solid var(--tp-border);
+  font-size:11px; letter-spacing:0.08em; color: var(--tp-stone); }
+.tp-tag button { background:transparent; border:0; color: var(--tp-taupe); cursor:pointer;
+  font-size:13px; line-height:1; padding:0; }
+.tp-tag button:hover { color: hsl(8 60% 70%); }
+.tp-tag-add { background:transparent; border:1px dashed var(--tp-border-strong); color: var(--tp-taupe);
+  font-family: var(--tp-sans); font-size:12px; padding:7px 14px; cursor:pointer;
+  letter-spacing:0.02em; transition: all .3s; }
+.tp-tag-add:hover { color: var(--tp-warm); border-color: var(--tp-accent); }
+
+.tp-rows { display:flex; flex-direction:column; gap:3px; }
+.tp-row { display:flex; align-items:center; gap:14px; padding:14px 16px;
+  background: var(--tp-ink); transition: background .3s; }
+.tp-row:hover { background: hsl(36 5% 19%); }
+.tp-row-box { width:18px; height:18px; flex-shrink:0; border:1px solid var(--tp-stone);
+  display:grid; place-items:center; cursor:pointer; transition: all .3s; background: transparent; padding:0; }
+.tp-row.is-done .tp-row-box { background: var(--tp-accent); border-color: var(--tp-accent); }
+.tp-row.is-done .tp-row-box::after { content:'✓'; font-size:12px; color: var(--tp-warm); }
+.tp-row-label { flex:1; font-size:14px; color: var(--tp-warm); background:transparent; border:0; outline:none;
+  font: inherit; font-weight:300; padding:0; text-align:left; cursor:text; }
+.tp-row.is-done .tp-row-label { color: var(--tp-taupe); text-decoration: line-through;
+  text-decoration-color: hsl(40 20% 97% / 0.2); }
+.tp-row-meta { font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color: var(--tp-taupe); }
+.tp-row-del { background:transparent; border:0; color: var(--tp-taupe); cursor:pointer; opacity:0;
+  transition: all .3s; display:inline-flex; }
+.tp-row:hover .tp-row-del { opacity:1; }
+.tp-row-del:hover { color: hsl(8 60% 70%); }
+
+.tp-addrow { display:flex; gap:10px; margin-top:10px; }
+.tp-addrow .tp-input { flex:1; }
+.tp-btn { display:inline-flex; align-items:center; gap:9px; flex-shrink:0;
+  font: inherit; font-size:11px; letter-spacing:0.18em; text-transform:uppercase;
+  padding:0 20px; height: var(--tp-field-h); cursor:pointer; border:1px solid var(--tp-border);
+  color: var(--tp-warm); background: transparent; transition: all .3s; }
+.tp-btn:hover { background: var(--tp-accent); border-color: var(--tp-accent); color: var(--tp-warm); }
+
+.tp-empty { padding:22px; text-align:center; border:1px dashed hsl(40 20% 97% / 0.12);
+  color: var(--tp-taupe); font-family: var(--tp-serif); font-style: italic; font-size:15px; }
+.tp-empty--drop { cursor:pointer; transition: all .3s; }
+.tp-empty--drop:hover { border-color: var(--tp-accent); color: var(--tp-stone); background: hsl(30 25% 44% / 0.05); }
+
+.tp-att { display:flex; align-items:center; gap:14px; padding:13px 16px; background: var(--tp-ink); }
+.tp-att-ic { width:34px; height:34px; display:grid; place-items:center; border:1px solid var(--tp-border);
+  font-family: var(--tp-serif); font-style:italic; font-size:10px; color: var(--tp-stone); }
+.tp-att-info { flex:1; display:flex; flex-direction:column; gap:3px; min-width:0; }
+.tp-att-name { font-size:13px; color: var(--tp-warm); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tp-att-meta { font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color: var(--tp-taupe); }
+.tp-att a { color: inherit; text-decoration: none; }
+.tp-att a:hover { color: var(--tp-accent); }
+
+.tp-act { display:flex; flex-direction:column; gap:0; }
+.tp-act-item { display:flex; gap:16px; padding:4px 0 18px; position:relative; }
+.tp-act-rail { display:flex; flex-direction:column; align-items:center; }
+.tp-act-dot { width:9px; height:9px; border-radius:50%; background: var(--tp-accent);
+  margin-top:5px; flex-shrink:0; }
+.tp-act-line { width:1px; flex:1; background: var(--tp-border); margin-top:4px; }
+.tp-act-item:last-child .tp-act-line { display:none; }
+.tp-act-body { display:flex; flex-direction:column; gap:4px; padding-bottom:4px; }
+.tp-act-txt { font-size:13px; color: var(--tp-stone); }
+.tp-act-time { font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color: var(--tp-taupe); }
+
+@media (max-width: 767px) {
+  .tp-grid2 { grid-template-columns: 1fr; }
+  .tp-header, .tp-body { padding-left: 22px; padding-right: 22px; }
+  .tp-hero-title { font-size: 30px; }
+}
+`;
+
+const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
+  backlog: "Backlog",
+  ready_for_claude: "Ready",
+  in_progress: "In Progress",
+  needs_review: "Needs Review",
+  complete: "Complete",
+  blocked: "Blocked",
+};
+
+const TASK_STATUS_TONE: Partial<Record<TaskStatus, string>> = {
+  in_progress: "t-prog",
+  needs_review: "t-review",
+};
+const PRIORITY_TONE: Partial<Record<TaskPriority, string>> = {
+  high: "t-high",
+  urgent: "t-urgent",
+};
+
+const ASSIGNEE_GLYPH: Record<AssigneeKind, string> = {
+  unassigned: "·",
+  admin: "◇",
+  claude: "✦",
+  auto: "⚙",
+  client: "◉",
+  agency: "⌂",
+};
+
 function TaskDetailSheet({
   task, epics, subtasks, onClose, onChanged, clientProjectId,
 }: {
@@ -394,6 +615,10 @@ function TaskDetailSheet({
 }) {
   const [draft, setDraft] = useState<Task>(task);
   const [saving, setSaving] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggle = (k: string) => setCollapsed((c) => ({ ...c, [k]: !c[k] }));
+
   useEffect(() => setDraft(task), [task.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async (patch: Partial<Task>) => {
@@ -426,249 +651,444 @@ function TaskDetailSheet({
     catch (e) { toast.error(e instanceof Error ? e.message : "Upload failed"); }
   };
 
+  const copyId = async () => {
+    try {
+      await navigator.clipboard.writeText(task.id);
+      setIdCopied(true);
+      setTimeout(() => setIdCopied(false), 1400);
+    } catch { toast.error("Copy failed"); }
+  };
+
+  const shortId = `CRE8-${task.id.slice(0, 8).toUpperCase()}`;
+  const tags = draft.tags ?? [];
+  const acItems = draft.acceptance_criteria ?? [];
+  const attachments = task.attachments ?? [];
+  const activity = task.activity ?? [];
+
+  const addTag = () => {
+    const t = prompt("Tag")?.trim();
+    if (!t) return;
+    const next = Array.from(new Set([...(draft.tags ?? []), t]));
+    setDraft({ ...draft, tags: next });
+    void save({ tags: next });
+  };
+  const removeTag = (t: string) => {
+    const next = (draft.tags ?? []).filter((x) => x !== t);
+    setDraft({ ...draft, tags: next });
+    void save({ tags: next });
+  };
+
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className={`w-[560px] sm:max-w-[560px] overflow-y-auto ${taskSurfaceClass}`}>
-        <SheetHeader>
-          <SheetTitle className="!text-warm-white text-base flex items-center justify-between">
-            <span>Task</span>
-            <button onClick={remove} className="text-xs !text-warm-white/80 hover:!text-destructive inline-flex items-center gap-1">
-              <Trash2 size={12} /> Delete
-            </button>
-          </SheetTitle>
+      <SheetContent
+        side="right"
+        className="p-0 border-0 bg-transparent w-full sm:max-w-[720px] shadow-[-40px_0_120px_-30px_hsl(40_8%_4%/0.7)]"
+      >
+        <style>{TASK_PANEL_STYLE}</style>
+        <SheetHeader className="sr-only">
+          <SheetTitle>Task detail</SheetTitle>
         </SheetHeader>
-        <div className="space-y-4 mt-4">
-          <div className="flex justify-end">
-            <TooltipProvider delayDuration={150}>
-              <Tooltip>
-                <TooltipTrigger asChild>
+        <div className="tp-root">
+          {/* Header */}
+          <header className="tp-header">
+            <div className="tp-h-top">
+              <div className="tp-eyebrow">
+                Task
+                <button className="tp-id" onClick={copyId} type="button" title="Copy task ID">
+                  <Copy size={11} />
+                  <span>{idCopied ? "Copied" : shortId}</span>
+                </button>
+              </div>
+              <div className="tp-actions">
+                <span className="tp-statuschip">
+                  <span className="d" style={{ background: STATUS_COLORS[draft.status] }} />
+                  {TASK_STATUS_LABEL[draft.status]}
+                </span>
+                <button className="tp-iconbtn tp-danger" onClick={remove} title="Delete task" aria-label="Delete task">
+                  <Trash2 />
+                </button>
+                <button className="tp-iconbtn" onClick={onClose} title="Close" aria-label="Close">
+                  <X />
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Body */}
+          <div className="tp-body">
+            {/* Hero */}
+            <section className="tp-sec">
+              <div className="tp-hero">
+                <label className="tp-label" htmlFor="tp-name">Name</label>
+                <input
+                  id="tp-name"
+                  className="tp-hero-title"
+                  value={draft.name}
+                  placeholder="Untitled task"
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  onBlur={() => draft.name !== task.name && save({ name: draft.name })}
+                />
+              </div>
+              <div className="tp-field" style={{ marginTop: 22 }}>
+                <label className="tp-label" htmlFor="tp-desc">Description</label>
+                <textarea
+                  id="tp-desc"
+                  className="tp-textarea"
+                  value={draft.description ?? ""}
+                  placeholder="Add context, goals, and anything the owner needs to know…"
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                  onBlur={() => (draft.description ?? "") !== (task.description ?? "") && save({ description: draft.description })}
+                />
+              </div>
+            </section>
+
+            {/* Details */}
+            <Section title="Details" collapsed={collapsed.details} onToggle={() => toggle("details")}>
+              <div className="tp-grid2">
+                <div className="tp-field tp-field--full">
+                  <span className="tp-label">Status</span>
+                  <div className="tp-seg">
+                    {TASK_STATUSES.map((s) => {
+                      const on = draft.status === s;
+                      const tone = on ? TASK_STATUS_TONE[s] ?? "" : "";
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          className={`tp-seg-btn ${on ? "is-on" : ""} ${tone}`}
+                          onClick={() => { setDraft({ ...draft, status: s }); save({ status: s }); }}
+                        >
+                          {on && <span className="d" />}{TASK_STATUS_LABEL[s]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="tp-field tp-field--full">
+                  <span className="tp-label">Priority</span>
+                  <div className="tp-seg">
+                    {PRIORITIES.map((p) => {
+                      const on = draft.priority === p;
+                      const tone = on ? PRIORITY_TONE[p] ?? "" : "";
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          className={`tp-seg-btn ${on ? "is-on" : ""} ${tone}`}
+                          onClick={() => { setDraft({ ...draft, priority: p }); save({ priority: p }); }}
+                        >
+                          {p}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="tp-field">
+                  <label className="tp-label" htmlFor="tp-assignee">Assignee</label>
+                  <div className="tp-glyph">
+                    <span className="gly">{ASSIGNEE_GLYPH[draft.assignee_kind]}</span>
+                    <select
+                      id="tp-assignee"
+                      className="tp-select"
+                      value={draft.assignee_kind}
+                      onChange={(e) => { const v = e.target.value as AssigneeKind; setDraft({ ...draft, assignee_kind: v }); save({ assignee_kind: v }); }}
+                    >
+                      {ASSIGNEE_OPTIONS.map((k) => <option key={k} value={k}>{ASSIGNEE_LABEL[k]}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="tp-field">
+                  <label className="tp-label" htmlFor="tp-epic">Epic</label>
+                  <select
+                    id="tp-epic"
+                    className="tp-select"
+                    value={draft.epic_id ?? ""}
+                    onChange={(e) => { const id = e.target.value || null; setDraft({ ...draft, epic_id: id }); save({ epic_id: id }); }}
+                  >
+                    <option value="">None</option>
+                    {epics.map((ep) => <option key={ep.id} value={ep.id}>{ep.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="tp-field">
+                  <label className="tp-label" htmlFor="tp-due">Due date</label>
+                  <input
+                    id="tp-due"
+                    className="tp-input"
+                    type="date"
+                    value={draft.due_date ?? ""}
+                    onChange={(e) => setDraft({ ...draft, due_date: e.target.value || null })}
+                    onBlur={() => (draft.due_date ?? "") !== (task.due_date ?? "") && save({ due_date: draft.due_date })}
+                  />
+                </div>
+
+                <div className="tp-field">
+                  <label className="tp-label" htmlFor="tp-size">Size</label>
+                  <select
+                    id="tp-size"
+                    className="tp-select"
+                    value={draft.size ?? ""}
+                    onChange={(e) => { const s = (e.target.value || null) as TaskSize | null; setDraft({ ...draft, size: s }); save({ size: s }); }}
+                  >
+                    <option value="">—</option>
+                    {TASK_SIZES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+
+                <div className="tp-field">
+                  <label className="tp-label" htmlFor="tp-platform">Platform</label>
+                  <select
+                    id="tp-platform"
+                    className="tp-select"
+                    value={draft.platform ?? ""}
+                    onChange={(e) => { const p = (e.target.value || null) as TaskPlatform | null; setDraft({ ...draft, platform: p }); save({ platform: p }); }}
+                  >
+                    <option value="">—</option>
+                    {TASK_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+            </Section>
+
+            {/* Links */}
+            <Section title="Links" collapsed={collapsed.links} onToggle={() => toggle("links")}>
+              <div className="tp-grid2">
+                <div className="tp-field tp-field--full">
+                  <label className="tp-label" htmlFor="tp-url">URL</label>
+                  <input
+                    id="tp-url"
+                    className="tp-input"
+                    value={draft.url ?? ""}
+                    placeholder="https://…"
+                    onChange={(e) => setDraft({ ...draft, url: e.target.value })}
+                    onBlur={() => (draft.url ?? "") !== (task.url ?? "") && save({ url: draft.url || null })}
+                  />
+                </div>
+                <div className="tp-field tp-field--full">
+                  <label className="tp-label" htmlFor="tp-durl">Design URL</label>
+                  <input
+                    id="tp-durl"
+                    className="tp-input"
+                    value={draft.design_url ?? ""}
+                    placeholder="Figma / comps / brand kit"
+                    onChange={(e) => setDraft({ ...draft, design_url: e.target.value })}
+                    onBlur={() => (draft.design_url ?? "") !== (task.design_url ?? "") && save({ design_url: draft.design_url || null })}
+                  />
+                </div>
+              </div>
+            </Section>
+
+            {/* Blockers & Tags */}
+            <Section title="Blockers & Tags" collapsed={collapsed.blockers} onToggle={() => toggle("blockers")}>
+              <div className="tp-grid2">
+                <div className="tp-field tp-field--full">
+                  <label className="tp-label" htmlFor="tp-prereq">Manual prerequisites</label>
+                  <textarea
+                    id="tp-prereq"
+                    className="tp-textarea"
+                    value={draft.manual_prereqs ?? ""}
+                    placeholder="Human-only blockers — access, approvals, vendor calls…"
+                    onChange={(e) => setDraft({ ...draft, manual_prereqs: e.target.value })}
+                    onBlur={() => (draft.manual_prereqs ?? "") !== (task.manual_prereqs ?? "") && save({ manual_prereqs: draft.manual_prereqs })}
+                  />
+                </div>
+                <div className="tp-field tp-field--full">
+                  <label className="tp-label" htmlFor="tp-blocked">Blocked by — task IDs</label>
+                  <input
+                    id="tp-blocked"
+                    className="tp-input"
+                    value={(draft.blocked_by ?? []).join(", ")}
+                    placeholder="Comma-separated task UUIDs"
+                    onChange={(e) => setDraft({ ...draft, blocked_by: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+                    onBlur={() => save({ blocked_by: draft.blocked_by ?? [] })}
+                  />
+                </div>
+                <div className="tp-field tp-field--full">
+                  <span className="tp-label">Tags</span>
+                  <div className="tp-tags">
+                    {tags.map((t) => (
+                      <span key={t} className="tp-tag">
+                        {t}
+                        <button type="button" onClick={() => removeTag(t)} aria-label={`Remove ${t}`}>×</button>
+                      </span>
+                    ))}
+                    <button type="button" className="tp-tag-add" onClick={addTag}>+ Add tag</button>
+                  </div>
+                </div>
+              </div>
+            </Section>
+
+            {/* Acceptance Criteria */}
+            <Section
+              title="Acceptance Criteria"
+              count={acItems.length}
+              collapsed={collapsed.ac}
+              onToggle={() => toggle("ac")}
+            >
+              <AcceptanceCriteriaChecklist
+                items={acItems}
+                onChange={(items) => { setDraft({ ...draft, acceptance_criteria: items }); save({ acceptance_criteria: items }); }}
+              />
+            </Section>
+
+            {/* Attachments */}
+            <Section
+              title="Attachments"
+              count={attachments.length}
+              collapsed={collapsed.attachments}
+              onToggle={() => toggle("attachments")}
+              right={
+                <label className="tp-addlink" onClick={(e) => e.stopPropagation()}>
+                  <span className="plus">＋</span>Upload
+                  <input
+                    type="file"
+                    hidden
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadAttachment(f); e.target.value = ""; }}
+                  />
+                </label>
+              }
+            >
+              <div className="tp-rows">
+                {attachments.map((a) => {
+                  const ext = (a.file_name.split(".").pop() ?? "").slice(0, 3).toUpperCase();
+                  const kb = a.size_bytes ? `${Math.round(a.size_bytes / 1024)} KB` : "";
+                  return (
+                    <div key={a.id} className="tp-att">
+                      <div className="tp-att-ic">{ext || "·"}</div>
+                      <div className="tp-att-info">
+                        <a className="tp-att-name" href={a.signed_url} target="_blank" rel="noreferrer">{a.file_name}</a>
+                        {kb && <div className="tp-att-meta">{kb}</div>}
+                      </div>
+                      <button
+                        className="tp-row-del"
+                        style={{ opacity: 1 }}
+                        onClick={async () => { await tasksApi.deleteAttachment(a.id); await onChanged(); }}
+                        aria-label="Delete attachment"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+                {attachments.length === 0 && (
+                  <label className="tp-empty tp-empty--drop" style={{ display: "block" }}>
+                    Drop files here, or click to browse
+                    <input
+                      type="file"
+                      hidden
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadAttachment(f); e.target.value = ""; }}
+                    />
+                  </label>
+                )}
+              </div>
+            </Section>
+
+            {/* Subtasks */}
+            {!task.parent_task_id && (
+              <Section
+                title="Subtasks"
+                count={subtasks.length}
+                collapsed={collapsed.subtasks}
+                onToggle={() => toggle("subtasks")}
+                right={
                   <button
                     type="button"
-                    onClick={async () => {
-                      try { await navigator.clipboard.writeText(task.id); toast.success("Task ID copied"); }
-                      catch { toast.error("Copy failed"); }
-                    }}
-                    className="inline-flex items-center gap-1 text-xs !text-warm-white/80 hover:!text-warm-white px-2 py-1 rounded border border-warm-white/15 hover:border-warm-white/30"
+                    className="tp-addlink"
+                    onClick={(e) => { e.stopPropagation(); void addSubtask(); }}
                   >
-                    <Copy size={12} /> Copy ID
+                    <span className="plus">＋</span>Add subtask
                   </button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="bg-ink border border-warm-white/15 !text-warm-white font-mono text-xs">
-                  {task.id}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <Field label="Name">
-            <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              onBlur={() => draft.name !== task.name && save({ name: draft.name })}
-              className={taskInputClass} />
-          </Field>
-          <Field label="Description">
-            <Textarea value={draft.description ?? ""} rows={5}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-              onBlur={() => (draft.description ?? "") !== (task.description ?? "") && save({ description: draft.description })}
-              className={taskInputClass} />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Status">
-              <Select value={draft.status} onValueChange={(v) => { setDraft({ ...draft, status: v as TaskStatus }); save({ status: v as TaskStatus }); }}>
-                <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
-                <SelectContent className={taskSelectContentClass}>{TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}</SelectContent>
-              </Select>
-            </Field>
-            <Field label="Priority">
-              <Select value={draft.priority} onValueChange={(v) => { setDraft({ ...draft, priority: v as TaskPriority }); save({ priority: v as TaskPriority }); }}>
-                <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
-                <SelectContent className={taskSelectContentClass}>{PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-              </Select>
-            </Field>
-            <Field label="Assignee">
-              <Select value={draft.assignee_kind} onValueChange={(v) => { setDraft({ ...draft, assignee_kind: v as AssigneeKind }); save({ assignee_kind: v as AssigneeKind }); }}>
-                <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
-                <SelectContent className={taskSelectContentClass}>
-                  {ASSIGNEE_OPTIONS.map((k) => (
-                    <SelectItem key={k} value={k}>{ASSIGNEE_LABEL[k]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Epic">
-              <Select value={draft.epic_id ?? "none"} onValueChange={(v) => { const id = v === "none" ? null : v; setDraft({ ...draft, epic_id: id }); save({ epic_id: id }); }}>
-                <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
-                <SelectContent className={taskSelectContentClass}>
-                  <SelectItem value="none">None</SelectItem>
-                  {epics.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Due date">
-              <Input type="date" value={draft.due_date ?? ""}
-                onChange={(e) => setDraft({ ...draft, due_date: e.target.value || null })}
-                onBlur={() => (draft.due_date ?? "") !== (task.due_date ?? "") && save({ due_date: draft.due_date })}
-                className={taskInputClass} />
-            </Field>
-            <Field label="URL">
-              <Input value={draft.url ?? ""}
-                onChange={(e) => setDraft({ ...draft, url: e.target.value })}
-                onBlur={() => (draft.url ?? "") !== (task.url ?? "") && save({ url: draft.url || null })}
-                className={taskInputClass} />
-            </Field>
-          </div>
-
-
-          <Field label="Manual prerequisites">
-            <Textarea value={draft.manual_prereqs ?? ""} rows={2}
-              placeholder="Human-only blockers (access, approvals, vendor calls…)"
-              onChange={(e) => setDraft({ ...draft, manual_prereqs: e.target.value })}
-              onBlur={() => (draft.manual_prereqs ?? "") !== (task.manual_prereqs ?? "") && save({ manual_prereqs: draft.manual_prereqs })}
-              className={taskInputClass} />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Design URL">
-              <Input value={draft.design_url ?? ""}
-                placeholder="Figma / comps / brand kit"
-                onChange={(e) => setDraft({ ...draft, design_url: e.target.value })}
-                onBlur={() => (draft.design_url ?? "") !== (task.design_url ?? "") && save({ design_url: draft.design_url || null })}
-                className={taskInputClass} />
-            </Field>
-            <Field label="Size">
-              <Select value={draft.size ?? "none"} onValueChange={(v) => { const s = v === "none" ? null : (v as TaskSize); setDraft({ ...draft, size: s }); save({ size: s }); }}>
-                <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
-                <SelectContent className={taskSelectContentClass}>
-                  <SelectItem value="none">—</SelectItem>
-                  {TASK_SIZES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Platform">
-              <Select value={draft.platform ?? "none"} onValueChange={(v) => { const p = v === "none" ? null : (v as TaskPlatform); setDraft({ ...draft, platform: p }); save({ platform: p }); }}>
-                <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
-                <SelectContent className={taskSelectContentClass}>
-                  <SelectItem value="none">—</SelectItem>
-                  {TASK_PLATFORMS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Blocked by (task IDs)">
-              <Input
-                value={(draft.blocked_by ?? []).join(", ")}
-                placeholder="Comma-separated task UUIDs"
-                onChange={(e) => setDraft({ ...draft, blocked_by: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
-                onBlur={() => save({ blocked_by: draft.blocked_by ?? [] })}
-                className={taskInputClass} />
-            </Field>
-          </div>
-
-          <Field label="Tags (comma separated)">
-            <Input value={draft.tags.join(", ")}
-              onChange={(e) => setDraft({ ...draft, tags: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
-              onBlur={() => save({ tags: draft.tags })}
-              className={taskInputClass} />
-          </Field>
-
-          <AcceptanceCriteriaChecklist
-            items={draft.acceptance_criteria ?? []}
-            onChange={(items) => {
-              setDraft({ ...draft, acceptance_criteria: items });
-              save({ acceptance_criteria: items });
-            }}
-          />
-
-
-
-          {/* Attachments */}
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={subLabel}>Attachments</span>
-              <label className="text-xs !text-warm-white cursor-pointer hover:underline">
-                + Upload
-                <input type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadAttachment(f); e.target.value = ""; }} />
-              </label>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {(task.attachments ?? []).map((a) => (
-                <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 4 }}>
-                  <a href={a.signed_url} target="_blank" rel="noreferrer" className="text-xs !text-warm-white hover:!text-warm-white/80 inline-flex items-center gap-2">
-                    <Paperclip size={11} /> {a.file_name}
-                  </a>
-                  <button onClick={async () => { await tasksApi.deleteAttachment(a.id); await onChanged(); }} className="!text-warm-white/70 hover:!text-destructive"><X size={12} /></button>
+                }
+              >
+                <div className="tp-rows">
+                  {subtasks.map((st) => {
+                    const isDone = st.status === "complete";
+                    return (
+                      <div key={st.id} className={`tp-row ${isDone ? "is-done" : ""}`}>
+                        <button
+                          type="button"
+                          className="tp-row-box"
+                          aria-label={isDone ? "Mark not done" : "Mark done"}
+                          onClick={async () => {
+                            await tasksApi.update(st.id, { status: isDone ? "backlog" : "complete" });
+                            await onChanged();
+                          }}
+                        />
+                        <span className="tp-row-label">{st.name}</span>
+                        <span className="tp-row-meta">{TASK_STATUS_LABEL[st.status]}</span>
+                        <button
+                          className="tp-row-del"
+                          onClick={async () => { if (confirm("Delete subtask?")) { await tasksApi.remove(st.id); await onChanged(); } }}
+                          aria-label="Delete subtask"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {subtasks.length === 0 && <div className="tp-empty">No subtasks yet.</div>}
                 </div>
-              ))}
-              {(task.attachments?.length ?? 0) === 0 && <div className="text-xs !text-warm-white/70">No attachments.</div>}
-            </div>
+              </Section>
+            )}
+
+            {/* Activity */}
+            <Section title="Activity" collapsed={collapsed.activity} onToggle={() => toggle("activity")}>
+              {activity.length === 0 ? (
+                <div className="tp-empty">No activity yet.</div>
+              ) : (
+                <div className="tp-act">
+                  {activity.map((a, i) => (
+                    <div key={a.id} className="tp-act-item">
+                      <div className="tp-act-rail">
+                        <span className="tp-act-dot" style={i === 0 ? undefined : { background: "var(--tp-taupe)" }} />
+                        <span className="tp-act-line" />
+                      </div>
+                      <div className="tp-act-body">
+                        <div className="tp-act-txt">{a.message}</div>
+                        <div className="tp-act-time">
+                          {new Date(a.occurred_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
+
+            {saving && <div className="tp-label" style={{ color: "var(--tp-accent)" }}>Saving…</div>}
           </div>
-
-          {/* Subtasks */}
-          {!task.parent_task_id && (
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={subLabel}>Subtasks</span>
-                <button onClick={addSubtask} className="text-xs !text-warm-white hover:underline">+ Add subtask</button>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {subtasks.map((st) => (
-                  <div key={st.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 4 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: 999, background: STATUS_COLORS[st.status] }} />
-                    <span className="text-xs !text-warm-white flex-1 truncate">{st.name}</span>
-                    <Select value={st.status} onValueChange={(v) => tasksApi.update(st.id, { status: v as TaskStatus }).then(onChanged)}>
-                      <SelectTrigger className={`${taskInputClass} h-7 w-[140px] text-xs [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
-                      <SelectContent className={taskSelectContentClass}>{TASK_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <button onClick={async () => { if (confirm("Delete subtask?")) { await tasksApi.remove(st.id); await onChanged(); } }} className="!text-warm-white/70 hover:!text-destructive"><X size={12} /></button>
-                  </div>
-                ))}
-                {subtasks.length === 0 && <div className="text-xs !text-warm-white/70">No subtasks.</div>}
-              </div>
-            </div>
-          )}
-
-          <ActivitySection items={task.activity ?? []} />
-
-          {saving && <div className="text-xs !text-warm-white/70">Saving…</div>}
         </div>
       </SheetContent>
     </Sheet>
   );
 }
 
-function ActivitySection({ items }: { items: TaskActivity[] }) {
+function Section({
+  title, count, right, collapsed, onToggle, children,
+}: {
+  title: string; count?: number; right?: React.ReactNode;
+  collapsed?: boolean; onToggle?: () => void; children: React.ReactNode;
+}) {
   return (
-    <div>
-      <div style={subLabel}>Activity</div>
-      {items.length === 0 ? (
-        <div className="text-xs !text-warm-white/60">No activity yet.</div>
-      ) : (
-        <ul className="flex flex-col gap-1.5">
-          {items.map((a) => (
-            <li key={a.id} className="flex items-start gap-2 text-xs !text-warm-white/85 px-2 py-1.5 rounded border border-warm-white/10 bg-warm-white/[0.03]">
-              <span className="!text-warm-white/60 shrink-0 tabular-nums">
-                {new Date(a.occurred_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-              </span>
-              <span className="!text-warm-white/50">·</span>
-              <span className="flex-1">{a.message}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <section className={`tp-sec ${collapsed ? "is-collapsed" : ""}`}>
+      <div className="tp-sec-head" onClick={onToggle}>
+        <div className="tp-sec-label">
+          {title}
+          {count != null && <span className="tp-sec-count">{count}</span>}
+        </div>
+        <div className="tp-sec-right">
+          {right}
+          <span className="tp-sec-chev"><ChevronDown size={14} /></span>
+        </div>
+      </div>
+      <div className="tp-sec-body">{children}</div>
+    </section>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div style={subLabel}>{label}</div>
-      {children}
-    </div>
-  );
-}
-const subLabel: React.CSSProperties = {
-  fontSize: 13, letterSpacing: "0.1em", textTransform: "uppercase",
-  color: "hsl(var(--warm-white))", marginBottom: 6,
-};
 
 /* ---------------- Acceptance criteria checklist ---------------- */
 
@@ -683,6 +1103,8 @@ function AcceptanceCriteriaChecklist({ items, onChange }: {
     (typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+
 
   const addItem = () => {
     const text = draftText.trim();
