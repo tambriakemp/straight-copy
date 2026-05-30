@@ -1,11 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Send } from "lucide-react";
+import { Send, Upload, Check, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Msg {
   role: "user" | "assistant";
   content: string;
+}
+
+interface LogoFileMeta {
+  path: string;
+  name: string;
+  size: number;
+  mime: string;
+  signedUrl?: string;
 }
 
 const STAGES = [
@@ -29,7 +38,65 @@ const cleanContent = (text: string) =>
   text
     .replace(/\[\[STAGE:\d+\]\]/g, "")
     .replace(/\[\[BRAND_KIT_COMPLETE\]\]/g, "")
+    .replace(/\[\[REQUEST_LOGO_UPLOAD\]\]/g, "")
+    // Strip markdown emphasis (*word*, **word**, _word_) — chat renders plain text.
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/(^|\s)_([^_\n]+)_(?=\s|$|[.,!?;:])/g, "$1$2")
     .trim();
+
+// Extract up to N dominant colors from an image file using a downscaled canvas.
+// Quantizes RGB into 32-step buckets and returns the top buckets by frequency.
+async function extractDominantColors(file: File, count = 5): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const max = 80;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("no 2d ctx");
+        ctx.drawImage(img, 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h).data;
+        const buckets = new Map<string, { count: number; r: number; g: number; b: number }>();
+        for (let i = 0; i < data.length; i += 4) {
+          const a = data[i + 3];
+          if (a < 200) continue; // ignore transparent
+          const r = data[i], g = data[i + 1], b = data[i + 2];
+          // Skip near-white/near-black backgrounds
+          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          if (lum > 245 || lum < 12) continue;
+          const key = `${r >> 5}-${g >> 5}-${b >> 5}`;
+          const cur = buckets.get(key);
+          if (cur) {
+            cur.count++; cur.r += r; cur.g += g; cur.b += b;
+          } else {
+            buckets.set(key, { count: 1, r, g, b });
+          }
+        }
+        const sorted = [...buckets.values()].sort((a, b) => b.count - a.count).slice(0, count);
+        const hexes = sorted.map((c) => {
+          const r = Math.round(c.r / c.count), g = Math.round(c.g / c.count), bb = Math.round(c.b / c.count);
+          return "#" + [r, g, bb].map((v) => v.toString(16).padStart(2, "0")).join("");
+        });
+        URL.revokeObjectURL(url);
+        resolve(hexes);
+      } catch (e) {
+        URL.revokeObjectURL(url);
+        reject(e);
+      }
+    };
+    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+    img.src = url;
+  });
+}
 
 export default function BrandKit() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -43,10 +110,18 @@ export default function BrandKit() {
   const [contact, setContact] = useState<{ contact_name: string | null; business_name: string | null } | null>(null);
   const [hydrating, setHydrating] = useState(true);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  // Logo upload flow state
+  const [awaitingLogoUpload, setAwaitingLogoUpload] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoFile, setLogoFile] = useState<LogoFileMeta | null>(null);
+  const [extractedColors, setExtractedColors] = useState<string[]>([]);
+  const [colorsApprovalPending, setColorsApprovalPending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hydratedFromServer = useRef(false);
+  const autoStartedRef = useRef(false);
   const lsKey = clientId ? `cre8-portal-${clientId}` : "";
+
 
   useEffect(() => {
     document.title = "Brand Kit · CRE8 Visions";
