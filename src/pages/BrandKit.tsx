@@ -369,7 +369,13 @@ export default function BrandKit() {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-        body: JSON.stringify({ clientId, action: "complete", messages }),
+        body: JSON.stringify({
+          clientId,
+          action: "complete",
+          messages,
+          logoFiles: logoFile ? [logoFile] : [],
+          extractedColors,
+        }),
       });
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || "Submit failed");
