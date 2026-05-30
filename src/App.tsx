@@ -17,6 +17,7 @@ const Unsubscribe = lazy(() => import("./pages/Unsubscribe.tsx"));
 const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
 const Portal = lazy(() => import("./pages/Portal.tsx"));
 const PortalProject = lazy(() => import("./pages/PortalProject.tsx"));
+const BrandKit = lazy(() => import("./pages/BrandKit.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin.tsx"));
 const McpAuthorize = lazy(() => import("./pages/admin/McpAuthorize.tsx"));
