@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useDraggable, useDroppable, useSensor, useSensors,
@@ -117,10 +117,26 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     }
   };
 
+  const kanbanWrapRef = useRef<HTMLDivElement | null>(null);
+  const [kanbanHeight, setKanbanHeight] = useState<number>(600);
+  useLayoutEffect(() => {
+    if (view !== "kanban") return;
+    const compute = () => {
+      const el = kanbanWrapRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      const next = Math.max(360, window.innerHeight - top - 16);
+      setKanbanHeight(next);
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, [view, loading]);
+
   return (
     <div className="text-warm-white">
       {/* Toolbar */}
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
         <div style={{ display: "inline-flex", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 6, overflow: "hidden" }}>
           <button onClick={() => setView("kanban")} style={tabBtnStyle(view === "kanban")}>
             <LayoutGrid size={14} style={{ marginRight: 6 }} /> Kanban
@@ -170,7 +186,19 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         <div className="p-6 text-warm-white/70">Loading tasks…</div>
       ) : view === "kanban" ? (
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <div style={{ display: "grid", gridAutoFlow: "column", gridAutoColumns: "minmax(260px, 1fr)", gap: 12, overflowX: "auto", paddingBottom: 8 }}>
+          <div
+            ref={kanbanWrapRef}
+            style={{
+              display: "grid",
+              gridAutoFlow: "column",
+              gridAutoColumns: "minmax(260px, 1fr)",
+              gap: 12,
+              overflowX: "auto",
+              overflowY: "hidden",
+              height: kanbanHeight,
+              paddingBottom: 4,
+            }}
+          >
             {TASK_STATUSES.map((s) => (
               <KanbanColumn key={s} status={s}
                 tasks={topLevel.filter((t) => t.status === s)}
@@ -251,20 +279,24 @@ function KanbanColumn({
       border: "1px solid hsl(var(--warm-white) / 0.12)",
       borderRadius: 8,
       padding: 10,
-      minHeight: 200,
+      height: "100%",
+      minHeight: 0,
       display: "flex", flexDirection: "column", gap: 8,
+      overflow: "hidden",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 4px 8px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 4px 8px", flexShrink: 0 }}>
         <span style={{ width: 8, height: 8, borderRadius: 999, background: STATUS_COLORS[status] }} />
         <span style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "hsl(var(--warm-white))" }}>
           {STATUS_LABELS[status]}
         </span>
         <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.7)", fontSize: 14 }}>{tasks.length}</span>
       </div>
-      {tasks.map((t) => (
-        <DraggableCard key={t.id} task={t} epics={epics}
-          subtaskCount={(subtasksByParent.get(t.id) ?? []).length} onOpen={onOpen} />
-      ))}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
+        {tasks.map((t) => (
+          <DraggableCard key={t.id} task={t} epics={epics}
+            subtaskCount={(subtasksByParent.get(t.id) ?? []).length} onOpen={onOpen} />
+        ))}
+      </div>
     </div>
   );
 }
