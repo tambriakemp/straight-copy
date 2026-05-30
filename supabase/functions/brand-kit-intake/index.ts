@@ -21,14 +21,14 @@ const MAX_TOKENS = 1024;
 
 const SYSTEM_PROMPT = `You are the CRE8 Visions Brand Kit guide — a warm, editorial, deeply curious creative director helping a client define the visual foundation of their brand.
 
-Tone: confident, considered, never corporate. Short, intentional sentences. Occasional *italics* for emphasis. No emojis, no exclamation marks.
+Tone: confident, considered, never corporate. Short, intentional sentences. No emojis, no exclamation marks, no markdown formatting of any kind.
 
 THE CONVERSATION HAS 7 STAGES — work through them in order, ONE QUESTION AT A TIME:
 1. LOGO — do they have an existing logo or wordmark? What do they need? (logo, wordmark, icon, refresh, brand new)
 2. COLORS — color direction, palette feeling, any non-negotiable hues, anything to avoid
 3. TYPOGRAPHY — type personality (editorial serif, modern sans, etc.), references they admire
 4. REFERENCES — 3-5 specific visual references / brands / moodboard inspirations and what they love about each
-5. RULES — visual do's and don'ts (textures, motifs, things that are *off-brand*)
+5. RULES — visual do's and don'ts (textures, motifs, things that are off-brand)
 6. FORMATS — what file formats / asset types they need (SVG, PNG, social templates, etc.)
 7. SCOPE — final deliverable scope (logo suite, color tokens, type system, brand guidelines doc, etc.)
 
@@ -39,6 +39,17 @@ CONVERSATION RULES:
 - Use their name and business if you know them. Reference earlier answers to show you're listening.
 - Stay on the current stage until you have a substantive answer, then transition naturally.
 - Always include a stage indicator on its own first line in this exact format: [[STAGE:1]] through [[STAGE:7]] reflecting YOUR CURRENT question. After completion use [[STAGE:8]].
+- Never use markdown emphasis. No asterisks (*word*), no bold (**word**), no underscores (_word_). Write in plain prose. The chat renders raw text and asterisks show up literally.
+
+LOGO UPLOAD SUB-FLOW (Stage 1):
+- Open Stage 1 by asking ONE clear question: do they already have a logo they want to keep using, or do they need us to create one from scratch?
+- If the user indicates they HAVE an existing logo (any affirmative — "yes", "I have one", "we already have a logo", etc.):
+  - Your NEXT reply must ask them to upload it, and end with the marker [[REQUEST_LOGO_UPLOAD]] on its own final line. Example: "Wonderful. Drop your current logo below and I'll pull the colors so we can confirm your palette together. [[REQUEST_LOGO_UPLOAD]]"
+  - The frontend renders an upload widget when it sees that marker. After the user uploads, you will receive a user message that begins with "I uploaded my logo" and lists detected hex colors. Briefly acknowledge what you see, then transition to the next relevant question (typography in stage 3 — the colors stage is effectively answered by the uploaded logo, unless they reject the detected colors).
+  - If the user message says "Yes — these are my brand colors" treat Stage 2 (COLORS) as satisfied with the detected hex values; do NOT re-ask the color palette question.
+  - If the user message says "those aren't quite my brand colors", THEN dig into Stage 2 normally and ask what their actual palette should be.
+- If the user says they need a NEW logo (no existing one), do NOT emit the marker. Continue conversationally through Stage 2 (colors) etc.
+- Only emit [[REQUEST_LOGO_UPLOAD]] once per conversation.
 
 REQUIRED FIELDS — DO NOT complete the conversation until you have substantive answers for ALL of these:
 - logo
@@ -348,6 +359,31 @@ Deno.serve(async (req) => {
       const intake = await extractIntake(transcript, ANTHROPIC_API_KEY, ctx);
       const submittedAt = new Date().toISOString();
 
+      // Merge any logo files uploaded during the conversation + extracted colors.
+      const sanLogoFile = (f: any) => f && typeof f === "object" && typeof f.path === "string"
+        ? {
+            path: f.path.slice(0, 500),
+            name: typeof f.name === "string" ? f.name.slice(0, 200) : "",
+            size: typeof f.size === "number" ? f.size : 0,
+            mime: typeof f.mime === "string" ? f.mime.slice(0, 100) : "",
+          }
+        : null;
+      const incomingLogos: Array<{ path: string; name: string; size: number; mime: string }> =
+        Array.isArray(body.logoFiles) ? body.logoFiles.map(sanLogoFile).filter(Boolean) : [];
+      const extractedColors: string[] = Array.isArray(body.extractedColors)
+        ? body.extractedColors.filter((c: any) => typeof c === "string" && /^#[0-9a-fA-F]{6}$/.test(c)).slice(0, 10)
+        : [];
+      if (incomingLogos.length > 0) {
+        (intake as any).logo_files = incomingLogos;
+      }
+      if (extractedColors.length > 0) {
+        (intake as any).extracted_colors = extractedColors;
+        // Surface in the human-readable colors string if the AI didn't capture them.
+        if (!intake.colors || typeof intake.colors !== "string" || intake.colors.trim().length === 0) {
+          (intake as any).colors = `Colors detected from uploaded logo: ${extractedColors.join(", ")}`;
+        }
+      }
+
       // 1. Persist intake on clients row + final transcript.
       const { error: updErr } = await supabase
         .from("clients")
@@ -362,7 +398,7 @@ Deno.serve(async (req) => {
       // 2. Advance Node 03 — auto-check the client-submitted items, mark as client_submitted.
       const { data: bkNode } = await supabase
         .from("journey_nodes")
-        .select("id, started_at, checklist")
+        .select("id, started_at, checklist, client_project_id")
         .eq("client_id", clientId)
         .eq("key", "brand_kit")
         .maybeSingle();
@@ -385,6 +421,37 @@ Deno.serve(async (req) => {
             checklist: nextChecklist,
           })
           .eq("id", bkNode.id);
+
+        // 2b. Attach the uploaded logo to the admin-side Brand Kit submission task
+        // so it shows up in the project task tray alongside the intake.
+        if (incomingLogos.length > 0 && bkNode.client_project_id) {
+          const { data: submissionTask } = await supabase
+            .from("project_tasks")
+            .select("id")
+            .eq("client_project_id", bkNode.client_project_id)
+            .eq("journey_item_key", "brand_kit.submission")
+            .maybeSingle();
+          if (submissionTask?.id) {
+            for (const lf of incomingLogos) {
+              // Avoid duplicates on resubmission.
+              const { data: existing } = await supabase
+                .from("project_task_attachments")
+                .select("id")
+                .eq("task_id", submissionTask.id)
+                .eq("storage_path", lf.path)
+                .maybeSingle();
+              if (!existing) {
+                await supabase.from("project_task_attachments").insert({
+                  task_id: submissionTask.id,
+                  storage_path: lf.path,
+                  file_name: lf.name || lf.path.split("/").pop() || "logo",
+                  mime_type: lf.mime || "image/png",
+                  size_bytes: lf.size || 0,
+                });
+              }
+            }
+          }
+        }
       }
 
       // 3. Notify the team via transactional email (best-effort).

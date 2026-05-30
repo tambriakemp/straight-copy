@@ -1,11 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Send } from "lucide-react";
+import { Send, Upload, Check, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Msg {
   role: "user" | "assistant";
   content: string;
+}
+
+interface LogoFileMeta {
+  path: string;
+  name: string;
+  size: number;
+  mime: string;
+  signedUrl?: string;
 }
 
 const STAGES = [
@@ -29,7 +38,65 @@ const cleanContent = (text: string) =>
   text
     .replace(/\[\[STAGE:\d+\]\]/g, "")
     .replace(/\[\[BRAND_KIT_COMPLETE\]\]/g, "")
+    .replace(/\[\[REQUEST_LOGO_UPLOAD\]\]/g, "")
+    // Strip markdown emphasis (*word*, **word**, _word_) — chat renders plain text.
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/(^|\s)_([^_\n]+)_(?=\s|$|[.,!?;:])/g, "$1$2")
     .trim();
+
+// Extract up to N dominant colors from an image file using a downscaled canvas.
+// Quantizes RGB into 32-step buckets and returns the top buckets by frequency.
+async function extractDominantColors(file: File, count = 5): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const max = 80;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("no 2d ctx");
+        ctx.drawImage(img, 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h).data;
+        const buckets = new Map<string, { count: number; r: number; g: number; b: number }>();
+        for (let i = 0; i < data.length; i += 4) {
+          const a = data[i + 3];
+          if (a < 200) continue; // ignore transparent
+          const r = data[i], g = data[i + 1], b = data[i + 2];
+          // Skip near-white/near-black backgrounds
+          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          if (lum > 245 || lum < 12) continue;
+          const key = `${r >> 5}-${g >> 5}-${b >> 5}`;
+          const cur = buckets.get(key);
+          if (cur) {
+            cur.count++; cur.r += r; cur.g += g; cur.b += b;
+          } else {
+            buckets.set(key, { count: 1, r, g, b });
+          }
+        }
+        const sorted = [...buckets.values()].sort((a, b) => b.count - a.count).slice(0, count);
+        const hexes = sorted.map((c) => {
+          const r = Math.round(c.r / c.count), g = Math.round(c.g / c.count), bb = Math.round(c.b / c.count);
+          return "#" + [r, g, bb].map((v) => v.toString(16).padStart(2, "0")).join("");
+        });
+        URL.revokeObjectURL(url);
+        resolve(hexes);
+      } catch (e) {
+        URL.revokeObjectURL(url);
+        reject(e);
+      }
+    };
+    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+    img.src = url;
+  });
+}
 
 export default function BrandKit() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -43,10 +110,18 @@ export default function BrandKit() {
   const [contact, setContact] = useState<{ contact_name: string | null; business_name: string | null } | null>(null);
   const [hydrating, setHydrating] = useState(true);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  // Logo upload flow state
+  const [awaitingLogoUpload, setAwaitingLogoUpload] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoFile, setLogoFile] = useState<LogoFileMeta | null>(null);
+  const [extractedColors, setExtractedColors] = useState<string[]>([]);
+  const [colorsApprovalPending, setColorsApprovalPending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hydratedFromServer = useRef(false);
+  const autoStartedRef = useRef(false);
   const lsKey = clientId ? `cre8-portal-${clientId}` : "";
+
 
   useEffect(() => {
     document.title = "Brand Kit · CRE8 Visions";
@@ -84,6 +159,12 @@ export default function BrandKit() {
             setMessages(hydrated);
             hydratedFromServer.current = true;
             setView("chat");
+          } else if (!autoStartedRef.current) {
+            // Auto-start: skip the welcome screen and have the assistant greet immediately.
+            autoStartedRef.current = true;
+            setView("chat");
+            // Kick off streaming after state has flushed.
+            setTimeout(() => streamReply([]), 0);
           }
         }
       } catch (e) {
@@ -183,11 +264,91 @@ export default function BrandKit() {
 
     setIsStreaming(false);
     if (detectedComplete) setReadyToSubmit(true);
+    // Detect logo-upload request marker AFTER stream completes so the upload UI
+    // appears once the assistant has finished its prompt.
+    if (assistantText.includes("[[REQUEST_LOGO_UPLOAD]]") && !logoFile) {
+      setAwaitingLogoUpload(true);
+    }
   };
 
   const start = () => {
     setView("chat");
     streamReply([]);
+  };
+
+  // Upload the chosen logo to storage, extract dominant colors, and surface
+  // them to the client for approval. After approval, a synthetic user message
+  // is injected so the AI can acknowledge and continue the conversation.
+  const handleLogoFile = async (file: File) => {
+    if (!clientId || !file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Image required", description: "Please upload a PNG, JPG, or SVG of your logo.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast({ title: "Too large", description: "Logo must be 8MB or smaller.", variant: "destructive" });
+      return;
+    }
+    setLogoUploading(true);
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+      const path = `brand-kit/${clientId}/${Date.now()}-${safeName}`;
+      const { error } = await supabase.storage.from("client-assets").upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || undefined,
+      });
+      if (error) throw new Error(error.message);
+      const { data: signed } = await supabase.storage.from("client-assets").createSignedUrl(path, 60 * 60 * 24 * 7);
+      const meta: LogoFileMeta = {
+        path,
+        name: file.name,
+        size: file.size,
+        mime: file.type || "",
+        signedUrl: signed?.signedUrl,
+      };
+      setLogoFile(meta);
+      // Only attempt color extraction for raster images (SVGs can't be drawn without parsing).
+      if (file.type !== "image/svg+xml") {
+        try {
+          const colors = await extractDominantColors(file, 5);
+          setExtractedColors(colors);
+          setColorsApprovalPending(colors.length > 0);
+        } catch (e) {
+          console.warn("color extraction failed:", e);
+        }
+      }
+      setAwaitingLogoUpload(false);
+      // If no colors were extracted, send the file confirmation immediately.
+      if (file.type === "image/svg+xml") {
+        sendLogoConfirmation(meta, [], "pending");
+      }
+    } catch (e) {
+      toast({
+        title: "Upload failed",
+        description: e instanceof Error ? e.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const sendLogoConfirmation = (meta: LogoFileMeta, colors: string[], approval: "approved" | "rejected" | "pending") => {
+    const parts: string[] = [];
+    parts.push(`I uploaded my logo (${meta.name}).`);
+    if (colors.length > 0) {
+      parts.push(`The dominant colors detected are: ${colors.join(", ")}.`);
+      if (approval === "approved") parts.push("Yes — these are my brand colors.");
+      else if (approval === "rejected") parts.push("Those aren't quite my brand colors. I'll describe what they should be.");
+    } else {
+      parts.push("Please continue with the rest of the brand kit questions.");
+    }
+    const text = parts.join(" ");
+    const next: Msg[] = [...messages, { role: "user", content: text }];
+    setMessages(next);
+    setColorsApprovalPending(false);
+    streamReply(next);
   };
 
   const send = () => {
@@ -200,6 +361,7 @@ export default function BrandKit() {
     streamReply(next);
   };
 
+
   const submit = async () => {
     if (!clientId) return;
     setSubmitting(true);
@@ -207,7 +369,13 @@ export default function BrandKit() {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-        body: JSON.stringify({ clientId, action: "complete", messages }),
+        body: JSON.stringify({
+          clientId,
+          action: "complete",
+          messages,
+          logoFiles: logoFile ? [logoFile] : [],
+          extractedColors,
+        }),
       });
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || "Submit failed");
@@ -485,6 +653,131 @@ export default function BrandKit() {
                     </div>
                   </div>
                 ))}
+                {/* Inline logo upload card — appears when the assistant requests a logo upload */}
+                {awaitingLogoUpload && !logoFile && (
+                  <div
+                    className="ob-msg"
+                    style={{
+                      alignSelf: "flex-start",
+                      maxWidth: "75%",
+                      marginLeft: 46,
+                      padding: "20px 22px",
+                      background: "rgba(139,115,85,0.08)",
+                      border: "1px dashed rgba(139,115,85,0.4)",
+                      borderRadius: 4,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: "#8B7355", marginBottom: 10 }}>
+                      Upload your logo
+                    </div>
+                    <p style={{ fontSize: 13, color: "#C8C0B4", lineHeight: 1.7, marginBottom: 16 }}>
+                      Drop a PNG, JPG, or SVG of your existing logo. We'll pull the dominant colors so you can confirm your palette.
+                    </p>
+                    <label
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 10,
+                        fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase",
+                        background: logoUploading ? "rgba(139,115,85,0.4)" : "#8B7355",
+                        color: "#F5F2EE", padding: "12px 24px",
+                        cursor: logoUploading ? "wait" : "pointer",
+                      }}
+                    >
+                      <Upload size={14} />
+                      {logoUploading ? "Uploading…" : "Choose logo file"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                        style={{ display: "none" }}
+                        disabled={logoUploading}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleLogoFile(f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {/* Color palette approval card — shown after a successful upload */}
+                {logoFile && colorsApprovalPending && extractedColors.length > 0 && (
+                  <div
+                    className="ob-msg"
+                    style={{
+                      alignSelf: "flex-start",
+                      maxWidth: "75%",
+                      marginLeft: 46,
+                      padding: "20px 22px",
+                      background: "rgba(139,115,85,0.08)",
+                      border: "1px solid rgba(139,115,85,0.3)",
+                      borderRadius: 4,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: "#8B7355", marginBottom: 12 }}>
+                      Detected from your logo
+                    </div>
+                    {logoFile.signedUrl && (
+                      <div style={{ marginBottom: 16, padding: 16, background: "rgba(255,255,255,0.04)", display: "flex", justifyContent: "center" }}>
+                        <img
+                          src={logoFile.signedUrl}
+                          alt="Uploaded logo"
+                          style={{ maxHeight: 80, maxWidth: "100%", objectFit: "contain" }}
+                        />
+                      </div>
+                    )}
+                    <p style={{ fontSize: 13, color: "#C8C0B4", lineHeight: 1.7, marginBottom: 14 }}>
+                      Are these your brand colors?
+                    </p>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
+                      {extractedColors.map((hex) => (
+                        <div key={hex} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                          <div
+                            style={{
+                              width: 48, height: 48, borderRadius: 4,
+                              background: hex,
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+                            }}
+                          />
+                          <span style={{ fontSize: 10, color: "#A89F94", letterSpacing: "0.05em", fontFamily: "monospace" }}>
+                            {hex.toUpperCase()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        onClick={() => sendLogoConfirmation(logoFile, extractedColors, "approved")}
+                        disabled={isStreaming}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 8,
+                          fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+                          background: "#8B7355", color: "#F5F2EE",
+                          border: "none", padding: "10px 18px",
+                          cursor: isStreaming ? "not-allowed" : "pointer",
+                          opacity: isStreaming ? 0.5 : 1,
+                        }}
+                      >
+                        <Check size={12} /> Yes, those are mine
+                      </button>
+                      <button
+                        onClick={() => sendLogoConfirmation(logoFile, extractedColors, "rejected")}
+                        disabled={isStreaming}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 8,
+                          fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+                          background: "transparent", color: "#C8C0B4",
+                          border: "1px solid rgba(139,115,85,0.4)", padding: "10px 18px",
+                          cursor: isStreaming ? "not-allowed" : "pointer",
+                          opacity: isStreaming ? 0.5 : 1,
+                        }}
+                      >
+                        <X size={12} /> Not quite
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} />
               </div>
 
