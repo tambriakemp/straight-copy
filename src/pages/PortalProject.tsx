@@ -107,6 +107,27 @@ export default function PortalProject() {
   const [readyToSubmit, setReadyToSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Brand Kit routing: "yes" → Fast Submit form, "no" → conversational chat,
+  // null → show the routing question. Persisted in localStorage so a refresh
+  // keeps the client on whichever path they chose.
+  const bkPathKey = clientId ? `cre8-portal-bk-path-${clientId}` : "";
+  const [bkPath, setBkPathState] = useState<"yes" | "no" | null>(null);
+  useEffect(() => {
+    if (!bkPathKey) return;
+    try {
+      const v = localStorage.getItem(bkPathKey);
+      if (v === "yes" || v === "no") setBkPathState(v);
+    } catch { /* ignore */ }
+  }, [bkPathKey]);
+  const setBkPath = (v: "yes" | "no" | null) => {
+    setBkPathState(v);
+    if (!bkPathKey) return;
+    try {
+      if (v) localStorage.setItem(bkPathKey, v);
+      else localStorage.removeItem(bkPathKey);
+    } catch { /* ignore */ }
+  };
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const lsKey = clientId ? `cre8-portal-${clientId}` : "";
 
