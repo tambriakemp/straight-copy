@@ -11,7 +11,8 @@ import {
 import { toast } from "sonner";
 import { differenceInCalendarDays, format } from "date-fns";
 import { syncChecklist, templateIdFor, type ChecklistItem as ChecklistItemTpl } from "@/lib/journey-checklists";
-import { Eye, Copy, RefreshCw, FileSignature, MessageSquare, Pencil } from "lucide-react";
+import { Eye, Copy, RefreshCw, FileSignature, MessageSquare, Pencil, ArrowLeft } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
@@ -97,6 +98,7 @@ export default function AutomationBuildView() {
   const { id, projectId } = useParams<{ id: string; projectId?: string }>();
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
+  const [projectName, setProjectName] = useState<string | null>(null);
   const [nodes, setNodes] = useState<JourneyNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
@@ -174,13 +176,17 @@ export default function AutomationBuildView() {
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const [c, n] = await Promise.all([
+    const [c, n, p] = await Promise.all([
       supabase.from("clients").select("*").eq("id", id).maybeSingle(),
       supabase.from("journey_nodes").select("*").eq("client_id", id).order("order_index"),
+      projectId
+        ? supabase.from("client_projects").select("name").eq("id", projectId).maybeSingle()
+        : Promise.resolve({ data: null, error: null } as any),
     ]);
     if (c.error) toast.error(c.error.message);
     const clientRow = (c.data as Client) || null;
     const rawNodes = ((n.data as unknown) as JourneyNode[]) || [];
+    setProjectName(((p as any)?.data?.name as string | null) ?? null);
 
     // Reshape each node's checklist against the latest template (preserves
     // `done` by stable key). If anything drifts, persist the corrected shape
@@ -211,7 +217,7 @@ export default function AutomationBuildView() {
     setClient(clientRow);
     setNodes(reshaped);
     setLoading(false);
-  }, [id]);
+  }, [id, projectId]);
 
 
   useEffect(() => { load(); }, [load]);
@@ -236,7 +242,23 @@ export default function AutomationBuildView() {
       .from("journey_nodes")
       .update(patch as never)
       .eq("id", nodeId);
-    if (error) toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
+
+    // Auto-advance: when a stage flips to complete, push the next pending stage to in_progress.
+    if (patch.status === "complete") {
+      const idx = nodes.findIndex((n) => n.id === nodeId);
+      if (idx >= 0) {
+        const next = nodes.slice(idx + 1).find((n) => n.status !== "complete");
+        if (next && next.status !== "in_progress") {
+          setNodes((prev) => prev.map((n) => (n.id === next.id ? { ...n, status: "in_progress" } : n)));
+          const { error: e2 } = await supabase
+            .from("journey_nodes")
+            .update({ status: "in_progress" } as never)
+            .eq("id", next.id);
+          if (e2) toast.error(e2.message);
+        }
+      }
+    }
   };
 
   const { currentIdx, completedCount, total, pct } = useMemo(() => {
@@ -294,36 +316,29 @@ export default function AutomationBuildView() {
 
   return (
     <AdminLayout>
-      <div className="detail">
-        <div className="detail__bar">
-          <button className="detail__back" onClick={() => navigate("/admin")}>Back</button>
+      <div className="roster">
+        <Link
+          to={`/admin/clients/${client.id}`}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            color: "var(--crm-taupe)", fontSize: 15, letterSpacing: "0.06em",
+            textTransform: "uppercase", marginBottom: 18,
+          }}
+        >
+          <ArrowLeft size={14} /> Back to {client.business_name ?? "client"}
+        </Link>
 
-          <div className="detail__client">
-            <div className="detail__client-name">{client.business_name || "Untitled"}</div>
-            <div className="detail__client-meta">
-              <span className="tier">{client.tier === "growth" ? "Growth" : "Launch"} Tier</span>
-              <span className="sep">·</span>
-              <span>{daysSince}d since purchase</span>
-              <span className="sep">·</span>
-              <span>{client.contact_name || client.contact_email || "—"}</span>
-              {client.build_start_date && (
-                <>
-                  <span className="sep">·</span>
-                  <span>Build {format(new Date(client.build_start_date + "T12:00:00"), "MMM d")}</span>
-                </>
-              )}
-              {client.delivery_date && (
-                <>
-                  <span className="sep">·</span>
-                  <span>Delivery {format(new Date(client.delivery_date + "T12:00:00"), "MMM d")}</span>
-                </>
-              )}
-            </div>
+        <div className="roster__head">
+          <div className="roster__title-block">
+            <div className="roster__eyebrow">Automation Build</div>
+            <h1 className="roster__title">{projectName ?? client.business_name ?? "Automation Build"}</h1>
+            <hr className="roster__rule" />
+            <p className="roster__sub">
+              Manage the build journey, contract, subscription, and tasks for this project.
+            </p>
           </div>
 
-          <div className="detail__bar-spacer" />
-
-          <div className="detail__portal-actions">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <TooltipProvider delayDuration={150}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -394,7 +409,6 @@ export default function AutomationBuildView() {
                 <TooltipContent>Copy direct link to the client's contract</TooltipContent>
               </Tooltip>
 
-
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -422,41 +436,10 @@ export default function AutomationBuildView() {
               </Tooltip>
             </TooltipProvider>
           </div>
-
-          <div className="detail__bar-divider" aria-hidden="true" />
-
-          <div className="detail__progress">
-            <div className="detail__progress-text">
-              <div className="detail__progress-eyebrow">Journey</div>
-              <div className="detail__progress-fraction">
-                {String(completedCount).padStart(2, "0")}
-                <span className="slash">/</span>
-                <span className="total">{String(total).padStart(2, "0")}</span>
-              </div>
-            </div>
-            <svg className="detail__progress-ring" viewBox="0 0 44 44">
-              <circle cx="22" cy="22" r="18" fill="none" stroke="hsl(40 20% 97% / 0.08)" strokeWidth="2" />
-              <circle
-                cx="22" cy="22" r="18" fill="none"
-                stroke="hsl(30 25% 44%)" strokeWidth="2"
-                strokeDasharray={ringC}
-                strokeDashoffset={ringOffset}
-                transform="rotate(-90 22 22)"
-                strokeLinecap="round"
-              />
-              <text
-                x="22" y="25" textAnchor="middle" fontSize="9"
-                fill="hsl(40 20% 97%)"
-                fontFamily="Cormorant Garamond, serif" fontStyle="italic"
-              >
-                {pct}%
-              </text>
-            </svg>
-          </div>
         </div>
 
-        <ProjectTabs defaultValue="journey" className="mt-6" style={{ paddingTop: 120, paddingLeft: 32, paddingRight: 32, flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <ProjectTabsList style={{ flexShrink: 0 }}>
+        <ProjectTabs defaultValue="journey" className="mt-8">
+          <ProjectTabsList>
             <ProjectTabsTrigger value="journey">Journey</ProjectTabsTrigger>
             <ProjectTabsTrigger value="subscription">Subscription</ProjectTabsTrigger>
             <ProjectTabsTrigger value="contract">Contract</ProjectTabsTrigger>
@@ -464,7 +447,73 @@ export default function AutomationBuildView() {
             <ProjectTabsTrigger value="settings">Settings</ProjectTabsTrigger>
           </ProjectTabsList>
 
-          <ProjectTabsContent value="journey" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
+          <ProjectTabsContent value="journey">
+            <div
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                gap: 24, flexWrap: "wrap",
+                margin: "24px 0 28px",
+                padding: "18px 22px",
+                border: "1px solid var(--crm-border-dark)",
+                borderRadius: 12,
+                background: "hsl(40 20% 97% / 0.025)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", color: "var(--crm-warm-white)", fontSize: 15 }}>
+                <span style={{
+                  textTransform: "uppercase", letterSpacing: "0.25em", fontSize: 12,
+                  color: "var(--crm-accent)",
+                }}>
+                  {client.tier === "growth" ? "Growth" : "Launch"} Tier
+                </span>
+                <span style={{ color: "var(--crm-taupe)" }}>·</span>
+                <span style={{ color: "var(--crm-taupe)" }}>{daysSince}d since purchase</span>
+                <span style={{ color: "var(--crm-taupe)" }}>·</span>
+                <span style={{ color: "var(--crm-taupe)" }}>{client.contact_name || client.contact_email || "—"}</span>
+                {client.build_start_date && (
+                  <>
+                    <span style={{ color: "var(--crm-taupe)" }}>·</span>
+                    <span style={{ color: "var(--crm-taupe)" }}>Build {format(new Date(client.build_start_date + "T12:00:00"), "MMM d")}</span>
+                  </>
+                )}
+                {client.delivery_date && (
+                  <>
+                    <span style={{ color: "var(--crm-taupe)" }}>·</span>
+                    <span style={{ color: "var(--crm-taupe)" }}>Delivery {format(new Date(client.delivery_date + "T12:00:00"), "MMM d")}</span>
+                  </>
+                )}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Journey</div>
+                  <div style={{ fontFamily: "var(--crm-font-serif)", fontSize: 22, color: "var(--crm-warm-white)", lineHeight: 1 }}>
+                    {String(completedCount).padStart(2, "0")}
+                    <span style={{ color: "var(--crm-taupe)", margin: "0 4px" }}>/</span>
+                    <span style={{ color: "var(--crm-taupe)" }}>{String(total).padStart(2, "0")}</span>
+                  </div>
+                </div>
+                <svg viewBox="0 0 44 44" width={44} height={44}>
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="hsl(40 20% 97% / 0.08)" strokeWidth="2" />
+                  <circle
+                    cx="22" cy="22" r="18" fill="none"
+                    stroke="hsl(30 25% 44%)" strokeWidth="2"
+                    strokeDasharray={ringC}
+                    strokeDashoffset={ringOffset}
+                    transform="rotate(-90 22 22)"
+                    strokeLinecap="round"
+                  />
+                  <text
+                    x="22" y="25" textAnchor="middle" fontSize="9"
+                    fill="hsl(40 20% 97%)"
+                    fontFamily="Cormorant Garamond, serif" fontStyle="italic"
+                  >
+                    {pct}%
+                  </text>
+                </svg>
+              </div>
+            </div>
+
             <JourneyTasksBoard
               client={client}
               nodes={nodes}
@@ -473,25 +522,26 @@ export default function AutomationBuildView() {
             />
           </ProjectTabsContent>
 
-          <ProjectTabsContent value="subscription" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
+          <ProjectTabsContent value="subscription">
             <AutomationSubscriptionPanel client={client as never} />
           </ProjectTabsContent>
 
-          <ProjectTabsContent value="contract" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
+          <ProjectTabsContent value="contract">
             <AdminContractSection clientId={client.id} />
           </ProjectTabsContent>
 
-          <ProjectTabsContent value="settings" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
+          <ProjectTabsContent value="settings">
             <HeyGenKeyPanel client={client} />
           </ProjectTabsContent>
 
           {projectId && (
-            <ProjectTabsContent value="tasks" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
+            <ProjectTabsContent value="tasks">
               <ProjectTasksPanel clientProjectId={projectId} />
             </ProjectTabsContent>
           )}
         </ProjectTabs>
       </div>
+
 
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -1733,17 +1783,7 @@ function JourneyTasksBoard({
   onUpdate: (id: string, patch: Partial<JourneyNode>) => void;
   onReload: () => void;
 }) {
-  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  // Filter cards based on owner (epic visible if it has any task for that owner)
-  const visibleNodes = useMemo(() => {
-    if (ownerFilter === "all") return nodes;
-    return nodes.filter((n) => {
-      const items: ChecklistItem[] = Array.isArray(n.checklist) ? n.checklist : [];
-      return items.some((i) => i.owner === ownerFilter);
-    });
-  }, [nodes, ownerFilter]);
 
   const columns: { key: NodeStatus; label: string; accent: string }[] = [
     { key: "pending",     label: "Not Started", accent: "border-warm-white/20 text-taupe" },
@@ -1752,7 +1792,7 @@ function JourneyTasksBoard({
   ];
 
   const nodesByStatus = (s: NodeStatus) =>
-    visibleNodes
+    nodes
       .filter((n) => n.status === s)
       .sort((a, b) => a.order_index - b.order_index);
 
@@ -1765,19 +1805,6 @@ function JourneyTasksBoard({
     <div className="px-6 text-warm-white">
       {/* Toolbar */}
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="inline-flex overflow-hidden rounded border border-warm-white/15">
-          {(["all","auto","client","agency"] as OwnerFilter[]).map((o) => (
-            <button
-              key={o}
-              onClick={() => setOwnerFilter(o)}
-              className={`px-3 py-1.5 text-xs uppercase tracking-[0.2em] ${
-                ownerFilter === o ? "bg-warm-white/10 text-warm-white" : "text-taupe hover:text-warm-white"
-              }`}
-            >
-              {o === "all" ? "All owners" : OWNER_META[o as ChecklistOwner].label}
-            </button>
-          ))}
-        </div>
         <div className="ml-auto text-xs uppercase tracking-[0.25em] text-taupe">
           {nodes.filter((n) => n.status === "complete").length} / {nodes.length} stages complete
         </div>
@@ -1826,7 +1853,6 @@ function JourneyTasksBoard({
         index={selectedIdx}
         total={nodes.length}
         locked={selectedLocked}
-        ownerFilter={ownerFilter}
         onClose={() => setSelectedId(null)}
         onUpdate={(patch) => selectedNode && onUpdate(selectedNode.id, patch)}
         onReload={onReload}
@@ -1891,21 +1917,20 @@ function JourneyKanbanCard({
 }
 
 function JourneyEpicDrawer({
-  client, node, index, total, locked, ownerFilter, onClose, onUpdate, onReload,
+  client, node, index, total, locked, onClose, onUpdate, onReload,
 }: {
   client: Client;
   node: JourneyNode | null;
   index: number;
   total: number;
   locked: boolean;
-  ownerFilter: OwnerFilter;
   onClose: () => void;
   onUpdate: (patch: Partial<JourneyNode>) => void;
   onReload: () => void;
 }) {
   if (!node) return null;
   const items: ChecklistItem[] = Array.isArray(node.checklist) ? node.checklist : [];
-  const filteredItems = ownerFilter === "all" ? items : items.filter((i) => i.owner === ownerFilter);
+  const filteredItems = items;
   const stageNum = String(index + 1).padStart(2, "0");
   const doneCount = items.filter((i) => i.done).length;
 
