@@ -359,6 +359,31 @@ Deno.serve(async (req) => {
       const intake = await extractIntake(transcript, ANTHROPIC_API_KEY, ctx);
       const submittedAt = new Date().toISOString();
 
+      // Merge any logo files uploaded during the conversation + extracted colors.
+      const sanLogoFile = (f: any) => f && typeof f === "object" && typeof f.path === "string"
+        ? {
+            path: f.path.slice(0, 500),
+            name: typeof f.name === "string" ? f.name.slice(0, 200) : "",
+            size: typeof f.size === "number" ? f.size : 0,
+            mime: typeof f.mime === "string" ? f.mime.slice(0, 100) : "",
+          }
+        : null;
+      const incomingLogos: Array<{ path: string; name: string; size: number; mime: string }> =
+        Array.isArray(body.logoFiles) ? body.logoFiles.map(sanLogoFile).filter(Boolean) : [];
+      const extractedColors: string[] = Array.isArray(body.extractedColors)
+        ? body.extractedColors.filter((c: any) => typeof c === "string" && /^#[0-9a-fA-F]{6}$/.test(c)).slice(0, 10)
+        : [];
+      if (incomingLogos.length > 0) {
+        (intake as any).logo_files = incomingLogos;
+      }
+      if (extractedColors.length > 0) {
+        (intake as any).extracted_colors = extractedColors;
+        // Surface in the human-readable colors string if the AI didn't capture them.
+        if (!intake.colors || typeof intake.colors !== "string" || intake.colors.trim().length === 0) {
+          (intake as any).colors = `Colors detected from uploaded logo: ${extractedColors.join(", ")}`;
+        }
+      }
+
       // 1. Persist intake on clients row + final transcript.
       const { error: updErr } = await supabase
         .from("clients")
@@ -373,7 +398,7 @@ Deno.serve(async (req) => {
       // 2. Advance Node 03 — auto-check the client-submitted items, mark as client_submitted.
       const { data: bkNode } = await supabase
         .from("journey_nodes")
-        .select("id, started_at, checklist")
+        .select("id, started_at, checklist, client_project_id")
         .eq("client_id", clientId)
         .eq("key", "brand_kit")
         .maybeSingle();
@@ -396,6 +421,37 @@ Deno.serve(async (req) => {
             checklist: nextChecklist,
           })
           .eq("id", bkNode.id);
+
+        // 2b. Attach the uploaded logo to the admin-side Brand Kit submission task
+        // so it shows up in the project task tray alongside the intake.
+        if (incomingLogos.length > 0 && bkNode.client_project_id) {
+          const { data: submissionTask } = await supabase
+            .from("project_tasks")
+            .select("id")
+            .eq("client_project_id", bkNode.client_project_id)
+            .eq("journey_item_key", "brand_kit.submission")
+            .maybeSingle();
+          if (submissionTask?.id) {
+            for (const lf of incomingLogos) {
+              // Avoid duplicates on resubmission.
+              const { data: existing } = await supabase
+                .from("project_task_attachments")
+                .select("id")
+                .eq("task_id", submissionTask.id)
+                .eq("storage_path", lf.path)
+                .maybeSingle();
+              if (!existing) {
+                await supabase.from("project_task_attachments").insert({
+                  task_id: submissionTask.id,
+                  storage_path: lf.path,
+                  file_name: lf.name || lf.path.split("/").pop() || "logo",
+                  mime_type: lf.mime || "image/png",
+                  size_bytes: lf.size || 0,
+                });
+              }
+            }
+          }
+        }
       }
 
       // 3. Notify the team via transactional email (best-effort).
