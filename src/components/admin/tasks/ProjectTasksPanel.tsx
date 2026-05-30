@@ -613,10 +613,35 @@ function TaskDetailSheet({
             </div>
           )}
 
+          <ActivitySection items={task.activity ?? []} />
+
           {saving && <div className="text-xs !text-warm-white/70">Saving…</div>}
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function ActivitySection({ items }: { items: TaskActivity[] }) {
+  return (
+    <div>
+      <div style={subLabel}>Activity</div>
+      {items.length === 0 ? (
+        <div className="text-xs !text-warm-white/60">No activity yet.</div>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {items.map((a) => (
+            <li key={a.id} className="flex items-start gap-2 text-xs !text-warm-white/85 px-2 py-1.5 rounded border border-warm-white/10 bg-warm-white/[0.03]">
+              <span className="!text-warm-white/60 shrink-0 tabular-nums">
+                {new Date(a.occurred_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+              </span>
+              <span className="!text-warm-white/50">·</span>
+              <span className="flex-1">{a.message}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
