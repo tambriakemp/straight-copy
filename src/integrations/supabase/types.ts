@@ -2020,6 +2020,10 @@ export type Database = {
         Args: { _client_project_id: string }
         Returns: undefined
       }
+      fire_brain_artifacts_generation: {
+        Args: { _client_project_id: string }
+        Returns: undefined
+      }
       fire_kickoff_webhook: { Args: { _client_id: string }; Returns: undefined }
       fire_surecontact_sync: {
         Args: { _client_id: string }
