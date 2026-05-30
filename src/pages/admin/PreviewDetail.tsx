@@ -393,12 +393,6 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
             <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={archiveProject} title={project.archived ? "Unarchive" : "Archive"}>
               {project.archived ? "Unarchive" : "Archive"}
             </button>
-            {!embedded && project.client_id && (
-              <>
-                <span style={{ width: 1, height: 22, background: "var(--crm-border-dark)", margin: "0 4px" }} />
-                <ClientPortalActions clientId={project.client_id} />
-              </>
-            )}
           </div>
         </div>
       </header>
