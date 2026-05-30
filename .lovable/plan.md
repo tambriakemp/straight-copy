@@ -1,63 +1,55 @@
-## Stage 1 — Intake migration into Tasks
+# Stage 2 (Brand Voice) → Tasks migration
 
-Goal: make the **Intake** stage live entirely inside the Tasks tab as a gated epic, with the existing automations (kickoff webhook, build-date scheduling, SureContact sync, portal) untouched. Other stages stay in the Journey tab for now. Journey stays mirrored under the hood until every stage is migrated, then dropped.
+## Brand chat persistence — diagnosis first
 
-### 1. Proposed intake tasks (under one "Intake" epic, gated, order_index 0)
+Pulled the data for the current client (`Cre8 Visions, LLC`):
 
-| # | Task | Assignee | Acceptance criteria (auto-tick) | Fields |
-|---|------|----------|---------------------------------|--------|
-| 1 | Welcome email | auto | sent · opened | — |
-| 2 | Scope summary email | auto | sent · opened | — |
-| 3 | Portal accessed | client | portal_accessed | — |
-| 4 | Contract signed | client | contract_signed | links to contract |
-| 5 | Onboarding chat completed | client | onboarding_completed | `url` = onboarding chat link |
-| 6 | Required accounts submitted | client | accounts_submitted | — |
-| 7 | Contract countersigned | agency | — | — |
-| 8 | Intake summary reviewed | agency | — | — |
-| 9 | Baseline social audit (if existing accounts) | agency | — | — |
-| 10 | Kickoff confirmation email | auto | sent · opened — auto-fired when 1–9 complete | — |
-| 11 | Build schedule confirmed | agency | — | `due_date` = build_start_date (editable inline; sets `delivery_date` = +8) |
+- `onboarding_submissions` for them: **39 messages, `completed = true`, `summary` populated (1.8 KB JSON)** ✓
+- BUT `clients.intake_data` is **NULL** even though `brand_voice_status = 'complete'` and a PDF exists.
+- `brand_voice_generated_at = 2026-04-24` but the completed chat is `2026-04-28` — the PDF was generated **before** the chat ever completed.
 
-Auto tasks flip to `complete` when all their criteria are ticked. Manual tasks use the existing 6 statuses.
+So the chat itself IS storing the conversation + extracted summary correctly. The bug is upstream:
 
-### 2. Database changes (one migration)
+1. The brand-voice PDF currently shown was generated from an earlier admin/manual trigger (likely `pdfOnly`/regenerate from a stub), not from the real chat output.
+2. `clients.intake_data` is only written by `triggerBrandVoiceGeneration` — admin-side regenerate paths skip it. That's why the field is empty even after a successful chat.
 
-- `project_task_epics`: add `journey_stage_key text`, `locked boolean default false`. Unique `(client_project_id, journey_stage_key)`.
-- `project_tasks`: add `journey_item_key text`, `auto_key text` (matches the AC `auto_key` used today in journey_templates).
-- `acceptance_criteria` jsonb already exists — extend item shape with optional `auto_key` so triggers know which AC to tick.
-- Backfill for every existing `automation_build` project:
-  - create the Intake epic
-  - create the 11 tasks above, copy `done` state from the matching `journey_nodes.checklist` item into task `status` (`complete` vs `backlog`) and AC `done`
-- Helper function `public.sync_intake_from_signals(_client_id)` that recomputes AC + task status from `client_email_tracking`, `client_contracts`, `clients.brand_kit_intake_submitted_at`, `clients.client_account_access`, portal access timestamps, etc.
+**Fix:** in `save-onboarding` + `onboarding-session` "complete" actions, write `summary` to `clients.intake_data` directly (alongside the trigger call) so the field is guaranteed populated when the chat finishes — independent of who/when fires brand-voice generation. Also gate `generate-brand-voice` so it refuses to start unless `clients.intake_data` (or the inline summary) is non-empty, preventing the "generated before chat completed" situation.
 
-### 3. Trigger rewrites (intake only)
+## Stage 2 — 3 task structure
 
-Replace the intake branch of `auto_complete_journey_node` with task-level logic:
+Replace the 5-item brand_voice journey checklist with 3 items, mirrored into a `2. Brand Voice` epic:
 
-- Trigger on `project_tasks` AFTER UPDATE: if all of `contract_signed` + `onboarding_completed` + `accounts_submitted` flip to complete in the same epic → set `clients.build_start_date = tomorrow`, `delivery_date = +8` (and the inverse on reversal). Existing kickoff-webhook gate stays: when tasks 1–9 are all complete and task 10 is still incomplete and `kickoff_webhook_fired_at IS NULL` → `fire_kickoff_webhook`.
-- Trigger on `client_email_tracking`, `client_contracts`, `clients` (account/onboarding fields), `preview_approval_events` → call `sync_intake_from_signals` to tick AC + auto-complete tasks. Same surface area as today's `auto_*` keys, just writing to tasks instead of journey checklist.
-- Trigger on `project_tasks` to mirror status back into `journey_nodes.checklist` for the intake node, so `get_portal_client`, `sync-client-to-surecontact`, and the kickoff webhook keep reading their existing source. This mirror gets removed in the final cutover after all stages are migrated.
-- Epic gating: when all intake tasks complete → unlock the next epic (`locked = false`); reverse on regression. For stage 1 this just unlocks whatever epic currently sits at `order_index = 1` (Brand Voice, still served by the Journey tab).
+| # | Task | Assignee | Automation |
+|---|------|----------|------------|
+| 1 | Brand voice document generated by Claude | auto | Auto-completes when `generate-brand-voice` succeeds. `task.url` = signed PDF URL. PDF uploaded as a task attachment. |
+| 2 | Review and approve document | agency | Manual. Gated behind task 1. Marking complete sets `clients.brand_voice_approved = true` / `brand_voice_approved_at`. |
+| 3 | Brand voice sent to client for review | auto | Auto-completes when the "brand-kit intake ready" email is sent to the client (triggered automatically the moment task 2 is marked complete). |
 
-### 4. UI changes (Tasks tab only)
+Existing automations (`brand-kit-intake`, portal "Brand Voice" tab, PDF rendering, etc.) keep working — they just write through the bidirectional sync.
 
-- Epics render in `order_index` order with a "Locked — finish *Intake* first" overlay on any epic where `locked = true`. Tasks under a locked epic are read-only.
-- Auto/client/agency assignee chips already render — add a small "Auto" badge styling so it's obvious those tick themselves.
-- Acceptance criteria rows show a 🔒 lock icon when they have an `auto_key` (admin can't tick them manually; they reflect signal state).
-- Inline `due_date` editor on "Build schedule confirmed" writes to `clients.build_start_date` via the existing `BuildSchedulePanel` logic, repackaged as a small on-task editor.
-- Onboarding chat link task: the existing `OnboardingChatLinkPanel` becomes a tiny inline "Copy chat link" button on that task (URL is generated the same way).
-- Journey tab stays mounted for Brand Voice → Active. No visible change to those stages.
+## Technical changes
 
-### 5. Rollout
+**Migration**
+- Update `journey_templates` rows for `launch:brand_voice` and `growth:brand_voice` to the new 3-item checklist (stable keys: `brand_voice.document_generated`, `brand_voice.review_and_approve`, `brand_voice.sent_to_client`).
+- `syncChecklist()` against all existing `journey_nodes` where `key='brand_voice'` to preserve any `done` state under new keys.
+- New function `public.ensure_brand_voice_tasks_for_project(_id uuid)` modeled on `ensure_intake_tasks_for_project`. Creates the `2. Brand Voice` epic + 3 mirrored tasks; idempotent.
+- Extend `trg_ensure_intake_tasks_on_node_insert` (rename to `ensure_stage_tasks_on_node_insert`) to call the right ensure-function based on `NEW.key`.
+- Add bidirectional triggers `sync_brand_voice_tasks_from_journey` / `sync_brand_voice_journey_from_task` (same shape as the intake versions, filtered by `journey_item_key LIKE 'brand_voice.%'`).
+- Backfill: run `ensure_brand_voice_tasks_for_project` for every `automation_build` project that has a brand_voice node.
+- Add `brand_voice_approved_at` write to the `sync_brand_voice_journey_from_task` trigger when `review_and_approve` flips to complete.
 
-1. Ship the migration + triggers + mirror.
-2. Backfill runs once; verify on Cre8 Visions LLC growth build that the Intake epic mirrors the current journey state exactly.
-3. Spot-check automations: trigger a contract signature, open a tracked email, complete onboarding — confirm AC ticks and journey_nodes mirror updates.
-4. Hide intake from the Journey tab (keep other stages visible) — you confirm it feels right before we start Stage 2.
+**Edge functions**
+- `generate-brand-voice`:
+  - On PDF upload success, also: update the `brand_voice.document_generated` task (find by `client_project_id + journey_item_key`) with `url = pdfUrl` and insert a `project_task_attachments` row pointing at the same storage object (`storage_path = pdfPath`, mime `application/pdf`). Status flips via the existing journey-checklist update.
+  - Refuse to run if `intake_data` / inline `summary` is empty (returns 400 with clear message).
+- `save-onboarding` + `onboarding-session` `complete`: write `summary` to `clients.intake_data` synchronously before triggering brand-voice generation.
+- New hook in `sync_brand_voice_journey_from_task` (or a separate edge function) that, when `review_and_approve` completes, invokes the existing brand-kit intake email send — and that email handler in turn flips `brand_voice.sent_to_client` to done via the existing checklist-update path.
 
-### Open items I'd resolve during build, not now
+**Frontend**
+- No new UI required — tasks panel, activity log, and attachments UI already render this. Brand voice tab on portal keeps the chat-link behavior added last turn.
 
-- Exact copy/labels per task (defaulting to the table above; easy to edit after backfill).
-- Whether "Build schedule confirmed" should be a task vs. a small banner on the Intake epic. Defaulting to a task per your guidance.
-
-Approve and I'll write the migration + UI changes for stage 1 only.
+## Rollout
+1. Apply migration (templates + ensure function + triggers + backfill).
+2. Deploy `generate-brand-voice`, `save-onboarding`, `onboarding-session`.
+3. Verify on the current Cre8 Visions client: the existing PDF URL should land on task 1 (after a regenerate or backfill step that copies `clients.brand_voice_pdf_url` → task URL for already-generated docs).
+4. Confirm Journey tab still mirrors correctly, then we can move to Stage 3.
