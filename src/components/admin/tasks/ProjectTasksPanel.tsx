@@ -18,8 +18,18 @@ import {
   tasksApi, TASK_STATUSES, STATUS_LABELS, STATUS_COLORS, PRIORITIES, PRIORITY_COLORS,
   TASK_SIZES, TASK_PLATFORMS,
   type Task, type Epic, type TaskStatus, type TaskPriority, type AssigneeKind,
-  type TaskSize, type TaskPlatform, type AcceptanceCriterion,
+  type TaskSize, type TaskPlatform, type AcceptanceCriterion, type TaskActivity,
 } from "./tasksApi";
+
+const ASSIGNEE_LABEL: Record<AssigneeKind, string> = {
+  unassigned: "Unassigned",
+  admin: "👤 Admin",
+  claude: "🤖 Claude",
+  auto: "⚙️ Auto",
+  client: "🧑 Client",
+  agency: "🏛 Agency",
+};
+const ASSIGNEE_OPTIONS: AssigneeKind[] = ["unassigned", "auto", "client", "agency", "admin", "claude"];
 
 interface Props { clientProjectId: string }
 
@@ -131,17 +141,6 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           </SelectContent>
         </Select>
 
-        <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-          <SelectTrigger className="w-[180px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
-            <SelectValue placeholder="Assignee" />
-          </SelectTrigger>
-          <SelectContent className={taskSelectContentClass}>
-            <SelectItem value="all">All assignees</SelectItem>
-            <SelectItem value="unassigned">Unassigned</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="claude">Claude</SelectItem>
-          </SelectContent>
-        </Select>
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <Button variant="outline" size="sm" onClick={() => setEpicsOpen(true)}
@@ -306,7 +305,7 @@ function TaskCard({ task, epics, subtaskCount, dragging }: {
         </span>
         {task.assignee_kind !== "unassigned" && (
           <span style={{ fontSize: 13, color: "hsl(var(--warm-white) / 0.7)" }}>
-            {task.assignee_kind === "claude" ? "🤖 Claude" : "👤 Admin"}
+            {ASSIGNEE_LABEL[task.assignee_kind]}
           </span>
         )}
         {task.due_date && (
@@ -477,9 +476,9 @@ function TaskDetailSheet({
               <Select value={draft.assignee_kind} onValueChange={(v) => { setDraft({ ...draft, assignee_kind: v as AssigneeKind }); save({ assignee_kind: v as AssigneeKind }); }}>
                 <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
                 <SelectContent className={taskSelectContentClass}>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="claude">Claude</SelectItem>
+                  {ASSIGNEE_OPTIONS.map((k) => (
+                    <SelectItem key={k} value={k}>{ASSIGNEE_LABEL[k]}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>
@@ -614,10 +613,35 @@ function TaskDetailSheet({
             </div>
           )}
 
+          <ActivitySection items={task.activity ?? []} />
+
           {saving && <div className="text-xs !text-warm-white/70">Saving…</div>}
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function ActivitySection({ items }: { items: TaskActivity[] }) {
+  return (
+    <div>
+      <div style={subLabel}>Activity</div>
+      {items.length === 0 ? (
+        <div className="text-xs !text-warm-white/60">No activity yet.</div>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {items.map((a) => (
+            <li key={a.id} className="flex items-start gap-2 text-xs !text-warm-white/85 px-2 py-1.5 rounded border border-warm-white/10 bg-warm-white/[0.03]">
+              <span className="!text-warm-white/60 shrink-0 tabular-nums">
+                {new Date(a.occurred_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+              </span>
+              <span className="!text-warm-white/50">·</span>
+              <span className="flex-1">{a.message}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -818,9 +842,9 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
             <Select value={assigneeKind} onValueChange={(v) => setAssigneeKind(v as AssigneeKind)}>
               <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
               <SelectContent className={taskSelectContentClass}>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="claude">🤖 Claude</SelectItem>
+                {ASSIGNEE_OPTIONS.map((k) => (
+                  <SelectItem key={k} value={k}>{ASSIGNEE_LABEL[k]}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 

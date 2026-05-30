@@ -663,19 +663,18 @@ function BrandVoiceAccordion({ token, completed }: { token: string; completed: b
             A short, guided conversation that captures your voice, audience, and goals. This is
             the foundation for everything we build — please complete it before your build kicks off.
           </p>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
-            {completed ? (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8, alignItems: "center" }}>
+            {completed && (
               <span className="portal-access__badge">✓ Submitted to your CRE8 team</span>
-            ) : (
-              <a
-                href={`/onboarding?invite=${token}`}
-                target="_blank"
-                rel="noreferrer"
-                className="crm-btn crm-btn--bronze crm-btn--sm"
-              >
-                Open Brand Voice chat →
-              </a>
             )}
+            <a
+              href={`/onboarding?invite=${token}`}
+              target="_blank"
+              rel="noreferrer"
+              className="crm-btn crm-btn--bronze crm-btn--sm"
+            >
+              {completed ? "Reopen Brand Voice chat →" : "Open Brand Voice chat →"}
+            </a>
           </div>
         </div>
       )}

@@ -1491,6 +1491,47 @@ export type Database = {
         }
         Relationships: []
       }
+      project_task_activity: {
+        Row: {
+          created_at: string
+          dedup_key: string
+          id: string
+          kind: string
+          message: string
+          metadata: Json
+          occurred_at: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string
+          dedup_key?: string
+          id?: string
+          kind: string
+          message: string
+          metadata?: Json
+          occurred_at?: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string
+          dedup_key?: string
+          id?: string
+          kind?: string
+          message?: string
+          metadata?: Json
+          occurred_at?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_task_activity_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_task_attachments: {
         Row: {
           created_at: string
@@ -1908,6 +1949,16 @@ export type Database = {
       has_wiki_access: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_wiki_founder: { Args: { _user_id: string }; Returns: boolean }
+      log_email_event_for_clients_tasks: {
+        Args: {
+          _client_id: string
+          _item_key: string
+          _kind: string
+          _message: string
+          _occurred_at: string
+        }
+        Returns: undefined
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -1925,6 +1976,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      sync_email_tracking_to_task_activity: {
+        Args: { _client_id: string }
+        Returns: undefined
       }
     }
     Enums: {
