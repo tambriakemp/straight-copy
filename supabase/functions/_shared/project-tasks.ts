@@ -251,10 +251,19 @@ export async function deleteAcceptanceCriterion(sb: SupabaseClient, taskId: stri
 }
 
 export async function deleteTask(sb: SupabaseClient, id: string) {
-  // Storage cleanup
-  const { data: atts } = await sb.from("project_task_attachments").select("storage_path").eq("task_id", id);
+  // Storage cleanup — group by bucket
+  const { data: atts } = await sb.from("project_task_attachments").select("storage_path, bucket").eq("task_id", id);
   if (atts?.length) {
-    await sb.storage.from("project-task-attachments").remove(atts.map((a: any) => a.storage_path));
+    const byBucket = new Map<string, string[]>();
+    for (const a of atts as any[]) {
+      const b = a.bucket || "project-task-attachments";
+      const arr = byBucket.get(b) ?? [];
+      arr.push(a.storage_path);
+      byBucket.set(b, arr);
+    }
+    for (const [bucket, paths] of byBucket) {
+      await sb.storage.from(bucket).remove(paths);
+    }
   }
   const { error } = await sb.from("project_tasks").delete().eq("id", id);
   if (error) throw error;
