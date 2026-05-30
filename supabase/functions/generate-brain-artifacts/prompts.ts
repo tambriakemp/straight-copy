@@ -228,6 +228,52 @@ Three to five things that are off-brand for this business — topics, tones, or 
 
 Write everything in clear, specific language the AI can use to generate on-brand content without additional guidance. Format with markdown headers.`;
 
+// ---- 6. Weekly Review Checklist --------------------------------------------
+const WEEKLY_REVIEW_PROMPT = (ctx: BrainArtifactContext) => `You are building an operational document for a client's AI Business Brain. Using the brand voice document and brand kit attached, generate a Weekly Review Checklist for this business.
+
+This checklist is completed every week — ideally the same day each week — to review what happened, what is working, and what to focus on next. It will be used by the client and their AI assistant to keep the business running consistently and intentionally.
+${contextBlock(ctx)}
+The Weekly Review Checklist must include:
+
+## PURPOSE
+Why this review exists and what it produces.
+
+## WHEN TO RUN IT
+Recommended day and time. Why consistency matters.
+
+## THE CHECKLIST — organized into four sections:
+
+### SECTION 1 — LOOK BACK (what happened this week)
+- Revenue received this week
+- New leads that came in
+- New clients signed
+- Content published and how it performed
+- Client work completed or delivered
+- Any fires, issues, or things that went wrong
+
+### SECTION 2 — LOOK AT NOW (current state)
+- Open proposals or quotes
+- Active clients and their current stage
+- Outstanding tasks or deliverables due this week
+- Anything waiting on someone else
+- Cash position and invoices outstanding
+
+### SECTION 3 — LOOK AHEAD (next week priorities)
+- Top three priorities for next week
+- Any content that needs to be created or approved
+- Any client milestones or deliveries due
+- Any decisions that need to be made
+
+### SECTION 4 — BRAIN CHECK-IN (updating the AI)
+- Anything new in the business the AI should know about — new offers, pricing changes, new services, updated FAQs
+- Any voice or messaging shifts to update in the brand voice document
+- Any new SOPs or processes to add to the Brain
+
+## CLOSING QUESTION
+One reflective question the client answers in writing each week. Make it specific to this business and its goals.
+
+Write everything in clear, specific language. The checklist should take no more than 20 minutes to complete. Format with markdown headers.`;
+
 // ---- Placeholder prompts (fill in then flip enabled=true) -------------------
 const PLACEHOLDER = (label: string) => (_ctx: BrainArtifactContext) =>
   `TODO: ${label} prompt not yet configured.`;
@@ -278,15 +324,14 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     enabled: true,
     buildPrompt: CONTENT_CREATION_PROMPT,
   },
-
   {
     key: "weekly_review",
     criterionText: "Weekly Review Checklist generated and reviewed",
     title: "Weekly Review",
     subtitle: "Checklist.",
     filenamePrefix: "weekly-review-checklist",
-    enabled: false,
-    buildPrompt: PLACEHOLDER("Weekly Review Checklist"),
+    enabled: true,
+    buildPrompt: WEEKLY_REVIEW_PROMPT,
   },
   {
     key: "pricing_guide",
