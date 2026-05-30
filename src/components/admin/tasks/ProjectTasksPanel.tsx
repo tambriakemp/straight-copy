@@ -383,6 +383,13 @@ function ListView({ tasks, epics, subtasksByParent, onOpen }: {
 }
 const th: React.CSSProperties = { padding: "10px 12px" };
 const td: React.CSSProperties = { padding: "10px 12px" };
+const subLabel: React.CSSProperties = {
+  fontSize: 13,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+  color: "hsl(var(--warm-white))",
+  marginBottom: 6,
+};
 
 /* ---------------- Task detail sheet ---------------- */
 
