@@ -828,7 +828,7 @@ mcp.tool("get_client_portal_links", {
 // ============================================================
 // Client Projects (full CRUD; complements list_projects)
 // ============================================================
-const PROJECT_TYPES = ["automation_build","app_development","launch","growth","scale","other"] as const;
+const PROJECT_TYPES = ["automation_build","app_development","web_development","marketing","site_preview","other"] as const;
 const PROJECT_STATUSES = ["active","paused","completed","archived"] as const;
 
 mcp.tool("get_client_project", {
