@@ -305,6 +305,234 @@ mcp.tool("create_epic", {
   handler: async ({ project_id, name, color }: any) => textResult(await createEpic(sb, project_id, name, color)),
 });
 
+// ============================================================
+// Knowledge Base (Wiki) tools
+// ============================================================
+const WIKI_DEPARTMENTS = [
+  "CEO","Sales","Hiring","Finance and Data","Masterminds","Client Experience",
+  "Podcasting","Website","Content & Repurposing","Opt Ins","Tech",
+  "Course Creation","Marketing & Visibility","Other",
+] as const;
+const WIKI_DOC_TYPES = ["SOP","Vendor Info","Client Resource","Reference","Policy","Other"] as const;
+const WIKI_STATUSES = ["Draft","Active","Archived"] as const;
+const WIKI_ACCESS = ["Founder Only","All Staff"] as const;
+
+function wikiSlugify(s: string) {
+  return s.toLowerCase().trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 80) || "untitled";
+}
+
+async function uniqueWikiSlug(base: string, ignoreId?: string): Promise<string> {
+  let slug = base; let i = 2;
+  while (true) {
+    const q = sb.from("wiki_documents").select("id").eq("slug", slug).limit(1);
+    const { data } = await q;
+    const taken = (data ?? []).filter((r: any) => r.id !== ignoreId);
+    if (taken.length === 0) return slug;
+    slug = `${base}-${i++}`;
+  }
+}
+
+mcp.tool("list_wiki_documents", {
+  description: "List knowledge base documents (SOPs, vendor info, references, etc.). Optionally filter by department, doc_type, status, or access_level. Content is omitted from the list — use get_wiki_document for full text.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      department: { type: "string", enum: WIKI_DEPARTMENTS as unknown as string[] },
+      doc_type: { type: "string", enum: WIKI_DOC_TYPES as unknown as string[] },
+      status: { type: "string", enum: WIKI_STATUSES as unknown as string[] },
+      access_level: { type: "string", enum: WIKI_ACCESS as unknown as string[] },
+      tag: { type: "string", description: "Filter to docs containing this tag." },
+      limit: { type: "number", description: "Default 100, max 500." },
+    },
+  },
+  handler: async ({ department, doc_type, status, access_level, tag, limit }: any) => {
+    let q = sb.from("wiki_documents")
+      .select("id, title, slug, department, doc_type, status, access_level, owner, tags, last_reviewed_at, created_at, updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(Math.min(limit ?? 100, 500));
+    if (department) q = q.eq("department", department);
+    if (doc_type) q = q.eq("doc_type", doc_type);
+    if (status) q = q.eq("status", status);
+    if (access_level) q = q.eq("access_level", access_level);
+    if (tag) q = q.contains("tags", [tag]);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
+
+mcp.tool("search_wiki_documents", {
+  description: "Full-text search over knowledge base documents (title + content). Returns matching docs with snippets.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      query: { type: "string" },
+      limit: { type: "number", description: "Default 25, max 100." },
+    },
+    required: ["query"],
+  },
+  handler: async ({ query, limit }: { query: string; limit?: number }) => {
+    const pat = `%${query.replace(/[%_]/g, (m) => `\\${m}`)}%`;
+    const { data, error } = await sb.from("wiki_documents")
+      .select("id, title, slug, department, doc_type, status, access_level, tags, updated_at, content")
+      .or(`title.ilike.${pat},content.ilike.${pat}`)
+      .order("updated_at", { ascending: false })
+      .limit(Math.min(limit ?? 25, 100));
+    if (error) throw new Error(error.message);
+    const out = (data ?? []).map((d: any) => {
+      const idx = d.content?.toLowerCase().indexOf(query.toLowerCase()) ?? -1;
+      const snippet = idx >= 0
+        ? "…" + d.content.slice(Math.max(0, idx - 80), idx + 200) + "…"
+        : (d.content ?? "").slice(0, 200);
+      const { content: _c, ...rest } = d;
+      return { ...rest, snippet };
+    });
+    return textResult(out);
+  },
+});
+
+mcp.tool("get_wiki_document", {
+  description: "Fetch one knowledge base document with full content. Provide either id or slug.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      id: { type: "string" },
+      slug: { type: "string" },
+    },
+  },
+  handler: async ({ id, slug }: { id?: string; slug?: string }) => {
+    if (!id && !slug) throw new Error("Provide id or slug");
+    let q = sb.from("wiki_documents").select("*");
+    q = id ? q.eq("id", id) : q.eq("slug", slug!);
+    const { data, error } = await q.maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("Document not found");
+    return textResult(data);
+  },
+});
+
+const WIKI_WRITE_PROPS = {
+  title: { type: "string" },
+  content: { type: "string", description: "Markdown body." },
+  department: { type: "string", enum: WIKI_DEPARTMENTS as unknown as string[] },
+  doc_type: { type: "string", enum: WIKI_DOC_TYPES as unknown as string[] },
+  status: { type: "string", enum: WIKI_STATUSES as unknown as string[] },
+  access_level: { type: "string", enum: WIKI_ACCESS as unknown as string[] },
+  owner: { type: "string", description: "Free-text owner/team name." },
+  tags: { type: "array", items: { type: "string" } },
+  slug: { type: "string", description: "Optional. Auto-generated from title if omitted." },
+};
+
+mcp.tool("create_wiki_document", {
+  description: "Create a new knowledge base document (SOP, vendor info, policy, reference, etc.). Title, content, department, and doc_type are required.",
+  inputSchema: {
+    type: "object",
+    properties: WIKI_WRITE_PROPS,
+    required: ["title", "content", "department", "doc_type"],
+  },
+  handler: async (args: any) => {
+    const base = wikiSlugify(args.slug || args.title);
+    const slug = await uniqueWikiSlug(base);
+    const row = {
+      title: args.title,
+      slug,
+      content: args.content,
+      department: args.department,
+      doc_type: args.doc_type,
+      status: args.status ?? "Draft",
+      access_level: args.access_level ?? "All Staff",
+      owner: args.owner ?? null,
+      tags: args.tags ?? [],
+      last_reviewed_at: new Date().toISOString(),
+    };
+    const { data, error } = await sb.from("wiki_documents").insert(row).select("*").single();
+    if (error) throw new Error(error.message);
+    await sb.from("wiki_revisions").insert({
+      document_id: data.id, title: data.title, content: data.content,
+      change_note: "Created via Claude MCP", edited_by_name: "Claude",
+    });
+    return textResult(data);
+  },
+});
+
+mcp.tool("update_wiki_document", {
+  description: "Update fields on a knowledge base document. Any omitted field is left unchanged. Records a revision when title or content changes.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      id: { type: "string" },
+      change_note: { type: "string", description: "Optional summary of the change for the revision log." },
+      ...WIKI_WRITE_PROPS,
+    },
+    required: ["id"],
+  },
+  handler: async ({ id, change_note, ...patch }: any) => {
+    const { data: existing, error: e1 } = await sb.from("wiki_documents").select("*").eq("id", id).maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!existing) throw new Error("Document not found");
+
+    const update: Record<string, unknown> = {};
+    for (const k of ["title","content","department","doc_type","status","access_level","owner","tags"]) {
+      if (patch[k] !== undefined) update[k] = patch[k];
+    }
+    if (patch.slug !== undefined) {
+      update.slug = await uniqueWikiSlug(wikiSlugify(patch.slug), id);
+    } else if (patch.title !== undefined && patch.title !== existing.title) {
+      // keep existing slug unless caller explicitly changes it
+    }
+    if (update.content !== undefined || update.title !== undefined) {
+      update.last_reviewed_at = new Date().toISOString();
+    }
+
+    const { data, error } = await sb.from("wiki_documents").update(update).eq("id", id).select("*").single();
+    if (error) throw new Error(error.message);
+
+    if (update.title !== undefined || update.content !== undefined) {
+      await sb.from("wiki_revisions").insert({
+        document_id: id,
+        title: data.title,
+        content: data.content,
+        change_note: change_note ?? "Updated via Claude MCP",
+        edited_by_name: "Claude",
+      });
+    }
+    return textResult(data);
+  },
+});
+
+mcp.tool("delete_wiki_document", {
+  description: "Permanently delete a knowledge base document and its revisions. Use archive (status='Archived') instead when possible.",
+  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  handler: async ({ id }: { id: string }) => {
+    const { error } = await sb.from("wiki_documents").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return textResult({ deleted: true, id });
+  },
+});
+
+mcp.tool("list_wiki_revisions", {
+  description: "List revision history for a knowledge base document, newest first.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      document_id: { type: "string" },
+      limit: { type: "number", description: "Default 25, max 100." },
+    },
+    required: ["document_id"],
+  },
+  handler: async ({ document_id, limit }: { document_id: string; limit?: number }) => {
+    const { data, error } = await sb.from("wiki_revisions")
+      .select("id, title, change_note, edited_by_name, edited_at")
+      .eq("document_id", document_id)
+      .order("edited_at", { ascending: false })
+      .limit(Math.min(limit ?? 25, 100));
+    if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
+
 const app = new Hono().basePath("/project-tasks-mcp");
 const transport = new StreamableHttpTransport();
 const mcpHandler = transport.bind(mcp);
