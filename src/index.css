@@ -1189,13 +1189,15 @@
  * Portal — Account Access Section
  * ============================================================ */
 .crm-shell .portal-access {
-  margin-bottom: 36px;
+  margin-bottom: 12px;
   background: hsl(40 20% 97% / 0.04);
   border: 1px solid hsl(40 20% 97% / 0.12);
   border-radius: 4px;
   overflow: hidden;
   transition: border-color var(--crm-dur-base) var(--crm-ease-soft);
 }
+.crm-shell .portal-access:last-child { margin-bottom: 0; }
+
 .crm-shell .portal-access.is-open { border-color: hsl(40 20% 97% / 0.2); }
 
 .crm-shell .portal-access__toggle {
