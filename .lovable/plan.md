@@ -1,84 +1,99 @@
-# Add OAuth 2.1 to the Project Tasks MCP server
+# Journey → Tasks Board Layout
 
-Goal: make the MCP endpoint connectable from claude.ai's "Custom connector" UI (no Claude Desktop / `mcp-remote` needed) by implementing the OAuth flow Claude expects.
+Render the existing journey stages and their checklist items in the same Tasks-board visual language already used on the Tasks tab, **without changing the underlying `journey_nodes` data model or any of the automation triggers, edge functions, or sync logic that depend on it**.
 
-## What Claude.ai expects
+## What stays exactly the same
 
-When you paste a remote MCP URL into claude.ai, it:
+- `journey_nodes` table, `journey_templates`, all checklist JSONB contents, all special client fields (`brand_voice_*`, `brand_kit_intake`, `build_start_date`, `delivery_video_url`, `build_update_note`, etc.).
+- DB triggers: `auto_complete_journey_node` (auto-advance + kickoff webhook + build date logic), `cascade_reset_downstream_nodes`, `seed_journey_nodes_for_client`, `sync_journey_nodes_on_tier_change`, `fire_surecontact_sync`, `auto_reopen_journey_node`, `stamp_journey_node_status`.
+- Edge functions, SureContact sync, brand voice generation, email tracking, build schedule logic.
+- The separate Tasks tab (real `project_tasks`) keeps working for ad-hoc work.
 
-1. Hits `/.well-known/oauth-protected-resource` on the MCP host to discover the auth server.
-2. Hits `/.well-known/oauth-authorization-server` to discover endpoints.
-3. POSTs to `/register` (Dynamic Client Registration, RFC 7591) to get a `client_id`.
-4. Redirects the user's browser to `/authorize` with PKCE.
-5. After consent, redirects back to Claude with a `code`.
-6. POSTs `code + code_verifier` to `/token`, gets an `access_token`.
-7. Calls the MCP endpoint with `Authorization: Bearer <access_token>`.
+## Schema change (one migration)
 
-## Architecture
+Extend the `project_task_assignee_kind` enum so ad-hoc tasks can optionally use the new labels too:
 
-One new edge function `mcp-oauth` handles all OAuth endpoints. The existing `project-tasks-mcp` function is updated to accept OAuth bearer tokens (in addition to the existing static API tokens, so Claude Desktop setups keep working).
-
-```text
-claude.ai  ──►  /functions/v1/mcp-oauth/.well-known/oauth-authorization-server
-              /functions/v1/mcp-oauth/register
-              /functions/v1/mcp-oauth/authorize   ──► consent page (admin login)
-              /functions/v1/mcp-oauth/token
-              /functions/v1/project-tasks-mcp     (validates OAuth or API token)
+```sql
+ALTER TYPE project_task_assignee_kind ADD VALUE IF NOT EXISTS 'auto';
+ALTER TYPE project_task_assignee_kind ADD VALUE IF NOT EXISTS 'client';
+ALTER TYPE project_task_assignee_kind ADD VALUE IF NOT EXISTS 'agency';
 ```
 
-## Database
+Existing `unassigned / admin / claude` values are preserved. No data migration required. No new tables — journey data stays in `journey_nodes`.
 
-New tables (all admin-only, service-role accessed):
+## New component: `JourneyTasksBoard`
 
-- `mcp_oauth_clients` — dynamically registered Claude clients (`client_id`, `client_name`, `redirect_uris[]`, `created_at`).
-- `mcp_oauth_codes` — short-lived auth codes (`code`, `client_id`, `redirect_uri`, `code_challenge`, `code_challenge_method`, `user_id`, `scope`, `expires_at`).
-- `mcp_oauth_tokens` — issued access tokens (`token_hash`, `client_id`, `user_id`, `scope`, `expires_at`, `revoked`).
+Replaces the current vertical stack of `JourneyNodeCard`s in `AutomationBuildView.tsx`. Reuses the visual primitives from `ProjectTasksPanel` (column/card styling, badges, status pills, owner chips) but is backed by `journey_nodes`, not `project_tasks`.
 
-All RLS-locked to admins only; the edge function uses the service role.
+Layout (same dark editorial theme as the Tasks board):
 
-## Consent / login page
+```text
+┌─ Stage 01 · Intake ─────────── ● In Progress ── 3 / 8 ──┐
+│  [auto] Welcome email sent              ✓               │
+│  [auto] Kickoff confirmation sent       ✓               │
+│  [client] Contract signed               ☐               │
+│  [client] Onboarding chat completed     ✓               │
+│  [agency] Contract countersigned        ☐               │
+│  ─────────────────────────────────────────────────      │
+│  ▾ Stage tools                                          │
+│    • Onboarding chat link panel                         │
+│    • Email tracking panel                               │
+│    • Build schedule panel                               │
+└─────────────────────────────────────────────────────────┘
+┌─ Stage 02 · Brand Voice ─ ⛔ locked until Stage 01 done ┐
+│  …                                                      │
+└─────────────────────────────────────────────────────────┘
+```
 
-`/authorize` renders a minimal HTML page (server-rendered from the edge function) that:
+### Per epic (= journey stage)
 
-- Shows "Claude is requesting access to your Project Tasks".
-- Requires the user to sign in with their existing admin Supabase account (email + password form, posted back to the same function).
-- On success, generates the auth code and 302s back to Claude's `redirect_uri`.
+- Header: `Stage NN · {label}`, status pill driven by `node.status`, completion counter, started/completed dates.
+- Locked state when the previous node isn't `complete` — header dimmed, checkboxes disabled, "Locked until previous stage completes" hint. (Visual only — DB triggers already enforce ordering.)
+- Expandable. Inside: list of checklist items, then a "Stage tools" sub-section.
+- Status segmented control (Not Started / In Progress / Blocked / Complete) — same writes to `journey_nodes.status` as today.
 
-Non-admins are rejected (checked via `has_role(user, 'admin')`).
+### Per task (= checklist item)
 
-## MCP endpoint changes
+- Card-like row with checkbox, label, and an owner chip rendered with the existing task-board palette:
+  - `auto` → muted/system color
+  - `client` → bronze/accent
+  - `agency` → warm-white outlined
+- Toggling the checkbox writes back to `journey_nodes.checklist` exactly the same way `NodeChecklist` does today (preserves `auto_key`, runs through `syncChecklist`).
+- `auto`-owned items remain read-only with a "system-managed" tooltip (matching current behavior).
 
-`checkToken` in `project-tasks-mcp/index.ts` is extended:
+### Stage tools (inside expanded epic)
 
-1. If the bearer matches a row in `api_tokens` → allow (current behavior).
-2. Else hash and look up in `mcp_oauth_tokens`; if found, not revoked, not expired → allow.
-3. Else 401 with `WWW-Authenticate: Bearer resource_metadata="<…/.well-known/oauth-protected-resource>"` so Claude knows where to start the flow.
+Render the existing special panels in-place, unchanged code:
+- `intake` → `OnboardingChatLinkPanel` + `EmailTrackingPanel` + `BuildSchedulePanel`
+- `brand_voice` → `BrandVoicePanel`
+- `brand_kit` → `BrandKitPanel`
+- `delivery` → `ClientFieldEditor` for `delivery_video_url`
+- `automation_02` → `ClientFieldEditor` for `build_update_note`
+- All stages: Linked Asset (asset_label + asset_url) and Internal Notes inputs, same handlers.
 
-Also add `/.well-known/oauth-protected-resource` to the MCP function pointing at the new auth server.
+Result: no new fields need to be added to `journey_nodes` — every special input already has a column.
 
-## UI changes
+## Filter / view controls
 
-Small addition to `/admin/tokens`: a section listing connected Claude clients and active OAuth sessions, with a "Revoke" button per token. No new page needed.
+Above the stages, mirroring the Tasks board toolbar:
+- Filter by owner: All / Auto / Client / Agency.
+- Filter by status: All / Not Started / In Progress / Complete.
+- Collapse all / Expand all.
 
-## User flow after this ships
+(No drag-and-drop reordering — stages are template-driven; checklist items are stage-bound. Keeps automation invariants intact.)
 
-1. In claude.ai → Settings → Connectors → Add custom connector.
-2. Paste `https://<project>.supabase.co/functions/v1/project-tasks-mcp`.
-3. Claude opens our consent page in a popup → user signs in with their admin email/password → approves.
-4. Connector becomes active; tools appear in Claude's chat.
+## File changes
 
-## Files
+- **New** `src/components/admin/journey/JourneyTasksBoard.tsx` — the new board view.
+- **New** `src/components/admin/journey/JourneyEpicCard.tsx` — one stage rendered as an epic card.
+- **New** `src/components/admin/journey/JourneyTaskRow.tsx` — one checklist item rendered as a task row.
+- **Move** existing panel components (`BrandVoicePanel`, `BrandKitPanel`, `OnboardingChatLinkPanel`, `EmailTrackingPanel`, `BuildSchedulePanel`, `ClientFieldEditor`, `NodeChecklist`) out of `AutomationBuildView.tsx` into `src/components/admin/journey/panels/` so the new board can import them. No behavior changes.
+- **Edit** `src/pages/admin/AutomationBuildView.tsx` — replace the `{nodes.map((n) => <JourneyNodeCard …/>)}` block in the Journey tab with `<JourneyTasksBoard client={client} nodes={nodes} onUpdate={…} onReload={reload} />`. Keep all data-loading, save handlers, and subscriptions intact.
+- **Migration** to extend the `project_task_assignee_kind` enum (above).
 
-New:
-- `supabase/migrations/<ts>_mcp_oauth.sql` — three tables + RLS + grants.
-- `supabase/functions/mcp-oauth/index.ts` — discovery, register, authorize (GET+POST), token, plus consent HTML.
+## Out of scope (explicitly)
 
-Edited:
-- `supabase/functions/project-tasks-mcp/index.ts` — dual token validation + `WWW-Authenticate` + resource metadata route.
-- `src/pages/admin/TokensView.tsx` (or wherever `/admin/tokens` lives) — small "Claude OAuth sessions" panel.
-
-## Notes / scope limits
-
-- Refresh tokens omitted in v1; access tokens last 30 days, Claude can just re-auth.
-- Only the `admin` role can complete the consent step.
-- The existing static-bearer flow keeps working, so nothing breaks for Claude Desktop users.
+- No changes to `project_tasks` / `project_task_epics` rows for journey data.
+- No changes to edge functions, SureContact sync, kickoff webhook, brand voice generator, contract logic.
+- No changes to the client-facing portal.
+- The standalone Tasks tab is untouched.
