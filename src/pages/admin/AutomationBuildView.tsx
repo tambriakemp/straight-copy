@@ -175,13 +175,17 @@ export default function AutomationBuildView() {
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const [c, n] = await Promise.all([
+    const [c, n, p] = await Promise.all([
       supabase.from("clients").select("*").eq("id", id).maybeSingle(),
       supabase.from("journey_nodes").select("*").eq("client_id", id).order("order_index"),
+      projectId
+        ? supabase.from("client_projects").select("name").eq("id", projectId).maybeSingle()
+        : Promise.resolve({ data: null, error: null } as any),
     ]);
     if (c.error) toast.error(c.error.message);
     const clientRow = (c.data as Client) || null;
     const rawNodes = ((n.data as unknown) as JourneyNode[]) || [];
+    setProjectName(((p as any)?.data?.name as string | null) ?? null);
 
     // Reshape each node's checklist against the latest template (preserves
     // `done` by stable key). If anything drifts, persist the corrected shape
