@@ -1853,7 +1853,6 @@ function JourneyTasksBoard({
         index={selectedIdx}
         total={nodes.length}
         locked={selectedLocked}
-        ownerFilter={ownerFilter}
         onClose={() => setSelectedId(null)}
         onUpdate={(patch) => selectedNode && onUpdate(selectedNode.id, patch)}
         onReload={onReload}
