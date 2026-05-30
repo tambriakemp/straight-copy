@@ -558,6 +558,135 @@ mcp.tool("discard_wiki_draft", {
   },
 });
 
+mcp.tool("list_pending_wiki_drafts", {
+  description: "List knowledge base documents that have a pending draft awaiting approval/publish. Optionally filter by folder_id, department, or status.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      folder_id: { type: ["string", "null"], description: "Filter by folder; pass null for unfiled drafts." },
+      department: { type: "string", enum: WIKI_DEPARTMENTS as unknown as string[] },
+      status: { type: "string", enum: WIKI_STATUSES as unknown as string[] },
+      limit: { type: "number", default: 50 },
+    },
+  },
+  handler: async ({ folder_id, department, status, limit }: any) => {
+    let q = sb.from("wiki_documents")
+      .select("id, slug, title, draft_title, draft_updated_at, department, doc_type, status, folder_id, published_at, updated_at")
+      .eq("has_draft", true)
+      .order("draft_updated_at", { ascending: false })
+      .limit(limit ?? 50);
+    if (folder_id === null) q = q.is("folder_id", null);
+    else if (folder_id !== undefined) q = q.eq("folder_id", folder_id);
+    if (department) q = q.eq("department", department);
+    if (status) q = q.eq("status", status);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    return textResult({ count: data?.length ?? 0, drafts: data ?? [] });
+  },
+});
+
+mcp.tool("get_wiki_draft", {
+  description: "Fetch the pending draft of a knowledge base document along with the live published version for side-by-side review.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      id: { type: "string" },
+      slug: { type: "string" },
+    },
+  },
+  handler: async ({ id, slug }: { id?: string; slug?: string }) => {
+    if (!id && !slug) throw new Error("Provide id or slug");
+    let q = sb.from("wiki_documents").select("*");
+    q = id ? q.eq("id", id) : q.eq("slug", slug!);
+    const { data, error } = await q.maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("Document not found");
+    return textResult({
+      id: data.id,
+      slug: data.slug,
+      has_draft: data.has_draft,
+      folder_id: data.folder_id,
+      department: data.department,
+      status: data.status,
+      live: { title: data.title, content: data.content, published_at: data.published_at },
+      draft: data.has_draft
+        ? { title: data.draft_title, content: data.draft_content, updated_at: data.draft_updated_at }
+        : null,
+    });
+  },
+});
+
+mcp.tool("approve_wiki_draft", {
+  description: "Approve and publish the pending draft of a knowledge base document. Alias of publish_wiki_document with an explicit approver name recorded on the revision.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      id: { type: "string" },
+      approver_name: { type: "string", description: "Name recorded on the revision (defaults to 'Claude')." },
+      change_note: { type: "string" },
+    },
+    required: ["id"],
+  },
+  handler: async ({ id, approver_name, change_note }: { id: string; approver_name?: string; change_note?: string }) => {
+    const { data: existing, error: e1 } = await sb.from("wiki_documents").select("*").eq("id", id).maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!existing) throw new Error("Document not found");
+    if (!existing.has_draft) throw new Error("No pending draft to approve");
+
+    const newTitle = existing.draft_title ?? existing.title;
+    const newContent = existing.draft_content ?? existing.content;
+    const now = new Date().toISOString();
+
+    const { data, error } = await sb.from("wiki_documents").update({
+      title: newTitle,
+      content: newContent,
+      draft_title: null,
+      draft_content: null,
+      draft_updated_at: null,
+      has_draft: false,
+      published_at: now,
+      last_reviewed_at: now,
+      status: existing.status === "Archived" ? "Archived" : "Active",
+    }).eq("id", id).select("*").single();
+    if (error) throw new Error(error.message);
+
+    await sb.from("wiki_revisions").insert({
+      document_id: id,
+      title: newTitle,
+      content: newContent,
+      change_note: change_note ?? "Draft approved via Claude MCP",
+      edited_by_name: approver_name ?? "Claude",
+    });
+    return textResult({ approved: true, document: data });
+  },
+});
+
+mcp.tool("move_wiki_document", {
+  description: "Move a knowledge base document into a different folder (or to unfiled). Only updates folder_id; title, content, draft, and revision history are preserved.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      id: { type: "string" },
+      folder_id: { type: ["string", "null"], description: "Target wiki_folders.id, or null to unfile." },
+    },
+    required: ["id", "folder_id"],
+  },
+  handler: async ({ id, folder_id }: { id: string; folder_id: string | null }) => {
+    if (folder_id !== null) {
+      const { data: folder, error: fe } = await sb.from("wiki_folders").select("id").eq("id", folder_id).maybeSingle();
+      if (fe) throw new Error(fe.message);
+      if (!folder) throw new Error("Target folder not found");
+    }
+    const { data, error } = await sb.from("wiki_documents")
+      .update({ folder_id })
+      .eq("id", id)
+      .select("id, slug, title, folder_id")
+      .single();
+    if (error) throw new Error(error.message);
+    return textResult({ moved: true, document: data });
+  },
+});
+
 mcp.tool("delete_wiki_document", {
   description: "Permanently delete a knowledge base document and its revisions. Use status='Archived' instead when possible.",
   inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
