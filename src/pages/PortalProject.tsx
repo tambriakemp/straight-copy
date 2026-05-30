@@ -618,11 +618,12 @@ export default function PortalProject() {
                   value: "client-tasks",
                   label: "Client Task Items",
                   node: (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                       {clientTaskPanels.map((p) => (
                         <div key={p.value}>{p.node}</div>
                       ))}
                     </div>
+
                   ),
                 });
               }
