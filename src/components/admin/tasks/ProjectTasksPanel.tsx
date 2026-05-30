@@ -585,7 +585,7 @@ const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   ready_for_claude: "Ready",
   in_progress: "In Progress",
   needs_review: "Needs Review",
-  done: "Done",
+  complete: "Complete",
   blocked: "Blocked",
 };
 
