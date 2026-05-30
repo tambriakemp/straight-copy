@@ -140,6 +140,10 @@ const Onboarding = () => {
     text
       .replace(/\[\[STAGE:\d+\]\]/g, "")
       .replace(/\[\[ONBOARDING_COMPLETE\]\]/g, "")
+      // Strip markdown emphasis (*word*, **word**, _word_) — we render plain text.
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*\n]+)\*/g, "$1")
+      .replace(/(^|\s)_([^_\n]+)_(?=\s|$|[.,!?;:])/g, "$1$2")
       .trim();
 
   const streamReply = async (history: Msg[]) => {
