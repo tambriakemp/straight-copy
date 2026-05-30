@@ -95,7 +95,7 @@ export const GROWTH_CONTRACT: ContractTemplate = {
     {
       heading: "2. Client Responsibilities",
       body:
-        "Client agrees to (a) provide timely access to the accounts and platforms required to deliver the engagement, (b) respond to requests for information, review, and approval within five (5) business days, (c) provide accurate and complete information during onboarding, and (d) maintain active subscriptions for the third-party tools required by the Growth tier (including HeyGen and Claude Pro).",
+        "Client agrees to (a) provide timely access to the accounts and platforms required to deliver the engagement, (b) respond to requests for information, review, and approval within five (5) business days, (c) provide accurate and complete information during onboarding, and (d) maintain active subscriptions for the third-party tools required by the Growth tier (including Claude Pro).",
     },
     {
       heading: "3. Fees & Payment",
