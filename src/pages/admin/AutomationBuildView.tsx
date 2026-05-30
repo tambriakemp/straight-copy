@@ -241,7 +241,23 @@ export default function AutomationBuildView() {
       .from("journey_nodes")
       .update(patch as never)
       .eq("id", nodeId);
-    if (error) toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
+
+    // Auto-advance: when a stage flips to complete, push the next pending stage to in_progress.
+    if (patch.status === "complete") {
+      const idx = nodes.findIndex((n) => n.id === nodeId);
+      if (idx >= 0) {
+        const next = nodes.slice(idx + 1).find((n) => n.status !== "complete");
+        if (next && next.status !== "in_progress") {
+          setNodes((prev) => prev.map((n) => (n.id === next.id ? { ...n, status: "in_progress" } : n)));
+          const { error: e2 } = await supabase
+            .from("journey_nodes")
+            .update({ status: "in_progress" } as never)
+            .eq("id", next.id);
+          if (e2) toast.error(e2.message);
+        }
+      }
+    }
   };
 
   const { currentIdx, completedCount, total, pct } = useMemo(() => {
