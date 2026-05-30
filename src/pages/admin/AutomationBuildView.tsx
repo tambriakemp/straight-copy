@@ -1783,17 +1783,7 @@ function JourneyTasksBoard({
   onUpdate: (id: string, patch: Partial<JourneyNode>) => void;
   onReload: () => void;
 }) {
-  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  // Filter cards based on owner (epic visible if it has any task for that owner)
-  const visibleNodes = useMemo(() => {
-    if (ownerFilter === "all") return nodes;
-    return nodes.filter((n) => {
-      const items: ChecklistItem[] = Array.isArray(n.checklist) ? n.checklist : [];
-      return items.some((i) => i.owner === ownerFilter);
-    });
-  }, [nodes, ownerFilter]);
 
   const columns: { key: NodeStatus; label: string; accent: string }[] = [
     { key: "pending",     label: "Not Started", accent: "border-warm-white/20 text-taupe" },
@@ -1802,7 +1792,7 @@ function JourneyTasksBoard({
   ];
 
   const nodesByStatus = (s: NodeStatus) =>
-    visibleNodes
+    nodes
       .filter((n) => n.status === s)
       .sort((a, b) => a.order_index - b.order_index);
 
