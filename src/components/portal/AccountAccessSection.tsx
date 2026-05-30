@@ -46,29 +46,6 @@ const ACCOUNTS_BASE: Array<{
     ),
   },
   {
-    key: "ottokit",
-    label: "Ottokit",
-    desc: (
-      <>
-        This is where all your automations and workflows will be built and managed. You can sign up{" "}
-        <a
-          href="https://ottokit.com/?aff=e14f4e4e"
-          target="_blank"
-          rel="noreferrer"
-          className="portal-access__link"
-        >
-          here
-        </a>
-        . We strongly recommend the <strong>Business Lifetime</strong> plan — it includes the{" "}
-        <strong>Human in the Loop</strong> feature, which lets you verify automations and emails before they're sent. Ottokit also offers a payment plan for the lifetime deal, so you don't have to pay it all at once. Once you've signed up, invite{" "}
-        <a href="mailto:info@cre8visions.com" className="portal-access__link">
-          info@cre8visions.com
-        </a>{" "}
-        to your workspace, then check this item off so the team knows it's complete.
-      </>
-    ),
-  },
-  {
     key: "copost",
     label: "CoPost",
     desc: (
@@ -82,11 +59,7 @@ const ACCOUNTS_BASE: Array<{
         >
           here
         </a>
-        . CoPost is currently offering a lifetime deal — we recommend the <strong>Teams</strong> plan (also a one-time payment) so the whole team can collaborate. Once you've signed up, click <strong>Settings → Team</strong> and add{" "}
-        <a href="mailto:info@cre8visions.com" className="portal-access__link">
-          info@cre8visions.com
-        </a>{" "}
-        as a team member. Then click <strong>Socials</strong> and connect up to four social media accounts. <em>Note: for Launch plans, YouTube is not included.</em> Once your accounts are connected, check this item off so the team knows it's complete. If you already use a different content scheduler and want to keep it, email us first to see if we can integrate with it.
+        . CoPost is currently offering a lifetime deal — we recommend the <strong>Teams</strong> plan (also a one-time payment) so the whole team can collaborate. Once you've signed up, accept our team invite, then click <strong>Socials</strong> and connect <strong>Facebook, Instagram, Pinterest, and TikTok</strong>. Once your invite is accepted and those accounts are connected, check this item off so the team knows it's complete.
       </>
     ),
   },
@@ -95,30 +68,17 @@ const ACCOUNTS_BASE: Array<{
     label: "Website Access",
     desc: (
       <>
-        We'll need access to your website so we can connect your lead capture system and any on-site automations. Log in to your website's admin dashboard and add{" "}
+        We'll need access to your website so we can connect your lead capture system and any on-site automations. Either add{" "}
         <a href="mailto:info@cre8visions.com" className="portal-access__link">
           info@cre8visions.com
         </a>{" "}
-        as a user, then grant <strong>Editor</strong> or <strong>Admin</strong> rights (Admin is preferred so we can install and configure everything we need). Once that's done, check this item off so the team knows it's complete.
+        as an Editor/Admin on your site, or drop the login details in the <strong>Secure notes</strong> field below. Once submitted, check this item off so the team knows it's complete.
       </>
     ),
   },
-  {
-    key: "heygen",
-    label: "HeyGen",
-    desc: (
-      <>
-        This is where your AI avatar will be created and managed. Once you've set up your HeyGen account, please paste your <strong>API key</strong> in the field below and click <strong>Save</strong> so we can connect it to your automations.
-        <br /><br />
-        <em>Prefer to use an MCP server instead?</em> Check the box below. Going the MCP route is the most cost-effective option because it doesn't require purchasing API credits — but it does require a <strong>dedicated computer</strong> that can run the automation. The computer will need to be powered on at least <strong>once a month</strong> for the automation to run. If you check the MCP box, the API key field will hide.
-        <br /><br />
-        Once you've either saved your API key or selected MCP, check this item off so the team knows it's complete.
-      </>
-    ),
-    growthOnly: true,
-  },
-  { key: "claude", label: "Claude Account", desc: "This is where your Business Brain will live. A Pro account is required.", growthOnly: true },
+  { key: "claude", label: "Claude Pro Account", desc: "This is where your Business Brain will live. A Pro account is required.", growthOnly: true },
 ];
+
 
 const SOCIAL_PLATFORMS = [
   { key: "social_instagram", label: "Instagram" },
