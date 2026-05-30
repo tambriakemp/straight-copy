@@ -7,7 +7,7 @@ export const TASK_STATUSES = [
 export type TaskStatus = typeof TASK_STATUSES[number];
 export const TASK_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 export type TaskPriority = typeof TASK_PRIORITIES[number];
-export const ASSIGNEE_KINDS = ["unassigned", "admin", "claude"] as const;
+export const ASSIGNEE_KINDS = ["unassigned", "admin", "claude", "auto", "client", "agency"] as const;
 export type AssigneeKind = typeof ASSIGNEE_KINDS[number];
 
 export function serviceClient(): SupabaseClient {
