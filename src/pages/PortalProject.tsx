@@ -551,16 +551,16 @@ export default function PortalProject() {
                   value: "client-tasks",
                   label: "Client Task Items",
                   node: (
-                    <ProjectTabs defaultValue={clientTaskPanels[0].value}>
-                      <ProjectTabsList style={{ flexWrap: "wrap" }}>
-                        {clientTaskPanels.map((p) => (
-                          <ProjectTabsTrigger key={p.value} value={p.value}>{p.label}</ProjectTabsTrigger>
-                        ))}
-                      </ProjectTabsList>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
                       {clientTaskPanels.map((p) => (
-                        <ProjectTabsContent key={p.value} value={p.value}>{p.node}</ProjectTabsContent>
+                        <section key={p.value}>
+                          <h3 style={{ fontFamily: "var(--font-display, 'Cormorant Garamond', serif)", fontSize: 24, margin: "0 0 12px" }}>
+                            {p.label}
+                          </h3>
+                          {p.node}
+                        </section>
                       ))}
-                    </ProjectTabs>
+                    </div>
                   ),
                 });
               }
