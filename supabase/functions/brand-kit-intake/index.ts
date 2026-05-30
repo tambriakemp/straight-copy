@@ -705,6 +705,105 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ---------- SAVE LOGO PROGRESS ----------
+    // Incrementally persists the uploaded logo + extracted palette to the client's
+    // brand_kit_intake JSON and attaches the file to the admin Brand Kit submission
+    // task so the agency can see it before the conversation is fully completed.
+    if (action === "save-logo-progress") {
+      const sanLogo = (f: any) => f && typeof f === "object" && typeof f.path === "string"
+        ? {
+            path: f.path.slice(0, 500),
+            name: typeof f.name === "string" ? f.name.slice(0, 200) : "",
+            size: typeof f.size === "number" ? f.size : 0,
+            mime: typeof f.mime === "string" ? f.mime.slice(0, 100) : "",
+          }
+        : null;
+      const logoFile = sanLogo(body.logoFile);
+      const extractedColors: string[] = Array.isArray(body.extractedColors)
+        ? body.extractedColors.filter((c: any) => typeof c === "string" && /^#[0-9a-fA-F]{6}$/.test(c)).slice(0, 10)
+        : [];
+
+      const { data: row } = await supabase
+        .from("clients")
+        .select("brand_kit_intake")
+        .eq("id", clientId)
+        .maybeSingle();
+      const currentIntake = (row?.brand_kit_intake && typeof row.brand_kit_intake === "object")
+        ? row.brand_kit_intake as Record<string, unknown>
+        : {};
+      const nextIntake = {
+        ...currentIntake,
+        logo_files: logoFile ? [logoFile] : [],
+        extracted_colors: extractedColors,
+      };
+      await supabase.from("clients").update({ brand_kit_intake: nextIntake }).eq("id", clientId);
+
+      // Attach to admin task (idempotent), and remove any previous brand-kit
+      // attachments that aren't the current logo so the tray always reflects
+      // the latest uploaded asset.
+      const { data: bkNode } = await supabase
+        .from("journey_nodes")
+        .select("client_project_id")
+        .eq("client_id", clientId)
+        .eq("key", "brand_kit")
+        .maybeSingle();
+      if (bkNode?.client_project_id) {
+        const { data: submissionTask } = await supabase
+          .from("project_tasks")
+          .select("id")
+          .eq("client_project_id", bkNode.client_project_id)
+          .eq("journey_item_key", "brand_kit.submission")
+          .maybeSingle();
+        if (submissionTask?.id) {
+          const prefix = `brand-kit/${clientId}/`;
+          const { data: prior } = await supabase
+            .from("project_task_attachments")
+            .select("id, storage_path")
+            .eq("task_id", submissionTask.id)
+            .like("storage_path", `${prefix}%`);
+          const stale = (prior || []).filter((p) => !logoFile || p.storage_path !== logoFile.path);
+          if (stale.length > 0) {
+            await supabase.from("project_task_attachments").delete().in("id", stale.map((s) => s.id));
+            try {
+              await supabase.storage.from("client-assets").remove(stale.map((s) => s.storage_path));
+            } catch { /* ignore */ }
+          }
+          if (logoFile) {
+            const { data: existing } = await supabase
+              .from("project_task_attachments")
+              .select("id")
+              .eq("task_id", submissionTask.id)
+              .eq("storage_path", logoFile.path)
+              .maybeSingle();
+            if (!existing) {
+              await supabase.from("project_task_attachments").insert({
+                task_id: submissionTask.id,
+                storage_path: logoFile.path,
+                file_name: logoFile.name || logoFile.path.split("/").pop() || "logo",
+                mime_type: logoFile.mime || "image/png",
+                size_bytes: logoFile.size || 0,
+              });
+            }
+          }
+
+          if (extractedColors.length > 0) {
+            await supabase.from("project_task_activity").insert({
+              task_id: submissionTask.id,
+              kind: "note",
+              message: `Brand colors extracted from logo: ${extractedColors.join(", ")}`,
+              metadata: { extracted_colors: extractedColors },
+              dedup_key: `brand-kit-colors:${extractedColors.join(",")}`,
+            });
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
