@@ -147,9 +147,9 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           </SelectTrigger>
           <SelectContent className={taskSelectContentClass}>
             <SelectItem value="all">All assignees</SelectItem>
-            <SelectItem value="unassigned">Unassigned</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="claude">Claude</SelectItem>
+            {ASSIGNEE_OPTIONS.map((k) => (
+              <SelectItem key={k} value={k}>{ASSIGNEE_LABEL[k]}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -316,7 +316,7 @@ function TaskCard({ task, epics, subtaskCount, dragging }: {
         </span>
         {task.assignee_kind !== "unassigned" && (
           <span style={{ fontSize: 13, color: "hsl(var(--warm-white) / 0.7)" }}>
-            {task.assignee_kind === "claude" ? "🤖 Claude" : "👤 Admin"}
+            {ASSIGNEE_LABEL[task.assignee_kind]}
           </span>
         )}
         {task.due_date && (
@@ -487,9 +487,9 @@ function TaskDetailSheet({
               <Select value={draft.assignee_kind} onValueChange={(v) => { setDraft({ ...draft, assignee_kind: v as AssigneeKind }); save({ assignee_kind: v as AssigneeKind }); }}>
                 <SelectTrigger className={`${taskInputClass} [&_*]:!text-warm-white`}><SelectValue /></SelectTrigger>
                 <SelectContent className={taskSelectContentClass}>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="claude">Claude</SelectItem>
+                  {ASSIGNEE_OPTIONS.map((k) => (
+                    <SelectItem key={k} value={k}>{ASSIGNEE_LABEL[k]}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>
@@ -828,9 +828,9 @@ function NewTaskDialog({ open, onOpenChange, epics, clientProjectId, onCreated }
             <Select value={assigneeKind} onValueChange={(v) => setAssigneeKind(v as AssigneeKind)}>
               <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
               <SelectContent className={taskSelectContentClass}>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="claude">🤖 Claude</SelectItem>
+                {ASSIGNEE_OPTIONS.map((k) => (
+                  <SelectItem key={k} value={k}>{ASSIGNEE_LABEL[k]}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
