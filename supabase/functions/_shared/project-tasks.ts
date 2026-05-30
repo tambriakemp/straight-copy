@@ -90,17 +90,34 @@ export async function listTasks(
   if (epicsRes.error) throw epicsRes.error;
   if (attachRes.error) throw attachRes.error;
 
-  const taskIds = new Set((tasksRes.data ?? []).map((t: any) => t.id));
+  const taskIds = (tasksRes.data ?? []).map((t: any) => t.id);
+  const taskIdSet = new Set(taskIds);
+
+  // Activity
+  const actByTask = new Map<string, any[]>();
+  if (taskIds.length) {
+    const actRes = await sb.from("project_task_activity")
+      .select("id, task_id, occurred_at, kind, message, metadata")
+      .in("task_id", taskIds)
+      .order("occurred_at", { ascending: false });
+    if (!actRes.error) {
+      for (const a of actRes.data ?? []) {
+        const arr = actByTask.get(a.task_id) ?? [];
+        arr.push(a); actByTask.set(a.task_id, arr);
+      }
+    }
+  }
+
   const attachByTask = new Map<string, any[]>();
   for (const a of attachRes.data ?? []) {
-    if (!taskIds.has(a.task_id)) continue;
+    if (!taskIdSet.has(a.task_id)) continue;
     const arr = attachByTask.get(a.task_id) ?? [];
     arr.push(a);
     attachByTask.set(a.task_id, arr);
   }
 
   // Sign attachment URLs (1h)
-  const allAttachments = (attachRes.data ?? []).filter((a: any) => taskIds.has(a.task_id));
+  const allAttachments = (attachRes.data ?? []).filter((a: any) => taskIdSet.has(a.task_id));
   if (allAttachments.length) {
     const signed = await sb.storage
       .from("project-task-attachments")
@@ -115,10 +132,12 @@ export async function listTasks(
   const tasks = (tasksRes.data ?? []).map((t: any) => ({
     ...t,
     attachments: attachByTask.get(t.id) ?? [],
+    activity: actByTask.get(t.id) ?? [],
   }));
 
   return { tasks, epics: epicsRes.data ?? [] };
 }
+
 
 export async function createTask(sb: SupabaseClient, input: TaskInput, createdBy: string | null) {
   if (!input.client_project_id || !input.name) {

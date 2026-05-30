@@ -92,6 +92,21 @@ export interface Task {
   size: TaskSize | null;
   platform: TaskPlatform | null;
   attachments?: Attachment[];
+  activity?: TaskActivity[];
+  journey_item_key?: string | null;
+  auto_key?: string | null;
+}
+
+export interface TaskActivity {
+  id: string;
+  task_id: string;
+  occurred_at: string;
+  kind: string;
+  message: string;
+  metadata?: Record<string, unknown>;
+}
+
+const _placeholder = null as never;
   journey_item_key?: string | null;
   auto_key?: string | null;
 }
