@@ -74,6 +74,12 @@ export const CHECKLIST_TEMPLATES: Record<TemplateId, ChecklistItemTemplate[]> = 
     { key: "brand_voice.review_and_approve", label: "Review and approve document",               owner: "agency" },
     { key: "brand_voice.sent_to_client",     label: "Brand voice sent to client for review",     owner: "auto" },
   ],
+  "growth:brand_kit": [
+    { key: "brand_kit.submission",                  label: "Brand kit submission",                    owner: "client", auto_key: "brand_kit_submitted" },
+    { key: "brand_kit.build_using_claude",          label: "Build Brand Kit using Claude Design",     owner: "agency" },
+    { key: "brand_kit.send_to_client_for_approval", label: "Send Brand Kit to client for approval",   owner: "agency" },
+    { key: "brand_kit.approved",                    label: "Brand kit approved",                      owner: "client", auto_key: "brand_kit_approved" },
+  ],
 };
 
 const norm = (s: unknown) => (typeof s === "string" ? s.trim().toLowerCase() : "");

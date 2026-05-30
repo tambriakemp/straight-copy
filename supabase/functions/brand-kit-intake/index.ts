@@ -357,38 +357,14 @@ Deno.serve(async (req) => {
         .eq("key", "brand_kit")
         .maybeSingle();
       if (bkNode) {
-        // Map intake fields → auto_keys that should flip to done.
-        const intakeObj = (intake || {}) as Record<string, unknown>;
-        const filled = (val: unknown): boolean => {
-          if (val == null) return false;
-          if (typeof val === "string") return val.trim().length > 0;
-          if (Array.isArray(val)) return val.length > 0;
-          if (typeof val === "object") return Object.keys(val as object).length > 0;
-          return Boolean(val);
-        };
-        const autoKeyMatches: Record<string, boolean> = {
-          brand_kit_logos:      filled(intakeObj.logos) || filled(intakeObj.logo) || filled(intakeObj.logo_files) || filled(intakeObj.logo_references),
-          brand_kit_colors:     filled(intakeObj.colors) || filled(intakeObj.color_palette) || filled(intakeObj.palette),
-          brand_kit_typography: filled(intakeObj.typography) || filled(intakeObj.fonts) || filled(intakeObj.type),
-          brand_kit_references: filled(intakeObj.visual_references) || filled(intakeObj.moodboard) || filled(intakeObj.references) || filled(intakeObj.inspiration),
-          brand_kit_guidelines: filled(intakeObj.guidelines) || filled(intakeObj.dos_and_donts) || filled(intakeObj.brand_rules) || filled(intakeObj.deliverable_scope),
-        };
+        // Flip the single "Brand kit submission" client task to done.
         const currentChecklist = Array.isArray(bkNode.checklist) ? bkNode.checklist as any[] : [];
-        // Map both stable `key` (e.g. "brand_kit.logos") and legacy `auto_key`
-        // (e.g. "brand_kit_logos") onto the same boolean so this works whether
-        // the stored item has been migrated to keys yet or not.
-        const keyOrAutoKeyMatches = (it: any): boolean => {
-          if (!it) return false;
-          if (typeof it.key === "string") {
-            const short = it.key.split(".").pop();
-            if (short && autoKeyMatches[`brand_kit_${short}`]) return true;
-          }
-          if (typeof it.auto_key === "string" && autoKeyMatches[it.auto_key]) return true;
-          return false;
-        };
-        const nextChecklist = currentChecklist.map((it: any) =>
-          keyOrAutoKeyMatches(it) ? { ...it, done: true } : it,
-        );
+        const nextChecklist = currentChecklist.map((it: any) => {
+          if (!it) return it;
+          const isSubmission =
+            it.key === "brand_kit.submission" || it.auto_key === "brand_kit_submitted";
+          return isSubmission ? { ...it, done: true } : it;
+        });
 
         await supabase
           .from("journey_nodes")
@@ -504,33 +480,13 @@ Deno.serve(async (req) => {
         .eq("key", "brand_kit")
         .maybeSingle();
       if (bkNode) {
-        const filled = (val: unknown): boolean => {
-          if (val == null) return false;
-          if (typeof val === "string") return val.trim().length > 0;
-          if (Array.isArray(val)) return val.length > 0;
-          if (typeof val === "object") return Object.keys(val as object).length > 0;
-          return Boolean(val);
-        };
-        const autoKeyMatches: Record<string, boolean> = {
-          brand_kit_logos:      filled(intake.logo_files) || filled(intake.logo) || filled((intake as any).website_url),
-          brand_kit_colors:     filled(intake.colors),
-          brand_kit_typography: filled(intake.typography),
-          brand_kit_references: filled(intake.references),
-          brand_kit_guidelines: filled(intake.guidelines) || filled(intake.scope),
-        };
         const currentChecklist = Array.isArray(bkNode.checklist) ? bkNode.checklist as any[] : [];
-        const keyOrAutoKeyMatches = (it: any): boolean => {
-          if (!it) return false;
-          if (typeof it.key === "string") {
-            const short = it.key.split(".").pop();
-            if (short && autoKeyMatches[`brand_kit_${short}`]) return true;
-          }
-          if (typeof it.auto_key === "string" && autoKeyMatches[it.auto_key]) return true;
-          return false;
-        };
-        const nextChecklist = currentChecklist.map((it: any) =>
-          keyOrAutoKeyMatches(it) ? { ...it, done: true } : it,
-        );
+        const nextChecklist = currentChecklist.map((it: any) => {
+          if (!it) return it;
+          const isSubmission =
+            it.key === "brand_kit.submission" || it.auto_key === "brand_kit_submitted";
+          return isSubmission ? { ...it, done: true } : it;
+        });
 
         await supabase
           .from("journey_nodes")

@@ -1939,6 +1939,10 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      ensure_brand_kit_tasks_for_project: {
+        Args: { _client_project_id: string }
+        Returns: undefined
+      }
       ensure_brand_voice_tasks_for_project: {
         Args: { _client_project_id: string }
         Returns: undefined
