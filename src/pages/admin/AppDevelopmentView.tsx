@@ -71,6 +71,7 @@ export default function AppDevelopmentView() {
               Manage proposals, payment schedule, and the live preview for this project.
             </p>
           </div>
+          <ClientPortalActions clientId={clientId!} />
         </div>
 
         <ProjectTabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mt-8">
