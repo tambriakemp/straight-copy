@@ -117,10 +117,26 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     }
   };
 
+  const kanbanWrapRef = useRef<HTMLDivElement | null>(null);
+  const [kanbanHeight, setKanbanHeight] = useState<number>(600);
+  useLayoutEffect(() => {
+    if (view !== "kanban") return;
+    const compute = () => {
+      const el = kanbanWrapRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      const next = Math.max(360, window.innerHeight - top - 16);
+      setKanbanHeight(next);
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, [view, loading]);
+
   return (
     <div className="text-warm-white">
       {/* Toolbar */}
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
         <div style={{ display: "inline-flex", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 6, overflow: "hidden" }}>
           <button onClick={() => setView("kanban")} style={tabBtnStyle(view === "kanban")}>
             <LayoutGrid size={14} style={{ marginRight: 6 }} /> Kanban
@@ -170,7 +186,19 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         <div className="p-6 text-warm-white/70">Loading tasks…</div>
       ) : view === "kanban" ? (
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <div style={{ display: "grid", gridAutoFlow: "column", gridAutoColumns: "minmax(260px, 1fr)", gap: 12, overflowX: "auto", paddingBottom: 8 }}>
+          <div
+            ref={kanbanWrapRef}
+            style={{
+              display: "grid",
+              gridAutoFlow: "column",
+              gridAutoColumns: "minmax(260px, 1fr)",
+              gap: 12,
+              overflowX: "auto",
+              overflowY: "hidden",
+              height: kanbanHeight,
+              paddingBottom: 4,
+            }}
+          >
             {TASK_STATUSES.map((s) => (
               <KanbanColumn key={s} status={s}
                 tasks={topLevel.filter((t) => t.status === s)}
