@@ -677,7 +677,9 @@ export default function PortalProject() {
             const initialTab =
               focus === "contract" && tabs.find((t) => t.value === "client-tasks") ? "client-tasks"
               : focus === "contract" && tabs.find((t) => t.value === "contract") ? "contract"
+              : focus === "brand-kit" && tabs.find((t) => t.value === "client-tasks") ? "client-tasks"
               : focus === "brand-kit" && tabs.find((t) => t.value === "brand-kit") ? "brand-kit"
+
               : tabs[0]?.value;
 
             if (!initialTab) return null;
