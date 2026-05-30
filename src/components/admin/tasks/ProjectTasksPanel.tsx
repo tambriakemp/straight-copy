@@ -18,8 +18,18 @@ import {
   tasksApi, TASK_STATUSES, STATUS_LABELS, STATUS_COLORS, PRIORITIES, PRIORITY_COLORS,
   TASK_SIZES, TASK_PLATFORMS,
   type Task, type Epic, type TaskStatus, type TaskPriority, type AssigneeKind,
-  type TaskSize, type TaskPlatform, type AcceptanceCriterion,
+  type TaskSize, type TaskPlatform, type AcceptanceCriterion, type TaskActivity,
 } from "./tasksApi";
+
+const ASSIGNEE_LABEL: Record<AssigneeKind, string> = {
+  unassigned: "Unassigned",
+  admin: "👤 Admin",
+  claude: "🤖 Claude",
+  auto: "⚙️ Auto",
+  client: "🧑 Client",
+  agency: "🏛 Agency",
+};
+const ASSIGNEE_OPTIONS: AssigneeKind[] = ["unassigned", "auto", "client", "agency", "admin", "claude"];
 
 interface Props { clientProjectId: string }
 
