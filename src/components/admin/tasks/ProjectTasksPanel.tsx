@@ -1104,6 +1104,11 @@ function AcceptanceCriteriaChecklist({ items, onChange }: {
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
+const subLabel: React.CSSProperties = {
+  fontSize: 13, letterSpacing: "0.1em", textTransform: "uppercase",
+  color: "hsl(var(--warm-white))", marginBottom: 6,
+};
+
   const addItem = () => {
     const text = draftText.trim();
     if (!text) return;
