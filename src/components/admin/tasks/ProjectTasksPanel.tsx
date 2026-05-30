@@ -141,6 +141,18 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           </SelectContent>
         </Select>
 
+        <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+          <SelectTrigger className="w-[160px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+            <SelectValue placeholder="Assignee" />
+          </SelectTrigger>
+          <SelectContent className={taskSelectContentClass}>
+            <SelectItem value="all">All assignees</SelectItem>
+            {ASSIGNEE_OPTIONS.map((a) => <SelectItem key={a} value={a}>{ASSIGNEE_LABEL[a]}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+
+
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <Button variant="outline" size="sm" onClick={() => setEpicsOpen(true)}
