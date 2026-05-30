@@ -37,12 +37,18 @@ CLIENT INFORMATION
 Business: ${asText(intake.business || intake.business_name)}
 Owner: ${asText(intake.name || intake.contact_name)}
 What they do: ${asText(intake.what_they_do)}
+One-liner (what they do + who they help): ${asText(intake.business_one_liner)}
 Primary offer: ${asText(intake.primary_offer)}
 Price point: ${asText(intake.price_point)}
+Lead magnet: ${asText(intake.lead_magnet)}
+Primary landing-page CTA: ${asText(intake.landing_page_cta)}
 
 Ideal customer: ${asText(intake.ideal_customer)}
 Customer struggles: ${asText(intake.customer_struggles)}
 Customer desired outcome: ${asText(intake.customer_outcome)}
+
+Content topics they want to post about: ${asList(intake.content_topics)}
+What their content should do (posting goal): ${asText(intake.posting_goal)}
 
 Tone words: ${asList(intake.tone_words)}
 Natural phrases they use: ${asList(intake.natural_phrases)}
