@@ -1,80 +1,63 @@
+## Stage 1 — Intake migration into Tasks
 
-# Journey → Kanban Board (epics as cards, status as columns)
+Goal: make the **Intake** stage live entirely inside the Tasks tab as a gated epic, with the existing automations (kickoff webhook, build-date scheduling, SureContact sync, portal) untouched. Other stages stay in the Journey tab for now. Journey stays mirrored under the hood until every stage is migrated, then dropped.
 
-Replace the current "tasks board" rendering in the Journey tab with a true 3-column Kanban. Columns are statuses. Cards are epics (= journey stages). Clicking a card opens a detail view that contains everything that lives under that stage today.
+### 1. Proposed intake tasks (under one "Intake" epic, gated, order_index 0)
 
-All `journey_nodes` data, DB triggers, edge functions, SureContact sync, brand voice generation, kickoff webhook, build-date logic, and the standalone Tasks tab stay exactly as they are.
+| # | Task | Assignee | Acceptance criteria (auto-tick) | Fields |
+|---|------|----------|---------------------------------|--------|
+| 1 | Welcome email | auto | sent · opened | — |
+| 2 | Scope summary email | auto | sent · opened | — |
+| 3 | Portal accessed | client | portal_accessed | — |
+| 4 | Contract signed | client | contract_signed | links to contract |
+| 5 | Onboarding chat completed | client | onboarding_completed | `url` = onboarding chat link |
+| 6 | Required accounts submitted | client | accounts_submitted | — |
+| 7 | Contract countersigned | agency | — | — |
+| 8 | Intake summary reviewed | agency | — | — |
+| 9 | Baseline social audit (if existing accounts) | agency | — | — |
+| 10 | Kickoff confirmation email | auto | sent · opened — auto-fired when 1–9 complete | — |
+| 11 | Build schedule confirmed | agency | — | `due_date` = build_start_date (editable inline; sets `delivery_date` = +8) |
 
-## Layout
+Auto tasks flip to `complete` when all their criteria are ticked. Manual tasks use the existing 6 statuses.
 
-```text
-┌── Not Started ────────┐ ┌── In Progress ────────┐ ┌── Complete ───────────┐
-│ ┌───────────────────┐ │ │ ┌───────────────────┐ │ │ ┌───────────────────┐ │
-│ │ Stage 02          │ │ │ │ Stage 01 · Intake │ │ │ │ (none yet)        │ │
-│ │ Brand Voice       │ │ │ │ 3 / 8 tasks done  │ │ │ │                   │ │
-│ │ ⛔ locked         │ │ │ │ owners: auto·client│ │ │                     │
-│ │ 0 / 5 tasks       │ │ │ └───────────────────┘ │ │ └───────────────────┘ │
-│ └───────────────────┘ │ │                       │ │                       │
-│ ┌───────────────────┐ │ │                       │ │                       │
-│ │ Stage 03 …        │ │ │                       │ │                       │
-│ └───────────────────┘ │ │                       │ │                       │
-└───────────────────────┘ └───────────────────────┘ └───────────────────────┘
-```
+### 2. Database changes (one migration)
 
-### Column rules
+- `project_task_epics`: add `journey_stage_key text`, `locked boolean default false`. Unique `(client_project_id, journey_stage_key)`.
+- `project_tasks`: add `journey_item_key text`, `auto_key text` (matches the AC `auto_key` used today in journey_templates).
+- `acceptance_criteria` jsonb already exists — extend item shape with optional `auto_key` so triggers know which AC to tick.
+- Backfill for every existing `automation_build` project:
+  - create the Intake epic
+  - create the 11 tasks above, copy `done` state from the matching `journey_nodes.checklist` item into task `status` (`complete` vs `backlog`) and AC `done`
+- Helper function `public.sync_intake_from_signals(_client_id)` that recomputes AC + task status from `client_email_tracking`, `client_contracts`, `clients.brand_kit_intake_submitted_at`, `clients.client_account_access`, portal access timestamps, etc.
 
-- **Not Started** ← `journey_nodes.status` in (`pending`, `not_started`, `blocked`).
-- **In Progress** ← `status = 'in_progress'`.
-- **Complete** ← `status = 'complete'`.
-- Cards are ordered by `order_index` within each column.
-- Locked stages (previous stage not complete) still render in their column, dimmed, with a ⛔ "locked" chip — visual only; DB triggers already enforce ordering.
+### 3. Trigger rewrites (intake only)
 
-### Epic card (compact)
+Replace the intake branch of `auto_complete_journey_node` with task-level logic:
 
-- Stage number + label (`Stage 02 · Brand Voice`).
-- Status pill (matches column color).
-- Task counter `done / total` from the checklist.
-- Owner chips summarising who has work in this stage: `auto`, `client`, `agency` (derived from checklist item owners).
-- Optional started/completed date.
-- Clicking the card opens the detail view.
+- Trigger on `project_tasks` AFTER UPDATE: if all of `contract_signed` + `onboarding_completed` + `accounts_submitted` flip to complete in the same epic → set `clients.build_start_date = tomorrow`, `delivery_date = +8` (and the inverse on reversal). Existing kickoff-webhook gate stays: when tasks 1–9 are all complete and task 10 is still incomplete and `kickoff_webhook_fired_at IS NULL` → `fire_kickoff_webhook`.
+- Trigger on `client_email_tracking`, `client_contracts`, `clients` (account/onboarding fields), `preview_approval_events` → call `sync_intake_from_signals` to tick AC + auto-complete tasks. Same surface area as today's `auto_*` keys, just writing to tasks instead of journey checklist.
+- Trigger on `project_tasks` to mirror status back into `journey_nodes.checklist` for the intake node, so `get_portal_client`, `sync-client-to-surecontact`, and the kickoff webhook keep reading their existing source. This mirror gets removed in the final cutover after all stages are migrated.
+- Epic gating: when all intake tasks complete → unlock the next epic (`locked = false`); reverse on regression. For stage 1 this just unlocks whatever epic currently sits at `order_index = 1` (Brand Voice, still served by the Journey tab).
 
-## Epic detail view
+### 4. UI changes (Tasks tab only)
 
-A right-side drawer (shadcn `Sheet`) opened from the card click. Contains everything that currently lives inside the expanded stage today — no functional changes, just relocated into the drawer:
+- Epics render in `order_index` order with a "Locked — finish *Intake* first" overlay on any epic where `locked = true`. Tasks under a locked epic are read-only.
+- Auto/client/agency assignee chips already render — add a small "Auto" badge styling so it's obvious those tick themselves.
+- Acceptance criteria rows show a 🔒 lock icon when they have an `auto_key` (admin can't tick them manually; they reflect signal state).
+- Inline `due_date` editor on "Build schedule confirmed" writes to `clients.build_start_date` via the existing `BuildSchedulePanel` logic, repackaged as a small on-task editor.
+- Onboarding chat link task: the existing `OnboardingChatLinkPanel` becomes a tiny inline "Copy chat link" button on that task (URL is generated the same way).
+- Journey tab stays mounted for Brand Voice → Active. No visible change to those stages.
 
-1. **Header** — stage number, label, status segmented control (Not Started / In Progress / Complete) writing back to `journey_nodes.status` exactly like today's `JourneyNodeCard`.
-2. **Tasks** — the existing `JourneyTaskList` (checklist items grouped/coloured by owner: auto / client / agency, auto-owned items read-only with system-managed tooltip, writes through the same `syncChecklist` path).
-3. **Stage tools** — rendered in-place from the existing components, untouched:
-   - `intake` → `OnboardingChatLinkPanel` + `EmailTrackingPanel` + `BuildSchedulePanel`
-   - `brand_voice` → `BrandVoicePanel`
-   - `brand_kit` → `BrandKitPanel`
-   - `delivery` → `ClientFieldEditor` for `delivery_video_url`
-   - `automation_02` → `ClientFieldEditor` for `build_update_note`
-4. **Linked asset** — `asset_label` + `asset_url` inputs (existing handler).
-5. **Internal notes** — `notes` textarea (existing handler).
+### 5. Rollout
 
-When the drawer is open and the underlying node changes (realtime / save), the drawer reflects the new state.
+1. Ship the migration + triggers + mirror.
+2. Backfill runs once; verify on Cre8 Visions LLC growth build that the Intake epic mirrors the current journey state exactly.
+3. Spot-check automations: trigger a contract signature, open a tracked email, complete onboarding — confirm AC ticks and journey_nodes mirror updates.
+4. Hide intake from the Journey tab (keep other stages visible) — you confirm it feels right before we start Stage 2.
 
-## Board controls (above the columns)
+### Open items I'd resolve during build, not now
 
-- Filter by owner: All / Auto / Client / Agency (filters which epic cards appear based on whether they contain tasks for that owner).
-- Filter by stage key (optional search box).
-- Collapse other columns / expand all (purely visual).
+- Exact copy/labels per task (defaulting to the table above; easy to edit after backfill).
+- Whether "Build schedule confirmed" should be a task vs. a small banner on the Intake epic. Defaulting to a task per your guidance.
 
-No drag-and-drop between columns. Status changes happen from inside the epic detail view (same writes the current expanded card does). Reason: status is automation-driven and gated server-side; allowing drag would invite invalid transitions.
-
-## File changes
-
-- **Edit** `src/pages/admin/AutomationBuildView.tsx`:
-  - Replace the current `JourneyTasksBoard` (vertical epic list) with a new Kanban-style board: 3 columns mapped from `journey_nodes.status`, rendering compact epic cards.
-  - Replace `JourneyEpicCard`'s expand-in-place behaviour with a click handler that sets a `selectedNodeId` state. The detail drawer mounts once at the board level.
-  - Extract a new `JourneyEpicDrawer` component (in the same file, alongside existing in-file components) that wraps the existing tasks list + stage tools + asset + notes blocks. It reuses `JourneyTaskList`, `BrandVoicePanel`, `BrandKitPanel`, `OnboardingChatLinkPanel`, `EmailTrackingPanel`, `BuildSchedulePanel`, `ClientFieldEditor`, `JourneyAssetAndNotes` as-is.
-  - Keep all existing data loading, `updateNode`, save handlers, and subscriptions intact.
-- No DB migration. No edge function changes. No changes to `project_tasks`/`project_task_epics`. The previously added `auto/client/agency` enum values stay.
-
-## Out of scope
-
-- No changes to `journey_nodes` schema, triggers, kickoff webhook, brand voice generator, SureContact sync, email tracking, or contract logic.
-- No changes to the client-facing portal.
-- The standalone Tasks tab is untouched.
-- No drag-and-drop between columns.
+Approve and I'll write the migration + UI changes for stage 1 only.
