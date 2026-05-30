@@ -1917,21 +1917,20 @@ function JourneyKanbanCard({
 }
 
 function JourneyEpicDrawer({
-  client, node, index, total, locked, ownerFilter, onClose, onUpdate, onReload,
+  client, node, index, total, locked, onClose, onUpdate, onReload,
 }: {
   client: Client;
   node: JourneyNode | null;
   index: number;
   total: number;
   locked: boolean;
-  ownerFilter: OwnerFilter;
   onClose: () => void;
   onUpdate: (patch: Partial<JourneyNode>) => void;
   onReload: () => void;
 }) {
   if (!node) return null;
   const items: ChecklistItem[] = Array.isArray(node.checklist) ? node.checklist : [];
-  const filteredItems = ownerFilter === "all" ? items : items.filter((i) => i.owner === ownerFilter);
+  const filteredItems = items;
   const stageNum = String(index + 1).padStart(2, "0");
   const doneCount = items.filter((i) => i.done).length;
 
