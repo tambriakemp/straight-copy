@@ -301,26 +301,26 @@ function TaskCard({ task, epics, subtaskCount, dragging }: {
         {task.name}
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: PRIORITY_COLORS[task.priority] }}>
-          <Flag size={10} /> {task.priority}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: PRIORITY_COLORS[task.priority] }}>
+          <Flag size={11} /> {task.priority}
         </span>
         {task.assignee_kind !== "unassigned" && (
-          <span style={{ fontSize: 12, color: "hsl(var(--warm-white) / 0.7)" }}>
+          <span style={{ fontSize: 13, color: "hsl(var(--warm-white) / 0.7)" }}>
             {task.assignee_kind === "claude" ? "🤖 Claude" : "👤 Admin"}
           </span>
         )}
         {task.due_date && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "hsl(var(--warm-white) / 0.7)" }}>
-            <Calendar size={10} /> {task.due_date}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: "hsl(var(--warm-white) / 0.7)" }}>
+            <Calendar size={11} /> {task.due_date}
           </span>
         )}
         {subtaskCount > 0 && (
-          <span style={{ fontSize: 12, color: "hsl(var(--warm-white) / 0.7)" }}>{subtaskCount} subtask{subtaskCount > 1 ? "s" : ""}</span>
+          <span style={{ fontSize: 13, color: "hsl(var(--warm-white) / 0.7)" }}>{subtaskCount} subtask{subtaskCount > 1 ? "s" : ""}</span>
         )}
-        {task.url && <ExternalLink size={10} style={{ color: "hsl(var(--warm-white) / 0.7)" }} />}
-        {(task.attachments?.length ?? 0) > 0 && <Paperclip size={10} style={{ color: "hsl(var(--warm-white) / 0.7)" }} />}
+        {task.url && <ExternalLink size={11} style={{ color: "hsl(var(--warm-white) / 0.7)" }} />}
+        {(task.attachments?.length ?? 0) > 0 && <Paperclip size={11} style={{ color: "hsl(var(--warm-white) / 0.7)" }} />}
         {task.tags?.map((tag) => (
-          <Badge key={tag} variant="outline" className="text-[9px] py-0 px-1 border-warm-white/15 !text-warm-white/70">
+          <Badge key={tag} variant="outline" className="text-[11px] py-0 px-1.5 border-warm-white/15 !text-warm-white/70">
             {tag}
           </Badge>
         ))}
