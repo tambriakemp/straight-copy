@@ -274,6 +274,42 @@ One reflective question the client answers in writing each week. Make it specifi
 
 Write everything in clear, specific language. The checklist should take no more than 20 minutes to complete. Format with markdown headers.`;
 
+// ---- 6. Pricing Decision Guide ---------------------------------------------
+const PRICING_DECISION_PROMPT = (ctx: BrainArtifactContext) => `You are building a decision-making document for a client's AI Business Brain. Using the brand voice document and brand kit attached, generate a Pricing Decision Guide for this business.
+
+This guide helps the client and their AI assistant make confident, consistent pricing decisions in any situation — new inquiries, custom requests, scope changes, discounts, and objections.
+${contextBlock(ctx)}
+The Pricing Decision Guide must include:
+
+## PURPOSE
+Why this guide exists and what it produces.
+
+## THE OFFER MENU WITH PRICES
+List every offer with its price or price range. This is the source of truth the AI references before any pricing conversation.
+
+## HOW TO QUOTE CUSTOM OR OUT-OF-SCOPE REQUESTS
+Step by step — how to assess a custom request, how to determine a price, how to present it to the client.
+
+## HOW TO HANDLE THE MOST COMMON PRICING OBJECTIONS
+For each objection, write the exact response to give in the client's brand voice:
+
+- "Can you do it cheaper?"
+- "I need to think about it"
+- "That's more than I budgeted"
+- "Can I pay in installments?"
+- "What's your cheapest option?"
+
+## DISCOUNT POLICY
+When discounts are acceptable, when they are not, and what the maximum discount is without approval.
+
+## SCOPE CREEP RESPONSE
+Exact language to use when a client asks for something outside the original agreement. How to address it, how to price it, and how to keep the relationship intact.
+
+## WHEN TO WALK AWAY
+Two to three clear signals that a prospect is not the right client regardless of price. What to say when you decide not to take the work.
+
+Write every response in the client's brand voice. The AI assistant should be able to handle any pricing conversation using only this document. Format with markdown headers.`;
+
 // ---- Placeholder prompts (fill in then flip enabled=true) -------------------
 const PLACEHOLDER = (label: string) => (_ctx: BrainArtifactContext) =>
   `TODO: ${label} prompt not yet configured.`;
