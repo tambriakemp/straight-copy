@@ -201,7 +201,6 @@ export default function PortalProject() {
   useEffect(() => {
     if (loading || notFound || !client) return;
     if (submittedAt) return;
-    if (client.active_node?.key !== "brand_kit") return;
     if (bkPath !== "no") return; // Only greet once the client has chosen the chat path.
     if (messages.length === 0 && !isStreaming) {
       streamReply([]);
