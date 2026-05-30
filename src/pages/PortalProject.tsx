@@ -553,12 +553,7 @@ export default function PortalProject() {
                   node: (
                     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
                       {clientTaskPanels.map((p) => (
-                        <section key={p.value}>
-                          <h3 style={{ fontFamily: "var(--font-display, 'Cormorant Garamond', serif)", fontSize: 24, margin: "0 0 12px" }}>
-                            {p.label}
-                          </h3>
-                          {p.node}
-                        </section>
+                        <div key={p.value}>{p.node}</div>
                       ))}
                     </div>
                   ),
