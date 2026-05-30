@@ -207,7 +207,7 @@ export default function PortalProject() {
       streamReply([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, notFound, client, submittedAt]);
+  }, [loading, notFound, client, submittedAt, bkPath]);
 
   // Deep-link: scroll to focused section after load
   useEffect(() => {
