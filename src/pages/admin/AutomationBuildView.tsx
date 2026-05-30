@@ -435,7 +435,9 @@ export default function AutomationBuildView() {
           </ProjectTabsContent>
 
           <ProjectTabsContent value="settings">
-            <HeyGenKeyPanel client={client} />
+            <div style={{ fontSize: 15, color: "hsl(30 8% 60%)", padding: 16 }}>
+              No project settings configured.
+            </div>
           </ProjectTabsContent>
 
           {projectId && (
