@@ -487,14 +487,46 @@ export default function PortalProject() {
           {currentProject && (() => {
             const tabs: { value: string; label: string; node: React.ReactNode }[] = [];
 
+            // Build the individual client-task panels first so we can either
+            // surface them as top-level tabs (non-automation) or group them
+            // under a single "Client Task Items" tab (automation).
+            const clientTaskPanels: { value: string; label: string; node: React.ReactNode }[] = [];
+
             if (isAutomation) {
-              tabs.push({
+              clientTaskPanels.push({
                 value: "contract",
                 label: "Contract",
                 node: (
                   <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
                     <ContractSection clientId={clientId!} contactName={client.contact_name} />
                   </div>
+                ),
+              });
+            }
+
+            if (isAutomation && !!onboardingInvite) {
+              clientTaskPanels.push({
+                value: "brand-voice",
+                label: "Brand Voice",
+                node: (
+                  <BrandVoiceAccordion
+                    token={onboardingInvite.token}
+                    completed={onboardingInvite.completed}
+                  />
+                ),
+              });
+            }
+
+            if (isAutomation) {
+              clientTaskPanels.push({
+                value: "account",
+                label: "Account Access",
+                node: (
+                  <AccountAccessSection
+                    clientId={clientId!}
+                    tier={client.tier}
+                    initial={accountAccess}
+                  />
                 ),
               });
             }
@@ -511,41 +543,42 @@ export default function PortalProject() {
               });
             }
 
-            tabs.push({
-              value: "proposals",
-              label: "Proposals",
-              node: (
-                <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
-                  <ProposalsSection clientId={clientId!} contactName={client.contact_name} projectId={currentProject.id} />
-                </div>
-              ),
-            });
-
-            if (isAutomation && !!onboardingInvite) {
+            // For automation projects: group client-task panels under one tab,
+            // hide Proposals and Payment Schedule entirely.
+            if (isAutomation) {
+              if (clientTaskPanels.length > 0) {
+                tabs.push({
+                  value: "client-tasks",
+                  label: "Client Task Items",
+                  node: (
+                    <ProjectTabs defaultValue={clientTaskPanels[0].value}>
+                      <ProjectTabsList style={{ flexWrap: "wrap" }}>
+                        {clientTaskPanels.map((p) => (
+                          <ProjectTabsTrigger key={p.value} value={p.value}>{p.label}</ProjectTabsTrigger>
+                        ))}
+                      </ProjectTabsList>
+                      {clientTaskPanels.map((p) => (
+                        <ProjectTabsContent key={p.value} value={p.value}>{p.node}</ProjectTabsContent>
+                      ))}
+                    </ProjectTabs>
+                  ),
+                });
+              }
+            } else {
+              // Non-automation: keep the original flat list, including Proposals.
               tabs.push({
-                value: "brand-voice",
-                label: "Brand Voice",
+                value: "proposals",
+                label: "Proposals",
                 node: (
-                  <BrandVoiceAccordion
-                    token={onboardingInvite.token}
-                    completed={onboardingInvite.completed}
-                  />
+                  <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
+                    <ProposalsSection clientId={clientId!} contactName={client.contact_name} projectId={currentProject.id} />
+                  </div>
                 ),
               });
+              for (const p of clientTaskPanels) tabs.push(p);
             }
 
             if (isAutomation) {
-              tabs.push({
-                value: "account",
-                label: "Account Access",
-                node: (
-                  <AccountAccessSection
-                    clientId={clientId!}
-                    tier={client.tier}
-                    initial={accountAccess}
-                  />
-                ),
-              });
               tabs.push({
                 value: "subscription",
                 label: "Subscription",
@@ -589,19 +622,23 @@ export default function PortalProject() {
               });
             }
 
-            tabs.push({
-              value: "schedule",
-              label: "Payment Schedule",
-              node: (
-                <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
-                  <InvoiceSection clientId={clientId!} projectId={currentProject.id} />
-                </div>
-              ),
-            });
+            // Non-automation projects still get the Payment Schedule tab.
+            if (!isAutomation) {
+              tabs.push({
+                value: "schedule",
+                label: "Payment Schedule",
+                node: (
+                  <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
+                    <InvoiceSection clientId={clientId!} projectId={currentProject.id} />
+                  </div>
+                ),
+              });
+            }
 
             // Deep-link support: focus=contract|brand-kit picks the tab.
             const initialTab =
-              focus === "contract" && tabs.find((t) => t.value === "contract") ? "contract"
+              focus === "contract" && tabs.find((t) => t.value === "client-tasks") ? "client-tasks"
+              : focus === "contract" && tabs.find((t) => t.value === "contract") ? "contract"
               : focus === "brand-kit" && tabs.find((t) => t.value === "brand-kit") ? "brand-kit"
               : tabs[0]?.value;
 
