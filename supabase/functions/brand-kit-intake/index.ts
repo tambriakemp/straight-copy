@@ -277,6 +277,16 @@ Deno.serve(async (req) => {
         .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
         .map((m: any) => ({ role: m.role, content: m.content }));
 
+      // Anthropic requires at least one message. When the client opens the chat
+      // with no history yet (auto-greet), inject a kickoff user turn so the
+      // assistant produces its opening message.
+      if (cleaned.length === 0) {
+        cleaned.push({
+          role: "user",
+          content: "Please greet me and start the brand kit intake conversation.",
+        });
+      }
+
       // Best-effort: stash latest transcript snapshot for resume.
       supabase
         .from("clients")
