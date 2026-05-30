@@ -8,6 +8,7 @@ import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
 import ProjectPreviewCard from "@/components/admin/ProjectPreviewCard";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
+import ClientPortalActions from "@/components/admin/ClientPortalActions";
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
 } from "@/components/ProjectTabs";
@@ -70,6 +71,7 @@ export default function AppDevelopmentView() {
               Manage proposals, payment schedule, and the live preview for this project.
             </p>
           </div>
+          <ClientPortalActions clientId={clientId!} />
         </div>
 
         <ProjectTabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mt-8">

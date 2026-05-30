@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import AdminContractSection from "@/components/admin/AdminContractSection";
+import ClientPortalActions from "@/components/admin/ClientPortalActions";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import AutomationSubscriptionPanel from "@/components/admin/AutomationSubscriptionPanel";
 import {
@@ -338,104 +339,7 @@ export default function AutomationBuildView() {
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <TooltipProvider delayDuration={150}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <a
-                    className="detail__portal-btn detail__portal-btn--icon"
-                    href={`/portal/${client.id}?as=admin`}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="Open as client"
-                  >
-                    <Eye size={14} strokeWidth={1.5} />
-                  </a>
-                </TooltipTrigger>
-                <TooltipContent>Open this client's portal as an admin preview</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
-                    onClick={openEdit}
-                    aria-label="Edit contact details"
-                  >
-                    <Pencil size={14} strokeWidth={1.5} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Edit contact details</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(`${window.location.origin}/portal/${client.id}`);
-                        toast.success("Portal link copied");
-                      } catch {
-                        toast.error("Could not copy link");
-                      }
-                    }}
-                    aria-label="Copy portal link"
-                  >
-                    <Copy size={14} strokeWidth={1.5} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Copy portal link</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(`${window.location.origin}/portal/${client.id}?focus=contract`);
-                        toast.success("Contract link copied");
-                      } catch {
-                        toast.error("Could not copy link");
-                      }
-                    }}
-                    aria-label="Copy contract link"
-                  >
-                    <FileSignature size={14} strokeWidth={1.5} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Copy direct link to the client's contract</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon"
-                    onClick={async () => {
-                      const t = toast.loading("Syncing to SureContact…");
-                      try {
-                        const { data, error } = await supabase.functions.invoke(
-                          "sync-client-to-surecontact",
-                          { body: { clientId: client.id } },
-                        );
-                        if (error) throw new Error(error.message);
-                        if (!data?.success) throw new Error(data?.error || "Sync failed");
-                        toast.success("Synced to SureContact", { id: t });
-                      } catch (e) {
-                        toast.error(e instanceof Error ? e.message : "Sync failed", { id: t });
-                      }
-                    }}
-                    aria-label="Sync to SureContact"
-                  >
-                    <RefreshCw size={14} strokeWidth={1.5} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Sync portal link, tier &amp; stage to SureContact</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+          <ClientPortalActions clientId={client.id} onEdit={openEdit} />
         </div>
 
         <ProjectTabs defaultValue="journey" className="mt-8">
