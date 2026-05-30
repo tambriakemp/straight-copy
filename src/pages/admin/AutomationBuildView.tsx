@@ -216,7 +216,7 @@ export default function AutomationBuildView() {
     setClient(clientRow);
     setNodes(reshaped);
     setLoading(false);
-  }, [id]);
+  }, [id, projectId]);
 
 
   useEffect(() => { load(); }, [load]);
