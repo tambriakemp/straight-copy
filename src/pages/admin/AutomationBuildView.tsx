@@ -339,7 +339,7 @@ export default function AutomationBuildView() {
             </p>
           </div>
 
-          <ClientPortalActions clientId={client.id} onEdit={openEdit} />
+          
         </div>
 
         <ProjectTabs defaultValue="journey" className="mt-8">
