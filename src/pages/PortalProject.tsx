@@ -620,6 +620,20 @@ export default function PortalProject() {
                   <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
                     {isBrandKitDone ? (
                       <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
+                    ) : bkPath === null ? (
+                      <BrandKitRouter onChoose={setBkPath} />
+                    ) : bkPath === "yes" ? (
+                      <BrandKitFastSubmit
+                        clientId={clientId!}
+                        submitting={submitting}
+                        setSubmitting={setSubmitting}
+                        onSwitchToChat={() => setBkPath("no")}
+                        onSubmitted={(at) => {
+                          setSubmittedAt(at);
+                          setBkPath(null);
+                          if (lsKey) localStorage.removeItem(lsKey);
+                        }}
+                      />
                     ) : (
                       <BrandKitChat
                         node={node!}
@@ -633,6 +647,7 @@ export default function PortalProject() {
                         onSend={send}
                         onSubmit={submit}
                         scrollRef={scrollRef}
+                        onSwitchToFast={() => setBkPath("yes")}
                       />
                     )}
                   </div>
