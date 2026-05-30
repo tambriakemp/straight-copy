@@ -104,31 +104,37 @@ Deno.serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ---- Find target task ----
-    const { data: task, error: taskErr } = await supabase
+    // ---- Find target tasks (artifacts + skills) ----
+    const distinctTaskKeys = Array.from(new Set(BRAIN_ARTIFACTS.map((a) => a.taskKey)));
+    const { data: taskRows, error: taskErr } = await supabase
       .from("project_tasks")
-      .select("id, acceptance_criteria")
+      .select("id, journey_item_key")
       .eq("client_project_id", clientProjectId)
-      .eq("journey_item_key", TASK_KEY)
-      .maybeSingle();
+      .in("journey_item_key", distinctTaskKeys);
     if (taskErr) throw taskErr;
-    if (!task) throw new Error(`Task with journey_item_key=${TASK_KEY} not found for this project`);
+    const tasksByKey = new Map<string, string>(); // journey_item_key -> task.id
+    for (const t of (taskRows ?? []) as Array<{ id: string; journey_item_key: string }>) {
+      tasksByKey.set(t.journey_item_key, t.id);
+    }
+    if (tasksByKey.size === 0) {
+      throw new Error(`No brain_setup tasks found for project (expected one of: ${distinctTaskKeys.join(", ")})`);
+    }
 
     // ---- Existing attachments for idempotency + loading prior markdown ----
+    const allTaskIds = Array.from(tasksByKey.values());
     const { data: existingAtts } = await supabase
       .from("project_task_attachments")
-      .select("storage_path, file_name, bucket, mime_type")
-      .eq("task_id", task.id);
+      .select("storage_path, file_name, bucket, mime_type, task_id")
+      .in("task_id", allTaskIds);
 
-    // Idempotency tracks prefixes that already produced any file. We add a
-    // suffix so the .md sibling for a PDF artifact doesn't make us skip
-    // regenerating just because the markdown is present.
-    const completedKeys = new Set<string>(); // artifact filename prefixes that already have output
-    type AttRow = { storage_path: string; file_name: string; bucket: string | null; mime_type: string | null };
-    const attachmentsByPrefix = new Map<string, AttRow[]>();
+    // Idempotency tracks (taskId, prefix) so the same prefix on different
+    // tasks doesn't cross-skip.
+    const completedKeys = new Set<string>(); // `${taskId}::${prefix}`
+    type AttRow = { storage_path: string; file_name: string; bucket: string | null; mime_type: string | null; task_id: string };
+    const attachmentsByPrefix = new Map<string, AttRow[]>(); // keyed by filename prefix only (for context loading)
     for (const a of (existingAtts ?? []) as AttRow[]) {
       const prefix = a.file_name.split("__")[0];
-      completedKeys.add(prefix);
+      completedKeys.add(`${a.task_id}::${prefix}`);
       const arr = attachmentsByPrefix.get(prefix) ?? [];
       arr.push(a);
       attachmentsByPrefix.set(prefix, arr);
@@ -139,15 +145,13 @@ Deno.serve(async (req) => {
     const previousArtifacts: Record<string, string> = {};
     for (const artifact of BRAIN_ARTIFACTS) {
       const candidates = attachmentsByPrefix.get(artifact.filenamePrefix) ?? [];
-      // Prefer .md file; fall back to most recent
       const md = candidates.find((a) =>
         a.file_name.toLowerCase().endsWith(".md") || a.mime_type === "text/markdown"
       );
-      const target = md ?? null;
-      if (!target) continue;
+      if (!md) continue;
       try {
-        const bucket = target.bucket || BUCKET;
-        const dl = await supabase.storage.from(bucket).download(target.storage_path);
+        const bucket = md.bucket || BUCKET;
+        const dl = await supabase.storage.from(bucket).download(md.storage_path);
         if (dl.data) {
           previousArtifacts[artifact.key] = await dl.data.text();
         }
