@@ -1534,6 +1534,7 @@ export type Database = {
       }
       project_task_attachments: {
         Row: {
+          bucket: string
           created_at: string
           file_name: string
           id: string
@@ -1544,6 +1545,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          bucket?: string
           created_at?: string
           file_name: string
           id?: string
@@ -1554,6 +1556,7 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          bucket?: string
           created_at?: string
           file_name?: string
           id?: string
