@@ -101,27 +101,27 @@ export default function AccountAccessSection({
   const accounts = useMemo(() => ACCOUNTS_BASE.filter((a) => !a.growthOnly || isGrowth), [isGrowth]);
 
   const initialRequiredKeys = isGrowth
-    ? ["surecontact", "ottokit", "copost", "website", "heygen", "claude"]
-    : ["surecontact", "ottokit", "copost", "website"];
+    ? ["surecontact", "copost", "website", "claude"]
+    : ["surecontact", "copost", "website"];
   const initialAllDone = initialRequiredKeys.every((k) => !!initial?.checks?.[k]);
   const [open, setOpen] = useState(!initialAllDone);
   const [checks, setChecks] = useState<AccountChecks>(initial?.checks ?? {});
   const [notes, setNotes] = useState<string>(initial?.notes ?? "");
   const [files, setFiles] = useState<FileEntry[]>(initial?.files ?? []);
   const [fields, setFields] = useState<AccountFields>(initial?.fields ?? {});
-  const [heygenKeyDraft, setHeygenKeyDraft] = useState<string>(initial?.fields?.heygen_api_key ?? "");
   const [submittedAt, setSubmittedAt] = useState<string | null>(initial?.submitted_at ?? null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<number | null>(null);
 
-  // Required keys (account-level only — social_media counts when at least one sub is checked)
+  // Required keys (account-level only)
   const requiredKeys = useMemo(() => {
-    const k = ["surecontact", "ottokit", "copost", "website"];
-    if (isGrowth) k.push("heygen", "claude");
+    const k = ["surecontact", "copost", "website"];
+    if (isGrowth) k.push("claude");
     return k;
   }, [isGrowth]);
+
 
   const allDone = requiredKeys.every((k) => !!checks[k]);
   const completedCount = requiredKeys.filter((k) => !!checks[k]).length;
