@@ -1809,9 +1809,15 @@ export type Database = {
           created_by: string | null
           department: string
           doc_type: string
+          draft_content: string | null
+          draft_title: string | null
+          draft_updated_at: string | null
+          folder_id: string | null
+          has_draft: boolean
           id: string
           last_reviewed_at: string | null
           owner: string | null
+          published_at: string | null
           slug: string
           status: Database["public"]["Enums"]["wiki_doc_status"]
           tags: string[]
@@ -1825,9 +1831,15 @@ export type Database = {
           created_by?: string | null
           department: string
           doc_type: string
+          draft_content?: string | null
+          draft_title?: string | null
+          draft_updated_at?: string | null
+          folder_id?: string | null
+          has_draft?: boolean
           id?: string
           last_reviewed_at?: string | null
           owner?: string | null
+          published_at?: string | null
           slug: string
           status?: Database["public"]["Enums"]["wiki_doc_status"]
           tags?: string[]
@@ -1841,16 +1853,68 @@ export type Database = {
           created_by?: string | null
           department?: string
           doc_type?: string
+          draft_content?: string | null
+          draft_title?: string | null
+          draft_updated_at?: string | null
+          folder_id?: string | null
+          has_draft?: boolean
           id?: string
           last_reviewed_at?: string | null
           owner?: string | null
+          published_at?: string | null
           slug?: string
           status?: Database["public"]["Enums"]["wiki_doc_status"]
           tags?: string[]
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "wiki_documents_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "wiki_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wiki_folders: {
+        Row: {
+          created_at: string
+          department: string | null
+          id: string
+          name: string
+          order_index: number
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department?: string | null
+          id?: string
+          name: string
+          order_index?: number
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wiki_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "wiki_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wiki_revisions: {
         Row: {
