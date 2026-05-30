@@ -1005,7 +1005,7 @@ function TaskDetailSheet({
               >
                 <div className="tp-rows">
                   {subtasks.map((st) => {
-                    const isDone = st.status === "done";
+                    const isDone = st.status === "complete";
                     return (
                       <div key={st.id} className={`tp-row ${isDone ? "is-done" : ""}`}>
                         <button
@@ -1013,7 +1013,7 @@ function TaskDetailSheet({
                           className="tp-row-box"
                           aria-label={isDone ? "Mark not done" : "Mark done"}
                           onClick={async () => {
-                            await tasksApi.update(st.id, { status: isDone ? "backlog" : "done" });
+                            await tasksApi.update(st.id, { status: isDone ? "backlog" : "complete" });
                             await onChanged();
                           }}
                         />
