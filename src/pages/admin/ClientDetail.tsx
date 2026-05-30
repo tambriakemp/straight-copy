@@ -8,6 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import ProjectResourcesSheet from "@/components/admin/ProjectResourcesSheet";
+import ClientPortalActions from "@/components/admin/ClientPortalActions";
 
 type Client = {
   id: string;
@@ -182,6 +183,7 @@ export default function ClientDetail() {
               {client.contact_name ? `${client.contact_name} · ` : ""}{client.contact_email || "no email"}{client.contact_phone ? ` · ${client.contact_phone}` : ""}
             </p>
           </div>
+          <ClientPortalActions clientId={client.id} />
         </div>
 
         <div className="roster__toolbar" style={{ marginTop: 24 }}>
