@@ -7,7 +7,7 @@ export const TASK_STATUSES = [
 export type TaskStatus = typeof TASK_STATUSES[number];
 export const TASK_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 export type TaskPriority = typeof TASK_PRIORITIES[number];
-export const ASSIGNEE_KINDS = ["unassigned", "admin", "claude"] as const;
+export const ASSIGNEE_KINDS = ["unassigned", "admin", "claude", "auto", "client", "agency"] as const;
 export type AssigneeKind = typeof ASSIGNEE_KINDS[number];
 
 export function serviceClient(): SupabaseClient {
@@ -31,7 +31,7 @@ export interface AcceptanceCriterion {
 export const TASK_FIELDS =
   "id, client_project_id, parent_task_id, epic_id, name, description, status, priority, " +
   "assignee_kind, assignee_admin_id, url, due_date, tags, order_index, created_by, completed_at, created_at, updated_at, " +
-  "acceptance_criteria, design_url, blocked_by, manual_prereqs, size, platform";
+  "acceptance_criteria, design_url, blocked_by, manual_prereqs, size, platform, journey_item_key, auto_key";
 
 export interface TaskInput {
   client_project_id?: string;

@@ -33,7 +33,7 @@ export const PRIORITY_COLORS: Record<TaskPriority, string> = {
   urgent: "hsl(0 70% 55%)",
 };
 
-export type AssigneeKind = "unassigned" | "admin" | "claude";
+export type AssigneeKind = "unassigned" | "admin" | "claude" | "auto" | "client" | "agency";
 
 export interface Epic {
   id: string;
@@ -41,6 +41,8 @@ export interface Epic {
   name: string;
   color: string | null;
   order_index: number;
+  journey_stage_key?: string | null;
+  locked?: boolean;
 }
 
 export interface Attachment {
@@ -90,6 +92,8 @@ export interface Task {
   size: TaskSize | null;
   platform: TaskPlatform | null;
   attachments?: Attachment[];
+  journey_item_key?: string | null;
+  auto_key?: string | null;
 }
 
 async function invoke<T>(path: string, init: RequestInit = {}): Promise<T> {

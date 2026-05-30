@@ -1538,6 +1538,8 @@ export type Database = {
           color: string | null
           created_at: string
           id: string
+          journey_stage_key: string | null
+          locked: boolean
           name: string
           order_index: number
           updated_at: string
@@ -1547,6 +1549,8 @@ export type Database = {
           color?: string | null
           created_at?: string
           id?: string
+          journey_stage_key?: string | null
+          locked?: boolean
           name: string
           order_index?: number
           updated_at?: string
@@ -1556,6 +1560,8 @@ export type Database = {
           color?: string | null
           created_at?: string
           id?: string
+          journey_stage_key?: string | null
+          locked?: boolean
           name?: string
           order_index?: number
           updated_at?: string
@@ -1567,6 +1573,7 @@ export type Database = {
           acceptance_criteria: Json
           assignee_admin_id: string | null
           assignee_kind: Database["public"]["Enums"]["project_task_assignee_kind"]
+          auto_key: string | null
           blocked_by: string[]
           client_project_id: string
           completed_at: string | null
@@ -1577,6 +1584,7 @@ export type Database = {
           due_date: string | null
           epic_id: string | null
           id: string
+          journey_item_key: string | null
           manual_prereqs: string | null
           name: string
           order_index: number
@@ -1593,6 +1601,7 @@ export type Database = {
           acceptance_criteria?: Json
           assignee_admin_id?: string | null
           assignee_kind?: Database["public"]["Enums"]["project_task_assignee_kind"]
+          auto_key?: string | null
           blocked_by?: string[]
           client_project_id: string
           completed_at?: string | null
@@ -1603,6 +1612,7 @@ export type Database = {
           due_date?: string | null
           epic_id?: string | null
           id?: string
+          journey_item_key?: string | null
           manual_prereqs?: string | null
           name: string
           order_index?: number
@@ -1619,6 +1629,7 @@ export type Database = {
           acceptance_criteria?: Json
           assignee_admin_id?: string | null
           assignee_kind?: Database["public"]["Enums"]["project_task_assignee_kind"]
+          auto_key?: string | null
           blocked_by?: string[]
           client_project_id?: string
           completed_at?: string | null
@@ -1629,6 +1640,7 @@ export type Database = {
           due_date?: string | null
           epic_id?: string | null
           id?: string
+          journey_item_key?: string | null
           manual_prereqs?: string | null
           name?: string
           order_index?: number
@@ -1882,6 +1894,10 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      ensure_intake_tasks_for_project: {
+        Args: { _client_project_id: string }
+        Returns: undefined
       }
       fire_kickoff_webhook: { Args: { _client_id: string }; Returns: undefined }
       fire_surecontact_sync: {
