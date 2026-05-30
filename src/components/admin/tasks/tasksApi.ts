@@ -106,10 +106,6 @@ export interface TaskActivity {
   metadata?: Record<string, unknown>;
 }
 
-const _placeholder = null as never;
-  journey_item_key?: string | null;
-  auto_key?: string | null;
-}
 
 async function invoke<T>(path: string, init: RequestInit = {}): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
