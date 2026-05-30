@@ -11,7 +11,8 @@ import {
 import { toast } from "sonner";
 import { differenceInCalendarDays, format } from "date-fns";
 import { syncChecklist, templateIdFor, type ChecklistItem as ChecklistItemTpl } from "@/lib/journey-checklists";
-import { Eye, Copy, RefreshCw, FileSignature, MessageSquare, Pencil } from "lucide-react";
+import { Eye, Copy, RefreshCw, FileSignature, MessageSquare, Pencil, ArrowLeft } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
