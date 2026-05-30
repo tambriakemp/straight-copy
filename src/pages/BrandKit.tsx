@@ -759,7 +759,7 @@ export default function BrandKit() {
                       Detected from your logo
                     </div>
                     {logoFile.signedUrl && (
-                      <div style={{ marginBottom: 16, padding: 16, background: "rgba(255,255,255,0.04)", display: "flex", justifyContent: "center" }}>
+                      <div style={{ marginBottom: 12, padding: 16, background: "rgba(255,255,255,0.04)", display: "flex", justifyContent: "center", position: "relative" }}>
                         <img
                           src={logoFile.signedUrl}
                           alt="Uploaded logo"
@@ -767,6 +767,30 @@ export default function BrandKit() {
                         />
                       </div>
                     )}
+                    <div style={{ display: "flex", gap: 14, marginBottom: 18, fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase" }}>
+                      <label style={{ color: "#8B7355", cursor: logoUploading ? "wait" : "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>
+                        {logoUploading ? "Uploading…" : "Replace logo"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                          style={{ display: "none" }}
+                          disabled={logoUploading}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleLogoFile(f);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={removeLogo}
+                        disabled={logoUploading}
+                        style={{ background: "transparent", border: "none", padding: 0, color: "#A89F94", cursor: logoUploading ? "wait" : "pointer", textDecoration: "underline", textUnderlineOffset: 3, letterSpacing: "0.18em", textTransform: "uppercase", fontSize: 10 }}
+                      >
+                        Remove
+                      </button>
+                    </div>
                     <p style={{ fontSize: 13, color: "#C8C0B4", lineHeight: 1.7, marginBottom: 14 }}>
                       Are these your brand colors?
                     </p>
