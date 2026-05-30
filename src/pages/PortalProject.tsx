@@ -576,18 +576,9 @@ export default function PortalProject() {
                         }}
                       />
                     ) : (
-                      <BrandKitChat
-                        node={node!}
-                        stage={stage}
-                        messages={messages}
-                        input={input}
-                        setInput={setInput}
-                        isStreaming={isStreaming}
-                        readyToSubmit={readyToSubmit}
-                        submitting={submitting}
-                        onSend={send}
-                        onSubmit={submit}
-                        scrollRef={scrollRef}
+                      <BrandKitChatLauncher
+                        clientId={clientId!}
+                        hasConversation={messages.length > 0}
                         onSwitchToFast={() => setBkPath("yes")}
                       />
                     )}
@@ -758,97 +749,47 @@ function BrandVoiceAccordion({ token, completed }: { token: string; completed: b
   );
 }
 
-function BrandKitChat({
-  node, stage, messages, input, setInput, isStreaming, readyToSubmit, submitting,
-  onSend, onSubmit, scrollRef, onSwitchToFast,
+function BrandKitChatLauncher({
+  clientId,
+  hasConversation,
+  onSwitchToFast,
 }: {
-  node: ActiveNode;
-  stage: number;
-  messages: Msg[];
-  input: string;
-  setInput: (v: string) => void;
-  isStreaming: boolean;
-  readyToSubmit: boolean;
-  submitting: boolean;
-  onSend: () => void;
-  onSubmit: () => void;
-  scrollRef: React.RefObject<HTMLDivElement>;
-  onSwitchToFast?: () => void;
+  clientId: string;
+  hasConversation: boolean;
+  onSwitchToFast: () => void;
 }) {
   return (
     <section className="portal-node-card">
       <div className="portal-node-card__head">
         <h2 className="portal-node-card__title">
-          Brand <em>Kit</em>.
+          Brand <em>Kit</em> Chat.
         </h2>
         <p className="portal-node-card__desc">
           A short, considered conversation to capture the visual foundation of your brand —
-          logo direction, color, type, and reference points.
+          logo direction, color, type, and reference points. Opens in a focused window.
         </p>
-        <div className="portal-stage-indicator">
-          <span className="portal-stage-indicator__lbl">{STAGE_LABELS[Math.min(stage, STAGE_LABELS.length - 1)]}</span>
-          <span className="portal-stage-indicator__count">Stage {stage} of 8</span>
-        </div>
-        {onSwitchToFast && (
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 16, alignItems: "center" }}>
+          <a
+            href={`/portal/${clientId}/brand-kit`}
+            target="_blank"
+            rel="noreferrer"
+            className="crm-btn crm-btn--bronze crm-btn--sm"
+          >
+            {hasConversation ? "Resume Brand Kit chat →" : "Open Brand Kit chat →"}
+          </a>
           <button
             type="button"
             onClick={onSwitchToFast}
             className="crm-btn crm-btn--ghost crm-btn--sm"
-            style={{ marginTop: 12, alignSelf: "flex-start" }}
           >
             ← I already have brand assets
           </button>
-        )}
-      </div>
-
-      <div className="portal-chat" ref={scrollRef}>
-        {messages.map((m, i) => (
-          <div key={i} className={`portal-bubble portal-bubble--${m.role}`}>
-            {m.content || (m.role === "assistant" && isStreaming && i === messages.length - 1 ? "…" : "")}
-          </div>
-        ))}
-        {isStreaming && messages[messages.length - 1]?.role !== "assistant" && (
-          <div className="portal-bubble portal-bubble--assistant">…</div>
-        )}
-      </div>
-
-      <div className="portal-composer">
-        <textarea
-          className="portal-composer__input"
-          placeholder={readyToSubmit ? "Anything to add before you submit?" : "Type your answer…"}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              onSend();
-            }
-          }}
-          disabled={isStreaming || submitting}
-          rows={2}
-        />
-        <div className="portal-composer__actions">
-          <button
-            className="crm-btn crm-btn--ghost crm-btn--sm"
-            onClick={onSend}
-            disabled={isStreaming || submitting || !input.trim()}
-          >
-            Send →
-          </button>
-          {readyToSubmit && (
-            <button
-              className="crm-btn crm-btn--bronze crm-btn--sm"
-              onClick={onSubmit}
-              disabled={submitting}
-            >
-              {submitting ? "Submitting…" : "Review & Submit"}
-            </button>
-          )}
         </div>
       </div>
     </section>
   );
 }
+
 
 function ConfirmationCard({ businessName, submittedAt }: { businessName: string; submittedAt: string }) {
   const dt = new Date(submittedAt);

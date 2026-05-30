@@ -17,6 +17,7 @@ const Unsubscribe = lazy(() => import("./pages/Unsubscribe.tsx"));
 const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
 const Portal = lazy(() => import("./pages/Portal.tsx"));
 const PortalProject = lazy(() => import("./pages/PortalProject.tsx"));
+const BrandKit = lazy(() => import("./pages/BrandKit.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin.tsx"));
 const McpAuthorize = lazy(() => import("./pages/admin/McpAuthorize.tsx"));
@@ -66,6 +67,7 @@ const App = () => (
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/portal/:clientId" element={<Portal />} />
             <Route path="/portal/:clientId/projects/:projectId" element={<PortalProject />} />
+            <Route path="/portal/:clientId/brand-kit" element={<BrandKit />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/mcp-authorize" element={<McpAuthorize />} />
             <Route path="/admin/reset-password" element={<ResetPassword />} />
