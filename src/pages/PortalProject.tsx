@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
 import ContractSection from "@/components/portal/ContractSection";
 import ProposalsSection from "@/components/portal/ProposalsSection";
@@ -106,6 +107,27 @@ export default function PortalProject() {
   const [readyToSubmit, setReadyToSubmit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Brand Kit routing: "yes" → Fast Submit form, "no" → conversational chat,
+  // null → show the routing question. Persisted in localStorage so a refresh
+  // keeps the client on whichever path they chose.
+  const bkPathKey = clientId ? `cre8-portal-bk-path-${clientId}` : "";
+  const [bkPath, setBkPathState] = useState<"yes" | "no" | null>(null);
+  useEffect(() => {
+    if (!bkPathKey) return;
+    try {
+      const v = localStorage.getItem(bkPathKey);
+      if (v === "yes" || v === "no") setBkPathState(v);
+    } catch { /* ignore */ }
+  }, [bkPathKey]);
+  const setBkPath = (v: "yes" | "no" | null) => {
+    setBkPathState(v);
+    if (!bkPathKey) return;
+    try {
+      if (v) localStorage.setItem(bkPathKey, v);
+      else localStorage.removeItem(bkPathKey);
+    } catch { /* ignore */ }
+  };
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const lsKey = clientId ? `cre8-portal-${clientId}` : "";
 
@@ -180,11 +202,12 @@ export default function PortalProject() {
     if (loading || notFound || !client) return;
     if (submittedAt) return;
     if (client.active_node?.key !== "brand_kit") return;
+    if (bkPath !== "no") return; // Only greet once the client has chosen the chat path.
     if (messages.length === 0 && !isStreaming) {
       streamReply([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, notFound, client, submittedAt]);
+  }, [loading, notFound, client, submittedAt, bkPath]);
 
   // Deep-link: scroll to focused section after load
   useEffect(() => {
@@ -597,6 +620,20 @@ export default function PortalProject() {
                   <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
                     {isBrandKitDone ? (
                       <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
+                    ) : bkPath === null ? (
+                      <BrandKitRouter onChoose={setBkPath} />
+                    ) : bkPath === "yes" ? (
+                      <BrandKitFastSubmit
+                        clientId={clientId!}
+                        submitting={submitting}
+                        setSubmitting={setSubmitting}
+                        onSwitchToChat={() => setBkPath("no")}
+                        onSubmitted={(at) => {
+                          setSubmittedAt(at);
+                          setBkPath(null);
+                          if (lsKey) localStorage.removeItem(lsKey);
+                        }}
+                      />
                     ) : (
                       <BrandKitChat
                         node={node!}
@@ -610,6 +647,7 @@ export default function PortalProject() {
                         onSend={send}
                         onSubmit={submit}
                         scrollRef={scrollRef}
+                        onSwitchToFast={() => setBkPath("yes")}
                       />
                     )}
                   </div>
@@ -716,7 +754,7 @@ function BrandVoiceAccordion({ token, completed }: { token: string; completed: b
 
 function BrandKitChat({
   node, stage, messages, input, setInput, isStreaming, readyToSubmit, submitting,
-  onSend, onSubmit, scrollRef,
+  onSend, onSubmit, scrollRef, onSwitchToFast,
 }: {
   node: ActiveNode;
   stage: number;
@@ -729,6 +767,7 @@ function BrandKitChat({
   onSend: () => void;
   onSubmit: () => void;
   scrollRef: React.RefObject<HTMLDivElement>;
+  onSwitchToFast?: () => void;
 }) {
   return (
     <section className="portal-node-card">
@@ -744,6 +783,16 @@ function BrandKitChat({
           <span className="portal-stage-indicator__lbl">{STAGE_LABELS[Math.min(stage, STAGE_LABELS.length - 1)]}</span>
           <span className="portal-stage-indicator__count">Stage {stage} of 8</span>
         </div>
+        {onSwitchToFast && (
+          <button
+            type="button"
+            onClick={onSwitchToFast}
+            className="crm-btn crm-btn--ghost crm-btn--sm"
+            style={{ marginTop: 12, alignSelf: "flex-start" }}
+          >
+            ← I already have brand assets
+          </button>
+        )}
       </div>
 
       <div className="portal-chat" ref={scrollRef}>
@@ -841,6 +890,248 @@ function PlaceholderCard({ node }: { node: ActiveNode | null }) {
           Your team is working on this step. We'll email you when it's ready for your input
           here in the portal.
         </p>
+      </div>
+    </section>
+  );
+}
+
+// ---------- Brand Kit routing question (shown before any intake input) ----------
+function BrandKitRouter({ onChoose }: { onChoose: (v: "yes" | "no") => void }) {
+  return (
+    <section className="portal-node-card">
+      <div className="portal-node-card__head">
+        <h2 className="portal-node-card__title">
+          Brand <em>Kit</em>.
+        </h2>
+        <p className="portal-node-card__desc">
+          Do you already have brand assets like a logo, colors, or fonts?
+        </p>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          flexWrap: "wrap",
+          padding: "0 24px 24px",
+        }}
+      >
+        <button
+          type="button"
+          className="crm-btn crm-btn--bronze"
+          onClick={() => onChoose("yes")}
+        >
+          Yes, I have them →
+        </button>
+        <button
+          type="button"
+          className="crm-btn crm-btn--ghost"
+          onClick={() => onChoose("no")}
+        >
+          No, build it for me →
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// ---------- Brand Kit Fast Submit form ----------
+// Uploads logo + optional guidelines PDF directly to Supabase storage
+// (bucket: client-assets, folder: brand-kit/), then calls the edge function's
+// fast-complete action to persist intake and notify the team.
+function BrandKitFastSubmit({
+  clientId, submitting, setSubmitting, onSwitchToChat, onSubmitted,
+}: {
+  clientId: string;
+  submitting: boolean;
+  setSubmitting: (v: boolean) => void;
+  onSwitchToChat: () => void;
+  onSubmitted: (submittedAt: string) => void;
+}) {
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [colors, setColors] = useState("");
+  const [fonts, setFonts] = useState("");
+  const [guidelinesFile, setGuidelinesFile] = useState<File | null>(null);
+
+  const uploadOne = async (file: File): Promise<{ path: string; name: string; size: number; mime: string }> => {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+    const path = `brand-kit/${clientId}/${Date.now()}-${safeName}`;
+    const { error } = await supabase.storage.from("client-assets").upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type || undefined,
+    });
+    if (error) throw new Error(`Upload failed for ${file.name}: ${error.message}`);
+    return { path, name: file.name, size: file.size, mime: file.type || "" };
+  };
+
+  const handleSubmit = async () => {
+    const trimmedUrl = websiteUrl.trim();
+    if (!logoFile && !trimmedUrl) {
+      toast.error("Please upload a logo or paste your website link.");
+      return;
+    }
+    if (logoFile && logoFile.size > 15 * 1024 * 1024) {
+      toast.error("Logo file must be under 15MB.");
+      return;
+    }
+    if (guidelinesFile && guidelinesFile.size > 15 * 1024 * 1024) {
+      toast.error("Guidelines PDF must be under 15MB.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const logoMeta = logoFile ? await uploadOne(logoFile) : null;
+      const guidelinesMeta = guidelinesFile ? await uploadOne(guidelinesFile) : null;
+
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${PUB_KEY}`,
+        },
+        body: JSON.stringify({
+          clientId,
+          action: "fast-complete",
+          intake: {
+            logo_file: logoMeta,
+            guidelines_file: guidelinesMeta,
+            website_url: trimmedUrl,
+            colors: colors.trim(),
+            typography: fonts.trim(),
+          },
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.success) throw new Error(data.error || "Submit failed");
+
+      toast.success("Brand Kit submitted");
+      onSubmitted(data.submittedAt);
+    } catch (e) {
+      console.error("[brand-kit fast submit]", e);
+      toast.error(e instanceof Error ? e.message : "Submit failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const fieldLabelStyle: React.CSSProperties = {
+    display: "block",
+    fontSize: 12,
+    letterSpacing: "0.18em",
+    textTransform: "uppercase",
+    marginBottom: 8,
+    color: "var(--portal-text-muted, #6b6358)",
+  };
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "10px 12px",
+    border: "1px solid var(--portal-border, rgba(0,0,0,0.12))",
+    borderRadius: 6,
+    fontSize: 15,
+    background: "transparent",
+    color: "inherit",
+  };
+
+  return (
+    <section className="portal-node-card">
+      <div className="portal-node-card__head">
+        <h2 className="portal-node-card__title">
+          Brand <em>Kit</em>.
+        </h2>
+        <p className="portal-node-card__desc">
+          Just your logo or website link is all we need to start — everything else is optional.
+        </p>
+        <button
+          type="button"
+          onClick={onSwitchToChat}
+          className="crm-btn crm-btn--ghost crm-btn--sm"
+          style={{ marginTop: 12, alignSelf: "flex-start" }}
+          disabled={submitting}
+        >
+          ← I don't have assets — build it for me
+        </button>
+      </div>
+
+      <div style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* Logo (required) */}
+        <div>
+          <label style={fieldLabelStyle}>Logo (required)</label>
+          <input
+            type="file"
+            accept="image/*,.svg,.pdf,.ai,.eps"
+            onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+            disabled={submitting}
+            style={{ display: "block", marginBottom: 12 }}
+          />
+          <div style={{ fontSize: 13, color: "var(--portal-text-muted, #6b6358)", marginBottom: 8 }}>
+            …or paste a link to a site we can pull your logo from:
+          </div>
+          <input
+            type="url"
+            inputMode="url"
+            placeholder="https://yourbrand.com"
+            value={websiteUrl}
+            onChange={(e) => setWebsiteUrl(e.target.value)}
+            disabled={submitting}
+            maxLength={500}
+            style={inputStyle}
+          />
+        </div>
+
+        <hr style={{ border: 0, borderTop: "1px solid var(--portal-border, rgba(0,0,0,0.12))", margin: 0 }} />
+
+        <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--portal-text-muted, #6b6358)" }}>
+          Optional — add if you have them
+        </div>
+
+        <div>
+          <label style={fieldLabelStyle}>Hex color codes</label>
+          <input
+            type="text"
+            placeholder="#0F172A, #D4A373, #FAF8F5"
+            value={colors}
+            onChange={(e) => setColors(e.target.value)}
+            disabled={submitting}
+            maxLength={500}
+            style={inputStyle}
+          />
+        </div>
+
+        <div>
+          <label style={fieldLabelStyle}>Font names</label>
+          <input
+            type="text"
+            placeholder="Cormorant Garamond, Karla"
+            value={fonts}
+            onChange={(e) => setFonts(e.target.value)}
+            disabled={submitting}
+            maxLength={500}
+            style={inputStyle}
+          />
+        </div>
+
+        <div>
+          <label style={fieldLabelStyle}>Brand guidelines PDF</label>
+          <input
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={(e) => setGuidelinesFile(e.target.files?.[0] ?? null)}
+            disabled={submitting}
+          />
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            className="crm-btn crm-btn--bronze"
+            onClick={handleSubmit}
+            disabled={submitting || (!logoFile && !websiteUrl.trim())}
+          >
+            {submitting ? "Submitting…" : "Submit →"}
+          </button>
+        </div>
       </div>
     </section>
   );
