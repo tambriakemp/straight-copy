@@ -455,8 +455,8 @@ export default function AutomationBuildView() {
           </div>
         </div>
 
-        <ProjectTabs defaultValue="journey" className="mt-6" style={{ paddingTop: 120, paddingLeft: 32, paddingRight: 32, paddingBottom: 48, flex: 1, minHeight: 0, overflowY: "auto" }}>
-          <ProjectTabsList>
+        <ProjectTabs defaultValue="journey" className="mt-6" style={{ paddingTop: 120, paddingLeft: 32, paddingRight: 32, flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <ProjectTabsList style={{ flexShrink: 0 }}>
             <ProjectTabsTrigger value="journey">Journey</ProjectTabsTrigger>
             <ProjectTabsTrigger value="subscription">Subscription</ProjectTabsTrigger>
             <ProjectTabsTrigger value="contract">Contract</ProjectTabsTrigger>
@@ -464,7 +464,7 @@ export default function AutomationBuildView() {
             <ProjectTabsTrigger value="settings">Settings</ProjectTabsTrigger>
           </ProjectTabsList>
 
-          <ProjectTabsContent value="journey">
+          <ProjectTabsContent value="journey" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
             <div className="crm-shell">
               <div className="journey-cards">
                 {nodes.map((n, i) => (
@@ -488,20 +488,20 @@ export default function AutomationBuildView() {
             </div>
           </ProjectTabsContent>
 
-          <ProjectTabsContent value="subscription">
+          <ProjectTabsContent value="subscription" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
             <AutomationSubscriptionPanel client={client as never} />
           </ProjectTabsContent>
 
-          <ProjectTabsContent value="contract">
+          <ProjectTabsContent value="contract" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
             <AdminContractSection clientId={client.id} />
           </ProjectTabsContent>
 
-          <ProjectTabsContent value="settings">
+          <ProjectTabsContent value="settings" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
             <HeyGenKeyPanel client={client} />
           </ProjectTabsContent>
 
           {projectId && (
-            <ProjectTabsContent value="tasks">
+            <ProjectTabsContent value="tasks" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
               <ProjectTasksPanel clientProjectId={projectId} />
             </ProjectTabsContent>
           )}
