@@ -509,13 +509,14 @@ mcp.tool("create_wiki_document", {
 });
 
 mcp.tool("update_wiki_document", {
-  description: "Update a knowledge base document. Title and content edits go to the DRAFT (not visible to staff) until publish_wiki_document is called. Metadata fields (department, doc_type, status, access_level, owner, tags, folder_id) update the live record immediately.",
+  description: "Update a knowledge base document. Title and content edits go to the DRAFT (not visible to staff) until publish_wiki_document is called. Metadata fields update the live record immediately. For SOPs, pass `sections` (keyed object from get_sop_template) to preserve the 8-section structure — passing raw `content` for an SOP will likely break section parsing.",
   inputSchema: {
     type: "object",
     properties: {
       id: { type: "string" },
       title: { type: "string", description: "Goes to draft_title. Publish to make live." },
-      content: { type: "string", description: "Goes to draft_content. Publish to make live." },
+      content: { type: "string", description: "Goes to draft_content. For SOPs, prefer `sections`." },
+      sections: SOP_SECTIONS_SCHEMA,
       change_note: { type: "string", description: "Optional summary saved on next publish." },
       ...WIKI_META_PROPS,
     },
@@ -527,17 +528,21 @@ mcp.tool("update_wiki_document", {
     if (!existing) throw new Error("Document not found");
 
     const update: Record<string, unknown> = {};
-    // Metadata fields write directly
     for (const k of ["department","doc_type","status","access_level","owner","tags","folder_id"]) {
       if (patch[k] !== undefined) update[k] = patch[k];
     }
     if (patch.slug !== undefined) {
       update.slug = await uniqueWikiSlug(wikiSlugify(patch.slug), id);
     }
-    // Title/content go to draft
-    if (patch.title !== undefined || patch.content !== undefined) {
+    let nextContent: string | undefined;
+    if (patch.sections && typeof patch.sections === "object") {
+      nextContent = serializeSopSections(patch.sections);
+    } else if (patch.content !== undefined) {
+      nextContent = patch.content;
+    }
+    if (patch.title !== undefined || nextContent !== undefined) {
       update.draft_title = patch.title !== undefined ? patch.title : (existing.draft_title ?? existing.title);
-      update.draft_content = patch.content !== undefined ? patch.content : (existing.draft_content ?? existing.content);
+      update.draft_content = nextContent !== undefined ? nextContent : (existing.draft_content ?? existing.content);
       update.draft_updated_at = new Date().toISOString();
       update.has_draft = true;
     }
