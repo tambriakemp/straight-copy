@@ -458,6 +458,7 @@ export default function AutomationBuildView() {
         <ProjectTabs defaultValue="journey" className="mt-6">
           <ProjectTabsList>
             <ProjectTabsTrigger value="journey">Journey</ProjectTabsTrigger>
+            <ProjectTabsTrigger value="subscription">Subscription</ProjectTabsTrigger>
             <ProjectTabsTrigger value="contract">Contract</ProjectTabsTrigger>
             {projectId && <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>}
             <ProjectTabsTrigger value="settings">Settings</ProjectTabsTrigger>
@@ -485,6 +486,10 @@ export default function AutomationBuildView() {
                 )}
               </div>
             </div>
+          </ProjectTabsContent>
+
+          <ProjectTabsContent value="subscription">
+            <AutomationSubscriptionPanel client={client as never} />
           </ProjectTabsContent>
 
           <ProjectTabsContent value="contract">
