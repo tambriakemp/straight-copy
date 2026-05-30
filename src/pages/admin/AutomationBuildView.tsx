@@ -465,27 +465,14 @@ export default function AutomationBuildView() {
           </ProjectTabsList>
 
           <ProjectTabsContent value="journey" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
-            <div className="crm-shell">
-              <div className="journey-cards">
-                {nodes.map((n, i) => (
-                  <JourneyNodeCard
-                    key={n.id}
-                    client={client}
-                    node={n}
-                    index={i}
-                    total={total}
-                    state={stateFor(i)}
-                    open={openIds.has(n.id)}
-                    onToggle={() => toggleNode(n.id)}
-                    onUpdate={(patch) => updateNode(n.id, patch)}
-                    onReload={load}
-                  />
-                ))}
-                {nodes.length === 0 && (
-                  <div className="journey-cards__empty">No journey stages yet.</div>
-                )}
-              </div>
-            </div>
+            <JourneyTasksBoard
+              client={client}
+              nodes={nodes}
+              openIds={openIds}
+              onToggleOpen={toggleNode}
+              onUpdate={updateNode}
+              onReload={load}
+            />
           </ProjectTabsContent>
 
           <ProjectTabsContent value="subscription" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
