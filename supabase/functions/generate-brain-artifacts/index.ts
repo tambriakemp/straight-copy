@@ -178,7 +178,12 @@ Deno.serve(async (req) => {
         results.push({ key: artifact.key, status: "disabled", message: "Prompt not yet configured" });
         continue;
       }
-      if (!force && completedKeys.has(artifact.filenamePrefix)) {
+      const taskId = tasksByKey.get(artifact.taskKey);
+      if (!taskId) {
+        results.push({ key: artifact.key, status: "failed", message: `Task ${artifact.taskKey} not found for this project` });
+        continue;
+      }
+      if (!force && completedKeys.has(`${taskId}::${artifact.filenamePrefix}`)) {
         results.push({ key: artifact.key, status: "skipped", message: "Attachment already exists" });
         continue;
       }
@@ -195,7 +200,6 @@ Deno.serve(async (req) => {
         const result: ArtifactResult = { key: artifact.key, status: "generated" };
 
         if (artifact.format === "pdf") {
-          // Render & upload the editorial PDF.
           const pdfBytes = await renderArtifactPdf(
             markdown, ctx.businessName, artifact.title, artifact.subtitle, generatedAt,
           );
@@ -206,13 +210,12 @@ Deno.serve(async (req) => {
           });
           if (upPdf.error) throw new Error(`PDF upload failed: ${upPdf.error.message}`);
           await supabase.from("project_task_attachments").insert({
-            task_id: task.id, storage_path: pdfPath, bucket: BUCKET,
+            task_id: taskId, storage_path: pdfPath, bucket: BUCKET,
             file_name: pdfName, mime_type: "application/pdf", size_bytes: pdfBytes.byteLength,
           });
           result.pdfPath = pdfPath;
 
-          // Also persist the raw markdown as a sibling attachment so future
-          // skill-file runs can load it from storage.
+          // Sibling .md so future skill runs can reference it.
           const mdName = `${artifact.filenamePrefix}__${ts}.md`;
           const mdPath = `clients/${project.client_id}/brain-artifacts/${mdName}`;
           const mdBytes = new TextEncoder().encode(markdown);
@@ -221,13 +224,13 @@ Deno.serve(async (req) => {
           });
           if (!upMd.error) {
             await supabase.from("project_task_attachments").insert({
-              task_id: task.id, storage_path: mdPath, bucket: BUCKET,
+              task_id: taskId, storage_path: mdPath, bucket: BUCKET,
               file_name: mdName, mime_type: "text/markdown", size_bytes: mdBytes.byteLength,
             });
             result.mdPath = mdPath;
           }
         } else {
-          // Markdown-only artifact (skill files). Upload as .md.
+          // Markdown-only artifact (skill files).
           const mdName = `${artifact.filenamePrefix}__${ts}.md`;
           const mdPath = `clients/${project.client_id}/brain-artifacts/${mdName}`;
           const mdBytes = new TextEncoder().encode(markdown);
@@ -236,15 +239,14 @@ Deno.serve(async (req) => {
           });
           if (upMd.error) throw new Error(`Markdown upload failed: ${upMd.error.message}`);
           await supabase.from("project_task_attachments").insert({
-            task_id: task.id, storage_path: mdPath, bucket: BUCKET,
+            task_id: taskId, storage_path: mdPath, bucket: BUCKET,
             file_name: mdName, mime_type: "text/markdown", size_bytes: mdBytes.byteLength,
           });
           result.mdPath = mdPath;
         }
 
-        // Activity log
         await supabase.from("project_task_activity").insert({
-          task_id: task.id,
+          task_id: taskId,
           kind: "attachment",
           message: `Generated brain artifact: ${artifact.title} ${artifact.subtitle}`.replace(/\.$/, ""),
           metadata: { artifactKey: artifact.key, format: artifact.format, pdfPath: result.pdfPath, mdPath: result.mdPath },
@@ -257,6 +259,7 @@ Deno.serve(async (req) => {
         results.push({ key: artifact.key, status: "failed", message: msg });
       }
     }
+
 
     return new Response(JSON.stringify({ success: true, clientProjectId, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
