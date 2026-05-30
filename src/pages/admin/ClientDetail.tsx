@@ -8,6 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import ProjectResourcesSheet from "@/components/admin/ProjectResourcesSheet";
+import ClientPortalActions from "@/components/admin/ClientPortalActions";
 
 type Client = {
   id: string;
