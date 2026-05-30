@@ -67,6 +67,7 @@ const App = () => (
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/portal/:clientId" element={<Portal />} />
             <Route path="/portal/:clientId/projects/:projectId" element={<PortalProject />} />
+            <Route path="/portal/:clientId/brand-kit" element={<BrandKit />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/mcp-authorize" element={<McpAuthorize />} />
             <Route path="/admin/reset-password" element={<ResetPassword />} />
