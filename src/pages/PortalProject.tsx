@@ -754,7 +754,7 @@ function BrandVoiceAccordion({ token, completed }: { token: string; completed: b
 
 function BrandKitChat({
   node, stage, messages, input, setInput, isStreaming, readyToSubmit, submitting,
-  onSend, onSubmit, scrollRef,
+  onSend, onSubmit, scrollRef, onSwitchToFast,
 }: {
   node: ActiveNode;
   stage: number;
@@ -767,6 +767,7 @@ function BrandKitChat({
   onSend: () => void;
   onSubmit: () => void;
   scrollRef: React.RefObject<HTMLDivElement>;
+  onSwitchToFast?: () => void;
 }) {
   return (
     <section className="portal-node-card">
@@ -782,6 +783,16 @@ function BrandKitChat({
           <span className="portal-stage-indicator__lbl">{STAGE_LABELS[Math.min(stage, STAGE_LABELS.length - 1)]}</span>
           <span className="portal-stage-indicator__count">Stage {stage} of 8</span>
         </div>
+        {onSwitchToFast && (
+          <button
+            type="button"
+            onClick={onSwitchToFast}
+            className="crm-btn crm-btn--ghost crm-btn--sm"
+            style={{ marginTop: 12, alignSelf: "flex-start" }}
+          >
+            ← I already have brand assets
+          </button>
+        )}
       </div>
 
       <div className="portal-chat" ref={scrollRef}>
