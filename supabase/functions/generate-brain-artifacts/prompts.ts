@@ -16,8 +16,14 @@ export interface BrainArtifactContext {
 
 export type ArtifactFormat = "pdf" | "md";
 
+// journey_item_key of the project_task this artifact attaches to.
+export type ArtifactTaskKey =
+  | "brain_setup.generate_artifacts"
+  | "brain_setup.generate_skills";
+
 export interface BrainArtifactDef {
   key: string;                              // stable identifier
+  taskKey: ArtifactTaskKey;                 // which project_task to attach to
   criterionText: string;                    // must match acceptance_criteria text on the task
   title: string;                            // shown on PDF cover (PDF artifacts only)
   subtitle: string;                         // shown on PDF cover under title
