@@ -1726,29 +1726,40 @@ const OWNER_META: Record<ChecklistOwner, { label: string; icon: string; chipClas
 };
 
 function JourneyTasksBoard({
-  client, nodes, openIds, onToggleOpen, onUpdate, onReload,
+  client, nodes, onUpdate, onReload,
 }: {
   client: Client;
   nodes: JourneyNode[];
-  openIds: Set<string>;
-  onToggleOpen: (id: string) => void;
   onUpdate: (id: string, patch: Partial<JourneyNode>) => void;
   onReload: () => void;
 }) {
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Filter cards based on owner (epic visible if it has any task for that owner)
   const visibleNodes = useMemo(() => {
-    if (statusFilter === "all") return nodes;
+    if (ownerFilter === "all") return nodes;
     return nodes.filter((n) => {
-      if (statusFilter === "complete") return n.status === "complete";
-      if (statusFilter === "inprog") return n.status === "in_progress";
-      return n.status === "pending";
+      const items: ChecklistItem[] = Array.isArray(n.checklist) ? n.checklist : [];
+      return items.some((i) => i.owner === ownerFilter);
     });
-  }, [nodes, statusFilter]);
+  }, [nodes, ownerFilter]);
 
-  const expandAll = () => nodes.forEach((n) => { if (!openIds.has(n.id)) onToggleOpen(n.id); });
-  const collapseAll = () => nodes.forEach((n) => { if (openIds.has(n.id)) onToggleOpen(n.id); });
+  const columns: { key: NodeStatus; label: string; accent: string }[] = [
+    { key: "pending",     label: "Not Started", accent: "border-warm-white/20 text-taupe" },
+    { key: "in_progress", label: "In Progress", accent: "border-[hsl(40_60%_60%)]/40 text-[hsl(40_60%_75%)]" },
+    { key: "complete",    label: "Complete",    accent: "border-[hsl(140_40%_55%)]/40 text-[hsl(140_50%_70%)]" },
+  ];
+
+  const nodesByStatus = (s: NodeStatus) =>
+    visibleNodes
+      .filter((n) => n.status === s)
+      .sort((a, b) => a.order_index - b.order_index);
+
+  const selectedNode = selectedId ? nodes.find((n) => n.id === selectedId) ?? null : null;
+  const selectedIdx = selectedNode ? nodes.findIndex((n) => n.id === selectedNode.id) : -1;
+  const selectedPrev = selectedIdx > 0 ? nodes[selectedIdx - 1] : null;
+  const selectedLocked = !!selectedPrev && selectedPrev.status !== "complete" && selectedNode?.status !== "complete";
 
   return (
     <div className="px-6 text-warm-white">
@@ -1767,114 +1778,170 @@ function JourneyTasksBoard({
             </button>
           ))}
         </div>
-        <div className="inline-flex overflow-hidden rounded border border-warm-white/15">
-          {(["all","notstarted","inprog","complete"] as StatusFilter[]).map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 text-xs uppercase tracking-[0.2em] ${
-                statusFilter === s ? "bg-warm-white/10 text-warm-white" : "text-taupe hover:text-warm-white"
-              }`}
-            >
-              {s === "all" ? "All stages" : s === "notstarted" ? "Not started" : s === "inprog" ? "In progress" : "Complete"}
-            </button>
-          ))}
-        </div>
-        <div className="ml-auto flex gap-2">
-          <button onClick={expandAll} className="rounded border border-warm-white/15 px-3 py-1.5 text-xs uppercase tracking-[0.2em] text-taupe hover:text-warm-white">Expand all</button>
-          <button onClick={collapseAll} className="rounded border border-warm-white/15 px-3 py-1.5 text-xs uppercase tracking-[0.2em] text-taupe hover:text-warm-white">Collapse all</button>
+        <div className="ml-auto text-xs uppercase tracking-[0.25em] text-taupe">
+          {nodes.filter((n) => n.status === "complete").length} / {nodes.length} stages complete
         </div>
       </div>
 
-      {/* Epics */}
-      <div className="flex flex-col gap-4">
-        {visibleNodes.map((node, i) => {
-          // Locked = previous (by template order) is not complete
-          const trueIdx = nodes.findIndex((n) => n.id === node.id);
-          const prev = trueIdx > 0 ? nodes[trueIdx - 1] : null;
-          const locked = !!prev && prev.status !== "complete" && node.status !== "complete";
+      {/* Kanban columns */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {columns.map((col) => {
+          const colNodes = nodesByStatus(col.key);
           return (
-            <JourneyEpicCard
-              key={node.id}
-              client={client}
-              node={node}
-              index={trueIdx}
-              total={nodes.length}
-              locked={locked}
-              open={openIds.has(node.id)}
-              ownerFilter={ownerFilter}
-              onToggleOpen={() => onToggleOpen(node.id)}
-              onUpdate={(patch) => onUpdate(node.id, patch)}
-              onReload={onReload}
-            />
+            <div key={col.key} className="flex flex-col rounded-lg border border-warm-white/10 bg-warm-white/[0.015]">
+              <div className={`flex items-center justify-between border-b px-4 py-3 ${col.accent}`}>
+                <div className="text-xs uppercase tracking-[0.3em]">● {col.label}</div>
+                <div className="text-xs uppercase tracking-[0.25em] text-taupe">{colNodes.length}</div>
+              </div>
+              <div className="flex flex-col gap-3 p-3 min-h-[160px]">
+                {colNodes.map((node) => {
+                  const trueIdx = nodes.findIndex((n) => n.id === node.id);
+                  const prev = trueIdx > 0 ? nodes[trueIdx - 1] : null;
+                  const locked = !!prev && prev.status !== "complete" && node.status !== "complete";
+                  return (
+                    <JourneyKanbanCard
+                      key={node.id}
+                      node={node}
+                      index={trueIdx}
+                      locked={locked}
+                      onOpen={() => setSelectedId(node.id)}
+                    />
+                  );
+                })}
+                {colNodes.length === 0 && (
+                  <div className="flex flex-1 items-center justify-center rounded border border-dashed border-warm-white/10 p-6 text-center text-xs italic text-taupe">
+                    No stages
+                  </div>
+                )}
+              </div>
+            </div>
           );
         })}
-        {visibleNodes.length === 0 && (
-          <div className="rounded border border-dashed border-warm-white/15 p-10 text-center text-taupe italic">
-            No stages match these filters.
-          </div>
-        )}
       </div>
+
+      {/* Detail drawer */}
+      <JourneyEpicDrawer
+        client={client}
+        node={selectedNode}
+        index={selectedIdx}
+        total={nodes.length}
+        locked={selectedLocked}
+        ownerFilter={ownerFilter}
+        onClose={() => setSelectedId(null)}
+        onUpdate={(patch) => selectedNode && onUpdate(selectedNode.id, patch)}
+        onReload={onReload}
+      />
     </div>
   );
 }
 
-function JourneyEpicCard({
-  client, node, index, total, locked, open, ownerFilter, onToggleOpen, onUpdate, onReload,
+function JourneyKanbanCard({
+  node, index, locked, onOpen,
 }: {
-  client: Client;
   node: JourneyNode;
   index: number;
-  total: number;
   locked: boolean;
-  open: boolean;
-  ownerFilter: OwnerFilter;
-  onToggleOpen: () => void;
-  onUpdate: (patch: Partial<JourneyNode>) => void;
-  onReload: () => void;
+  onOpen: () => void;
 }) {
   const items: ChecklistItem[] = Array.isArray(node.checklist) ? node.checklist : [];
   const doneCount = items.filter((i) => i.done).length;
-
-  const statusPill =
-    node.status === "complete"    ? { label: "Complete",    cls: "border-[hsl(140_40%_55%)]/40 bg-[hsl(140_40%_55%)]/10 text-[hsl(140_50%_70%)]" }
-    : node.status === "in_progress" ? { label: "In Progress", cls: "border-[hsl(40_60%_60%)]/40 bg-[hsl(40_60%_60%)]/10 text-[hsl(40_60%_75%)]" }
-    : { label: "Not Started", cls: "border-warm-white/20 bg-transparent text-taupe" };
-
+  const owners = Array.from(new Set(items.map((i) => i.owner))) as ChecklistOwner[];
   const stageNum = String(index + 1).padStart(2, "0");
-
-  // Items shown according to ownerFilter
-  const filteredItems = ownerFilter === "all" ? items : items.filter((i) => i.owner === ownerFilter);
+  const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
 
   return (
-    <div className={`rounded-lg border bg-ink ${locked ? "border-warm-white/[0.06] opacity-60" : "border-warm-white/15"}`}>
-      <button
-        type="button"
-        onClick={onToggleOpen}
-        className="flex w-full items-center gap-4 px-5 py-4 text-left"
-      >
-        <div className="flex-1 min-w-0">
-          <div className="text-xs uppercase tracking-[0.35em] text-taupe">
-            Stage {stageNum} <span className="mx-1">·</span> of {String(total).padStart(2, "0")}
-            {locked && <span className="ml-3 text-[hsl(10_40%_65%)]">⛔ Locked until previous stage completes</span>}
-          </div>
-          <div className="mt-1 font-serif text-2xl text-warm-white">{node.label}</div>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="text-xs uppercase tracking-[0.2em] text-taupe">
-            {doneCount} / {items.length}
-          </span>
-          <span className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs uppercase tracking-[0.2em] ${statusPill.cls}`}>
-            ● {statusPill.label}
-          </span>
-          <span className={`text-taupe transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
-        </div>
-      </button>
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`group rounded-md border bg-ink p-4 text-left transition hover:border-warm-white/30 ${
+        locked ? "border-warm-white/[0.06] opacity-60" : "border-warm-white/15"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-[10px] uppercase tracking-[0.35em] text-taupe">Stage {stageNum}</div>
+        {locked && <span className="text-[10px] text-[hsl(10_40%_65%)]">⛔ Locked</span>}
+      </div>
+      <div className="mt-1.5 font-serif text-lg leading-tight text-warm-white">{node.label}</div>
 
-      {open && (
-        <div className="border-t border-warm-white/10 px-5 py-5">
+      <div className="mt-3 h-1 w-full overflow-hidden rounded bg-warm-white/10">
+        <div
+          className="h-full bg-[hsl(140_40%_55%)]/70"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="mt-2 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-taupe">
+        <span>{doneCount} / {items.length} tasks</span>
+        <span>{pct}%</span>
+      </div>
+
+      {owners.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {owners.map((o) => (
+            <span
+              key={o}
+              className={`rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-[0.2em] ${OWNER_META[o].chipClass}`}
+            >
+              {OWNER_META[o].icon} {OWNER_META[o].label}
+            </span>
+          ))}
+        </div>
+      )}
+    </button>
+  );
+}
+
+function JourneyEpicDrawer({
+  client, node, index, total, locked, ownerFilter, onClose, onUpdate, onReload,
+}: {
+  client: Client;
+  node: JourneyNode | null;
+  index: number;
+  total: number;
+  locked: boolean;
+  ownerFilter: OwnerFilter;
+  onClose: () => void;
+  onUpdate: (patch: Partial<JourneyNode>) => void;
+  onReload: () => void;
+}) {
+  if (!node) return null;
+  const items: ChecklistItem[] = Array.isArray(node.checklist) ? node.checklist : [];
+  const filteredItems = ownerFilter === "all" ? items : items.filter((i) => i.owner === ownerFilter);
+  const stageNum = String(index + 1).padStart(2, "0");
+  const doneCount = items.filter((i) => i.done).length;
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        className="fixed inset-0 z-40 bg-ink/70 backdrop-blur-sm"
+        aria-hidden
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l border-warm-white/10 bg-ink text-warm-white shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-warm-white/10 px-6 py-5">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs uppercase tracking-[0.35em] text-taupe">
+              Stage {stageNum} <span className="mx-1">·</span> of {String(total).padStart(2, "0")}
+              {locked && <span className="ml-3 text-[hsl(10_40%_65%)]">⛔ Locked until previous stage completes</span>}
+            </div>
+            <div className="mt-1 font-serif text-2xl text-warm-white">{node.label}</div>
+            <div className="mt-1 text-xs uppercase tracking-[0.2em] text-taupe">{doneCount} / {items.length} tasks complete</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded border border-warm-white/15 px-3 py-1.5 text-xs uppercase tracking-[0.2em] text-taupe hover:text-warm-white"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           {/* Status segmented */}
-          <div className="mb-5">
+          <div className="mb-6">
             <div className="mb-2 text-xs uppercase tracking-[0.35em] text-taupe">Status</div>
             <div className="inline-flex overflow-hidden rounded border border-warm-white/15">
               {([
@@ -1895,16 +1962,14 @@ function JourneyEpicCard({
             </div>
           </div>
 
-          {/* Tasks (checklist items) grouped by owner */}
+          {/* Tasks */}
           <div className="mb-6">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-xs uppercase tracking-[0.35em] text-taupe">Tasks</div>
-            </div>
+            <div className="mb-3 text-xs uppercase tracking-[0.35em] text-taupe">Tasks</div>
             <JourneyTaskList items={items} filteredItems={filteredItems} locked={locked} onUpdate={onUpdate} />
           </div>
 
-          {/* Stage-specific tools */}
-          <div className="mb-6 border-t border-warm-white/10 pt-5">
+          {/* Stage tools */}
+          <div className="mb-2 border-t border-warm-white/10 pt-5">
             <div className="mb-3 text-xs uppercase tracking-[0.35em] text-taupe">Stage tools</div>
             <div className="crm-shell">
               {node.key === "brand_voice" && <BrandVoicePanel client={client} onReload={onReload} />}
@@ -1943,8 +2008,8 @@ function JourneyEpicCard({
             </div>
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }
 
