@@ -76,8 +76,8 @@ Deno.serve(async (req) => {
       return json({ attachment: await uploadTaskAttachment(sb, taskId, buf, file.name, file.type || null, guard.userId) });
     }
     if (parts[0] === "attachments" && parts[1] && method === "DELETE") {
-      const { data: att } = await sb.from("project_task_attachments").select("storage_path").eq("id", parts[1]).maybeSingle();
-      if (att) await sb.storage.from("project-task-attachments").remove([att.storage_path]);
+      const { data: att } = await sb.from("project_task_attachments").select("storage_path, bucket").eq("id", parts[1]).maybeSingle();
+      if (att) await sb.storage.from((att as any).bucket || "project-task-attachments").remove([att.storage_path]);
       await sb.from("project_task_attachments").delete().eq("id", parts[1]);
       return json({ ok: true });
     }
