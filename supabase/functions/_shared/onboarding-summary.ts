@@ -140,6 +140,9 @@ export async function triggerBrandVoiceGeneration(
     }
 
     // Stash structured intake data + flip status before invoking generator.
+    // intake_data is written synchronously here AND in the calling edge function
+    // so it's guaranteed to be set the moment the chat completes, regardless of
+    // who/when triggers brand-voice generation later.
     await supabase
       .from("clients")
       .update({
