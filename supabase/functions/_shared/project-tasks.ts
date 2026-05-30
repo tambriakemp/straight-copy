@@ -116,16 +116,24 @@ export async function listTasks(
     attachByTask.set(a.task_id, arr);
   }
 
-  // Sign attachment URLs (1h)
+  // Sign attachment URLs (1h), grouping by bucket so files stored outside the
+  // default attachments bucket (e.g. brand voice PDFs in client-assets) sign correctly.
   const allAttachments = (attachRes.data ?? []).filter((a: any) => taskIdSet.has(a.task_id));
   if (allAttachments.length) {
-    const signed = await sb.storage
-      .from("project-task-attachments")
-      .createSignedUrls(allAttachments.map((a: any) => a.storage_path), 3600);
-    if (!signed.error) {
-      signed.data?.forEach((s, i) => {
-        (allAttachments[i] as any).signed_url = s.signedUrl;
-      });
+    const byBucket = new Map<string, any[]>();
+    for (const a of allAttachments) {
+      const bucket = (a as any).bucket || "project-task-attachments";
+      const arr = byBucket.get(bucket) ?? [];
+      arr.push(a);
+      byBucket.set(bucket, arr);
+    }
+    for (const [bucket, atts] of byBucket) {
+      const signed = await sb.storage
+        .from(bucket)
+        .createSignedUrls(atts.map((a: any) => a.storage_path), 3600);
+      if (!signed.error) {
+        signed.data?.forEach((s, i) => { (atts[i] as any).signed_url = s.signedUrl; });
+      }
     }
   }
 
@@ -243,10 +251,19 @@ export async function deleteAcceptanceCriterion(sb: SupabaseClient, taskId: stri
 }
 
 export async function deleteTask(sb: SupabaseClient, id: string) {
-  // Storage cleanup
-  const { data: atts } = await sb.from("project_task_attachments").select("storage_path").eq("task_id", id);
+  // Storage cleanup — group by bucket
+  const { data: atts } = await sb.from("project_task_attachments").select("storage_path, bucket").eq("task_id", id);
   if (atts?.length) {
-    await sb.storage.from("project-task-attachments").remove(atts.map((a: any) => a.storage_path));
+    const byBucket = new Map<string, string[]>();
+    for (const a of atts as any[]) {
+      const b = a.bucket || "project-task-attachments";
+      const arr = byBucket.get(b) ?? [];
+      arr.push(a.storage_path);
+      byBucket.set(b, arr);
+    }
+    for (const [bucket, paths] of byBucket) {
+      await sb.storage.from(bucket).remove(paths);
+    }
   }
   const { error } = await sb.from("project_tasks").delete().eq("id", id);
   if (error) throw error;

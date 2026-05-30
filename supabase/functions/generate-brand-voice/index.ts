@@ -300,6 +300,7 @@ Deno.serve(async (req) => {
                 await supabase.from("project_task_attachments").insert({
                   task_id: task.id,
                   storage_path: pdfPath,
+                  bucket: BUCKET,
                   file_name: fileName,
                   mime_type: "application/pdf",
                 });
