@@ -554,6 +554,50 @@ export default function PortalProject() {
               });
             }
 
+            if (isAutomation && (isBrandKitDone || isBrandKitActive)) {
+              clientTaskPanels.push({
+                value: "brand-kit",
+                label: "Brand Kit",
+                node: (
+                  <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
+                    {isBrandKitDone ? (
+                      <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
+                    ) : bkPath === null ? (
+                      <BrandKitRouter onChoose={setBkPath} />
+                    ) : bkPath === "yes" ? (
+                      <BrandKitFastSubmit
+                        clientId={clientId!}
+                        submitting={submitting}
+                        setSubmitting={setSubmitting}
+                        onSwitchToChat={() => setBkPath("no")}
+                        onSubmitted={(at) => {
+                          setSubmittedAt(at);
+                          setBkPath(null);
+                          if (lsKey) localStorage.removeItem(lsKey);
+                        }}
+                      />
+                    ) : (
+                      <BrandKitChat
+                        node={node!}
+                        stage={stage}
+                        messages={messages}
+                        input={input}
+                        setInput={setInput}
+                        isStreaming={isStreaming}
+                        readyToSubmit={readyToSubmit}
+                        submitting={submitting}
+                        onSend={send}
+                        onSubmit={submit}
+                        scrollRef={scrollRef}
+                        onSwitchToFast={() => setBkPath("yes")}
+                      />
+                    )}
+                  </div>
+                ),
+              });
+            }
+
+
             if (isPreviewable) {
               tabs.push({
                 value: "preview",
