@@ -533,7 +533,7 @@ mcp.tool("list_wiki_revisions", {
   },
 });
 
-const app = new Hono().basePath("/project-tasks-mcp");
+const app = new Hono().basePath("/agency-mcp");
 const transport = new StreamableHttpTransport();
 const mcpHandler = transport.bind(mcp);
 
