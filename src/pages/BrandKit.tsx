@@ -653,6 +653,131 @@ export default function BrandKit() {
                     </div>
                   </div>
                 ))}
+                {/* Inline logo upload card — appears when the assistant requests a logo upload */}
+                {awaitingLogoUpload && !logoFile && (
+                  <div
+                    className="ob-msg"
+                    style={{
+                      alignSelf: "flex-start",
+                      maxWidth: "75%",
+                      marginLeft: 46,
+                      padding: "20px 22px",
+                      background: "rgba(139,115,85,0.08)",
+                      border: "1px dashed rgba(139,115,85,0.4)",
+                      borderRadius: 4,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: "#8B7355", marginBottom: 10 }}>
+                      Upload your logo
+                    </div>
+                    <p style={{ fontSize: 13, color: "#C8C0B4", lineHeight: 1.7, marginBottom: 16 }}>
+                      Drop a PNG, JPG, or SVG of your existing logo. We'll pull the dominant colors so you can confirm your palette.
+                    </p>
+                    <label
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 10,
+                        fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase",
+                        background: logoUploading ? "rgba(139,115,85,0.4)" : "#8B7355",
+                        color: "#F5F2EE", padding: "12px 24px",
+                        cursor: logoUploading ? "wait" : "pointer",
+                      }}
+                    >
+                      <Upload size={14} />
+                      {logoUploading ? "Uploading…" : "Choose logo file"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                        style={{ display: "none" }}
+                        disabled={logoUploading}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleLogoFile(f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {/* Color palette approval card — shown after a successful upload */}
+                {logoFile && colorsApprovalPending && extractedColors.length > 0 && (
+                  <div
+                    className="ob-msg"
+                    style={{
+                      alignSelf: "flex-start",
+                      maxWidth: "75%",
+                      marginLeft: 46,
+                      padding: "20px 22px",
+                      background: "rgba(139,115,85,0.08)",
+                      border: "1px solid rgba(139,115,85,0.3)",
+                      borderRadius: 4,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: "#8B7355", marginBottom: 12 }}>
+                      Detected from your logo
+                    </div>
+                    {logoFile.signedUrl && (
+                      <div style={{ marginBottom: 16, padding: 16, background: "rgba(255,255,255,0.04)", display: "flex", justifyContent: "center" }}>
+                        <img
+                          src={logoFile.signedUrl}
+                          alt="Uploaded logo"
+                          style={{ maxHeight: 80, maxWidth: "100%", objectFit: "contain" }}
+                        />
+                      </div>
+                    )}
+                    <p style={{ fontSize: 13, color: "#C8C0B4", lineHeight: 1.7, marginBottom: 14 }}>
+                      Are these your brand colors?
+                    </p>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
+                      {extractedColors.map((hex) => (
+                        <div key={hex} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                          <div
+                            style={{
+                              width: 48, height: 48, borderRadius: 4,
+                              background: hex,
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+                            }}
+                          />
+                          <span style={{ fontSize: 10, color: "#A89F94", letterSpacing: "0.05em", fontFamily: "monospace" }}>
+                            {hex.toUpperCase()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        onClick={() => sendLogoConfirmation(logoFile, extractedColors, "approved")}
+                        disabled={isStreaming}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 8,
+                          fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+                          background: "#8B7355", color: "#F5F2EE",
+                          border: "none", padding: "10px 18px",
+                          cursor: isStreaming ? "not-allowed" : "pointer",
+                          opacity: isStreaming ? 0.5 : 1,
+                        }}
+                      >
+                        <Check size={12} /> Yes, those are mine
+                      </button>
+                      <button
+                        onClick={() => sendLogoConfirmation(logoFile, extractedColors, "rejected")}
+                        disabled={isStreaming}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 8,
+                          fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+                          background: "transparent", color: "#C8C0B4",
+                          border: "1px solid rgba(139,115,85,0.4)", padding: "10px 18px",
+                          cursor: isStreaming ? "not-allowed" : "pointer",
+                          opacity: isStreaming ? 0.5 : 1,
+                        }}
+                      >
+                        <X size={12} /> Not quite
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} />
               </div>
 
