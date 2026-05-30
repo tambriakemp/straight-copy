@@ -322,16 +322,10 @@ Deno.serve(async (req) => {
         .eq("id", clientId);
     }
 
-    // Mark journey node complete even if PDF failed (doc exists)
-    if (!pdfWarning) {
-      // already done above
-    } else {
-      await supabase
-        .from("journey_nodes")
-        .update({ status: "complete" })
-        .eq("client_id", clientId)
-        .eq("key", "brand_voice");
-    }
+    // Note: journey node completion now happens automatically when all 3
+    // brand_voice checklist items are done (handled by auto_complete_journey_node).
+
+
 
     return new Response(
       JSON.stringify({
