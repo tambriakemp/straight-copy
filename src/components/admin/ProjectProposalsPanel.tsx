@@ -141,11 +141,6 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
         <div style={{ flex: 1, fontSize: 15, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
           Proposals ({proposals.length})
         </div>
-        {portalUrl && (
-          <button className="crm-btn crm-btn--ghost" onClick={copyPortalLink}>
-            <ExternalLink size={14} /> Copy portal link
-          </button>
-        )}
         <button className="crm-btn crm-btn--primary" onClick={() => setOpenUpload(true)}>
           <Upload size={14} /> Upload proposal
         </button>
