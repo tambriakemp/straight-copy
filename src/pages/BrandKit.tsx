@@ -276,6 +276,26 @@ export default function BrandKit() {
     streamReply([]);
   };
 
+  // Persist the uploaded logo + extracted palette to the backend so the agency
+  // can see it on the admin Brand Kit task before the conversation finishes.
+  const persistLogoProgress = async (file: LogoFileMeta | null, colors: string[]) => {
+    if (!clientId) return;
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
+        body: JSON.stringify({
+          clientId,
+          action: "save-logo-progress",
+          logoFile: file ? { path: file.path, name: file.name, size: file.size, mime: file.mime } : null,
+          extractedColors: colors,
+        }),
+      });
+    } catch (e) {
+      console.warn("save-logo-progress failed:", e);
+    }
+  };
+
   // Upload the chosen logo to storage, extract dominant colors, and surface
   // them to the client for approval. After approval, a synthetic user message
   // is injected so the AI can acknowledge and continue the conversation.
@@ -291,6 +311,10 @@ export default function BrandKit() {
     }
     setLogoUploading(true);
     try {
+      // If we're replacing an existing logo, drop the old storage object first.
+      if (logoFile?.path) {
+        try { await supabase.storage.from("client-assets").remove([logoFile.path]); } catch { /* ignore */ }
+      }
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
       const path = `brand-kit/${clientId}/${Date.now()}-${safeName}`;
       const { error } = await supabase.storage.from("client-assets").upload(path, file, {
@@ -308,18 +332,22 @@ export default function BrandKit() {
         signedUrl: signed?.signedUrl,
       };
       setLogoFile(meta);
-      // Only attempt color extraction for raster images (SVGs can't be drawn without parsing).
+      let colors: string[] = [];
       if (file.type !== "image/svg+xml") {
         try {
-          const colors = await extractDominantColors(file, 5);
+          colors = await extractDominantColors(file, 5);
           setExtractedColors(colors);
           setColorsApprovalPending(colors.length > 0);
         } catch (e) {
           console.warn("color extraction failed:", e);
         }
+      } else {
+        setExtractedColors([]);
+        setColorsApprovalPending(false);
       }
       setAwaitingLogoUpload(false);
-      // If no colors were extracted, send the file confirmation immediately.
+      // Persist to admin task immediately so the agency sees it before submit.
+      void persistLogoProgress(meta, colors);
       if (file.type === "image/svg+xml") {
         sendLogoConfirmation(meta, [], "pending");
       }
@@ -333,6 +361,20 @@ export default function BrandKit() {
       setLogoUploading(false);
     }
   };
+
+  // Remove the uploaded logo entirely. Re-opens the upload prompt, clears any
+  // extracted-color state, and tells the backend to detach from the admin task.
+  const removeLogo = async () => {
+    if (logoFile?.path) {
+      try { await supabase.storage.from("client-assets").remove([logoFile.path]); } catch { /* ignore */ }
+    }
+    setLogoFile(null);
+    setExtractedColors([]);
+    setColorsApprovalPending(false);
+    setAwaitingLogoUpload(true);
+    void persistLogoProgress(null, []);
+  };
+
 
   const sendLogoConfirmation = (meta: LogoFileMeta, colors: string[], approval: "approved" | "rejected" | "pending") => {
     const parts: string[] = [];
@@ -717,7 +759,7 @@ export default function BrandKit() {
                       Detected from your logo
                     </div>
                     {logoFile.signedUrl && (
-                      <div style={{ marginBottom: 16, padding: 16, background: "rgba(255,255,255,0.04)", display: "flex", justifyContent: "center" }}>
+                      <div style={{ marginBottom: 12, padding: 16, background: "rgba(255,255,255,0.04)", display: "flex", justifyContent: "center", position: "relative" }}>
                         <img
                           src={logoFile.signedUrl}
                           alt="Uploaded logo"
@@ -725,6 +767,30 @@ export default function BrandKit() {
                         />
                       </div>
                     )}
+                    <div style={{ display: "flex", gap: 14, marginBottom: 18, fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase" }}>
+                      <label style={{ color: "#8B7355", cursor: logoUploading ? "wait" : "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>
+                        {logoUploading ? "Uploading…" : "Replace logo"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                          style={{ display: "none" }}
+                          disabled={logoUploading}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleLogoFile(f);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={removeLogo}
+                        disabled={logoUploading}
+                        style={{ background: "transparent", border: "none", padding: 0, color: "#A89F94", cursor: logoUploading ? "wait" : "pointer", textDecoration: "underline", textUnderlineOffset: 3, letterSpacing: "0.18em", textTransform: "uppercase", fontSize: 10 }}
+                      >
+                        Remove
+                      </button>
+                    </div>
                     <p style={{ fontSize: 13, color: "#C8C0B4", lineHeight: 1.7, marginBottom: 14 }}>
                       Are these your brand colors?
                     </p>
