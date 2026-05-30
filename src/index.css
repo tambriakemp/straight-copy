@@ -906,10 +906,10 @@
   .crm-shell .topnav__email { max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* Roster page */
-  .crm-shell .roster { padding: 36px 18px 80px; }
-  .crm-shell .roster__head { margin-bottom: 32px; gap: 18px; }
-  .crm-shell .roster__title { font-size: 42px; }
-  .crm-shell .roster__sub { font-size: 17px; }
+  .crm-shell .roster { padding: 24px 18px 60px; }
+  .crm-shell .roster__head { margin-bottom: 16px; gap: 14px; }
+  .crm-shell .roster__title { font-size: 26px; }
+  .crm-shell .roster__sub { font-size: 13px; }
   .crm-shell .roster__toolbar { gap: 10px; margin-bottom: 22px; }
   .crm-shell .roster__search-wrap { min-width: 0; max-width: none; width: 100%; flex-basis: 100%; }
   .crm-shell .roster__select { width: 100%; }
