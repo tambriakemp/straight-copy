@@ -92,6 +92,8 @@ export interface Task {
   size: TaskSize | null;
   platform: TaskPlatform | null;
   attachments?: Attachment[];
+  journey_item_key?: string | null;
+  auto_key?: string | null;
 }
 
 async function invoke<T>(path: string, init: RequestInit = {}): Promise<T> {
