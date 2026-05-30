@@ -8,15 +8,22 @@ export interface BrainArtifactContext {
   brandKit: Record<string, unknown>;        // brand_kit_intake
   brandVoiceDoc: string;                    // markdown brand voice doc
   brandVoiceQuickRef: string | null;
+  // Markdown bodies of previously-generated brain artifacts in this same task,
+  // keyed by artifact `key`. Used by skill files that reference offer suite,
+  // pricing guide, weekly review, etc.
+  previousArtifacts: Record<string, string>;
 }
+
+export type ArtifactFormat = "pdf" | "md";
 
 export interface BrainArtifactDef {
   key: string;                              // stable identifier
   criterionText: string;                    // must match acceptance_criteria text on the task
-  title: string;                            // shown on PDF cover
+  title: string;                            // shown on PDF cover (PDF artifacts only)
   subtitle: string;                         // shown on PDF cover under title
   filenamePrefix: string;                   // for storage path
   enabled: boolean;                         // false = skipped until prompt is filled in
+  format: ArtifactFormat;                   // "pdf" => editorial PDF; "md" => raw markdown attachment
   buildPrompt: (ctx: BrainArtifactContext) => string;
 }
 
@@ -43,6 +50,20 @@ ${ctx.brandVoiceDoc}
 ${ctx.brandVoiceQuickRef ? `BRAND VOICE QUICK REFERENCE:\n${ctx.brandVoiceQuickRef}\n` : ""}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;
+}
+
+// Helper that injects one or more prior artifacts as additional context.
+function priorArtifactBlock(ctx: BrainArtifactContext, keys: Array<{ key: string; label: string }>): string {
+  const parts: string[] = [];
+  for (const { key, label } of keys) {
+    const body = ctx.previousArtifacts?.[key];
+    if (body && body.trim()) {
+      parts.push(`\n━━━ ${label.toUpperCase()} ━━━\n${body}\n`);
+    } else {
+      parts.push(`\n━━━ ${label.toUpperCase()} ━━━\n(not yet generated — infer from brand voice and intake)\n`);
+    }
+  }
+  return parts.join("\n");
 }
 
 // ---- 1. Ideal Customer Profile ----------------------------------------------
@@ -274,11 +295,11 @@ One reflective question the client answers in writing each week. Make it specifi
 
 Write everything in clear, specific language. The checklist should take no more than 20 minutes to complete. Format with markdown headers.`;
 
-// ---- 6. Pricing Decision Guide ---------------------------------------------
+// ---- 7. Pricing Decision Guide ---------------------------------------------
 const PRICING_DECISION_PROMPT = (ctx: BrainArtifactContext) => `You are building a decision-making document for a client's AI Business Brain. Using the brand voice document and brand kit attached, generate a Pricing Decision Guide for this business.
 
 This guide helps the client and their AI assistant make confident, consistent pricing decisions in any situation — new inquiries, custom requests, scope changes, discounts, and objections.
-${contextBlock(ctx)}
+${contextBlock(ctx)}${priorArtifactBlock(ctx, [{ key: "offer_suite", label: "Offer Suite (already generated)" }])}
 The Pricing Decision Guide must include:
 
 ## PURPOSE
@@ -310,9 +331,213 @@ Two to three clear signals that a prospect is not the right client regardless of
 
 Write every response in the client's brand voice. The AI assistant should be able to handle any pricing conversation using only this document. Format with markdown headers.`;
 
-// ---- Placeholder prompts (fill in then flip enabled=true) -------------------
-const PLACEHOLDER = (label: string) => (_ctx: BrainArtifactContext) =>
-  `TODO: ${label} prompt not yet configured.`;
+// ============================================================================
+// SKILL FILES (Markdown attachments uploaded to the client's Claude Project)
+// ============================================================================
+//
+// Each of these returns a complete, ready-to-upload markdown file. They are
+// written so that the model outputs ONLY the markdown body (no preamble).
+// ============================================================================
+
+const SKILL_OUTPUT_RULES = `
+OUTPUT RULES — READ CAREFULLY:
+- Output ONLY the markdown document. No preamble, no explanation, no code fence wrappers.
+- Start the file at the top-level heading "# <skill-name>".
+- Write everything in this client's brand voice as established in the brand voice document.
+- Be specific to this business. Avoid generic advice. Pull concrete details from the intake and brand voice doc.
+- Format cleanly with markdown headers (#, ##, ###), bullet lists, and numbered lists.`;
+
+// ---- Skill 1: content-writer ------------------------------------------------
+const CONTENT_WRITER_SKILL = (ctx: BrainArtifactContext) => `You are creating a skill file for a client's AI Business Brain. Using the brand voice document and brand kit attached, generate a content writing skill file in markdown format. This file will be uploaded to the client's Claude Project and used every time content needs to be written for their business.
+
+The output must be a complete markdown document saved as content-writer.md
+${contextBlock(ctx)}
+Use this exact structure:
+
+# content-writer
+
+## Purpose
+One sentence describing what this skill does.
+
+## Voice Rules
+Bullet list of the most critical voice rules pulled directly from the brand voice document. These are non-negotiable. The AI checks every piece of content against these before finalizing.
+
+## Forbidden Words and Phrases
+A list of words, phrases, tones, and approaches that are off-brand for this business and must never appear in content.
+
+## Caption Formula
+The repeatable structure the AI follows when writing a social media caption for this business:
+- Hook — how to open and why it works for this audience
+- Body — how to develop the idea
+- Close — how to end and what call to action format to use
+
+## Platform-Specific Rules
+For each platform this business posts on, write the following:
+- Platform name
+- Ideal caption length
+- Tone adjustments specific to this platform
+- Hashtag approach
+- One example of what great content looks like here for this brand
+
+## Headline and Hook Formula
+How to write scroll-stopping headlines and opening lines for this business. Include three proven hook structures with a fill-in-the-blank template for each.
+
+## Email Writing Rules
+How emails from this business are structured — subject line format, opening line style, body length, paragraph structure, and sign-off.
+
+## How to Use This Skill
+Two example prompts that would activate this skill correctly and produce on-brand content output.
+${SKILL_OUTPUT_RULES}`;
+
+// ---- Skill 2: sop-builder ---------------------------------------------------
+const SOP_BUILDER_SKILL = (ctx: BrainArtifactContext) => `You are creating a skill file for a client's AI Business Brain. Using the brand voice document attached, generate an SOP builder skill file in markdown format.
+
+This skill file teaches the AI Brain how to write SOPs for this specific business. It will be uploaded to the client's Claude Project.
+${contextBlock(ctx)}${priorArtifactBlock(ctx, [
+  { key: "lead_intake_sop", label: "Lead Intake SOP (reference example)" },
+  { key: "client_onboarding_sop", label: "Client Onboarding SOP (reference example)" },
+  { key: "content_creation_sop", label: "Content Creation SOP (reference example)" },
+])}
+Use this exact structure:
+
+# sop-builder
+
+## Purpose
+One sentence describing what this skill does.
+
+## What Makes a Good SOP for This Business
+Three to five principles that define a well-written SOP for this specific business — based on their communication style, operational complexity, and team size.
+
+## SOP Structure
+The exact structure every SOP for this business follows:
+- Purpose
+- Trigger
+- Who runs it
+- Steps (numbered, one action each)
+- Definition of done
+- Common mistakes
+
+## Writing Rules for SOPs
+How SOPs are written for this business — plain language, sentence length, use of bullet points vs numbered lists, how much detail each step needs.
+
+## How to Use This Skill
+Instructions for prompting the AI to build a new SOP. Include two example prompts.
+${SKILL_OUTPUT_RULES}`;
+
+// ---- Skill 3: email-responder -----------------------------------------------
+const EMAIL_RESPONDER_SKILL = (ctx: BrainArtifactContext) => `You are creating a skill file for a client's AI Business Brain. Using the brand voice document attached, generate an email responder skill file in markdown format.
+
+This skill file teaches the AI Brain how to draft email responses for this specific business. It will be uploaded to the client's Claude Project.
+${contextBlock(ctx)}
+Use this exact structure:
+
+# email-responder
+
+## Purpose
+One sentence describing what this skill does.
+
+## Email Voice Rules
+How emails from this business sound — pulled from the brand voice document. Specific rules for tone, formality level, sentence length, and how to open and close.
+
+## Response Templates by Situation
+For each situation, write a template response in the client's brand voice:
+- Responding to a new inquiry
+- Following up on a proposal
+- Delivering completed work
+- Responding to a complaint or concern
+- Declining a request politely
+- Sending a check-in to an existing client
+
+## Subject Line Formulas
+Three formulas for writing subject lines that get opened — specific to this business's audience.
+
+## What to Never Say in an Email
+Phrases, tones, and approaches that are off-brand for this business.
+
+## How to Use This Skill
+Instructions for prompting the AI to draft an email. Include two example prompts.
+${SKILL_OUTPUT_RULES}`;
+
+// ---- Skill 4: offer-builder -------------------------------------------------
+const OFFER_BUILDER_SKILL = (ctx: BrainArtifactContext) => `You are creating a skill file for a client's AI Business Brain. Using the brand voice document and offer suite attached, generate an offer builder skill file in markdown format.
+
+This skill file teaches the AI Brain how to position, describe, and present offers for this specific business. It will be uploaded to the client's Claude Project.
+${contextBlock(ctx)}${priorArtifactBlock(ctx, [
+  { key: "offer_suite", label: "Offer Suite (already generated)" },
+  { key: "pricing_guide", label: "Pricing Decision Guide (already generated)" },
+])}
+Use this exact structure:
+
+# offer-builder
+
+## Purpose
+One sentence describing what this skill does.
+
+## How This Business Talks About Its Offers
+Pulled from the brand voice document — how offers are positioned, what language is used, what is emphasized, what is never said.
+
+## Offer Description Formula
+The structure the AI follows when writing an offer description:
+- Who it's for
+- The problem it solves
+- The transformation it produces
+- What's included
+- The investment
+- The call to action
+
+## Sales Page Section Formulas
+How to write each section of a sales page or offer page for this business:
+- Headline formula
+- Problem section
+- Solution section
+- Deliverables section
+- Investment section
+- FAQ section
+
+## How to Talk About Price
+Exact language and framing to use when presenting investment — pulled from the pricing decision guide and brand voice.
+
+## How to Use This Skill
+Instructions for prompting the AI to build a new offer description or sales page section. Include two example prompts.
+${SKILL_OUTPUT_RULES}`;
+
+// ---- Skill 5: weekly-review -------------------------------------------------
+const WEEKLY_REVIEW_SKILL = (ctx: BrainArtifactContext) => `You are creating a skill file for a client's AI Business Brain. Using the brand voice document and weekly review checklist attached, generate a weekly review skill file in markdown format.
+
+This skill file teaches the AI Brain how to assist with the weekly review process for this specific business. It will be uploaded to the client's Claude Project.
+${contextBlock(ctx)}${priorArtifactBlock(ctx, [
+  { key: "weekly_review", label: "Weekly Review Checklist (already generated)" },
+])}
+Use this exact structure:
+
+# weekly-review
+
+## Purpose
+One sentence describing what this skill does.
+
+## How to Run the Weekly Review with the AI
+Step by step — how the client interacts with the AI to complete their weekly review. What they share, what the AI does with it, what the output looks like.
+
+## What the AI Does During a Weekly Review
+- What it analyzes
+- What it summarizes
+- What it flags as needing attention
+- What it suggests for the week ahead
+
+## The Weekly Review Prompt
+The exact prompt the client pastes at the start of every weekly review session to activate this skill and get the AI into the right mode.
+
+## How to Update the Brain After the Review
+Instructions for what to tell the AI after the review so it can update its knowledge about the business — new offers, pricing changes, completed milestones, lessons learned.
+
+## How to Use This Skill
+Two example prompts that would produce great weekly review outputs for this business.
+${SKILL_OUTPUT_RULES}`;
+
+// ============================================================================
+// REGISTRY — order matters. Skills go LAST so prior artifact markdown is
+// available in ctx.previousArtifacts when each skill prompt is built.
+// ============================================================================
 
 export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
   {
@@ -322,6 +547,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     subtitle: "Profile.",
     filenamePrefix: "ideal-customer-profile",
     enabled: true,
+    format: "pdf",
     buildPrompt: ICP_PROMPT,
   },
   {
@@ -331,6 +557,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     subtitle: "Suite.",
     filenamePrefix: "offer-suite",
     enabled: true,
+    format: "pdf",
     buildPrompt: OFFER_SUITE_PROMPT,
   },
   {
@@ -340,6 +567,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     subtitle: "SOP.",
     filenamePrefix: "lead-intake-sop",
     enabled: true,
+    format: "pdf",
     buildPrompt: LEAD_INTAKE_PROMPT,
   },
   {
@@ -349,6 +577,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     subtitle: "SOP.",
     filenamePrefix: "client-onboarding-sop",
     enabled: true,
+    format: "pdf",
     buildPrompt: CLIENT_ONBOARDING_PROMPT,
   },
   {
@@ -358,6 +587,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     subtitle: "SOP.",
     filenamePrefix: "content-creation-sop",
     enabled: true,
+    format: "pdf",
     buildPrompt: CONTENT_CREATION_PROMPT,
   },
   {
@@ -367,6 +597,7 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     subtitle: "Checklist.",
     filenamePrefix: "weekly-review-checklist",
     enabled: true,
+    format: "pdf",
     buildPrompt: WEEKLY_REVIEW_PROMPT,
   },
   {
@@ -376,6 +607,58 @@ export const BRAIN_ARTIFACTS: BrainArtifactDef[] = [
     subtitle: "Guide.",
     filenamePrefix: "pricing-decision-guide",
     enabled: true,
+    format: "pdf",
     buildPrompt: PRICING_DECISION_PROMPT,
+  },
+  // ---- Skill files (markdown). Run in order; later skills reference earlier ones. ----
+  {
+    key: "skill_content_writer",
+    criterionText: "content-writer skill file generated and reviewed",
+    title: "Skill",
+    subtitle: "content-writer.",
+    filenamePrefix: "skill-content-writer",
+    enabled: true,
+    format: "md",
+    buildPrompt: CONTENT_WRITER_SKILL,
+  },
+  {
+    key: "skill_sop_builder",
+    criterionText: "sop-builder skill file generated and reviewed",
+    title: "Skill",
+    subtitle: "sop-builder.",
+    filenamePrefix: "skill-sop-builder",
+    enabled: true,
+    format: "md",
+    buildPrompt: SOP_BUILDER_SKILL,
+  },
+  {
+    key: "skill_email_responder",
+    criterionText: "email-responder skill file generated and reviewed",
+    title: "Skill",
+    subtitle: "email-responder.",
+    filenamePrefix: "skill-email-responder",
+    enabled: true,
+    format: "md",
+    buildPrompt: EMAIL_RESPONDER_SKILL,
+  },
+  {
+    key: "skill_offer_builder",
+    criterionText: "offer-builder skill file generated and reviewed",
+    title: "Skill",
+    subtitle: "offer-builder.",
+    filenamePrefix: "skill-offer-builder",
+    enabled: true,
+    format: "md",
+    buildPrompt: OFFER_BUILDER_SKILL,
+  },
+  {
+    key: "skill_weekly_review",
+    criterionText: "weekly-review skill file generated and reviewed",
+    title: "Skill",
+    subtitle: "weekly-review.",
+    filenamePrefix: "skill-weekly-review",
+    enabled: true,
+    format: "md",
+    buildPrompt: WEEKLY_REVIEW_SKILL,
   },
 ];
