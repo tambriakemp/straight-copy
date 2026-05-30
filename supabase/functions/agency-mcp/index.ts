@@ -54,7 +54,7 @@ async function checkToken(req: Request): Promise<boolean> {
 }
 
 const sb = serviceClient();
-const mcp = new McpServer({ name: "project-tasks-mcp", version: "1.0.0" });
+const mcp = new McpServer({ name: "agency-mcp", version: "2.0.0" });
 
 const textResult = (data: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
