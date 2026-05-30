@@ -554,66 +554,8 @@ export default function PortalProject() {
               });
             }
 
-            if (isPreviewable) {
-              tabs.push({
-                value: "preview",
-                label: "Preview",
-                node: (
-                  <div id="portal-preview" style={{ scrollMarginTop: 24 }}>
-                    <PortalProjectPreviewCard clientProjectId={currentProject.id} contactName={client.contact_name} />
-                  </div>
-                ),
-              });
-            }
-
-            // For automation projects: group client-task panels under one tab,
-            // hide Proposals and Payment Schedule entirely.
-            if (isAutomation) {
-              if (clientTaskPanels.length > 0) {
-                tabs.push({
-                  value: "client-tasks",
-                  label: "Client Task Items",
-                  node: (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-                      {clientTaskPanels.map((p) => (
-                        <div key={p.value}>{p.node}</div>
-                      ))}
-                    </div>
-                  ),
-                });
-              }
-            } else {
-              // Non-automation: keep the original flat list, including Proposals.
-              tabs.push({
-                value: "proposals",
-                label: "Proposals",
-                node: (
-                  <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
-                    <ProposalsSection clientId={clientId!} contactName={client.contact_name} projectId={currentProject.id} />
-                  </div>
-                ),
-              });
-              for (const p of clientTaskPanels) tabs.push(p);
-            }
-
-            if (isAutomation) {
-              tabs.push({
-                value: "subscription",
-                label: "Subscription",
-                node: (
-                  <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
-                    <SubscriptionSection
-                      clientId={clientId!}
-                      tier={client.tier}
-                      initial={subscription}
-                    />
-                  </div>
-                ),
-              });
-            }
-
             if (isAutomation && (isBrandKitDone || isBrandKitActive)) {
-              tabs.push({
+              clientTaskPanels.push({
                 value: "brand-kit",
                 label: "Brand Kit",
                 node: (
@@ -655,6 +597,69 @@ export default function PortalProject() {
               });
             }
 
+
+            if (isPreviewable) {
+              tabs.push({
+                value: "preview",
+                label: "Preview",
+                node: (
+                  <div id="portal-preview" style={{ scrollMarginTop: 24 }}>
+                    <PortalProjectPreviewCard clientProjectId={currentProject.id} contactName={client.contact_name} />
+                  </div>
+                ),
+              });
+            }
+
+            // For automation projects: group client-task panels under one tab,
+            // hide Proposals and Payment Schedule entirely.
+            if (isAutomation) {
+              if (clientTaskPanels.length > 0) {
+                tabs.push({
+                  value: "client-tasks",
+                  label: "Client Task Items",
+                  node: (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {clientTaskPanels.map((p) => (
+                        <div key={p.value}>{p.node}</div>
+                      ))}
+                    </div>
+
+                  ),
+                });
+              }
+            } else {
+              // Non-automation: keep the original flat list, including Proposals.
+              tabs.push({
+                value: "proposals",
+                label: "Proposals",
+                node: (
+                  <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
+                    <ProposalsSection clientId={clientId!} contactName={client.contact_name} projectId={currentProject.id} />
+                  </div>
+                ),
+              });
+              for (const p of clientTaskPanels) tabs.push(p);
+            }
+
+            if (isAutomation) {
+              tabs.push({
+                value: "subscription",
+                label: "Subscription",
+                node: (
+                  <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
+                    <SubscriptionSection
+                      clientId={clientId!}
+                      tier={client.tier}
+                      initial={subscription}
+                    />
+                  </div>
+                ),
+              });
+            }
+
+
+
+
             // Non-automation projects still get the Payment Schedule tab.
             if (!isAutomation) {
               tabs.push({
@@ -672,7 +677,9 @@ export default function PortalProject() {
             const initialTab =
               focus === "contract" && tabs.find((t) => t.value === "client-tasks") ? "client-tasks"
               : focus === "contract" && tabs.find((t) => t.value === "contract") ? "contract"
+              : focus === "brand-kit" && tabs.find((t) => t.value === "client-tasks") ? "client-tasks"
               : focus === "brand-kit" && tabs.find((t) => t.value === "brand-kit") ? "brand-kit"
+
               : tabs[0]?.value;
 
             if (!initialTab) return null;
