@@ -46,29 +46,6 @@ const ACCOUNTS_BASE: Array<{
     ),
   },
   {
-    key: "ottokit",
-    label: "Ottokit",
-    desc: (
-      <>
-        This is where all your automations and workflows will be built and managed. You can sign up{" "}
-        <a
-          href="https://ottokit.com/?aff=e14f4e4e"
-          target="_blank"
-          rel="noreferrer"
-          className="portal-access__link"
-        >
-          here
-        </a>
-        . We strongly recommend the <strong>Business Lifetime</strong> plan — it includes the{" "}
-        <strong>Human in the Loop</strong> feature, which lets you verify automations and emails before they're sent. Ottokit also offers a payment plan for the lifetime deal, so you don't have to pay it all at once. Once you've signed up, invite{" "}
-        <a href="mailto:info@cre8visions.com" className="portal-access__link">
-          info@cre8visions.com
-        </a>{" "}
-        to your workspace, then check this item off so the team knows it's complete.
-      </>
-    ),
-  },
-  {
     key: "copost",
     label: "CoPost",
     desc: (
@@ -82,11 +59,7 @@ const ACCOUNTS_BASE: Array<{
         >
           here
         </a>
-        . CoPost is currently offering a lifetime deal — we recommend the <strong>Teams</strong> plan (also a one-time payment) so the whole team can collaborate. Once you've signed up, click <strong>Settings → Team</strong> and add{" "}
-        <a href="mailto:info@cre8visions.com" className="portal-access__link">
-          info@cre8visions.com
-        </a>{" "}
-        as a team member. Then click <strong>Socials</strong> and connect up to four social media accounts. <em>Note: for Launch plans, YouTube is not included.</em> Once your accounts are connected, check this item off so the team knows it's complete. If you already use a different content scheduler and want to keep it, email us first to see if we can integrate with it.
+        . CoPost is currently offering a lifetime deal — we recommend the <strong>Teams</strong> plan (also a one-time payment) so the whole team can collaborate. Once you've signed up, accept our team invite, then click <strong>Socials</strong> and connect <strong>Facebook, Instagram, Pinterest, and TikTok</strong>. Once your invite is accepted and those accounts are connected, check this item off so the team knows it's complete.
       </>
     ),
   },
@@ -95,30 +68,17 @@ const ACCOUNTS_BASE: Array<{
     label: "Website Access",
     desc: (
       <>
-        We'll need access to your website so we can connect your lead capture system and any on-site automations. Log in to your website's admin dashboard and add{" "}
+        We'll need access to your website so we can connect your lead capture system and any on-site automations. Either add{" "}
         <a href="mailto:info@cre8visions.com" className="portal-access__link">
           info@cre8visions.com
         </a>{" "}
-        as a user, then grant <strong>Editor</strong> or <strong>Admin</strong> rights (Admin is preferred so we can install and configure everything we need). Once that's done, check this item off so the team knows it's complete.
+        as an Editor/Admin on your site, or drop the login details in the <strong>Secure notes</strong> field below. Once submitted, check this item off so the team knows it's complete.
       </>
     ),
   },
-  {
-    key: "heygen",
-    label: "HeyGen",
-    desc: (
-      <>
-        This is where your AI avatar will be created and managed. Once you've set up your HeyGen account, please paste your <strong>API key</strong> in the field below and click <strong>Save</strong> so we can connect it to your automations.
-        <br /><br />
-        <em>Prefer to use an MCP server instead?</em> Check the box below. Going the MCP route is the most cost-effective option because it doesn't require purchasing API credits — but it does require a <strong>dedicated computer</strong> that can run the automation. The computer will need to be powered on at least <strong>once a month</strong> for the automation to run. If you check the MCP box, the API key field will hide.
-        <br /><br />
-        Once you've either saved your API key or selected MCP, check this item off so the team knows it's complete.
-      </>
-    ),
-    growthOnly: true,
-  },
-  { key: "claude", label: "Claude Account", desc: "This is where your Business Brain will live. A Pro account is required.", growthOnly: true },
+  { key: "claude", label: "Claude Pro Account", desc: "This is where your Business Brain will live. A Pro account is required.", growthOnly: true },
 ];
+
 
 const SOCIAL_PLATFORMS = [
   { key: "social_instagram", label: "Instagram" },
@@ -141,27 +101,27 @@ export default function AccountAccessSection({
   const accounts = useMemo(() => ACCOUNTS_BASE.filter((a) => !a.growthOnly || isGrowth), [isGrowth]);
 
   const initialRequiredKeys = isGrowth
-    ? ["surecontact", "ottokit", "copost", "website", "heygen", "claude"]
-    : ["surecontact", "ottokit", "copost", "website"];
+    ? ["surecontact", "copost", "website", "claude"]
+    : ["surecontact", "copost", "website"];
   const initialAllDone = initialRequiredKeys.every((k) => !!initial?.checks?.[k]);
   const [open, setOpen] = useState(!initialAllDone);
   const [checks, setChecks] = useState<AccountChecks>(initial?.checks ?? {});
   const [notes, setNotes] = useState<string>(initial?.notes ?? "");
   const [files, setFiles] = useState<FileEntry[]>(initial?.files ?? []);
   const [fields, setFields] = useState<AccountFields>(initial?.fields ?? {});
-  const [heygenKeyDraft, setHeygenKeyDraft] = useState<string>(initial?.fields?.heygen_api_key ?? "");
   const [submittedAt, setSubmittedAt] = useState<string | null>(initial?.submitted_at ?? null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<number | null>(null);
 
-  // Required keys (account-level only — social_media counts when at least one sub is checked)
+  // Required keys (account-level only)
   const requiredKeys = useMemo(() => {
-    const k = ["surecontact", "ottokit", "copost", "website"];
-    if (isGrowth) k.push("heygen", "claude");
+    const k = ["surecontact", "copost", "website"];
+    if (isGrowth) k.push("claude");
     return k;
   }, [isGrowth]);
+
 
   const allDone = requiredKeys.every((k) => !!checks[k]);
   const completedCount = requiredKeys.filter((k) => !!checks[k]).length;
@@ -328,55 +288,8 @@ export default function AccountAccessSection({
                     </div>
                   )}
 
-                  {a.key === "heygen" && (
-                    <div className="portal-access__subs" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      <label className="portal-access__sub">
-                        <input
-                          type="checkbox"
-                          checked={!!checks.heygen_use_mcp}
-                          onChange={() =>
-                            setChecks((prev) => ({ ...prev, heygen_use_mcp: !prev.heygen_use_mcp }))
-                          }
-                        />
-                        <span>I prefer to use an MCP server (no API key needed)</span>
-                      </label>
 
-                      {!checks.heygen_use_mcp && (
-                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          <input
-                            type="password"
-                            style={{
-                              flex: 1,
-                              minWidth: 220,
-                              height: 38,
-                              padding: "0 12px",
-                              fontFamily: "monospace",
-                              fontSize: 15,
-                              background: "rgba(0,0,0,0.25)",
-                              border: "1px solid hsl(30 8% 28%)",
-                              borderRadius: 4,
-                              color: "hsl(40 20% 92%)",
-                            }}
-                            placeholder="Paste your HeyGen API key…"
-                            value={heygenKeyDraft}
-                            onChange={(e) => setHeygenKeyDraft(e.target.value)}
-                            autoComplete="off"
-                            spellCheck={false}
-                          />
-                          <button
-                            type="button"
-                            className="crm-btn crm-btn--bronze crm-btn--sm"
-                            onClick={() =>
-                              setFields((prev) => ({ ...prev, heygen_api_key: heygenKeyDraft.trim() }))
-                            }
-                            disabled={!heygenKeyDraft.trim() || heygenKeyDraft.trim() === fields.heygen_api_key}
-                          >
-                            {fields.heygen_api_key && fields.heygen_api_key === heygenKeyDraft.trim() ? "Saved" : "Save"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
+
                 </li>
               );
             })}

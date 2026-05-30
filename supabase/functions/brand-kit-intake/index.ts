@@ -628,9 +628,9 @@ Deno.serve(async (req) => {
 
       // Whitelist + sanitize fields
       const KNOWN_KEYS = new Set([
-        "surecontact", "ottokit", "copost", "social_media",
-        "social_instagram", "social_tiktok", "social_linkedin", "social_facebook", "social_youtube",
-        "website", "heygen", "heygen_use_mcp", "claude",
+        "surecontact", "copost", "social_media",
+        "social_instagram", "social_tiktok", "social_linkedin", "social_facebook", "social_youtube", "social_pinterest",
+        "website", "claude",
       ]);
       const sanitizedChecks: Record<string, boolean> = {};
       for (const [k, v] of Object.entries(payload.checks ?? {})) {
@@ -645,8 +645,8 @@ Deno.serve(async (req) => {
           })).filter((f) => f.path)
         : [];
 
-      // Whitelisted free-text fields (e.g. API keys)
-      const FIELD_KEYS = new Set(["heygen_api_key"]);
+      // Whitelisted free-text fields
+      const FIELD_KEYS = new Set<string>([]);
       const sanitizedFields: Record<string, string> = {};
       for (const [k, v] of Object.entries(payload.fields ?? {})) {
         if (FIELD_KEYS.has(k) && typeof v === "string") {
@@ -656,10 +656,11 @@ Deno.serve(async (req) => {
 
       // Tier-aware "all required" check
       const tier = (portalData as any).tier as string;
-      const requiredKeys = ["surecontact", "ottokit", "copost", "website"];
-      if (tier === "growth") requiredKeys.push("heygen", "claude");
+      const requiredKeys = ["surecontact", "copost", "website"];
+      if (tier === "growth") requiredKeys.push("claude");
       const allDone = requiredKeys.every((k) => sanitizedChecks[k] === true);
       const submittedAt = allDone ? new Date().toISOString() : null;
+
 
       const nextState = {
         checks: sanitizedChecks,
