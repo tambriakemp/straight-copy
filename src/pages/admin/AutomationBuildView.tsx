@@ -316,36 +316,29 @@ export default function AutomationBuildView() {
 
   return (
     <AdminLayout>
-      <div className="detail">
-        <div className="detail__bar">
-          <button className="detail__back" onClick={() => navigate("/admin")}>Back</button>
+      <div className="roster">
+        <Link
+          to={`/admin/clients/${client.id}`}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            color: "var(--crm-taupe)", fontSize: 15, letterSpacing: "0.06em",
+            textTransform: "uppercase", marginBottom: 18,
+          }}
+        >
+          <ArrowLeft size={14} /> Back to {client.business_name ?? "client"}
+        </Link>
 
-          <div className="detail__client">
-            <div className="detail__client-name">{client.business_name || "Untitled"}</div>
-            <div className="detail__client-meta">
-              <span className="tier">{client.tier === "growth" ? "Growth" : "Launch"} Tier</span>
-              <span className="sep">·</span>
-              <span>{daysSince}d since purchase</span>
-              <span className="sep">·</span>
-              <span>{client.contact_name || client.contact_email || "—"}</span>
-              {client.build_start_date && (
-                <>
-                  <span className="sep">·</span>
-                  <span>Build {format(new Date(client.build_start_date + "T12:00:00"), "MMM d")}</span>
-                </>
-              )}
-              {client.delivery_date && (
-                <>
-                  <span className="sep">·</span>
-                  <span>Delivery {format(new Date(client.delivery_date + "T12:00:00"), "MMM d")}</span>
-                </>
-              )}
-            </div>
+        <div className="roster__head">
+          <div className="roster__title-block">
+            <div className="roster__eyebrow">Automation Build</div>
+            <h1 className="roster__title">{projectName ?? client.business_name ?? "Automation Build"}</h1>
+            <hr className="roster__rule" />
+            <p className="roster__sub">
+              Manage the build journey, contract, subscription, and tasks for this project.
+            </p>
           </div>
 
-          <div className="detail__bar-spacer" />
-
-          <div className="detail__portal-actions">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <TooltipProvider delayDuration={150}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -416,7 +409,6 @@ export default function AutomationBuildView() {
                 <TooltipContent>Copy direct link to the client's contract</TooltipContent>
               </Tooltip>
 
-
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -444,41 +436,10 @@ export default function AutomationBuildView() {
               </Tooltip>
             </TooltipProvider>
           </div>
-
-          <div className="detail__bar-divider" aria-hidden="true" />
-
-          <div className="detail__progress">
-            <div className="detail__progress-text">
-              <div className="detail__progress-eyebrow">Journey</div>
-              <div className="detail__progress-fraction">
-                {String(completedCount).padStart(2, "0")}
-                <span className="slash">/</span>
-                <span className="total">{String(total).padStart(2, "0")}</span>
-              </div>
-            </div>
-            <svg className="detail__progress-ring" viewBox="0 0 44 44">
-              <circle cx="22" cy="22" r="18" fill="none" stroke="hsl(40 20% 97% / 0.08)" strokeWidth="2" />
-              <circle
-                cx="22" cy="22" r="18" fill="none"
-                stroke="hsl(30 25% 44%)" strokeWidth="2"
-                strokeDasharray={ringC}
-                strokeDashoffset={ringOffset}
-                transform="rotate(-90 22 22)"
-                strokeLinecap="round"
-              />
-              <text
-                x="22" y="25" textAnchor="middle" fontSize="9"
-                fill="hsl(40 20% 97%)"
-                fontFamily="Cormorant Garamond, serif" fontStyle="italic"
-              >
-                {pct}%
-              </text>
-            </svg>
-          </div>
         </div>
 
-        <ProjectTabs defaultValue="journey" className="mt-6" style={{ paddingTop: 120, paddingLeft: 32, paddingRight: 32, flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <ProjectTabsList style={{ flexShrink: 0 }}>
+        <ProjectTabs defaultValue="journey" className="mt-8">
+          <ProjectTabsList>
             <ProjectTabsTrigger value="journey">Journey</ProjectTabsTrigger>
             <ProjectTabsTrigger value="subscription">Subscription</ProjectTabsTrigger>
             <ProjectTabsTrigger value="contract">Contract</ProjectTabsTrigger>
@@ -486,7 +447,73 @@ export default function AutomationBuildView() {
             <ProjectTabsTrigger value="settings">Settings</ProjectTabsTrigger>
           </ProjectTabsList>
 
-          <ProjectTabsContent value="journey" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
+          <ProjectTabsContent value="journey">
+            <div
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                gap: 24, flexWrap: "wrap",
+                margin: "24px 0 28px",
+                padding: "18px 22px",
+                border: "1px solid var(--crm-border-dark)",
+                borderRadius: 12,
+                background: "hsl(40 20% 97% / 0.025)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", color: "var(--crm-warm-white)", fontSize: 15 }}>
+                <span style={{
+                  textTransform: "uppercase", letterSpacing: "0.25em", fontSize: 12,
+                  color: "var(--crm-accent)",
+                }}>
+                  {client.tier === "growth" ? "Growth" : "Launch"} Tier
+                </span>
+                <span style={{ color: "var(--crm-taupe)" }}>·</span>
+                <span style={{ color: "var(--crm-taupe)" }}>{daysSince}d since purchase</span>
+                <span style={{ color: "var(--crm-taupe)" }}>·</span>
+                <span style={{ color: "var(--crm-taupe)" }}>{client.contact_name || client.contact_email || "—"}</span>
+                {client.build_start_date && (
+                  <>
+                    <span style={{ color: "var(--crm-taupe)" }}>·</span>
+                    <span style={{ color: "var(--crm-taupe)" }}>Build {format(new Date(client.build_start_date + "T12:00:00"), "MMM d")}</span>
+                  </>
+                )}
+                {client.delivery_date && (
+                  <>
+                    <span style={{ color: "var(--crm-taupe)" }}>·</span>
+                    <span style={{ color: "var(--crm-taupe)" }}>Delivery {format(new Date(client.delivery_date + "T12:00:00"), "MMM d")}</span>
+                  </>
+                )}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Journey</div>
+                  <div style={{ fontFamily: "var(--crm-font-serif)", fontSize: 22, color: "var(--crm-warm-white)", lineHeight: 1 }}>
+                    {String(completedCount).padStart(2, "0")}
+                    <span style={{ color: "var(--crm-taupe)", margin: "0 4px" }}>/</span>
+                    <span style={{ color: "var(--crm-taupe)" }}>{String(total).padStart(2, "0")}</span>
+                  </div>
+                </div>
+                <svg viewBox="0 0 44 44" width={44} height={44}>
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="hsl(40 20% 97% / 0.08)" strokeWidth="2" />
+                  <circle
+                    cx="22" cy="22" r="18" fill="none"
+                    stroke="hsl(30 25% 44%)" strokeWidth="2"
+                    strokeDasharray={ringC}
+                    strokeDashoffset={ringOffset}
+                    transform="rotate(-90 22 22)"
+                    strokeLinecap="round"
+                  />
+                  <text
+                    x="22" y="25" textAnchor="middle" fontSize="9"
+                    fill="hsl(40 20% 97%)"
+                    fontFamily="Cormorant Garamond, serif" fontStyle="italic"
+                  >
+                    {pct}%
+                  </text>
+                </svg>
+              </div>
+            </div>
+
             <JourneyTasksBoard
               client={client}
               nodes={nodes}
@@ -495,25 +522,26 @@ export default function AutomationBuildView() {
             />
           </ProjectTabsContent>
 
-          <ProjectTabsContent value="subscription" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
+          <ProjectTabsContent value="subscription">
             <AutomationSubscriptionPanel client={client as never} />
           </ProjectTabsContent>
 
-          <ProjectTabsContent value="contract" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
+          <ProjectTabsContent value="contract">
             <AdminContractSection clientId={client.id} />
           </ProjectTabsContent>
 
-          <ProjectTabsContent value="settings" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
+          <ProjectTabsContent value="settings">
             <HeyGenKeyPanel client={client} />
           </ProjectTabsContent>
 
           {projectId && (
-            <ProjectTabsContent value="tasks" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 48 }}>
+            <ProjectTabsContent value="tasks">
               <ProjectTasksPanel clientProjectId={projectId} />
             </ProjectTabsContent>
           )}
         </ProjectTabs>
       </div>
+
 
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
