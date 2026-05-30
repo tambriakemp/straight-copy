@@ -279,20 +279,24 @@ function KanbanColumn({
       border: "1px solid hsl(var(--warm-white) / 0.12)",
       borderRadius: 8,
       padding: 10,
-      minHeight: 200,
+      height: "100%",
+      minHeight: 0,
       display: "flex", flexDirection: "column", gap: 8,
+      overflow: "hidden",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 4px 8px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 4px 8px", flexShrink: 0 }}>
         <span style={{ width: 8, height: 8, borderRadius: 999, background: STATUS_COLORS[status] }} />
         <span style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "hsl(var(--warm-white))" }}>
           {STATUS_LABELS[status]}
         </span>
         <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.7)", fontSize: 14 }}>{tasks.length}</span>
       </div>
-      {tasks.map((t) => (
-        <DraggableCard key={t.id} task={t} epics={epics}
-          subtaskCount={(subtasksByParent.get(t.id) ?? []).length} onOpen={onOpen} />
-      ))}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
+        {tasks.map((t) => (
+          <DraggableCard key={t.id} task={t} epics={epics}
+            subtaskCount={(subtasksByParent.get(t.id) ?? []).length} onOpen={onOpen} />
+        ))}
+      </div>
     </div>
   );
 }
