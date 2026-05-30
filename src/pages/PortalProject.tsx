@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
 import ContractSection from "@/components/portal/ContractSection";
 import ProposalsSection from "@/components/portal/ProposalsSection";
