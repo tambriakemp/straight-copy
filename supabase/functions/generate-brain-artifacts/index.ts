@@ -29,7 +29,7 @@ const corsHeaders = {
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-5";
 const BUCKET = "client-assets";
-const TASK_KEY = "brain_setup.generate_artifacts";
+
 
 type ArtifactResult = {
   key: string;
