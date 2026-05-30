@@ -455,7 +455,7 @@ export default function AutomationBuildView() {
           </div>
         </div>
 
-        <ProjectTabs defaultValue="journey" className="mt-6" style={{ paddingTop: 120, paddingLeft: 32, paddingRight: 32 }}>
+        <ProjectTabs defaultValue="journey" className="mt-6" style={{ paddingTop: 120, paddingLeft: 32, paddingRight: 32, paddingBottom: 48, flex: 1, minHeight: 0, overflowY: "auto" }}>
           <ProjectTabsList>
             <ProjectTabsTrigger value="journey">Journey</ProjectTabsTrigger>
             <ProjectTabsTrigger value="subscription">Subscription</ProjectTabsTrigger>
