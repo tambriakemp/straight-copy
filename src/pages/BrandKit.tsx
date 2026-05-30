@@ -159,6 +159,12 @@ export default function BrandKit() {
             setMessages(hydrated);
             hydratedFromServer.current = true;
             setView("chat");
+          } else if (!autoStartedRef.current) {
+            // Auto-start: skip the welcome screen and have the assistant greet immediately.
+            autoStartedRef.current = true;
+            setView("chat");
+            // Kick off streaming after state has flushed.
+            setTimeout(() => streamReply([]), 0);
           }
         }
       } catch (e) {
