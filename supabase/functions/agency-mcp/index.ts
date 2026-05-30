@@ -1,6 +1,5 @@
-// MCP server for project tasks. Bearer token auth via api_tokens table.
-// Tools: list_projects, list_tasks, get_task, create_task, update_task,
-// move_task_status, add_comment_to_task, list_epics, create_epic
+// Agency MCP server — unified MCP endpoint for projects, tasks, knowledge base,
+// clients, and client projects. Bearer token auth via api_tokens or mcp_oauth_tokens.
 import { Hono } from "hono";
 import { McpServer, StreamableHttpTransport } from "mcp-lite";
 import {
@@ -13,8 +12,9 @@ import {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const PROJECT_ORIGIN = new URL(SUPABASE_URL).origin;
 const OAUTH_BASE = `${PROJECT_ORIGIN}/functions/v1/mcp-oauth`;
-const MCP_URL = `${PROJECT_ORIGIN}/functions/v1/project-tasks-mcp`;
+const MCP_URL = `${PROJECT_ORIGIN}/functions/v1/agency-mcp`;
 const RESOURCE_METADATA_URL = `${MCP_URL}/.well-known/oauth-protected-resource`;
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
