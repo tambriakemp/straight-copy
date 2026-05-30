@@ -413,97 +413,153 @@ mcp.tool("get_wiki_document", {
   },
 });
 
-const WIKI_WRITE_PROPS = {
-  title: { type: "string" },
-  content: { type: "string", description: "Markdown body." },
+const WIKI_META_PROPS = {
   department: { type: "string", enum: WIKI_DEPARTMENTS as unknown as string[] },
   doc_type: { type: "string", enum: WIKI_DOC_TYPES as unknown as string[] },
   status: { type: "string", enum: WIKI_STATUSES as unknown as string[] },
   access_level: { type: "string", enum: WIKI_ACCESS as unknown as string[] },
   owner: { type: "string", description: "Free-text owner/team name." },
   tags: { type: "array", items: { type: "string" } },
+  folder_id: { type: ["string", "null"], description: "wiki_folders.id, or null for unfiled." },
   slug: { type: "string", description: "Optional. Auto-generated from title if omitted." },
 };
 
 mcp.tool("create_wiki_document", {
-  description: "Create a new knowledge base document (SOP, vendor info, policy, reference, etc.). Title, content, department, and doc_type are required.",
+  description: "Create a new knowledge base document (SOP, vendor info, policy, reference, etc.). New docs start as Draft and are NOT visible to staff until published via publish_wiki_document.",
   inputSchema: {
     type: "object",
-    properties: WIKI_WRITE_PROPS,
+    properties: {
+      title: { type: "string" },
+      content: { type: "string", description: "Markdown body of the initial draft." },
+      ...WIKI_META_PROPS,
+    },
     required: ["title", "content", "department", "doc_type"],
   },
   handler: async (args: any) => {
     const base = wikiSlugify(args.slug || args.title);
     const slug = await uniqueWikiSlug(base);
+    // New docs: live fields stay empty (no published version yet).
+    // Draft fields hold the initial content. Status = Draft until published.
     const row = {
       title: args.title,
       slug,
-      content: args.content,
+      content: "",
       department: args.department,
       doc_type: args.doc_type,
-      status: args.status ?? "Draft",
+      status: "Draft",
       access_level: args.access_level ?? "All Staff",
       owner: args.owner ?? null,
       tags: args.tags ?? [],
-      last_reviewed_at: new Date().toISOString(),
+      folder_id: args.folder_id ?? null,
+      draft_title: args.title,
+      draft_content: args.content,
+      draft_updated_at: new Date().toISOString(),
+      has_draft: true,
+      published_at: null,
     };
     const { data, error } = await sb.from("wiki_documents").insert(row).select("*").single();
     if (error) throw new Error(error.message);
-    await sb.from("wiki_revisions").insert({
-      document_id: data.id, title: data.title, content: data.content,
-      change_note: "Created via Claude MCP", edited_by_name: "Claude",
-    });
     return textResult(data);
   },
 });
 
 mcp.tool("update_wiki_document", {
-  description: "Update fields on a knowledge base document. Any omitted field is left unchanged. Records a revision when title or content changes.",
+  description: "Update a knowledge base document. Title and content edits go to the DRAFT (not visible to staff) until publish_wiki_document is called. Metadata fields (department, doc_type, status, access_level, owner, tags, folder_id) update the live record immediately.",
   inputSchema: {
     type: "object",
     properties: {
       id: { type: "string" },
-      change_note: { type: "string", description: "Optional summary of the change for the revision log." },
-      ...WIKI_WRITE_PROPS,
+      title: { type: "string", description: "Goes to draft_title. Publish to make live." },
+      content: { type: "string", description: "Goes to draft_content. Publish to make live." },
+      change_note: { type: "string", description: "Optional summary saved on next publish." },
+      ...WIKI_META_PROPS,
     },
     required: ["id"],
   },
-  handler: async ({ id, change_note, ...patch }: any) => {
+  handler: async ({ id, change_note: _ignored, ...patch }: any) => {
     const { data: existing, error: e1 } = await sb.from("wiki_documents").select("*").eq("id", id).maybeSingle();
     if (e1) throw new Error(e1.message);
     if (!existing) throw new Error("Document not found");
 
     const update: Record<string, unknown> = {};
-    for (const k of ["title","content","department","doc_type","status","access_level","owner","tags"]) {
+    // Metadata fields write directly
+    for (const k of ["department","doc_type","status","access_level","owner","tags","folder_id"]) {
       if (patch[k] !== undefined) update[k] = patch[k];
     }
     if (patch.slug !== undefined) {
       update.slug = await uniqueWikiSlug(wikiSlugify(patch.slug), id);
-    } else if (patch.title !== undefined && patch.title !== existing.title) {
-      // keep existing slug unless caller explicitly changes it
     }
-    if (update.content !== undefined || update.title !== undefined) {
-      update.last_reviewed_at = new Date().toISOString();
+    // Title/content go to draft
+    if (patch.title !== undefined || patch.content !== undefined) {
+      update.draft_title = patch.title !== undefined ? patch.title : (existing.draft_title ?? existing.title);
+      update.draft_content = patch.content !== undefined ? patch.content : (existing.draft_content ?? existing.content);
+      update.draft_updated_at = new Date().toISOString();
+      update.has_draft = true;
     }
 
     const { data, error } = await sb.from("wiki_documents").update(update).eq("id", id).select("*").single();
     if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
 
-    if (update.title !== undefined || update.content !== undefined) {
-      await sb.from("wiki_revisions").insert({
-        document_id: id,
-        title: data.title,
-        content: data.content,
-        change_note: change_note ?? "Updated via Claude MCP",
-        edited_by_name: "Claude",
-      });
-    }
+mcp.tool("publish_wiki_document", {
+  description: "Promote the pending draft of a knowledge base document to live. Moves draft_title/draft_content into title/content, clears the draft, records a revision, and sets status to Active.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      id: { type: "string" },
+      change_note: { type: "string", description: "Summary of what changed in this publish." },
+    },
+    required: ["id"],
+  },
+  handler: async ({ id, change_note }: { id: string; change_note?: string }) => {
+    const { data: existing, error: e1 } = await sb.from("wiki_documents").select("*").eq("id", id).maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!existing) throw new Error("Document not found");
+    if (!existing.has_draft) throw new Error("No pending draft to publish");
+
+    const newTitle = existing.draft_title ?? existing.title;
+    const newContent = existing.draft_content ?? existing.content;
+
+    const { data, error } = await sb.from("wiki_documents").update({
+      title: newTitle,
+      content: newContent,
+      draft_title: null,
+      draft_content: null,
+      draft_updated_at: null,
+      has_draft: false,
+      published_at: new Date().toISOString(),
+      last_reviewed_at: new Date().toISOString(),
+      status: existing.status === "Archived" ? "Archived" : "Active",
+    }).eq("id", id).select("*").single();
+    if (error) throw new Error(error.message);
+
+    await sb.from("wiki_revisions").insert({
+      document_id: id,
+      title: newTitle,
+      content: newContent,
+      change_note: change_note ?? "Published via Claude MCP",
+      edited_by_name: "Claude",
+    });
+    return textResult(data);
+  },
+});
+
+mcp.tool("discard_wiki_draft", {
+  description: "Throw away the pending draft on a knowledge base document and keep the live published version unchanged.",
+  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  handler: async ({ id }: { id: string }) => {
+    const { data, error } = await sb.from("wiki_documents").update({
+      draft_title: null, draft_content: null, draft_updated_at: null, has_draft: false,
+    }).eq("id", id).select("*").single();
+    if (error) throw new Error(error.message);
     return textResult(data);
   },
 });
 
 mcp.tool("delete_wiki_document", {
-  description: "Permanently delete a knowledge base document and its revisions. Use archive (status='Archived') instead when possible.",
+  description: "Permanently delete a knowledge base document and its revisions. Use status='Archived' instead when possible.",
   inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
   handler: async ({ id }: { id: string }) => {
     const { error } = await sb.from("wiki_documents").delete().eq("id", id);
@@ -532,6 +588,369 @@ mcp.tool("list_wiki_revisions", {
     return textResult(data);
   },
 });
+
+// ============================================================
+// Knowledge Base Folders
+// ============================================================
+mcp.tool("list_wiki_folders", {
+  description: "List knowledge base folders. Returns a flat list with parent_id so the caller can build the tree.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      parent_id: { type: ["string", "null"], description: "Filter to direct children of this folder, or null for root folders." },
+      department: { type: "string", description: "Filter to folders tagged with this department." },
+    },
+  },
+  handler: async ({ parent_id, department }: any) => {
+    let q = sb.from("wiki_folders").select("*").order("order_index").order("name");
+    if (parent_id === null) q = q.is("parent_id", null);
+    else if (parent_id !== undefined) q = q.eq("parent_id", parent_id);
+    if (department) q = q.eq("department", department);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
+
+mcp.tool("create_wiki_folder", {
+  description: "Create a knowledge base folder. Folders can nest via parent_id and optionally be scoped to a department.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      parent_id: { type: "string", description: "Optional. Folder to nest under." },
+      department: { type: "string", enum: WIKI_DEPARTMENTS as unknown as string[] },
+      order_index: { type: "number" },
+    },
+    required: ["name"],
+  },
+  handler: async (args: any) => {
+    const { data, error } = await sb.from("wiki_folders").insert({
+      name: args.name,
+      parent_id: args.parent_id ?? null,
+      department: args.department ?? null,
+      order_index: args.order_index ?? 0,
+    }).select("*").single();
+    if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
+
+mcp.tool("update_wiki_folder", {
+  description: "Rename, re-parent, or reorder a knowledge base folder.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      id: { type: "string" },
+      name: { type: "string" },
+      parent_id: { type: ["string", "null"] },
+      department: { type: ["string", "null"], enum: [...(WIKI_DEPARTMENTS as unknown as string[]), null as any] },
+      order_index: { type: "number" },
+    },
+    required: ["id"],
+  },
+  handler: async ({ id, ...patch }: any) => {
+    const update: Record<string, unknown> = {};
+    for (const k of ["name","parent_id","department","order_index"]) {
+      if (patch[k] !== undefined) update[k] = patch[k];
+    }
+    const { data, error } = await sb.from("wiki_folders").update(update).eq("id", id).select("*").single();
+    if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
+
+mcp.tool("delete_wiki_folder", {
+  description: "Delete a knowledge base folder. Child folders are deleted; documents in the folder are unfiled (folder_id set to null).",
+  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  handler: async ({ id }: { id: string }) => {
+    const { error } = await sb.from("wiki_folders").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return textResult({ deleted: true, id });
+  },
+});
+
+// ============================================================
+// Clients
+// ============================================================
+const APP_ORIGIN_FOR_LINKS = "https://cre8visions.com";
+
+function buildClientPortalLinks(clientId: string) {
+  return {
+    portal: `${APP_ORIGIN_FOR_LINKS}/portal/${clientId}`,
+    brand_kit_chat: `${APP_ORIGIN_FOR_LINKS}/portal/${clientId}/brand-kit`,
+    onboarding: `${APP_ORIGIN_FOR_LINKS}/portal/${clientId}?focus=onboarding`,
+  };
+}
+
+const CLIENT_TIERS = ["launch","growth","scale","app_development"] as const;
+const CLIENT_PIPELINE_STAGES = [
+  "intake_submitted","onboarding_in_progress","contract_sent","contract_signed",
+  "build_in_progress","delivered","completed","churned",
+] as const;
+
+const CLIENT_WRITE_PROPS = {
+  business_name: { type: "string" },
+  contact_name: { type: "string" },
+  contact_email: { type: "string" },
+  contact_phone: { type: "string" },
+  tier: { type: "string", enum: CLIENT_TIERS as unknown as string[] },
+  pipeline_stage: { type: "string" },
+  notes: { type: "string" },
+  archived: { type: "boolean" },
+  build_start_date: { type: ["string","null"], description: "YYYY-MM-DD" },
+  delivery_date: { type: ["string","null"], description: "YYYY-MM-DD" },
+  delivery_video_url: { type: ["string","null"] },
+  build_update_note: { type: ["string","null"] },
+  intake_summary: { type: "string" },
+  brand_voice_status: { type: "string", enum: ["pending","in_progress","complete","failed"] },
+  brand_voice_approved: { type: "boolean" },
+  subscription_status: { type: "string" },
+  surecart_subscription_id: { type: "string" },
+  surecart_customer_id: { type: "string" },
+  surecart_order_id: { type: "string" },
+};
+
+mcp.tool("list_clients", {
+  description: "List clients. Filter by tier, pipeline_stage, or archived state. Excludes large jsonb columns; use get_client for full record.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      tier: { type: "string", enum: CLIENT_TIERS as unknown as string[] },
+      pipeline_stage: { type: "string" },
+      archived: { type: "boolean", description: "Defaults to false." },
+      search: { type: "string", description: "Substring match against business_name / contact_name / contact_email." },
+      limit: { type: "number", description: "Default 100, max 500." },
+    },
+  },
+  handler: async ({ tier, pipeline_stage, archived, search, limit }: any) => {
+    let q = sb.from("clients")
+      .select("id, business_name, contact_name, contact_email, contact_phone, tier, pipeline_stage, archived, subscription_status, build_start_date, delivery_date, brand_voice_status, brand_voice_approved, created_at, updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(Math.min(limit ?? 100, 500));
+    q = q.eq("archived", archived ?? false);
+    if (tier) q = q.eq("tier", tier);
+    if (pipeline_stage) q = q.eq("pipeline_stage", pipeline_stage);
+    if (search) {
+      const pat = `%${search.replace(/[%_]/g, (m: string) => `\\${m}`)}%`;
+      q = q.or(`business_name.ilike.${pat},contact_name.ilike.${pat},contact_email.ilike.${pat}`);
+    }
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    const enriched = (data ?? []).map((c: any) => ({ ...c, portal_links: buildClientPortalLinks(c.id) }));
+    return textResult(enriched);
+  },
+});
+
+mcp.tool("get_client", {
+  description: "Fetch a single client with full record, portal links, projects, and active journey node.",
+  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  handler: async ({ id }: { id: string }) => {
+    const { data, error } = await sb.from("clients").select("*").eq("id", id).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("Client not found");
+    const [projects, nodes] = await Promise.all([
+      sb.from("client_projects").select("id, name, type, status, created_at").eq("client_id", id).order("created_at"),
+      sb.from("journey_nodes")
+        .select("id, key, label, order_index, status, started_at, completed_at, client_project_id")
+        .eq("client_id", id).order("order_index"),
+    ]);
+    return textResult({
+      ...data,
+      portal_links: buildClientPortalLinks(id),
+      projects: projects.data ?? [],
+      journey_nodes: nodes.data ?? [],
+    });
+  },
+});
+
+mcp.tool("create_client", {
+  description: "Create a new client. Triggers in the database will auto-create a default project and seed journey nodes based on tier.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      ...CLIENT_WRITE_PROPS,
+    },
+    required: ["business_name","contact_email","tier"],
+  },
+  handler: async (args: any) => {
+    const { data, error } = await sb.from("clients").insert(args).select("*").single();
+    if (error) throw new Error(error.message);
+    return textResult({ ...data, portal_links: buildClientPortalLinks(data.id) });
+  },
+});
+
+mcp.tool("update_client", {
+  description: "Update any fields on a client. Omitted fields are unchanged.",
+  inputSchema: {
+    type: "object",
+    properties: { id: { type: "string" }, ...CLIENT_WRITE_PROPS },
+    required: ["id"],
+  },
+  handler: async ({ id, ...patch }: any) => {
+    const { data, error } = await sb.from("clients").update(patch).eq("id", id).select("*").single();
+    if (error) throw new Error(error.message);
+    return textResult({ ...data, portal_links: buildClientPortalLinks(id) });
+  },
+});
+
+mcp.tool("archive_client", {
+  description: "Soft-archive a client (sets archived=true). Use delete_client for permanent removal.",
+  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  handler: async ({ id }: { id: string }) => {
+    const { data, error } = await sb.from("clients").update({ archived: true }).eq("id", id).select("id, archived").single();
+    if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
+
+mcp.tool("delete_client", {
+  description: "Permanently delete a client and cascade related records. Prefer archive_client unless you really need a hard delete.",
+  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  handler: async ({ id }: { id: string }) => {
+    const { error } = await sb.from("clients").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return textResult({ deleted: true, id });
+  },
+});
+
+mcp.tool("get_client_portal_links", {
+  description: "Return the unique client portal URLs for a client (main portal, brand kit chat, onboarding focus link).",
+  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  handler: async ({ id }: { id: string }) => {
+    const { data, error } = await sb.from("clients").select("id, business_name, contact_email").eq("id", id).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("Client not found");
+    return textResult({ ...data, ...buildClientPortalLinks(id) });
+  },
+});
+
+// ============================================================
+// Client Projects (full CRUD; complements list_projects)
+// ============================================================
+const PROJECT_TYPES = ["automation_build","app_development","launch","growth","scale","other"] as const;
+const PROJECT_STATUSES = ["active","paused","completed","archived"] as const;
+
+mcp.tool("get_client_project", {
+  description: "Fetch one client project with its tasks, epics, journey nodes, and links.",
+  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  handler: async ({ id }: { id: string }) => {
+    const { data, error } = await sb.from("client_projects")
+      .select("*, client:clients(id, business_name, contact_email)")
+      .eq("id", id).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("Project not found");
+    const [{ tasks, epics }, nodes, links] = await Promise.all([
+      listTasks(sb, id),
+      sb.from("journey_nodes").select("id, key, label, order_index, status, started_at, completed_at").eq("client_project_id", id).order("order_index"),
+      sb.from("project_links").select("id, label, url, created_at").eq("client_project_id", id).order("created_at"),
+    ]);
+    return textResult({
+      ...data,
+      tasks,
+      epics,
+      journey_nodes: nodes.data ?? [],
+      links: links.data ?? [],
+    });
+  },
+});
+
+mcp.tool("create_client_project", {
+  description: "Create a new project for a client.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      client_id: { type: "string" },
+      name: { type: "string" },
+      type: { type: "string", enum: PROJECT_TYPES as unknown as string[] },
+      status: { type: "string", enum: PROJECT_STATUSES as unknown as string[] },
+      notes: { type: "string" },
+    },
+    required: ["client_id","name","type"],
+  },
+  handler: async (args: any) => {
+    const { data, error } = await sb.from("client_projects").insert({
+      client_id: args.client_id,
+      name: args.name,
+      type: args.type,
+      status: args.status ?? "active",
+      notes: args.notes ?? null,
+    }).select("*").single();
+    if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
+
+mcp.tool("update_client_project", {
+  description: "Update fields on a client project (name, type, status, notes).",
+  inputSchema: {
+    type: "object",
+    properties: {
+      id: { type: "string" },
+      name: { type: "string" },
+      type: { type: "string", enum: PROJECT_TYPES as unknown as string[] },
+      status: { type: "string", enum: PROJECT_STATUSES as unknown as string[] },
+      notes: { type: "string" },
+    },
+    required: ["id"],
+  },
+  handler: async ({ id, ...patch }: any) => {
+    const { data, error } = await sb.from("client_projects").update(patch).eq("id", id).select("*").single();
+    if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
+
+mcp.tool("delete_client_project", {
+  description: "Permanently delete a client project (cascades tasks, epics, journey nodes).",
+  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  handler: async ({ id }: { id: string }) => {
+    const { error } = await sb.from("client_projects").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return textResult({ deleted: true, id });
+  },
+});
+
+mcp.tool("list_project_links", {
+  description: "List shared links attached to a project (Figma, docs, etc.).",
+  inputSchema: { type: "object", properties: { client_project_id: { type: "string" } }, required: ["client_project_id"] },
+  handler: async ({ client_project_id }: { client_project_id: string }) => {
+    const { data, error } = await sb.from("project_links")
+      .select("*").eq("client_project_id", client_project_id).order("created_at");
+    if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
+
+mcp.tool("add_project_link", {
+  description: "Attach a labeled URL to a project.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      client_project_id: { type: "string" },
+      label: { type: "string" },
+      url: { type: "string" },
+    },
+    required: ["client_project_id","label","url"],
+  },
+  handler: async (args: any) => {
+    const { data, error } = await sb.from("project_links").insert(args).select("*").single();
+    if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
+
+mcp.tool("delete_project_link", {
+  description: "Remove a project link.",
+  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  handler: async ({ id }: { id: string }) => {
+    const { error } = await sb.from("project_links").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return textResult({ deleted: true, id });
+  },
+});
+
+
 
 const app = new Hono().basePath("/agency-mcp");
 const transport = new StreamableHttpTransport();
