@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.mcp-oauth]
 verify_jwt = false
+
+[functions.add-project-secret]
+verify_jwt = false
