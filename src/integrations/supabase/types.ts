@@ -1762,6 +1762,56 @@ export type Database = {
           },
         ]
       }
+      social_design_templates: {
+        Row: {
+          active: boolean
+          client_project_id: string
+          created_at: string
+          created_by: string | null
+          design_notes: string | null
+          format_support: string
+          html_source: string
+          id: string
+          name: string
+          slide_count: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          client_project_id: string
+          created_at?: string
+          created_by?: string | null
+          design_notes?: string | null
+          format_support?: string
+          html_source: string
+          id?: string
+          name: string
+          slide_count?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          client_project_id?: string
+          created_at?: string
+          created_by?: string | null
+          design_notes?: string | null
+          format_support?: string
+          html_source?: string
+          id?: string
+          name?: string
+          slide_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_design_templates_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_post_batches: {
         Row: {
           brief: string | null
@@ -1769,6 +1819,7 @@ export type Database = {
           client_project_id: string
           created_at: string
           created_by: string | null
+          design_template_id: string | null
           error: string | null
           id: string
           platform: string | null
@@ -1783,6 +1834,7 @@ export type Database = {
           client_project_id: string
           created_at?: string
           created_by?: string | null
+          design_template_id?: string | null
           error?: string | null
           id?: string
           platform?: string | null
@@ -1797,6 +1849,7 @@ export type Database = {
           client_project_id?: string
           created_at?: string
           created_by?: string | null
+          design_template_id?: string | null
           error?: string | null
           id?: string
           platform?: string | null
@@ -1813,6 +1866,13 @@ export type Database = {
             referencedRelation: "client_projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "social_post_batches_design_template_id_fkey"
+            columns: ["design_template_id"]
+            isOneToOne: false
+            referencedRelation: "social_design_templates"
+            referencedColumns: ["id"]
+          },
         ]
       }
       social_posts: {
@@ -1821,7 +1881,9 @@ export type Database = {
           caption: string | null
           client_project_id: string
           copost_post_id: string | null
+          copy_provider: string | null
           created_at: string
+          design_template_id: string | null
           error: string | null
           format: string
           hashtags: string[]
@@ -1837,7 +1899,9 @@ export type Database = {
           caption?: string | null
           client_project_id: string
           copost_post_id?: string | null
+          copy_provider?: string | null
           created_at?: string
+          design_template_id?: string | null
           error?: string | null
           format?: string
           hashtags?: string[]
@@ -1853,7 +1917,9 @@ export type Database = {
           caption?: string | null
           client_project_id?: string
           copost_post_id?: string | null
+          copy_provider?: string | null
           created_at?: string
+          design_template_id?: string | null
           error?: string | null
           format?: string
           hashtags?: string[]
@@ -1877,6 +1943,13 @@ export type Database = {
             columns: ["client_project_id"]
             isOneToOne: false
             referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_posts_design_template_id_fkey"
+            columns: ["design_template_id"]
+            isOneToOne: false
+            referencedRelation: "social_design_templates"
             referencedColumns: ["id"]
           },
         ]
