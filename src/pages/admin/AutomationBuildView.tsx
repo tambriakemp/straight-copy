@@ -5,6 +5,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import AdminContractSection from "@/components/admin/AdminContractSection";
 
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
+import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
 import AutomationSubscriptionPanel from "@/components/admin/AutomationSubscriptionPanel";
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
@@ -435,10 +436,15 @@ export default function AutomationBuildView() {
           </ProjectTabsContent>
 
           <ProjectTabsContent value="settings">
-            <div style={{ fontSize: 15, color: "hsl(30 8% 60%)", padding: 16 }}>
-              No project settings configured.
-            </div>
+            {projectId ? (
+              <ProjectSecretsPanel clientProjectId={projectId} />
+            ) : (
+              <div style={{ fontSize: 15, color: "hsl(30 8% 60%)", padding: 16 }}>
+                Project not loaded.
+              </div>
+            )}
           </ProjectTabsContent>
+
 
           {projectId && (
             <ProjectTabsContent value="tasks">
