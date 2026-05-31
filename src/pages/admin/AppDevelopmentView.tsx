@@ -85,7 +85,9 @@ export default function AppDevelopmentView() {
             <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>
             <ProjectTabsTrigger value="proposals">Proposals</ProjectTabsTrigger>
             <ProjectTabsTrigger value="schedule">Payment Schedule</ProjectTabsTrigger>
+            <ProjectTabsTrigger value="preview">Preview</ProjectTabsTrigger>
             {isMarketing && <ProjectTabsTrigger value="social">Social</ProjectTabsTrigger>}
+
           </ProjectTabsList>
 
           <ProjectTabsContent value="tasks">
