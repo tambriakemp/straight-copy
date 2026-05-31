@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
+import ProjectPreviewCard from "@/components/admin/ProjectPreviewCard";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
@@ -12,6 +13,7 @@ import SocialTab from "@/components/admin/social/SocialTab";
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
 } from "@/components/ProjectTabs";
+
 
 
 const TYPE_LABEL: Record<string, string> = {
@@ -30,7 +32,8 @@ export default function AppDevelopmentView() {
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const isMarketing = project?.type === "marketing";
-  const [tab, setTab] = useState<"tasks" | "proposals" | "schedule" | "social">("tasks");
+  const [tab, setTab] = useState<"tasks" | "proposals" | "schedule" | "preview" | "social">("tasks");
+
 
 
   const portalUrl = client?.id ? `${window.location.origin}/portal/${client.id}` : "";
@@ -82,7 +85,9 @@ export default function AppDevelopmentView() {
             <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>
             <ProjectTabsTrigger value="proposals">Proposals</ProjectTabsTrigger>
             <ProjectTabsTrigger value="schedule">Payment Schedule</ProjectTabsTrigger>
+            <ProjectTabsTrigger value="preview">Preview</ProjectTabsTrigger>
             {isMarketing && <ProjectTabsTrigger value="social">Social</ProjectTabsTrigger>}
+
           </ProjectTabsList>
 
           <ProjectTabsContent value="tasks">
@@ -97,12 +102,23 @@ export default function AppDevelopmentView() {
             <ProjectInvoicesCard clientId={clientId!} clientProjectId={projectId!} embedded />
           </ProjectTabsContent>
 
+          <ProjectTabsContent value="preview">
+            <ProjectPreviewCard
+              clientId={clientId!}
+              clientProjectId={projectId!}
+              projectName={project.name}
+              clientLabel={client.business_name}
+              embedded
+            />
+          </ProjectTabsContent>
+
           {isMarketing && (
             <ProjectTabsContent value="social">
               <SocialTab clientProjectId={projectId!} />
             </ProjectTabsContent>
           )}
         </ProjectTabs>
+
 
       </div>
     </AdminLayout>
