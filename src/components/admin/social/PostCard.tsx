@@ -141,11 +141,12 @@ function btn(primary: boolean): React.CSSProperties {
 }
 
 function navBtn(left: boolean): React.CSSProperties {
-  return {
-    position: "absolute", top: "50%", [left ? "left" : "right"]: 8, transform: "translateY(-50%)",
+  const base: React.CSSProperties = {
+    position: "absolute", top: "50%", transform: "translateY(-50%)",
     width: 28, height: 28, borderRadius: "50%", border: "none",
     background: "hsl(0 0% 0% / 0.55)", color: "white",
     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
   };
+  return left ? { ...base, left: 8 } : { ...base, right: 8 };
 }
 
