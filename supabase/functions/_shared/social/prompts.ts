@@ -51,13 +51,28 @@ export interface PostDesign {
 }
 
 export const COPY_SYSTEM = `You are a senior social media strategist writing for a brand.
-You will receive the brand context and produce ONE social post (single image OR carousel).
-Voice must mirror the brand voice doc. Hooks must stop the scroll.
-Captions must feel native to the platform. Hashtags are 5-15 tightly relevant tags.
-Return ONLY via the function tool 'emit_post'.`;
+You produce ONE social post (single image OR carousel).
+
+Voice:
+- Mirror the brand voice doc exactly. Match cadence, vocabulary, punctuation habits, POV.
+- Hooks must stop the scroll. Lead with tension, a contrarian take, a surprising stat, or a specific story moment — never a generic "Are you struggling with…".
+- Captions feel native to the platform. No corporate filler. No "In today's fast-paced world…".
+
+Variety across a batch is critical:
+- This post is one of many. Vary the angle, structure, and opening line from siblings.
+- Rotate angle types: bold opinion, tactical how-to, story/anecdote, myth-bust, behind-the-scenes, counter-intuitive insight, customer transformation, numbered list, question-and-answer.
+- Never repeat hook templates. No two posts in the same batch should start with the same first 3 words.
+
+Hashtags: 5-15 tightly relevant tags. Lowercase, no leading #.
+Return ONLY via the tool 'emit_post'.`;
 
 export function buildCopyUserPrompt(ctx: BrandContext, req: CopyRequest): string {
   const slides = req.format === "carousel" ? (req.slides_per_carousel ?? 5) : 1;
+  const angles = [
+    "bold opinion", "tactical how-to", "story/anecdote", "myth-bust",
+    "behind-the-scenes", "counter-intuitive insight", "customer transformation",
+    "numbered list", "question-and-answer",
+  ];
   return [
     `# Brand`,
     `Business: ${ctx.business_name ?? "(unknown)"}`,
@@ -77,17 +92,45 @@ export function buildCopyUserPrompt(ctx: BrandContext, req: CopyRequest): string
     `Slides: ${slides}`,
     `Platform: ${req.platform ?? "instagram"}`,
     `Campaign brief: ${req.brief ?? "(none — pick a fresh angle relevant to the brand)"}`,
-    `This is post ${req.index + 1} of ${req.total}. Make it distinct from sibling posts.`,
+    `This is post ${req.index + 1} of ${req.total}. Be distinct in angle, structure, and opening.`,
+    `Use angle: ${angles[req.index % angles.length]}.`,
     ``,
     `Rules:`,
-    `- Each slide.heading: 4-9 words, punchy.`,
+    `- Each slide.heading: 4-9 words, punchy, specific.`,
     `- Each slide.body: 1-3 sentences max.`,
-    `- For carousels: slide 1 is the hook, last slide is CTA.`,
-    `- For single posts: produce exactly 1 slide.`,
-    `- Caption: 1-3 short paragraphs, ends with subtle CTA.`,
+    `- Carousels: slide 1 is the hook (not list-y), middle slides each carry one concrete idea, last slide is the CTA.`,
+    `- Single posts: produce exactly 1 slide.`,
+    `- Caption: 1-3 short paragraphs, ends with a subtle CTA matching the brand voice.`,
     `- Hashtags: lowercase, no #, 5-15 items.`,
   ].join("\n");
 }
+
+/** Same schema as COPY_TOOL but shaped for Anthropic's tool_use API. */
+export const ANTHROPIC_COPY_TOOL = {
+  name: "emit_post",
+  description: "Return the final post copy.",
+  input_schema: {
+    type: "object",
+    properties: {
+      hook: { type: "string" },
+      caption: { type: "string" },
+      hashtags: { type: "array", items: { type: "string" } },
+      slides: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            heading: { type: "string" },
+            body: { type: "string" },
+            cta: { type: "string" },
+          },
+          required: ["heading", "body"],
+        },
+      },
+    },
+    required: ["hook", "caption", "hashtags", "slides"],
+  },
+};
 
 export const COPY_TOOL = {
   type: "function" as const,
