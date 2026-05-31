@@ -1,11 +1,18 @@
-// Orchestrator: generate copy + designs + rendered PNGs for a social post batch.
+// Orchestrator: generate copy (Claude) + designs + rendered PNGs for a social post batch.
+// If the batch has design_template_id set (and the template is active), slides are
+// rendered from that uploaded HTML template. Otherwise we fall back to the AI-designed
+// slide pipeline (Lovable AI Gemini design model + generic slide HTML).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
-  COPY_SYSTEM, COPY_TOOL, DESIGN_SYSTEM, DESIGN_TOOL,
+  COPY_SYSTEM, DESIGN_SYSTEM, DESIGN_TOOL, ANTHROPIC_COPY_TOOL,
   buildCopyUserPrompt, buildDesignUserPrompt,
   type BrandContext, type PostCopy, type PostDesign,
 } from "../_shared/social/prompts.ts";
 import { buildSlideHtml, renderSlideToPng } from "../_shared/social/render.ts";
+import {
+  sanitizeTemplateHtml, renderTemplateForSlide, renderTemplateToPng,
+} from "../_shared/social/template-render.ts";
+import { callClaudeStructured } from "../_shared/social/anthropic.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,23 +25,19 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-const COPY_MODEL = "google/gemini-2.5-flash";
 const DESIGN_MODEL = "google/gemini-2.5-pro";
 
 function json(b: unknown, s = 200) {
   return new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function callAI<T>(model: string, system: string, user: string, tool: typeof COPY_TOOL): Promise<T> {
+async function callLovableAI<T>(model: string, system: string, user: string, tool: typeof DESIGN_TOOL): Promise<T> {
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
       tools: [tool],
       tool_choice: { type: "function", function: { name: tool.function.name } },
     }),
@@ -67,6 +70,36 @@ async function loadBrandContext(admin: ReturnType<typeof createClient>, clientPr
   };
 }
 
+interface TemplateRow {
+  id: string;
+  html_source: string;
+  format_support: string;
+  active: boolean;
+}
+
+async function pickTemplateForPost(
+  admin: ReturnType<typeof createClient>,
+  clientProjectId: string,
+  fixedTemplateId: string | null,
+  format: "single" | "carousel",
+  postIndex: number,
+): Promise<TemplateRow | null> {
+  if (fixedTemplateId) {
+    const { data } = await admin.from("social_design_templates")
+      .select("id, html_source, format_support, active")
+      .eq("id", fixedTemplateId).maybeSingle();
+    return data?.active ? (data as TemplateRow) : null;
+  }
+  const { data } = await admin.from("social_design_templates")
+    .select("id, html_source, format_support, active")
+    .eq("client_project_id", clientProjectId)
+    .eq("active", true);
+  const pool = (data ?? []).filter((t: TemplateRow) =>
+    t.format_support === "both" || t.format_support === format);
+  if (!pool.length) return null;
+  return pool[postIndex % pool.length] as TemplateRow;
+}
+
 async function generateOnePost(
   admin: ReturnType<typeof createClient>,
   batchId: string,
@@ -78,48 +111,75 @@ async function generateOnePost(
   platform: string | null,
   index: number,
   total: number,
+  fixedTemplateId: string | null,
 ) {
   try {
-    const copy = await callAI<PostCopy>(
-      COPY_MODEL, COPY_SYSTEM,
-      buildCopyUserPrompt(ctx, { format, slides_per_carousel: slidesPerCarousel, brief, platform, index, total }),
-      COPY_TOOL,
-    );
+    // 1. COPY via Claude
+    const copy = await callClaudeStructured<PostCopy>({
+      system: COPY_SYSTEM,
+      user: buildCopyUserPrompt(ctx, {
+        format, slides_per_carousel: slidesPerCarousel, brief, platform, index, total,
+      }),
+      tool: ANTHROPIC_COPY_TOOL,
+      temperature: 0.95,
+    });
 
-    const design = await callAI<PostDesign>(
-      DESIGN_MODEL, DESIGN_SYSTEM,
-      buildDesignUserPrompt(ctx, copy, format),
-      DESIGN_TOOL,
-    );
+    // 2. DESIGN: template-first, fallback to AI design
+    const template = await pickTemplateForPost(admin, clientProjectId, fixedTemplateId, format, index);
 
-    // Render each slide
-    const slidesOut: Array<{ copy: unknown; design: unknown; image_path: string | null; image_url: string | null; error?: string }> = [];
-    for (let i = 0; i < design.slides.length; i++) {
-      const sd = design.slides[i];
-      const html = buildSlideHtml(sd, design);
-      let image_path: string | null = null;
-      let image_url: string | null = null;
-      let err: string | undefined;
-      try {
-        const png = await renderSlideToPng(html);
-        const path = `${clientProjectId}/${batchId}/post-${index}-slide-${i}.png`;
-        const up = await admin.storage.from("social-posts").upload(path, png, {
-          contentType: "image/png", upsert: true,
+    const slidesOut: Array<{
+      copy: unknown; design: unknown; image_path: string | null; image_url: string | null; error?: string;
+    }> = [];
+
+    if (template) {
+      const sanitized = sanitizeTemplateHtml(template.html_source);
+      for (let i = 0; i < copy.slides.length; i++) {
+        const sc = copy.slides[i];
+        const html = renderTemplateForSlide(sanitized, sc, i, copy.slides.length);
+        let image_path: string | null = null;
+        let image_url: string | null = null;
+        let err: string | undefined;
+        try {
+          const png = await renderTemplateToPng(html);
+          const path = `${clientProjectId}/${batchId}/post-${index}-slide-${i}.png`;
+          const up = await admin.storage.from("social-posts").upload(path, png, { contentType: "image/png", upsert: true });
+          if (up.error) throw up.error;
+          image_path = path;
+          const { data: signed } = await admin.storage.from("social-posts").createSignedUrl(path, 60 * 60 * 24 * 7);
+          image_url = signed?.signedUrl ?? null;
+        } catch (e) {
+          err = e instanceof Error ? e.message : String(e);
+        }
+        slidesOut.push({
+          copy: sc, design: { template_id: template.id }, image_path, image_url,
+          ...(err ? { error: err } : {}),
         });
-        if (up.error) throw up.error;
-        image_path = path;
-        const { data: signed } = await admin.storage.from("social-posts").createSignedUrl(path, 60 * 60 * 24 * 7);
-        image_url = signed?.signedUrl ?? null;
-      } catch (e) {
-        err = e instanceof Error ? e.message : String(e);
       }
-      slidesOut.push({
-        copy: copy.slides[i] ?? null,
-        design: sd,
-        image_path,
-        image_url,
-        ...(err ? { error: err } : {}),
-      });
+    } else {
+      const design = await callLovableAI<PostDesign>(DESIGN_MODEL, DESIGN_SYSTEM,
+        buildDesignUserPrompt(ctx, copy, format), DESIGN_TOOL);
+      for (let i = 0; i < design.slides.length; i++) {
+        const sd = design.slides[i];
+        const html = buildSlideHtml(sd, design);
+        let image_path: string | null = null;
+        let image_url: string | null = null;
+        let err: string | undefined;
+        try {
+          const png = await renderSlideToPng(html);
+          const path = `${clientProjectId}/${batchId}/post-${index}-slide-${i}.png`;
+          const up = await admin.storage.from("social-posts").upload(path, png, { contentType: "image/png", upsert: true });
+          if (up.error) throw up.error;
+          image_path = path;
+          const { data: signed } = await admin.storage.from("social-posts").createSignedUrl(path, 60 * 60 * 24 * 7);
+          image_url = signed?.signedUrl ?? null;
+        } catch (e) {
+          err = e instanceof Error ? e.message : String(e);
+        }
+        slidesOut.push({
+          copy: copy.slides[i] ?? null, design: sd, image_path, image_url,
+          ...(err ? { error: err } : {}),
+        });
+      }
     }
 
     await admin.from("social_posts").insert({
@@ -131,6 +191,8 @@ async function generateOnePost(
       caption: copy.caption,
       hashtags: copy.hashtags,
       slides: slidesOut,
+      copy_provider: "anthropic",
+      design_template_id: template?.id ?? null,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -170,28 +232,26 @@ Deno.serve(async (req) => {
   const slidesPerCarousel = Math.max(2, Math.min(10, Number(body.slides_per_carousel ?? 5)));
   const brief = body.brief ? String(body.brief).slice(0, 2000) : null;
   const platform = body.platform ? String(body.platform) : null;
+  const designTemplateId = body.design_template_id ? String(body.design_template_id) : null;
 
   if (!clientProjectId) return json({ error: "client_project_id required" }, 400);
   if (singleCount + carouselCount === 0) return json({ error: "request at least one post" }, 400);
 
-  // Create batch
   const { data: batch, error: batchErr } = await admin
     .from("social_post_batches")
     .insert({
       client_project_id: clientProjectId,
       created_by: userRes.user.id,
       status: "drafting",
-      brief,
-      platform,
+      brief, platform,
       single_count: singleCount,
       carousel_count: carouselCount,
       slides_per_carousel: slidesPerCarousel,
+      design_template_id: designTemplateId,
     })
-    .select("id")
-    .single();
+    .select("id").single();
   if (batchErr || !batch) return json({ error: batchErr?.message ?? "failed to create batch" }, 500);
 
-  // Respond immediately and run the rest in the background.
   const work = (async () => {
     try {
       const ctx = await loadBrandContext(admin, clientProjectId);
@@ -200,15 +260,16 @@ Deno.serve(async (req) => {
         ...Array.from({ length: singleCount }, () => ({ format: "single" as const })),
         ...Array.from({ length: carouselCount }, () => ({ format: "carousel" as const })),
       ];
-      // Run in small chunks to avoid AI rate limits.
       const CHUNK = 2;
       for (let i = 0; i < jobs.length; i += CHUNK) {
         const slice = jobs.slice(i, i + CHUNK);
         await Promise.all(slice.map((job, k) =>
-          generateOnePost(admin, batch.id, clientProjectId, ctx, job.format, slidesPerCarousel, brief, platform, i + k, total),
+          generateOnePost(
+            admin, batch.id, clientProjectId, ctx, job.format,
+            slidesPerCarousel, brief, platform, i + k, total, designTemplateId,
+          ),
         ));
       }
-      // Check for errors
       const { data: errs } = await admin.from("social_posts").select("id, status").eq("batch_id", batch.id);
       const anyOk = (errs ?? []).some((r) => r.status !== "error");
       await admin.from("social_post_batches").update({
@@ -224,7 +285,7 @@ Deno.serve(async (req) => {
     }
   })();
 
-  // @ts-ignore EdgeRuntime is available in Supabase
+  // @ts-ignore
   if (typeof EdgeRuntime !== "undefined" && (EdgeRuntime as { waitUntil?: (p: Promise<unknown>) => void }).waitUntil) {
     // @ts-ignore
     EdgeRuntime.waitUntil(work);

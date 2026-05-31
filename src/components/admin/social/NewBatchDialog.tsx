@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+interface TemplateOption { id: string; name: string; format_support: string; active: boolean }
 
 export default function NewBatchDialog({
   open, onOpenChange, clientProjectId, onCreated,
@@ -21,7 +23,22 @@ export default function NewBatchDialog({
   const [slidesPerCarousel, setSlidesPerCarousel] = useState(5);
   const [platform, setPlatform] = useState("instagram");
   const [brief, setBrief] = useState("");
+  const [templateId, setTemplateId] = useState<string>("auto");
+  const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data } = await supabase
+        .from("social_design_templates")
+        .select("id, name, format_support, active")
+        .eq("client_project_id", clientProjectId)
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+      setTemplates((data ?? []) as TemplateOption[]);
+    })();
+  }, [open, clientProjectId]);
 
   const submit = async () => {
     if (singleCount + carouselCount === 0) {
@@ -38,6 +55,7 @@ export default function NewBatchDialog({
           slides_per_carousel: slidesPerCarousel,
           platform,
           brief: brief.trim() || null,
+          design_template_id: templateId !== "auto" && templateId !== "ai" ? templateId : null,
         },
       });
       if (error) throw error;
@@ -51,6 +69,7 @@ export default function NewBatchDialog({
       setSubmitting(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -92,6 +111,26 @@ export default function NewBatchDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div>
+            <Label>Design template</Label>
+            <Select value={templateId} onValueChange={setTemplateId}>
+              <SelectTrigger className="bg-transparent border-warm-white/20 text-warm-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-ink border-warm-white/15 text-warm-white">
+                <SelectItem value="auto">Auto-pick from active templates</SelectItem>
+                <SelectItem value="ai">AI-designed (no template)</SelectItem>
+                {templates.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {templates.length === 0 && (
+              <p style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 4 }}>
+                No templates uploaded yet — falls back to AI-designed slides.
+              </p>
+            )}
           </div>
           <div>
             <Label>Campaign brief (optional)</Label>
