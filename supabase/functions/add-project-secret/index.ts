@@ -14,7 +14,12 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const ENC_KEY = Deno.env.get("PROJECT_SECRETS_KEY") ?? "";
 
-const ALLOWED_KEYS = new Set(["surecontact_api_key", "surecontact_mcp_url"]);
+const ALLOWED_KEYS = new Set([
+  "surecontact_api_key",
+  "surecontact_mcp_url",
+  "copost_api_key",
+  "copost_workspace_id",
+]);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
