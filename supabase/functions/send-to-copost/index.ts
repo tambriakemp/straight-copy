@@ -99,7 +99,10 @@ Deno.serve(async (req) => {
           .from("social-posts")
           .createSignedUrl(s.image_path, 60 * 60 * 24 * 30);
         if (sErr || !signed?.signedUrl) throw new Error(`signed url failed: ${sErr?.message ?? "unknown"}`);
-        images.push(signed.signedUrl);
+        // CoPost validates that URLs end with a valid image extension.
+        // Supabase signed URLs end in ?token=…, so append a #.png fragment —
+        // fragments are stripped before the HTTP request so the download still works.
+        images.push(`${signed.signedUrl}#.png`);
       }
       if (!images.length) throw new Error("post has no rendered images");
       if (images.length > 10) images.length = 10; // CoPost max
