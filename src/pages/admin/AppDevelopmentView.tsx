@@ -82,7 +82,7 @@ export default function AppDevelopmentView() {
             <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>
             <ProjectTabsTrigger value="proposals">Proposals</ProjectTabsTrigger>
             <ProjectTabsTrigger value="schedule">Payment Schedule</ProjectTabsTrigger>
-            <ProjectTabsTrigger value="preview">Preview</ProjectTabsTrigger>
+            {isMarketing && <ProjectTabsTrigger value="social">Social</ProjectTabsTrigger>}
           </ProjectTabsList>
 
           <ProjectTabsContent value="tasks">
@@ -97,16 +97,13 @@ export default function AppDevelopmentView() {
             <ProjectInvoicesCard clientId={clientId!} clientProjectId={projectId!} embedded />
           </ProjectTabsContent>
 
-          <ProjectTabsContent value="preview">
-            <ProjectPreviewCard
-              clientId={clientId!}
-              clientProjectId={projectId!}
-              projectName={project.name}
-              clientLabel={client.business_name}
-              embedded
-            />
-          </ProjectTabsContent>
+          {isMarketing && (
+            <ProjectTabsContent value="social">
+              <SocialTab clientProjectId={projectId!} />
+            </ProjectTabsContent>
+          )}
         </ProjectTabs>
+
       </div>
     </AdminLayout>
   );
