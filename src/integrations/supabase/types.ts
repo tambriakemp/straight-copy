@@ -2036,6 +2036,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      advance_automation_01_in_progress: {
+        Args: { _client_project_id: string }
+        Returns: undefined
+      }
       automation_01_criteria_for: { Args: { _key: string }; Returns: Json }
       brain_setup_criteria_for: { Args: { _key: string }; Returns: Json }
       delete_email: {
