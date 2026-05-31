@@ -1,5 +1,6 @@
-// Send approved social posts to CoPost.
-// NOTE: CoPost API endpoints/shape are stubbed below — replace once docs are provided.
+// Send approved social posts to CoPost via per-project trigger URL.
+// Spec: POST https://api.copost.io/triggers/<id> with JSON { postText, images?, tags? }.
+// No API key — auth is the URL itself.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -13,9 +14,6 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const ENC_KEY = Deno.env.get("PROJECT_SECRETS_KEY")!;
 
-// TODO: replace with real CoPost base URL once docs are pasted.
-const COPOST_BASE = "https://api.copost.com";
-
 function json(b: unknown, s = 200) {
   return new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
@@ -24,6 +22,13 @@ interface SlideRow {
   image_path: string | null;
   image_url: string | null;
   copy?: { heading?: string; body?: string };
+}
+
+function buildPostText(caption: string | null, hashtags: string[] | null): string {
+  const parts: string[] = [];
+  if (caption?.trim()) parts.push(caption.trim());
+  if (hashtags?.length) parts.push(hashtags.map((h) => `#${h.replace(/^#/, "")}`).join(" "));
+  return parts.join("\n\n");
 }
 
 Deno.serve(async (req) => {
@@ -49,18 +54,23 @@ Deno.serve(async (req) => {
   const { data: batch } = await admin.from("social_post_batches").select("*").eq("id", batchId).single();
   if (!batch) return json({ error: "batch not found" }, 404);
 
-  // Load CoPost API key from project_secrets
-  const { data: apiKey } = await admin.rpc("get_project_secret", {
+  // Load CoPost endpoint URL from project_secrets
+  const { data: endpointUrl } = await admin.rpc("get_project_secret", {
     _client_project_id: batch.client_project_id,
-    _key: "copost_api_key",
+    _key: "copost_endpoint_url",
     _enc_key: ENC_KEY,
   });
-  const { data: workspaceId } = await admin.rpc("get_project_secret", {
-    _client_project_id: batch.client_project_id,
-    _key: "copost_workspace_id",
-    _enc_key: ENC_KEY,
-  });
-  if (!apiKey) return json({ error: "CoPost API key not configured for this project" }, 400);
+  if (!endpointUrl) return json({ error: "CoPost endpoint URL not configured for this project" }, 400);
+
+  // Validate the endpoint shape
+  try {
+    const u = new URL(String(endpointUrl));
+    if (u.protocol !== "https:" || !u.host.endsWith("copost.io")) {
+      return json({ error: "Stored CoPost URL is invalid" }, 400);
+    }
+  } catch {
+    return json({ error: "Stored CoPost URL is malformed" }, 400);
+  }
 
   // Load approved posts
   const { data: posts } = await admin
@@ -73,50 +83,53 @@ Deno.serve(async (req) => {
 
   await admin.from("social_post_batches").update({ status: "publishing" }).eq("id", batchId);
 
-  const results: Array<{ post_id: string; ok: boolean; error?: string; copost_post_id?: string }> = [];
+  const results: Array<{ post_id: string; ok: boolean; error?: string }> = [];
 
   for (const post of posts) {
     try {
       const slides = (post.slides ?? []) as SlideRow[];
-      // Build fresh signed URLs (24h) for CoPost to fetch
-      const mediaUrls: string[] = [];
-      for (const s of slides) {
-        if (s.image_path) {
-          const { data: signed } = await admin.storage.from("social-posts").createSignedUrl(s.image_path, 60 * 60 * 24);
-          if (signed?.signedUrl) mediaUrls.push(signed.signedUrl);
-        }
-      }
-      if (!mediaUrls.length) throw new Error("post has no rendered images");
 
-      // TODO: replace endpoint + payload shape with real CoPost spec.
-      const res = await fetch(`${COPOST_BASE}/v1/posts`, {
+      // Build fresh long-lived signed URLs (30d) so CoPost can fetch the images.
+      // CoPost requires the URL to end with a valid extension — Supabase signed URLs
+      // include ?token=… so we ensure the path itself ends in .png.
+      const images: string[] = [];
+      for (const s of slides) {
+        if (!s.image_path) continue;
+        const { data: signed, error: sErr } = await admin.storage
+          .from("social-posts")
+          .createSignedUrl(s.image_path, 60 * 60 * 24 * 30);
+        if (sErr || !signed?.signedUrl) throw new Error(`signed url failed: ${sErr?.message ?? "unknown"}`);
+        // CoPost validates that URLs end with a valid image extension.
+        // Supabase signed URLs end in ?token=…, so append a #.png fragment —
+        // fragments are stripped before the HTTP request so the download still works.
+        images.push(`${signed.signedUrl}#.png`);
+      }
+      if (!images.length) throw new Error("post has no rendered images");
+      if (images.length > 10) images.length = 10; // CoPost max
+
+      const payload: Record<string, unknown> = {
+        postText: buildPostText(post.caption, post.hashtags),
+        images,
+      };
+      if (post.hashtags?.length) {
+        payload.tags = post.hashtags.slice(0, 10).map((h: string) => h.replace(/^#/, ""));
+      }
+
+      const res = await fetch(String(endpointUrl), {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          workspace_id: workspaceId ?? undefined,
-          type: post.format === "carousel" ? "carousel" : "image",
-          caption: post.caption,
-          hashtags: post.hashtags,
-          media_urls: mediaUrls,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
       const respText = await res.text();
-      if (!res.ok) throw new Error(`CoPost ${res.status}: ${respText.slice(0, 300)}`);
-      let respJson: { id?: string } = {};
-      try { respJson = JSON.parse(respText); } catch { /* ignore */ }
-      const copostId = respJson.id ?? null;
+      if (!res.ok) throw new Error(`CoPost ${res.status}: ${respText.slice(0, 400)}`);
 
       await admin.from("social_posts").update({
         status: "published",
-        copost_post_id: copostId,
         published_at: new Date().toISOString(),
         error: null,
       }).eq("id", post.id);
 
-      results.push({ post_id: post.id, ok: true, copost_post_id: copostId ?? undefined });
+      results.push({ post_id: post.id, ok: true });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await admin.from("social_posts").update({ status: "error", error: msg }).eq("id", post.id);

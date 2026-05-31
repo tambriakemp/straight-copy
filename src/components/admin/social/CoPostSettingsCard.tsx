@@ -8,10 +8,8 @@ import { toast } from "sonner";
 interface Row { key: string; hint: string | null; updated_at: string }
 
 const FIELDS = [
-  { key: "copost_api_key", label: "CoPost API Key", placeholder: "cp_live_…", isSecret: true,
-    description: "Used to publish approved posts to the client's CoPost workspace." },
-  { key: "copost_workspace_id", label: "CoPost Workspace ID (optional)", placeholder: "ws_…", isSecret: false,
-    description: "Only required if the CoPost API needs to disambiguate the target workspace." },
+  { key: "copost_endpoint_url", label: "CoPost Trigger URL", placeholder: "https://api.copost.io/triggers/…", isSecret: false,
+    description: "The per-project CoPost trigger URL. Approved posts are POSTed here. Found in the client's CoPost workspace under Triggers." },
 ] as const;
 
 export default function CoPostSettingsCard({ clientProjectId }: { clientProjectId: string }) {
