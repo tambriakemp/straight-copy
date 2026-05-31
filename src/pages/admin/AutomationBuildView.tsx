@@ -5,6 +5,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import AdminContractSection from "@/components/admin/AdminContractSection";
 
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
+import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
 import AutomationSubscriptionPanel from "@/components/admin/AutomationSubscriptionPanel";
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
