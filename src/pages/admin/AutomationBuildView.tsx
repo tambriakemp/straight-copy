@@ -345,15 +345,16 @@ export default function AutomationBuildView() {
           
         </div>
 
-        <ProjectTabs defaultValue="journey" className="mt-8">
+        <ProjectTabs defaultValue={projectId ? "tasks" : "journey"} className="mt-8">
           <ProjectTabsList>
+            {projectId && <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>}
             <ProjectTabsTrigger value="journey">Journey</ProjectTabsTrigger>
             <ProjectTabsTrigger value="subscription">Subscription</ProjectTabsTrigger>
             <ProjectTabsTrigger value="contract">Contract</ProjectTabsTrigger>
-            {projectId && <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>}
             {projectId && <ProjectTabsTrigger value="social">Social</ProjectTabsTrigger>}
             <ProjectTabsTrigger value="settings">Settings</ProjectTabsTrigger>
           </ProjectTabsList>
+
 
           <ProjectTabsContent value="journey">
             <div
