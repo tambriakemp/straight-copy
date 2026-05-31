@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import NewBatchDialog from "./NewBatchDialog";
 import BatchList from "./BatchList";
 import BatchDetail from "./BatchDetail";
+import DesignTemplatesPanel from "./DesignTemplatesPanel";
 
 export interface SocialBatch {
   id: string;
