@@ -41,11 +41,8 @@ const WikiUsers = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => (
 const WikiExport = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => ({ default: module.WikiExport })));
 
 function RouteFallback() {
-  return (
-    <div className="min-h-screen grid place-items-center bg-background text-foreground">
-      <p className="text-sm text-muted-foreground">Loading…</p>
-    </div>
-  );
+  // Render nothing to avoid a white flash between lazy route transitions.
+  return null;
 }
 
 const App = () => (
