@@ -17,8 +17,7 @@ const ENC_KEY = Deno.env.get("PROJECT_SECRETS_KEY") ?? "";
 const ALLOWED_KEYS = new Set([
   "surecontact_api_key",
   "surecontact_mcp_url",
-  "copost_api_key",
-  "copost_workspace_id",
+  "copost_endpoint_url",
 ]);
 
 function json(body: unknown, status = 200) {
@@ -66,6 +65,15 @@ Deno.serve(async (req) => {
         return json({ error: "MCP URL must be an https://*.surecontact.com URL" }, 400);
       }
     } catch { return json({ error: "MCP URL is not a valid URL" }, 400); }
+  }
+
+  if (key === "copost_endpoint_url") {
+    try {
+      const u = new URL(value);
+      if (u.protocol !== "https:" || !u.host.endsWith("copost.io")) {
+        return json({ error: "CoPost URL must be an https://*.copost.io URL" }, 400);
+      }
+    } catch { return json({ error: "CoPost URL is not a valid URL" }, 400); }
   }
 
   const { data, error } = await admin.rpc("set_project_secret", {
