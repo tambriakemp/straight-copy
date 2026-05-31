@@ -1491,6 +1491,47 @@ export type Database = {
         }
         Relationships: []
       }
+      project_secrets: {
+        Row: {
+          client_project_id: string
+          created_at: string
+          created_by: string | null
+          encrypted_value: string
+          hint: string | null
+          id: string
+          key: string
+          updated_at: string
+        }
+        Insert: {
+          client_project_id: string
+          created_at?: string
+          created_by?: string | null
+          encrypted_value: string
+          hint?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+        }
+        Update: {
+          client_project_id?: string
+          created_at?: string
+          created_by?: string | null
+          encrypted_value?: string
+          hint?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_secrets_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_task_activity: {
         Row: {
           created_at: string
@@ -1995,6 +2036,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      automation_01_criteria_for: { Args: { _key: string }; Returns: Json }
       brain_setup_criteria_for: { Args: { _key: string }; Returns: Json }
       delete_email: {
         Args: { message_id: number; queue_name: string }
@@ -2003,6 +2045,10 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      ensure_automation_01_tasks_for_project: {
+        Args: { _client_project_id: string }
+        Returns: undefined
       }
       ensure_brain_setup_tasks_for_project: {
         Args: { _client_project_id: string }
@@ -2020,6 +2066,10 @@ export type Database = {
         Args: { _client_project_id: string }
         Returns: undefined
       }
+      fire_automation_01_build: {
+        Args: { _client_project_id: string }
+        Returns: undefined
+      }
       fire_brain_artifacts_generation: {
         Args: { _client_project_id: string }
         Returns: undefined
@@ -2030,6 +2080,10 @@ export type Database = {
         Returns: undefined
       }
       get_portal_client: { Args: { _client_id: string }; Returns: Json }
+      get_project_secret: {
+        Args: { _client_project_id: string; _enc_key: string; _key: string }
+        Returns: string
+      }
       has_wiki_access: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_wiki_founder: { Args: { _user_id: string }; Returns: boolean }
@@ -2060,6 +2114,17 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      set_project_secret: {
+        Args: {
+          _client_project_id: string
+          _created_by?: string
+          _enc_key?: string
+          _hint?: string
+          _key: string
+          _value: string
+        }
+        Returns: string
       }
       sync_email_tracking_to_task_activity: {
         Args: { _client_id: string }
