@@ -74,16 +74,25 @@ export default function SocialTab({ clientProjectId }: { clientProjectId: string
             Generate batches of on-brand posts and carousels using the client's intake, brand kit, and brand voice.
           </p>
         </div>
-        <Button onClick={() => setNewOpen(true)} className="bg-transparent border border-warm-white/25 text-warm-white hover:bg-warm-white/10">
-          New batch
-        </Button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button onClick={() => setView(view === "batches" ? "templates" : "batches")}
+            className="bg-transparent border border-warm-white/25 text-warm-white hover:bg-warm-white/10">
+            {view === "batches" ? "Manage templates" : "Back to batches"}
+          </Button>
+          {view === "batches" && (
+            <Button onClick={() => setNewOpen(true)}
+              className="bg-transparent border border-warm-white/25 text-warm-white hover:bg-warm-white/10">
+              New batch
+            </Button>
+          )}
+        </div>
       </div>
 
-      <BatchList
-        batches={batches}
-        loading={loading}
-        onOpen={(id) => setActiveBatchId(id)}
-      />
+      {view === "batches" ? (
+        <BatchList batches={batches} loading={loading} onOpen={(id) => setActiveBatchId(id)} />
+      ) : (
+        <DesignTemplatesPanel clientProjectId={clientProjectId} />
+      )}
 
       <NewBatchDialog
         open={newOpen}
