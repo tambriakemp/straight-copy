@@ -4,8 +4,8 @@ import {
   COPY_SYSTEM, COPY_TOOL, DESIGN_SYSTEM, DESIGN_TOOL,
   buildCopyUserPrompt, buildDesignUserPrompt,
   type BrandContext, type PostCopy, type PostDesign,
-} from "./prompts.ts";
-import { buildSlideHtml, renderSlideToPng } from "./render.ts";
+} from "../_shared/social/prompts.ts";
+import { buildSlideHtml, renderSlideToPng } from "../_shared/social/render.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
