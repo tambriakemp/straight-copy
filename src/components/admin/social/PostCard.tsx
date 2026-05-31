@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, ChevronLeft as Back } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Json } from "@/integrations/supabase/types";
 
 export interface SlideData {
@@ -149,5 +149,3 @@ function navBtn(left: boolean): React.CSSProperties {
   };
 }
 
-// Re-export the icon name used above so Back is referenced
-export { Back };
