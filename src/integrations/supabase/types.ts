@@ -1762,6 +1762,125 @@ export type Database = {
           },
         ]
       }
+      social_post_batches: {
+        Row: {
+          brief: string | null
+          carousel_count: number
+          client_project_id: string
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          platform: string | null
+          single_count: number
+          slides_per_carousel: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brief?: string | null
+          carousel_count?: number
+          client_project_id: string
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          platform?: string | null
+          single_count?: number
+          slides_per_carousel?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brief?: string | null
+          carousel_count?: number
+          client_project_id?: string
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          platform?: string | null
+          single_count?: number
+          slides_per_carousel?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_post_batches_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_posts: {
+        Row: {
+          batch_id: string
+          caption: string | null
+          client_project_id: string
+          copost_post_id: string | null
+          created_at: string
+          error: string | null
+          format: string
+          hashtags: string[]
+          id: string
+          order_index: number
+          published_at: string | null
+          slides: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          batch_id: string
+          caption?: string | null
+          client_project_id: string
+          copost_post_id?: string | null
+          created_at?: string
+          error?: string | null
+          format?: string
+          hashtags?: string[]
+          id?: string
+          order_index?: number
+          published_at?: string | null
+          slides?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string
+          caption?: string | null
+          client_project_id?: string
+          copost_post_id?: string | null
+          created_at?: string
+          error?: string | null
+          format?: string
+          hashtags?: string[]
+          id?: string
+          order_index?: number
+          published_at?: string | null
+          slides?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_posts_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "social_post_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_posts_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
