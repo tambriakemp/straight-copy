@@ -7,6 +7,8 @@ import AdminContractSection from "@/components/admin/AdminContractSection";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
 import AutomationSubscriptionPanel from "@/components/admin/AutomationSubscriptionPanel";
+import SocialTab from "@/components/admin/social/SocialTab";
+import CoPostSettingsCard from "@/components/admin/social/CoPostSettingsCard";
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
 } from "@/components/ProjectTabs";
@@ -349,6 +351,7 @@ export default function AutomationBuildView() {
             <ProjectTabsTrigger value="subscription">Subscription</ProjectTabsTrigger>
             <ProjectTabsTrigger value="contract">Contract</ProjectTabsTrigger>
             {projectId && <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>}
+            {projectId && <ProjectTabsTrigger value="social">Social</ProjectTabsTrigger>}
             <ProjectTabsTrigger value="settings">Settings</ProjectTabsTrigger>
           </ProjectTabsList>
 
@@ -437,7 +440,10 @@ export default function AutomationBuildView() {
 
           <ProjectTabsContent value="settings">
             {projectId ? (
-              <ProjectSecretsPanel clientProjectId={projectId} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                <ProjectSecretsPanel clientProjectId={projectId} />
+                <CoPostSettingsCard clientProjectId={projectId} />
+              </div>
             ) : (
               <div style={{ fontSize: 15, color: "hsl(30 8% 60%)", padding: 16 }}>
                 Project not loaded.
@@ -449,6 +455,12 @@ export default function AutomationBuildView() {
           {projectId && (
             <ProjectTabsContent value="tasks">
               <ProjectTasksPanel clientProjectId={projectId} />
+            </ProjectTabsContent>
+          )}
+
+          {projectId && (
+            <ProjectTabsContent value="social">
+              <SocialTab clientProjectId={projectId} />
             </ProjectTabsContent>
           )}
         </ProjectTabs>
