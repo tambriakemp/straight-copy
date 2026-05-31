@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
+import ProjectPreviewCard from "@/components/admin/ProjectPreviewCard";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
@@ -12,6 +13,7 @@ import SocialTab from "@/components/admin/social/SocialTab";
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
 } from "@/components/ProjectTabs";
+
 
 
 const TYPE_LABEL: Record<string, string> = {
