@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.add-project-secret]
 verify_jwt = false
+
+[functions.build-automation-01]
+verify_jwt = false
