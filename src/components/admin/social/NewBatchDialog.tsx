@@ -113,6 +113,26 @@ export default function NewBatchDialog({
             </div>
           </div>
           <div>
+            <Label>Design template</Label>
+            <Select value={templateId} onValueChange={setTemplateId}>
+              <SelectTrigger className="bg-transparent border-warm-white/20 text-warm-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-ink border-warm-white/15 text-warm-white">
+                <SelectItem value="auto">Auto-pick from active templates</SelectItem>
+                <SelectItem value="ai">AI-designed (no template)</SelectItem>
+                {templates.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {templates.length === 0 && (
+              <p style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 4 }}>
+                No templates uploaded yet — falls back to AI-designed slides.
+              </p>
+            )}
+          </div>
+          <div>
             <Label>Campaign brief (optional)</Label>
             <Textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={3}
               placeholder="e.g. spring promo, focus on transformation stories"
