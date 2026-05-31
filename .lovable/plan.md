@@ -1,10 +1,18 @@
-# Stage 5 — Automation 01 build plan (v2)
+# Stage 5 — Automation 01 build plan (v3)
 
 Replace `automation_01` with the new landing-page + lead-magnet + 5-email nurture system,
-built into the client's SureContact account via a per-client API key. Hybrid execution model:
-**API for everything we can automate, agency-manual for the landing page** (SureContact's
-public API does not currently expose landing-page or form-builder endpoints; revisit when
-they ship an API or a SureContact MCP connector).
+built into the client's SureContact account. Per-client credentials consist of **two values**
+stored together in `project_secrets`:
+
+- `surecontact_api_key` — used for REST (`api.surecontact.com`) **and** MCP auth (same `X-API-Key`)
+- `surecontact_mcp_url` — the client's unique `https://mcp.surecontact.com/start/<slug>` URL
+
+Execution model: REST API for lists/tags/automations/campaigns; **SureContact MCP for the
+landing-page build** (Streamable HTTP — `Content-Type: application/json`,
+`Accept: application/json, text/event-stream`, `X-API-Key: <key>`). On startup the
+orchestrator calls `tools/list` against the MCP; if a landing-page create tool exists, it
+runs step 7 automatically. If not, step 7 falls back to agency-manual using the copy +
+brand snippet generated in step 6.
 
 ## New checklist (both `launch` and `growth`, stable keys under `automation_01.*`)
 
