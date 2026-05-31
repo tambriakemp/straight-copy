@@ -39,8 +39,8 @@ Deno.serve(async (req) => {
   const { data: post } = await admin.from("social_posts").select("*").eq("id", postId).single();
   if (!post) return json({ error: "post not found" }, 404);
 
-  const mod = await import("../generate-social-posts/prompts.ts");
-  const render = await import("../generate-social-posts/render.ts");
+  const mod = await import("../_shared/social/prompts.ts");
+  const render = await import("../_shared/social/render.ts");
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
   async function callAI<T>(model: string, system: string, user: string, tool: typeof mod.COPY_TOOL): Promise<T> {
