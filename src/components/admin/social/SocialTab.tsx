@@ -25,6 +25,7 @@ export default function SocialTab({ clientProjectId }: { clientProjectId: string
   const [loading, setLoading] = useState(true);
   const [newOpen, setNewOpen] = useState(false);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
+  const [view, setView] = useState<"batches" | "templates">("batches");
 
   const load = async () => {
     const { data, error } = await supabase
