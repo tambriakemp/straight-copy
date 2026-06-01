@@ -208,7 +208,7 @@ export default function ClientDetail() {
           <div className="roster__title-block">
             <div className="roster__eyebrow">Client</div>
             <h1 className="roster__title" style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
-              {client.business_name || <em>Unnamed</em>}
+              {client.contact_name || <em>Unnamed</em>}
               <button
                 className="crm-btn crm-btn--ghost crm-btn--sm"
                 onClick={openEditDialog}
@@ -220,7 +220,7 @@ export default function ClientDetail() {
             </h1>
             <hr className="roster__rule" />
             <p className="roster__sub">
-              {client.contact_name ? `${client.contact_name} · ` : ""}{client.contact_email || "no email"}{client.contact_phone ? ` · ${client.contact_phone}` : ""}
+              {client.contact_email || "no email"}{client.contact_phone ? ` · ${client.contact_phone}` : ""}
             </p>
           </div>
           <ClientPortalActions clientId={client.id} />
