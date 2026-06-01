@@ -782,6 +782,23 @@ Deno.serve(async (req) => {
         console.warn("[contract-sign] web-dev auto-fire failed:", e);
       }
 
+      // Auto-complete the "Contract sent" (1.2) and "Contract countersigned" (1.3)
+      // backlog tasks on the web_dev project, since both happen automatically
+      // the moment the client signs in the portal.
+      if (linkedProjectId) {
+        try {
+          await supabase
+            .from("project_tasks")
+            .update({ status: "complete", completed_at: now.toISOString() })
+            .eq("client_project_id", linkedProjectId)
+            .in("status", ["backlog", "in_progress", "ready_for_claude", "blocked"])
+            .or("name.ilike.1.2 %,name.ilike.1.3 %");
+        } catch (e) {
+          console.warn("[contract-sign] auto-complete tasks failed:", e);
+        }
+      }
+
+
       return new Response(
         JSON.stringify({
           success: true,
