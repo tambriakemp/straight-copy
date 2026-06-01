@@ -25,6 +25,7 @@ type Project = {
   client_id: string;
   type: "automation_build" | "site_preview" | "app_development" | "web_development" | "marketing";
   name: string;
+  business_name: string | null;
   status: string;
   notes: string | null;
   created_at: string;
@@ -56,6 +57,7 @@ export default function ClientDetail() {
   const [openNew, setOpenNew] = useState(false);
   const [type, setType] = useState<Project["type"]>("automation_build");
   const [name, setName] = useState("");
+  const [projectBusinessName, setProjectBusinessName] = useState("");
   const [tier, setTier] = useState<"launch" | "growth">("launch");
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -140,7 +142,7 @@ export default function ClientDetail() {
       if (type === "app_development" || type === "web_development" || type === "marketing") {
         const { data: proj, error } = await supabase
           .from("client_projects")
-          .insert({ client_id: id, type, name: name.trim() })
+          .insert({ client_id: id, type, name: name.trim(), business_name: projectBusinessName.trim() || null })
           .select("*").single();
         if (error) throw error;
         toast.success(`${TYPE_LABEL[type]} project created`);
@@ -152,7 +154,7 @@ export default function ClientDetail() {
         }
         const { data: proj, error } = await supabase
           .from("client_projects")
-          .insert({ client_id: id, type, name: name.trim() })
+          .insert({ client_id: id, type, name: name.trim(), business_name: projectBusinessName.trim() || null })
           .select("*").single();
         if (error) throw error;
 
@@ -181,7 +183,7 @@ export default function ClientDetail() {
       toast.error(e?.message || "Failed");
     } finally {
       setCreating(false);
-      setOpenNew(false); setName("");
+      setOpenNew(false); setName(""); setProjectBusinessName("");
     }
   };
 
@@ -206,7 +208,7 @@ export default function ClientDetail() {
           <div className="roster__title-block">
             <div className="roster__eyebrow">Client</div>
             <h1 className="roster__title" style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
-              {client.business_name || <em>Unnamed</em>}
+              {client.contact_name || <em>Unnamed</em>}
               <button
                 className="crm-btn crm-btn--ghost crm-btn--sm"
                 onClick={openEditDialog}
@@ -218,7 +220,7 @@ export default function ClientDetail() {
             </h1>
             <hr className="roster__rule" />
             <p className="roster__sub">
-              {client.contact_name ? `${client.contact_name} · ` : ""}{client.contact_email || "no email"}{client.contact_phone ? ` · ${client.contact_phone}` : ""}
+              {client.contact_email || "no email"}{client.contact_phone ? ` · ${client.contact_phone}` : ""}
             </p>
           </div>
           <ClientPortalActions clientId={client.id} />
@@ -249,6 +251,10 @@ export default function ClientDetail() {
                 <div>
                   <label className="crm-label">Project name *</label>
                   <input className="crm-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === "app_development" ? "Mobile app v1" : type === "web_development" ? "Website v1" : type === "marketing" ? "Campaign v1" : "Launch build"} />
+                </div>
+                <div>
+                  <label className="crm-label">Business name</label>
+                  <input className="crm-input" value={projectBusinessName} onChange={(e) => setProjectBusinessName(e.target.value)} placeholder="Which business this project is for" />
                 </div>
                 {type === "automation_build" && (
                   <div>
@@ -347,6 +353,11 @@ export default function ClientDetail() {
                     <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 26, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
                       {p.name}
                     </h3>
+                    {p.business_name && (
+                      <div style={{ marginTop: 4, fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                        {p.business_name}
+                      </div>
+                    )}
                   </div>
 
                   {isBuild && (
