@@ -388,21 +388,25 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
       <header style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid var(--crm-border-dark)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 15, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
-              Preview Project
-            </div>
-            <EditableTitle
-              value={project.name}
-              onSave={async (next) => {
-                const { data } = await supabase.functions.invoke("preview-admin", {
-                  body: { action: "update", id: project.id, name: next },
-                });
-                if (data?.project) setProject(data.project);
-                else await load();
-                toast.success("Renamed");
-              }}
-            />
-            <div style={{ marginTop: 10, color: "var(--crm-stone)", fontSize: 17, display: "flex", gap: 16, flexWrap: "wrap" }}>
+            {!embedded && (
+              <>
+                <div style={{ fontSize: 15, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
+                  Preview Project
+                </div>
+                <EditableTitle
+                  value={project.name}
+                  onSave={async (next) => {
+                    const { data } = await supabase.functions.invoke("preview-admin", {
+                      body: { action: "update", id: project.id, name: next },
+                    });
+                    if (data?.project) setProject(data.project);
+                    else await load();
+                    toast.success("Renamed");
+                  }}
+                />
+              </>
+            )}
+            <div style={{ marginTop: embedded ? 0 : 10, color: "var(--crm-stone)", fontSize: 17, display: "flex", gap: 16, flexWrap: "wrap" }}>
               {project.client_label && <span>{project.client_label}</span>}
               <span>{pages.length} {pages.length === 1 ? "page" : "pages"}</span>
               <span>{assets.length} assets</span>
@@ -412,6 +416,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
               {project.archived && <span style={{ color: "hsl(0 60% 60%)" }}>· Archived</span>}
             </div>
           </div>
+
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <button
               className="crm-btn crm-btn--ghost crm-btn--sm"
