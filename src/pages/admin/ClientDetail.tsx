@@ -184,13 +184,12 @@ export default function ClientDetail() {
     setSavingEdit(true);
     try {
       // 1) Update business_name + legacy mirror to primary
-      const updateClient: Record<string, any> = {
+      const { error: clientErr } = await supabase.from("clients").update({
         business_name: editForm.business_name.trim() || null,
         contact_name: primary?.name || null,
         contact_email: primary?.email || null,
         contact_phone: primary?.phone || null,
-      };
-      const { error: clientErr } = await supabase.from("clients").update(updateClient).eq("id", id);
+      }).eq("id", id);
       if (clientErr) throw clientErr;
 
       // 2) Sync client_contacts: delete missing, upsert remaining
@@ -602,7 +601,7 @@ export default function ClientDetail() {
         onOpenChange={(v) => { if (!v) setResourceProject(null); }}
       />
       <Dialog open={openEdit} onOpenChange={setOpenEdit}>
-        <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md">
+        <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Edit client</DialogTitle>
           </DialogHeader>
@@ -611,17 +610,94 @@ export default function ClientDetail() {
               <label className="crm-label">Business name</label>
               <input className="crm-input" value={editForm.business_name} onChange={(e) => setEditForm({ ...editForm, business_name: e.target.value })} />
             </div>
-            <div>
-              <label className="crm-label">Contact name</label>
-              <input className="crm-input" value={editForm.contact_name} onChange={(e) => setEditForm({ ...editForm, contact_name: e.target.value })} />
-            </div>
-            <div>
-              <label className="crm-label">Contact email</label>
-              <input className="crm-input" type="email" value={editForm.contact_email} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })} />
-            </div>
-            <div>
-              <label className="crm-label">Contact phone</label>
-              <input className="crm-input" value={editForm.contact_phone} onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })} />
+
+            <div style={{ marginTop: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <label className="crm-label" style={{ margin: 0 }}>Contacts</label>
+                <button type="button" className="crm-btn crm-btn--ghost crm-btn--sm" onClick={addContactRow}>
+                  <Plus size={12} /> Add contact
+                </button>
+              </div>
+              <p style={{ fontSize: 12, color: "var(--crm-taupe)", margin: "0 0 12px" }}>
+                The primary contact is mirrored to the client's main email and used as the default recipient for client emails.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {editContacts.length === 0 && (
+                  <div style={{ fontSize: 13, color: "var(--crm-taupe)", fontStyle: "italic", padding: "8px 0" }}>
+                    No contacts yet. Click "Add contact" above.
+                  </div>
+                )}
+                {editContacts.map((c) => (
+                  <div
+                    key={c._localKey}
+                    style={{
+                      border: c.is_primary ? "1px solid hsl(40 30% 60% / 0.5)" : "1px solid var(--crm-border-dark)",
+                      borderRadius: 4,
+                      padding: 12,
+                      background: c.is_primary ? "hsl(40 20% 97% / 0.03)" : "transparent",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
+                      <button
+                        type="button"
+                        className="crm-btn crm-btn--ghost crm-btn--sm"
+                        onClick={() => setPrimaryContact(c._localKey)}
+                        disabled={c.is_primary}
+                        title={c.is_primary ? "Primary contact" : "Make primary"}
+                        style={{ fontSize: 11 }}
+                      >
+                        <Star size={11} style={{ fill: c.is_primary ? "currentColor" : "none" }} />
+                        {c.is_primary ? "Primary" : "Make primary"}
+                      </button>
+                      <button
+                        type="button"
+                        className="crm-btn crm-btn--ghost crm-btn--sm"
+                        onClick={() => removeContactRow(c._localKey)}
+                        title="Remove"
+                        style={{ padding: 6 }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div>
+                        <label className="crm-label" style={{ fontSize: 10 }}>Name</label>
+                        <input
+                          className="crm-input"
+                          value={c.name}
+                          onChange={(e) => updateContactRow(c._localKey, { name: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="crm-label" style={{ fontSize: 10 }}>Role</label>
+                        <input
+                          className="crm-input"
+                          value={c.role}
+                          placeholder="Owner, Marketing, etc."
+                          onChange={(e) => updateContactRow(c._localKey, { role: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="crm-label" style={{ fontSize: 10 }}>Email</label>
+                        <input
+                          className="crm-input"
+                          type="email"
+                          value={c.email}
+                          onChange={(e) => updateContactRow(c._localKey, { email: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="crm-label" style={{ fontSize: 10 }}>Phone</label>
+                        <input
+                          className="crm-input"
+                          value={c.phone}
+                          onChange={(e) => updateContactRow(c._localKey, { phone: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
