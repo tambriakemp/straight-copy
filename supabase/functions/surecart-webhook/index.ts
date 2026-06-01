@@ -16,6 +16,8 @@ const PRODUCT_TIER_MAP: Record<string, 'launch' | 'growth'> = {
   'b23d2c69-5584-434f-8589-cc27acaa6cba': 'growth',
 }
 
+const WEB_DEV_PRODUCT_ID = '5b5d573d-f503-4966-bdd8-9b054eca6856'
+
 const SITE_URL = 'https://cre8visions.com'
 
 function randomToken(len = 20) {
@@ -284,6 +286,133 @@ Deno.serve(async (req) => {
     firstItem?.product ||
     ''
   const tier: 'launch' | 'growth' = PRODUCT_TIER_MAP[productId] || 'launch'
+
+  // --- Web Development product: create/attach a web_development project, no invite/email ---
+  if (productId === WEB_DEV_PRODUCT_ID) {
+    if (!email) {
+      console.error('Web Dev order missing email', { orderId })
+      return new Response(JSON.stringify({ error: 'no_email' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
+    // Idempotency: project already created for this order?
+    if (orderId) {
+      const { data: existingProj } = await supabase
+        .from('client_projects')
+        .select('id, client_id')
+        .eq('source_order_id', orderId)
+        .maybeSingle()
+      if (existingProj) {
+        return new Response(JSON.stringify({
+          ok: true, web_dev: true, reused_project: true,
+          client_id: existingProj.client_id, project_id: existingProj.id,
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+    }
+
+    // Find client by clients.contact_email
+    let clientId: string | null = null
+    let reusedClient = false
+    const { data: directClient } = await supabase
+      .from('clients')
+      .select('id, archived')
+      .ilike('contact_email', email)
+      .order('archived', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (directClient) {
+      clientId = directClient.id
+      reusedClient = true
+    } else {
+      // Try client_contacts.email
+      const { data: contactRow } = await supabase
+        .from('client_contacts')
+        .select('client_id')
+        .ilike('email', email)
+        .limit(1)
+        .maybeSingle()
+      if (contactRow?.client_id) {
+        clientId = contactRow.client_id
+        reusedClient = true
+      }
+    }
+
+    // Create client if no match
+    if (!clientId) {
+      const companyName: string =
+        customer?.company || data?.company || data?.checkout?.company || ''
+      const phone: string =
+        customer?.phone || data?.phone || data?.checkout?.phone || ''
+      const { data: newClient, error: newClientErr } = await supabase
+        .from('clients')
+        .insert({
+          business_name: companyName || null,
+          contact_name: fullName || null,
+          contact_email: email,
+          contact_phone: phone || null,
+          tier: 'launch',
+          pipeline_stage: 'intake_submitted',
+          surecart_order_id: orderId || null,
+          surecart_customer_id: customerId || null,
+        })
+        .select('id')
+        .single()
+      if (newClientErr || !newClient) {
+        console.error('Web Dev: failed to create client', newClientErr)
+        return new Response(JSON.stringify({ error: 'client_insert_failed' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      clientId = newClient.id
+    }
+
+    // Determine project name
+    const displayName = fullName || (directClient ? '' : '') || 'Client'
+    // Pull business_name for naming if we reused a client
+    let nameLabel = fullName
+    if (reusedClient) {
+      const { data: c } = await supabase
+        .from('clients')
+        .select('contact_name, business_name')
+        .eq('id', clientId)
+        .maybeSingle()
+      nameLabel = c?.contact_name || c?.business_name || fullName || 'Client'
+    }
+    const projectName = `Web Development - ${nameLabel || displayName}`
+
+    const { data: newProject, error: projErr } = await supabase
+      .from('client_projects')
+      .insert({
+        client_id: clientId,
+        type: 'web_development',
+        name: projectName,
+        status: 'active',
+        notes: `Auto-created from SureCart order #${orderNumber}`,
+        source_order_id: orderId || null,
+      })
+      .select('id')
+      .single()
+    if (projErr || !newProject) {
+      console.error('Web Dev: failed to create project', projErr)
+      return new Response(JSON.stringify({ error: 'project_insert_failed' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    return new Response(JSON.stringify({
+      ok: true, web_dev: true,
+      client_id: clientId, project_id: newProject.id, reused_client: reusedClient,
+    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
 
   if (!email) {
     console.error('No email on SureCart payload', { orderId })

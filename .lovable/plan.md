@@ -1,55 +1,46 @@
-## 1. Copy change
+## Goal
+When a SureCart order completes for the **Web Development** product (`5b5d573d-f503-4966-bdd8-9b054eca6856`), auto-create a `web_development` project under the matching client — reusing the client if their email is found, creating a new one if not. No onboarding invite email is sent.
 
-In `src/components/ServicesSection.tsx`, rename the first automation:
-- `num: "Automation 01"` → `num: "Automation 01: Lead Gen"`
+## Webhook changes (`supabase/functions/surecart-webhook/index.ts`)
 
-## 2. SureContact landing-page API — what's live
+1. Add a constant for the Web Dev product ID and detect it from the first line item's product:
+   ```ts
+   const WEB_DEV_PRODUCT_ID = '5b5d573d-f503-4966-bdd8-9b054eca6856'
+   ```
+2. On `order.paid` / `checkout.completed` / `invoice.paid`, **before** the existing onboarding-invite branch, check if `productId === WEB_DEV_PRODUCT_ID`. If yes, run the new Web Dev flow and `return` — do not fall through to invite creation or email send.
 
-Probed the live API and pulled the official docs. Landing Page endpoints under `/api/v1/public/pages`:
+## Web Dev flow
 
-| Method | Path | What it does |
-|---|---|---|
-| GET | `/api/v1/public/pages` | List pages |
-| GET | `/api/v1/public/pages/{uuid}` | Get a page incl. full `design_json` |
-| POST | `/api/v1/public/pages` | **Create as draft.** Accepts `design_json`. |
-| PUT | `/api/v1/public/pages/{uuid}` | Update content, SEO, OG, tracking, thumbnail |
-| DELETE | `/api/v1/public/pages/{uuid}` | Soft-delete |
+1. **Idempotency**: look up `client_projects` where `notes` contains the SureCart order id (or add a small `source_order_id` text column — see "DB" below). If a project already exists for this order, return early.
+2. **Find existing client** by email (case-insensitive). Match against either:
+   - `clients.contact_email`, OR
+   - `client_contacts.email` (then resolve the parent `client_id`).
+   
+   Use two `.select()` queries with `.ilike('contact_email', email)` and `.ilike('email', email)`. First hit wins; prefer non-archived.
+3. **Create client if missing** with: `business_name` (from `customer.company` if SureCart provides it, else null), `contact_name` (full name), `contact_email`, `contact_phone`, `tier: 'launch'` (default — Web Dev is one-time, not a tier), `surecart_order_id`, `surecart_customer_id`, `pipeline_stage: 'intake_submitted'`. Do **not** set `surecart_subscription_id` (one-time purchase).
+4. **Create the project**:
+   - `client_id`: matched or new
+   - `type: 'web_development'`
+   - `name`: `"Web Development - " + (client.contact_name || client.business_name || 'Client')`
+   - `status: 'active'`
+   - `notes`: `"Auto-created from SureCart order #${orderNumber}"`
+5. **Skip** the onboarding invite insert and the `send-transactional-email` invoke entirely for this product.
+6. Return `{ ok: true, web_dev: true, client_id, project_id, reused_client: boolean }`.
 
-Not exposed: no publish endpoint, no slug/custom-domain setter, no public `page-templates` list. Publishing + slug + custom domain still happen in the SureContact UI.
+## DB migration (small, one column)
 
-## 3. Approach — full design_json generation
+Add `source_order_id text` to `client_projects` with a partial unique index so re-deliveries of the same SureCart webhook don't create duplicate projects:
+```sql
+ALTER TABLE public.client_projects ADD COLUMN source_order_id text;
+CREATE UNIQUE INDEX client_projects_source_order_id_uidx
+  ON public.client_projects(source_order_id) WHERE source_order_id IS NOT NULL;
+```
+No new RLS or GRANTs needed (table already has them). The idempotency check in the webhook becomes a simple `.eq('source_order_id', orderId).maybeSingle()`.
 
-Skipping template setup. The agency-side flow becomes:
+## Out of scope
+- No UI changes — the new project appears automatically on the client's existing project list / Dashboard.
+- No subscription-status syncing (Web Dev is one-time).
+- Existing Launch/Growth tier flow is untouched.
 
-1. **Reverse-engineer the `design_json` schema** by creating one reference landing page in the SureContact UI, then `GET /api/v1/public/pages/{uuid}` and capturing the full structure. Document the block types we care about (hero, headline, subhead, bullets, form, CTA, footer, image).
-2. **Generate `design_json` server-side** in a new edge function using Lovable AI (default `google/gemini-3-flash-preview`, tool-calling for structured output) given the BrandCtx + lead-magnet output.
-3. **POST `/pages`** with the generated `design_json`, then **PUT** SEO/OG/tracking. Store returned `page_uuid` + draft URL on the project. Surface a "Create landing page" button on the project view that runs the function and shows the draft link.
-
-Risk: the `design_json` schema is unpublished. If a future SureContact update changes the shape, the generator needs to be re-fitted against a fresh reference page. Mitigation: keep the reference-page capture step rerunnable.
-
-## 4. Data the generator needs (all already on file)
-
-Pulled from `BrandCtx` in `supabase/functions/build-automation-01/prompts.ts` + the lead-magnet copy step:
-
-- Business name, one-liner, audience
-- Primary + accent hex colors
-- Heading + body font names
-- Logo URL
-- Brand voice doc + quick reference
-- Lead magnet title, headline, subhead, 3 benefit bullets, form label, CTA button text, trust line, footer line
-- Lead-magnet PDF download URL
-- Optional hero/thumbnail image URL
-
-No client form. The agency owns page name, SEO title/description, OG image, canonical, no_index, GTM ID, Pixel ID, and slug/publish in the UI — captured as a single task below.
-
-## 5. Tasks
-
-Two new tasks under the Lead Gen epic (or roll #2 into the existing build-automation-01 task if you'd rather):
-
-- **Task: Capture SureContact landing-page `design_json` reference.** Build one on-brand landing page in the SureContact UI, GET it via the API, save the JSON to `supabase/functions/_shared/surecontact-page-schema.json`, and document the block types in a short README.
-- **Task: Agency landing-page finalization checklist.** For each generated draft, agency fills in: page name, SEO title (≤70), SEO description (≤170), OG image URL, OG title/description, canonical URL, `no_index`, GTM container ID, Meta Pixel ID, thumbnail URL, slug, custom domain (if any), then hits Publish in SureContact.
-
-## Technical notes
-- Use existing `SURECONTACT_API_KEY` and the `X-API-Key` header pattern from `send-preview-review-email`.
-- New edge function `create-lead-magnet-landing-page` (verify_jwt = false to match siblings; auth via project secret check).
-- Add `surecontact_page_uuid` + `surecontact_page_draft_url` columns to the project table when the function ships (separate migration, not part of the rename PR).
+## Verification
+- Trigger a SureCart test webhook with the Web Dev product → confirm one project row appears under the correct client (new or existing); re-fire same event → no duplicate; no email sent; existing Launch purchase flow still creates an invite as before.
