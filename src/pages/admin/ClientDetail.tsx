@@ -476,6 +476,33 @@ export default function ClientDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={!!editProject} onOpenChange={(v) => { if (!v) setEditProject(null); }}>
+        <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Edit project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <label className="crm-label">Project name</label>
+              <input className="crm-input" value={projectEditForm.name} onChange={(e) => setProjectEditForm({ ...projectEditForm, name: e.target.value })} />
+            </div>
+            <div>
+              <label className="crm-label">Business name</label>
+              <input className="crm-input" value={projectEditForm.business_name} onChange={(e) => setProjectEditForm({ ...projectEditForm, business_name: e.target.value })} placeholder="Which business this project is for" />
+            </div>
+            <div>
+              <label className="crm-label">Notes</label>
+              <textarea className="crm-input" rows={3} value={projectEditForm.notes} onChange={(e) => setProjectEditForm({ ...projectEditForm, notes: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <button className="crm-btn crm-btn--ghost" onClick={() => setEditProject(null)}>Cancel</button>
+            <button className="crm-btn crm-btn--primary" onClick={saveProjectEdit} disabled={savingProjectEdit}>
+              {savingProjectEdit ? "Saving…" : "Save"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
