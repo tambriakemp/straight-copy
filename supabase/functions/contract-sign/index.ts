@@ -20,6 +20,10 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// Canonical agency identity that countersigns every executed agreement. Falls
+// back to the historical default if the secret is not configured so existing
+// signatures keep matching the PDFs already on file.
+const AGENCY_SIGNER_NAME = Deno.env.get("AGENCY_SIGNER_NAME") ?? "Tambria Kemp";
 
 const FONTS = {
   serifRegular: "https://fonts.gstatic.com/s/lora/v37/0QI6MX1D_JOuGQbT0gvTJPa787weuyJG.ttf",
