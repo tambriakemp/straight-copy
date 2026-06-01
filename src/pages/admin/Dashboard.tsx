@@ -205,9 +205,9 @@ export default function Dashboard() {
                 onMouseLeave={(e) => { e.currentTarget.style.background = "var(--crm-charcoal)"; }}
               >
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-                  <div className="roster__name">{r.business_name || "Untitled"}</div>
+                  <div className="roster__name">{r.contact_name || "Untitled"}</div>
                   <div className="roster__email">
-                    {[r.contact_name, r.contact_email].filter(Boolean).join(" · ") || "—"}
+                    {[r.business_name, r.contact_email].filter(Boolean).join(" · ") || "—"}
                   </div>
                 </div>
                 <div style={{ textAlign: "right", color: "var(--crm-taupe)", fontSize: 20 }}>→</div>
