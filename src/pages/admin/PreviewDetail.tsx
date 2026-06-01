@@ -274,15 +274,16 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
     }
     if (!confirm("Send the site preview review email to the client now?")) return;
     setSendingEmail(true);
+    const toastId = toast.loading("Sending review email…");
     try {
       const { data, error } = await supabase.functions.invoke("send-preview-review-email", {
         body: { preview_project_id: project.id },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast.success(`Review email sent to ${data?.recipient ?? "client"}`);
+      toast.success(`Review email sent to ${data?.recipient ?? "client"}`, { id: toastId, duration: 6000 });
     } catch (e: any) {
-      toast.error(e?.message || "Failed to send email");
+      toast.error(e?.message || "Failed to send email", { id: toastId, duration: 8000 });
     } finally {
       setSendingEmail(false);
     }
