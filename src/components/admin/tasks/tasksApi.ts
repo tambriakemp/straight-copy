@@ -162,4 +162,27 @@ export const tasksApi = {
     invoke<{ epic: Epic }>(`/epics/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteEpic: (id: string) =>
     invoke<{ ok: true }>(`/epics/${id}`, { method: "DELETE" }),
+
+  seedWebDev: (projectId: string) =>
+    invoke<{ seeded: boolean; epics: number; tasks: number; reason?: string }>(`/seed-web-dev`, {
+      method: "POST",
+      body: JSON.stringify({ project_id: projectId }),
+    }),
+
+  sendWebDevEmail: async (taskId: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error("Not signed in");
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-web-dev-email`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ task_id: taskId }),
+    });
+    const text = await res.text();
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } catch { /* */ }
+    if (!res.ok) throw new Error(data?.error ?? res.statusText);
+    return data as { ok: boolean; recipient?: string };
+  },
 };
