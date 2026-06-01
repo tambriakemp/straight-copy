@@ -1,6 +1,6 @@
 const automations = [
   {
-    num: "Automation 01",
+    num: "Automation 01: Lead Gen",
     title: "Lead Capture + *Client Onboarding*",
     desc: "The complete journey from first inquiry to onboarded client — running without you touching it. No lead gets lost. No new client feels forgotten.",
     steps: [

@@ -1,63 +1,55 @@
-## Goal
+## 1. Copy change
 
-Two related changes:
-1. Let each client have multiple contacts. The existing `contact_name` / `contact_email` / `contact_phone` becomes the primary contact (migrated into a new table; old columns are kept untouched for now to avoid breaking the many places that read them).
-2. Replace the hardcoded HTML in the "Send review email" flow with a SureContact template so every send appears in the contact's SureContact activity history with the same template, and let the admin pick which contact to send it to.
+In `src/components/ServicesSection.tsx`, rename the first automation:
+- `num: "Automation 01"` → `num: "Automation 01: Lead Gen"`
 
-## 1. Database
+## 2. SureContact landing-page API — what's live
 
-New migration:
+Probed the live API and pulled the official docs. Landing Page endpoints under `/api/v1/public/pages`:
 
-- `client_contacts` table: `id`, `client_id`, `name`, `email`, `phone`, `role` (free-text label like "Owner", "Marketing"), `is_primary` (bool), `surecontact_contact_uuid` (text, nullable), `order_index`, `created_at`, `updated_at`.
-- Partial unique index so only one `is_primary = true` per `client_id`.
-- Admin + service_role RLS, GRANTs to authenticated + service_role.
-- Backfill: for every client where `contact_email` is set, insert a row marked `is_primary = true` carrying the existing name/email/phone and the existing `surecontact_contact_uuid`.
-- `app_settings` (single-row) gains a `review_email_template_uuid` column to remember which SureContact template the review email uses. If `app_settings` doesn't exist, create it as a one-row keyed table.
+| Method | Path | What it does |
+|---|---|---|
+| GET | `/api/v1/public/pages` | List pages |
+| GET | `/api/v1/public/pages/{uuid}` | Get a page incl. full `design_json` |
+| POST | `/api/v1/public/pages` | **Create as draft.** Accepts `design_json`. |
+| PUT | `/api/v1/public/pages/{uuid}` | Update content, SEO, OG, tracking, thumbnail |
+| DELETE | `/api/v1/public/pages/{uuid}` | Soft-delete |
 
-The old `clients.contact_*` columns are NOT dropped — `sync-client-to-surecontact`, intake flows, and several admin pages still read them. They will be kept in sync from the primary contact going forward.
+Not exposed: no publish endpoint, no slug/custom-domain setter, no public `page-templates` list. Publishing + slug + custom domain still happen in the SureContact UI.
 
-## 2. SureContact template
+## 3. Approach — full design_json generation
 
-New edge function `create-surecontact-review-template` (admin-gated):
-- POSTs to `https://api.surecontact.com/api/v1/public/email-templates` to create a transactional template named "Site Preview Ready" with the existing review-email HTML, but with merge tokens: `{{first_name}}`, `{{portal_url}}`, `{{preview_url}}`, `{{business_name}}`, `{{client_name}}`.
-- Saves the returned `uuid` into `app_settings.review_email_template_uuid`.
-- Idempotent: if a uuid is already stored and still exists, it just returns it.
+Skipping template setup. The agency-side flow becomes:
 
-Updated `send-preview-review-email`:
-- New required param: `contact_id` (a row from `client_contacts`).
-- Loads the contact, builds variables, and calls SureContact `/emails/send` with `template_uuid` + `variables` instead of raw `subject` + `body`.
-- Falls back to inline HTML only if no template uuid is configured (so the feature keeps working before the admin clicks "create template").
+1. **Reverse-engineer the `design_json` schema** by creating one reference landing page in the SureContact UI, then `GET /api/v1/public/pages/{uuid}` and capturing the full structure. Document the block types we care about (hero, headline, subhead, bullets, form, CTA, footer, image).
+2. **Generate `design_json` server-side** in a new edge function using Lovable AI (default `google/gemini-3-flash-preview`, tool-calling for structured output) given the BrandCtx + lead-magnet output.
+3. **POST `/pages`** with the generated `design_json`, then **PUT** SEO/OG/tracking. Store returned `page_uuid` + draft URL on the project. Surface a "Create landing page" button on the project view that runs the function and shows the draft link.
 
-## 3. Admin UI (`src/pages/admin/ClientDetail.tsx`)
+Risk: the `design_json` schema is unpublished. If a future SureContact update changes the shape, the generator needs to be re-fitted against a fresh reference page. Mitigation: keep the reference-page capture step rerunnable.
 
-In the client edit panel:
-- New "Contacts" section showing a list of contacts with name / email / phone / role / primary badge.
-- Add, edit, delete, and "Make primary" actions. Saves go through Supabase directly (admin RLS).
-- When the primary changes, mirror that contact's name/email/phone back onto `clients.contact_*` so existing flows keep working.
+## 4. Data the generator needs (all already on file)
 
-In `src/pages/admin/PreviewDetail.tsx` "Send review email" button:
-- Replace `window.confirm` with a small dialog that lists the client's contacts (radio buttons), defaulting to the primary.
-- On confirm, call `send-preview-review-email` with `{ preview_project_id, contact_id }` and keep the existing loading/success/error toasts.
-- Add a one-time "Create SureContact template" admin action (small button in Settings or top of PreviewDetail) so the user can wire up the template; once stored, sends use the template automatically.
+Pulled from `BrandCtx` in `supabase/functions/build-automation-01/prompts.ts` + the lead-magnet copy step:
 
-## 4. Out of scope
+- Business name, one-liner, audience
+- Primary + accent hex colors
+- Heading + body font names
+- Logo URL
+- Brand voice doc + quick reference
+- Lead magnet title, headline, subhead, 3 benefit bullets, form label, CTA button text, trust line, footer line
+- Lead-magnet PDF download URL
+- Optional hero/thumbnail image URL
 
-- Dropping the legacy `contact_*` columns on `clients` (would touch ~10 files; can be a follow-up).
-- Per-contact SureContact sync (only the primary keeps syncing for now; non-primary contacts are local-only until the user asks).
-- Other transactional emails (welcome, kickoff, etc.) — same pattern can be applied later if wanted.
+No client form. The agency owns page name, SEO title/description, OG image, canonical, no_index, GTM ID, Pixel ID, and slug/publish in the UI — captured as a single task below.
+
+## 5. Tasks
+
+Two new tasks under the Lead Gen epic (or roll #2 into the existing build-automation-01 task if you'd rather):
+
+- **Task: Capture SureContact landing-page `design_json` reference.** Build one on-brand landing page in the SureContact UI, GET it via the API, save the JSON to `supabase/functions/_shared/surecontact-page-schema.json`, and document the block types in a short README.
+- **Task: Agency landing-page finalization checklist.** For each generated draft, agency fills in: page name, SEO title (≤70), SEO description (≤170), OG image URL, OG title/description, canonical URL, `no_index`, GTM container ID, Meta Pixel ID, thumbnail URL, slug, custom domain (if any), then hits Publish in SureContact.
 
 ## Technical notes
-
-- SureContact template create endpoint expects `name`, `subject`, `body_html`, and optional `type: "transactional"`. Variables use `{{name}}` syntax in the body and are passed in `variables` on `/emails/send`.
-- Backfill SQL:
-  ```sql
-  INSERT INTO public.client_contacts (client_id, name, email, phone, is_primary, surecontact_contact_uuid)
-  SELECT id, contact_name, contact_email, contact_phone, true, surecontact_contact_uuid
-  FROM public.clients
-  WHERE contact_email IS NOT NULL AND contact_email <> '';
-  ```
-- Partial unique index:
-  ```sql
-  CREATE UNIQUE INDEX client_contacts_one_primary_per_client
-    ON public.client_contacts (client_id) WHERE is_primary;
-  ```
+- Use existing `SURECONTACT_API_KEY` and the `X-API-Key` header pattern from `send-preview-review-email`.
+- New edge function `create-lead-magnet-landing-page` (verify_jwt = false to match siblings; auth via project secret check).
+- Add `surecontact_page_uuid` + `surecontact_page_draft_url` columns to the project table when the function ships (separate migration, not part of the rename PR).
