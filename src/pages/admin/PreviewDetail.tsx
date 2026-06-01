@@ -272,7 +272,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerContacts, setPickerContacts] = useState<Array<{ id: string; name: string | null; email: string | null; role: string | null; is_primary: boolean }>>([]);
   const [pickerSelected, setPickerSelected] = useState<string | null>(null);
-  const [creatingTemplate, setCreatingTemplate] = useState(false);
+  
 
   const openReviewEmailPicker = async () => {
     if (!project?.client_project_id) {
