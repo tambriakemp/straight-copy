@@ -330,6 +330,56 @@ function KanbanColumn({
   );
 }
 
+function TaskEmailSection({ task, onChanged }: { task: Task; onChanged: () => Promise<void> | void }) {
+  const [sending, setSending] = useState(false);
+  const tpl = task.email_template!;
+  const isAuto = tpl.trigger === "auto";
+  const send = async () => {
+    if (!confirm(`Send "${tpl.template_key}" email to client now?`)) return;
+    setSending(true);
+    try {
+      const res = await tasksApi.sendWebDevEmail(task.id);
+      if (res.ok) toast.success(`Sent to ${res.recipient}`);
+      else toast.error("Send failed");
+      await onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Send failed");
+    } finally {
+      setSending(false);
+    }
+  };
+  return (
+    <section className="tp-sec" style={{ borderTop: "1px solid hsl(var(--warm-white) / 0.1)", paddingTop: 16, marginTop: 8 }}>
+      <div className="tp-label" style={{ marginBottom: 8 }}>SureContact email</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <Badge variant="outline" className="border-warm-white/20 !text-warm-white">
+          {tpl.template_key}
+        </Badge>
+        <Badge variant="outline" className={isAuto ? "border-accent/40 !text-accent" : "border-warm-white/20 !text-warm-white"}>
+          {isAuto ? "Auto-fires from server event" : "Agency triggered"}
+        </Badge>
+        {tpl.sent_at && (
+          <span className="!text-warm-white/70" style={{ fontSize: 12 }}>
+            Last sent: {new Date(tpl.sent_at).toLocaleString()}
+          </span>
+        )}
+        {!isAuto && (
+          <Button size="sm" onClick={send} disabled={sending}
+            className="bg-accent !text-accent-foreground hover:bg-accent/90 ml-auto">
+            {sending ? "Sending…" : tpl.sent_at ? "Resend email" : "Send email"}
+          </Button>
+        )}
+      </div>
+      {tpl.last_send_error && (
+        <div style={{ marginTop: 8, fontSize: 12, color: "hsl(0 70% 65%)" }}>
+          Last error: {tpl.last_send_error}
+        </div>
+      )}
+    </section>
+  );
+}
+
+
 function DraggableCard({ task, epics, subtaskCount, onOpen }: {
   task: Task; epics: Epic[]; subtaskCount: number; onOpen: (id: string) => void;
 }) {
