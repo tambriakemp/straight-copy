@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen, FileSignature, Globe, Megaphone, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen, FileSignature, Globe, Megaphone, Pencil, Star, Trash2 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
@@ -45,6 +45,18 @@ const TYPE_LABEL: Record<Project["type"], string> = {
 
 const tierLabel = (t: string) => (t === "growth" ? "Growth" : "Launch");
 
+type ContactRow = {
+  id?: string;
+  _localKey: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  is_primary: boolean;
+};
+
+const makeLocalKey = () => `new_${Math.random().toString(36).slice(2, 10)}`;
+
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
@@ -63,7 +75,8 @@ export default function ClientDetail() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resourceProject, setResourceProject] = useState<Project | null>(null);
   const [openEdit, setOpenEdit] = useState(false);
-  const [editForm, setEditForm] = useState({ business_name: "", contact_name: "", contact_email: "", contact_phone: "" });
+  const [editForm, setEditForm] = useState({ business_name: "" });
+  const [editContacts, setEditContacts] = useState<ContactRow[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [projectEditForm, setProjectEditForm] = useState({ name: "", business_name: "", notes: "" });
