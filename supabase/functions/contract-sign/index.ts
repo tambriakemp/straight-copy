@@ -607,7 +607,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const template = getContractTemplate(client.tier);
+    // If the client has an active web_development project, that contract
+    // takes precedence over the tier-based contract.
+    const { data: webDevProject } = await supabase
+      .from("client_projects")
+      .select("id")
+      .eq("client_id", input.clientId)
+      .eq("type", "web_development")
+      .neq("status", "archived")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const template = getContractTemplate(
+      client.tier,
+      webDevProject ? "web_development" : null,
+    );
+    const linkedProjectId: string | null = webDevProject?.id ?? null;
+
 
     if (input.action === "get") {
       const { data: existing } = await supabase
@@ -679,7 +696,8 @@ Deno.serve(async (req) => {
         .from("client_contracts")
         .insert({
           client_id: input.clientId,
-          tier: client.tier,
+          client_project_id: linkedProjectId,
+          tier: template.tier,
           template_version: template.version,
           client_signature_name: input.signatureName,
           client_signature_type: input.signatureType,
@@ -763,6 +781,23 @@ Deno.serve(async (req) => {
       } catch (e) {
         console.warn("[contract-sign] web-dev auto-fire failed:", e);
       }
+
+      // Auto-complete the "Contract sent" (1.2) and "Contract countersigned" (1.3)
+      // backlog tasks on the web_dev project, since both happen automatically
+      // the moment the client signs in the portal.
+      if (linkedProjectId) {
+        try {
+          await supabase
+            .from("project_tasks")
+            .update({ status: "complete", completed_at: now.toISOString() })
+            .eq("client_project_id", linkedProjectId)
+            .in("status", ["backlog", "in_progress", "ready_for_claude", "blocked"])
+            .or("name.ilike.1.2 %,name.ilike.1.3 %");
+        } catch (e) {
+          console.warn("[contract-sign] auto-complete tasks failed:", e);
+        }
+      }
+
 
       return new Response(
         JSON.stringify({

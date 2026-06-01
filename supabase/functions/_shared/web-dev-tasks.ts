@@ -58,13 +58,13 @@ export const WEB_DEV_TASKS: WebDevTaskDef[] = [
     "epic": "intake",
     "num": "1.3",
     "name": "Contract countersigned by agency",
-    "assignee_kind": "admin",
-    "description": "Once the client signs the contract, the agency receives a notification from DocuSign or HelloSign. Review the signed contract to confirm the client's information is accurate and the scope matches the purchased service. Countersign and save the fully executed copy. This is a legal and financial gate — do not begin work until both parties have signed.\n\n**Instructions**\n- Receive DocuSign or HelloSign notification that client has signed\n- Review the signed contract — confirm name, scope, payment schedule, and start date are accurate\n- Countersign the contract\n- Save fully executed PDF to the client's portal file section\n- Mark this task complete in the portal to unlock the kickoff email button\n\n_Owner: Agency · Timing: Within 24 hours of client signing_",
+    "assignee_kind": "auto",
+    "description": "When the client signs the Web Development Services Agreement in the portal, Cre8 Visions is auto-countersigned on the same record and a fully executed PDF is generated and stored. No manual action is required — this task is closed automatically by the contract-sign function.\n\n**Instructions**\n- Client signs in the portal (typed or drawn)\n- contract-sign records the signature, stamps agency_countersigned_at, renders the PDF, and stores it under client-assets/contracts/\n- This task and task 1.2 are marked complete automatically\n- web-dev-contract-signed SureContact template is fired to the client\n\n_Owner: System · Trigger: Client signature in portal · Timing: Immediate_",
     "acceptance_criteria": [
-      "Contract is fully executed — both client and agency signatures present",
-      "Signed PDF saved to client portal",
-      "Client information on contract matches purchase data",
-      "Task marked complete in portal"
+      "Contract is fully executed — client signature + auto-countersignature on file",
+      "Signed PDF stored in client-assets/contracts/{client_id}/{contract_id}.pdf",
+      "client_contracts row linked to the web_development project",
+      "Contract-signed email confirmed in SureContact activity log"
     ],
     "order_index": 3,
     "email_template_key": "web-dev-contract-signed",
