@@ -82,44 +82,11 @@ export default function ProjectPreviewCard({ clientId, clientProjectId, projectN
     }
     return (
       <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-          <MonitorSmartphone size={14} style={{ color: "var(--crm-accent)" }} />
-          <PreviewNameInline
-            name={preview.name}
-            onSave={async (next) => {
-              const { data } = await supabase.functions.invoke("preview-admin", {
-                body: { action: "update", id: preview.id, name: next },
-              });
-              if (data?.project) setPreview({ ...preview, name: data.project.name });
-              else await load();
-              toast.success("Renamed");
-            }}
-          />
-          <code style={{ fontSize: 14, color: "var(--crm-taupe)", fontFamily: "monospace" }}>
-            /p/{preview.slug.slice(0, 12)}…
-          </code>
-          <span
-            role="button"
-            onClick={(e) => { e.stopPropagation(); void copy(); }}
-            className="crm-btn crm-btn--ghost crm-btn--sm"
-            title="Copy share link"
-          >
-            {copied ? <Check size={12} /> : <Copy size={12} />}
-          </span>
-          <a
-            href={`${base}/p/${preview.slug}`}
-            target="_blank"
-            rel="noreferrer"
-            className="crm-btn crm-btn--ghost crm-btn--sm"
-            title="Open preview"
-          >
-            <ExternalLink size={12} />
-          </a>
-        </div>
         <PreviewDetail overrideId={preview.id} embedded />
       </div>
     );
   }
+
 
   return (
     <div style={{
