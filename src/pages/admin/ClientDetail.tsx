@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen, FileSignature, Globe, Megaphone } from "lucide-react";
+import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen, FileSignature, Globe, Megaphone, Pencil } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
@@ -60,6 +60,36 @@ export default function ClientDetail() {
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resourceProject, setResourceProject] = useState<Project | null>(null);
+  const [openEdit, setOpenEdit] = useState(false);
+  const [editForm, setEditForm] = useState({ business_name: "", contact_name: "", contact_email: "", contact_phone: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEditDialog = () => {
+    if (!client) return;
+    setEditForm({
+      business_name: client.business_name ?? "",
+      contact_name: client.contact_name ?? "",
+      contact_email: client.contact_email ?? "",
+      contact_phone: client.contact_phone ?? "",
+    });
+    setOpenEdit(true);
+  };
+
+  const saveEdit = async () => {
+    if (!id) return;
+    setSavingEdit(true);
+    const { error } = await supabase.from("clients").update({
+      business_name: editForm.business_name.trim() || null,
+      contact_name: editForm.contact_name.trim() || null,
+      contact_email: editForm.contact_email.trim() || null,
+      contact_phone: editForm.contact_phone.trim() || null,
+    }).eq("id", id);
+    setSavingEdit(false);
+    if (error) return toast.error(error.message);
+    toast.success("Client updated");
+    setOpenEdit(false);
+    load();
+  };
 
   const base = useMemo(() => window.location.origin, []);
 
@@ -175,8 +205,16 @@ export default function ClientDetail() {
         <div className="roster__head">
           <div className="roster__title-block">
             <div className="roster__eyebrow">Client</div>
-            <h1 className="roster__title">
+            <h1 className="roster__title" style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
               {client.business_name || <em>Unnamed</em>}
+              <button
+                className="crm-btn crm-btn--ghost crm-btn--sm"
+                onClick={openEditDialog}
+                title="Edit client"
+                style={{ fontSize: 12 }}
+              >
+                <Pencil size={12} /> Edit
+              </button>
             </h1>
             <hr className="roster__rule" />
             <p className="roster__sub">
@@ -365,6 +403,37 @@ export default function ClientDetail() {
         open={!!resourceProject}
         onOpenChange={(v) => { if (!v) setResourceProject(null); }}
       />
+      <Dialog open={openEdit} onOpenChange={setOpenEdit}>
+        <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Edit client</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <label className="crm-label">Business name</label>
+              <input className="crm-input" value={editForm.business_name} onChange={(e) => setEditForm({ ...editForm, business_name: e.target.value })} />
+            </div>
+            <div>
+              <label className="crm-label">Contact name</label>
+              <input className="crm-input" value={editForm.contact_name} onChange={(e) => setEditForm({ ...editForm, contact_name: e.target.value })} />
+            </div>
+            <div>
+              <label className="crm-label">Contact email</label>
+              <input className="crm-input" type="email" value={editForm.contact_email} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })} />
+            </div>
+            <div>
+              <label className="crm-label">Contact phone</label>
+              <input className="crm-input" value={editForm.contact_phone} onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <button className="crm-btn crm-btn--ghost" onClick={() => setOpenEdit(false)}>Cancel</button>
+            <button className="crm-btn crm-btn--primary" onClick={saveEdit} disabled={savingEdit}>
+              {savingEdit ? "Saving…" : "Save"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
