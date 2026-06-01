@@ -408,6 +408,14 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Seed full Web Dev task backlog (7 epics, 50 tasks). Non-fatal on error.
+    try {
+      const seed = await seedWebDevTasks(supabase, newProject.id)
+      console.log('Web Dev: seed result', seed)
+    } catch (e) {
+      console.error('Web Dev: seedWebDevTasks failed', e)
+    }
+
     return new Response(JSON.stringify({
       ok: true, web_dev: true,
       client_id: clientId, project_id: newProject.id, reused_client: reusedClient,
