@@ -354,11 +354,11 @@ export default function ClientDetail() {
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--crm-accent)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--crm-border-dark)"; }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)" }}>
-                      <Icon size={12} /> {TYPE_LABEL[p.type]}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", whiteSpace: "nowrap" }}>
+                      <Icon size={12} style={{ flexShrink: 0 }} /> {TYPE_LABEL[p.type]}
                     </span>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                       {isBuild ? (
                         <span className={`roster__tier roster__tier--${tierForCard.toLowerCase()}`}>{tierLabel(tierForCard)}</span>
                       ) : (
