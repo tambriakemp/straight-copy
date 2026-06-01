@@ -696,7 +696,8 @@ Deno.serve(async (req) => {
         .from("client_contracts")
         .insert({
           client_id: input.clientId,
-          tier: client.tier,
+          client_project_id: linkedProjectId,
+          tier: template.tier,
           template_version: template.version,
           client_signature_name: input.signatureName,
           client_signature_type: input.signatureType,
