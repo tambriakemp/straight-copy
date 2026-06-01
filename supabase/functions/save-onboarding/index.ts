@@ -82,6 +82,31 @@ Deno.serve(async (req) => {
       console.error("Email notification failed (non-fatal):", e);
     }
 
+    // 5. Auto-fire web-dev questionnaire complete email if a web_development
+    // project exists for this client.
+    try {
+      const email = summary.contact_email;
+      if (email) {
+        const { data: client } = await supabase
+          .from("clients")
+          .select("id")
+          .ilike("contact_email", email)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (client?.id) {
+          const { autoFireWebDevTemplate } = await import("../_shared/web-dev-emails.ts");
+          await autoFireWebDevTemplate(supabase, {
+            clientId: client.id as string,
+            templateKey: "web-dev-questionnaire-complete",
+            extraMergeFields: { submission_id: inserted.id },
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("[save-onboarding] web-dev auto-fire failed:", e);
+    }
+
     return new Response(
       JSON.stringify({ success: true, id: inserted.id, summary }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
