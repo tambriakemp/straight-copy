@@ -188,3 +188,63 @@ export async function findTaskByTemplate(
   }
   return null;
 }
+
+/**
+ * Finds the latest active web_development project for a client. Used by
+ * auto-fire hooks that have a client_id but no project_id.
+ */
+export async function findLatestWebDevProject(
+  sb: SupabaseClient,
+  clientId: string,
+): Promise<{ id: string } | null> {
+  const { data } = await sb
+    .from("client_projects")
+    .select("id, created_at")
+    .eq("client_id", clientId)
+    .eq("type", "web_development")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ? { id: data.id as string } : null;
+}
+
+/**
+ * Convenience wrapper for auto-fire events: looks up the project + matching
+ * task, then sends the template. Safe to call from webhook/edge contexts —
+ * swallows "no project / no task" cases as no-ops so non-web-dev clients are
+ * not affected.
+ */
+export async function autoFireWebDevTemplate(
+  sb: SupabaseClient,
+  args: { clientId: string; templateKey: string; extraMergeFields?: Record<string, string | number | null | undefined> },
+): Promise<SendWebDevEmailResult | { ok: true; status: 204; skipped: string }> {
+  const project = await findLatestWebDevProject(sb, args.clientId);
+  if (!project) return { ok: true, status: 204, skipped: "no_web_dev_project" };
+  const task = await findTaskByTemplate(sb, project.id, args.templateKey);
+  // Idempotency: if already sent, skip
+  if (task) {
+    const { data: t } = await sb.from("project_tasks").select("email_template").eq("id", task.id).maybeSingle();
+    if ((t as any)?.email_template?.sent_at) {
+      return { ok: true, status: 204, skipped: "already_sent" };
+    }
+  }
+  return sendWebDevTemplate(sb, {
+    taskId: task?.id ?? null,
+    templateKey: args.templateKey,
+    clientId: args.clientId,
+    projectId: project.id,
+    extraMergeFields: args.extraMergeFields,
+  });
+}
+
+/** Enqueue a scheduled send (drained by the cron). */
+export async function scheduleWebDevEmail(
+  sb: SupabaseClient,
+  args: { taskId: string; templateKey: string; sendAfter: Date },
+): Promise<void> {
+  await sb.from("web_dev_scheduled_emails").insert({
+    task_id: args.taskId,
+    template_key: args.templateKey,
+    send_after: args.sendAfter.toISOString(),
+  });
+}
