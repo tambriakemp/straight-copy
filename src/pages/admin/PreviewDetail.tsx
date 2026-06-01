@@ -272,7 +272,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerContacts, setPickerContacts] = useState<Array<{ id: string; name: string | null; email: string | null; role: string | null; is_primary: boolean }>>([]);
   const [pickerSelected, setPickerSelected] = useState<string | null>(null);
-  const [creatingTemplate, setCreatingTemplate] = useState(false);
+  
 
   const openReviewEmailPicker = async () => {
     if (!project?.client_project_id) {
@@ -328,20 +328,6 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
     }
   };
 
-  const createReviewTemplate = async () => {
-    setCreatingTemplate(true);
-    const toastId = toast.loading("Setting up SureContact template…");
-    try {
-      const { data, error } = await supabase.functions.invoke("create-surecontact-review-template", { body: {} });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      toast.success(`Template ${data?.action ?? "saved"} in SureContact`, { id: toastId, duration: 5000 });
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to set up template", { id: toastId, duration: 8000 });
-    } finally {
-      setCreatingTemplate(false);
-    }
-  };
 
   if (loading || !project) {
     const loadingNode = <div style={{ padding: embedded ? 24 : "48px 52px" }}>Loading…</div>;
@@ -988,18 +974,6 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                 ))}
               </div>
             )}
-            <div style={{ borderTop: "1px solid var(--crm-border-dark)", paddingTop: 10, marginTop: 6 }}>
-              <button
-                type="button"
-                className="crm-btn crm-btn--ghost crm-btn--sm"
-                onClick={createReviewTemplate}
-                disabled={creatingTemplate}
-                title="Create or refresh the SureContact email template used for this email"
-                style={{ fontSize: 11 }}
-              >
-                {creatingTemplate ? "Setting up template…" : "Create / refresh SureContact template"}
-              </button>
-            </div>
           </div>
           <DialogFooter>
             <button className="crm-btn crm-btn--ghost" onClick={() => setPickerOpen(false)}>Cancel</button>
