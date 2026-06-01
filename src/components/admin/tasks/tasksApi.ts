@@ -95,6 +95,12 @@ export interface Task {
   activity?: TaskActivity[];
   journey_item_key?: string | null;
   auto_key?: string | null;
+  email_template?: {
+    template_key: string;
+    trigger: "agency" | "auto";
+    sent_at?: string | null;
+    last_send_error?: string | null;
+  } | null;
 }
 
 export interface TaskActivity {
