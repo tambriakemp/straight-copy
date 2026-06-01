@@ -2,6 +2,7 @@
 // Public endpoint (verify_jwt = false). Verifies SureCart signature.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { seedWebDevTasks } from '../_shared/web-dev-tasks.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
