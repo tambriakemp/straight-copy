@@ -702,6 +702,31 @@ Deno.serve(async (req) => {
 
       const audit = (input as any).audit ?? null;
 
+      // Confirmed identity at time of signing — fall back to whatever is on
+      // the client record so older flows keep working.
+      const confirmedBusiness =
+        (input as any).businessName?.trim() || client.business_name || "";
+      const confirmedContact =
+        (input as any).contactName?.trim() || client.contact_name || input.signatureName;
+      const confirmedEmail =
+        (input as any).contactEmail?.trim() || client.contact_email || "";
+
+      // Write any updates back to the client record so the rest of the
+      // portal reflects the names the client confirmed on the contract.
+      const clientPatch: Record<string, string> = {};
+      if (confirmedBusiness && confirmedBusiness !== (client.business_name ?? "")) {
+        clientPatch.business_name = confirmedBusiness;
+      }
+      if (confirmedContact && confirmedContact !== (client.contact_name ?? "")) {
+        clientPatch.contact_name = confirmedContact;
+      }
+      if (confirmedEmail && confirmedEmail !== (client.contact_email ?? "")) {
+        clientPatch.contact_email = confirmedEmail;
+      }
+      if (Object.keys(clientPatch).length) {
+        await supabase.from("clients").update(clientPatch).eq("id", client.id);
+      }
+
       // Insert contract row first (gets ID for pdf path). Always stamp the
       // canonical agency identity here so the DB row matches what the PDF
       // renders, even if the table default ever drifts.
@@ -733,8 +758,9 @@ Deno.serve(async (req) => {
       try {
         const pdfBytes = await renderContractPdf({
           template,
-          businessName: client.business_name ?? "Client",
-          clientName: client.contact_name ?? input.signatureName,
+          businessName: confirmedBusiness || "Client",
+          clientName: confirmedContact,
+          clientEmail: confirmedEmail || null,
           clientSignature: {
             type: input.signatureType,
             data: input.signatureData,
@@ -749,6 +775,7 @@ Deno.serve(async (req) => {
           contractId: inserted.id,
           templateVersion: template.version,
         });
+
 
         pdfPath = `contracts/${input.clientId}/${inserted.id}.pdf`;
         const { error: upErr } = await supabase.storage
