@@ -366,6 +366,13 @@ export default function ClientDetail() {
                       )}
                       <button
                         className="crm-btn crm-btn--ghost crm-btn--sm"
+                        onClick={(e) => openProjectEdit(e, p)}
+                        title="Edit project"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        className="crm-btn crm-btn--ghost crm-btn--sm"
                         onClick={(e) => { e.stopPropagation(); setResourceProject(p); }}
                         title="Links & notes"
                       >
