@@ -1,14 +1,17 @@
-// Sends the "Site Preview Ready" review email to a client contact via
-// SureContact's transactional /emails/send endpoint.
+// Sends the "AI OS — Design Preview" review email to a client contact via
+// SureContact's transactional /emails/send endpoint using a template UUID.
 //
-// Prefers a SureContact template (configured in app_settings.review_email_template_uuid)
-// so every send shows up in the contact's SureContact activity history with the
-// same template. Falls back to inline HTML if no template uuid is configured yet.
+// The template lives in SureContact (named "AI OS — Design Preview"). We
+// look up its UUID once via the templates API and cache it in
+// app_settings.review_email_template_uuid. Merge tags in the template pull
+// from the contact's primary_fields + custom_fields, so we upsert the contact
+// first with first_name/business_name/portal_url/preview_url before sending.
 //
 // Accepts an optional `contact_id` referencing public.client_contacts.
 // If omitted, falls back to the client's primary contact, then to the legacy
 // clients.contact_* columns.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { splitContactName, upsertSureContact } from "../_shared/surecontact.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,6 +26,10 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SURECONTACT_API_KEY = Deno.env.get("SURECONTACT_API_KEY");
 const SURECONTACT_SEND_URL =
   "https://api.surecontact.com/api/v1/public/emails/send";
+const SURECONTACT_TEMPLATES_URL =
+  "https://api.surecontact.com/api/v1/public/email-templates?per_page=100";
+
+const TEMPLATE_NAME = "AI OS — Design Preview";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -31,38 +38,47 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function escapeHtml(s: string) {
+function normalizeName(s: string) {
+  // Normalize unicode dashes + whitespace so "—", "–", "-" all match.
   return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .normalize("NFKC")
+    .replace(/[\u2010-\u2015]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
-function buildEmailHtml(firstName: string, portalUrl: string) {
-  const safeName = escapeHtml(firstName || "there");
-  const safeUrl = escapeHtml(portalUrl);
-  return `<!DOCTYPE html>
-<html>
-<body style="margin:0;padding:0;background:#f6f3ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#2a2622;">
-  <div style="max-width:600px;margin:0 auto;padding:40px 28px;background:#ffffff;">
-    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;">Hi ${safeName},</p>
-    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;">
-      Your site preview is live and ready for your eyes. Head to your client portal to walk through it.
-    </p>
-    <p style="margin:28px 0;text-align:center;">
-      <a href="${safeUrl}"
-         style="display:inline-block;background:#8a6d4e;color:#ffffff;text-decoration:none;
-                padding:14px 28px;border-radius:4px;font-size:15px;letter-spacing:0.05em;">
-        Open my client portal
-      </a>
-    </p>
-    <p style="font-size:16px;line-height:1.6;margin:0;">Talking soon,</p>
-    <p style="font-size:16px;line-height:1.6;margin:4px 0 0;">Bree<br/>Cre8 Visions</p>
-  </div>
-</body>
-</html>`;
+async function resolveTemplateUuid(
+  admin: ReturnType<typeof createClient>,
+  apiKey: string,
+): Promise<{ uuid: string | null; error?: string }> {
+  const { data: settings } = await admin
+    .from("app_settings")
+    .select("review_email_template_uuid")
+    .eq("id", 1)
+    .maybeSingle();
+  if (settings?.review_email_template_uuid) {
+    return { uuid: settings.review_email_template_uuid };
+  }
+
+  const resp = await fetch(SURECONTACT_TEMPLATES_URL, {
+    headers: { "X-API-Key": apiKey, Accept: "application/json" },
+  });
+  const data = await resp.json().catch(() => null);
+  if (!resp.ok) {
+    return { uuid: null, error: `SureContact templates ${resp.status}` };
+  }
+  const items: any[] = Array.isArray(data?.data) ? data.data : [];
+  const target = normalizeName(TEMPLATE_NAME);
+  const match = items.find((t: any) => normalizeName(String(t?.name ?? "")) === target);
+  if (!match?.uuid) {
+    return { uuid: null, error: `Template "${TEMPLATE_NAME}" not found in SureContact` };
+  }
+  await admin
+    .from("app_settings")
+    .update({ review_email_template_uuid: match.uuid, updated_at: new Date().toISOString() })
+    .eq("id", 1);
+  return { uuid: match.uuid };
 }
 
 Deno.serve(async (req) => {
@@ -109,20 +125,20 @@ Deno.serve(async (req) => {
 
   const { data: client } = await admin
     .from("clients")
-    .select("id, business_name, contact_name, contact_email, surecontact_contact_uuid")
+    .select("id, business_name, contact_name, contact_email, contact_phone, surecontact_contact_uuid")
     .eq("id", cp.client_id)
     .maybeSingle();
   if (!client) return json({ error: "client not found" }, 404);
 
-  // Resolve which contact to send to
+  // Resolve recipient
   let recipientEmail: string | null = null;
   let recipientName: string | null = null;
-  let recipientSureUuid: string | null = null;
+  let recipientPhone: string | null = null;
 
   if (contactId) {
     const { data: contact } = await admin
       .from("client_contacts")
-      .select("id, name, email, surecontact_contact_uuid, client_id")
+      .select("id, name, email, phone, client_id")
       .eq("id", contactId)
       .maybeSingle();
     if (!contact || contact.client_id !== cp.client_id) {
@@ -130,23 +146,22 @@ Deno.serve(async (req) => {
     }
     recipientEmail = contact.email;
     recipientName = contact.name;
-    recipientSureUuid = contact.surecontact_contact_uuid;
+    recipientPhone = contact.phone;
   } else {
-    // Try primary contact from client_contacts
     const { data: primary } = await admin
       .from("client_contacts")
-      .select("name, email, surecontact_contact_uuid")
+      .select("name, email, phone")
       .eq("client_id", cp.client_id)
       .eq("is_primary", true)
       .maybeSingle();
     if (primary?.email) {
       recipientEmail = primary.email;
       recipientName = primary.name;
-      recipientSureUuid = primary.surecontact_contact_uuid;
+      recipientPhone = primary.phone;
     } else {
       recipientEmail = client.contact_email;
       recipientName = client.contact_name;
-      recipientSureUuid = client.surecontact_contact_uuid;
+      recipientPhone = client.contact_phone;
     }
   }
 
@@ -155,45 +170,41 @@ Deno.serve(async (req) => {
   const origin = req.headers.get("origin") ?? "https://cre8visions.com";
   const portalUrl = `${origin.replace(/\/$/, "")}/portal/${cp.client_id}`;
   const previewUrl = `${origin.replace(/\/$/, "")}/p/${preview.slug}`;
-  const firstName = (recipientName || "").trim().split(/\s+/)[0] || "there";
   const businessName = client.business_name || "your business";
+  const { firstName, lastName } = splitContactName(recipientName);
 
-  // Look up stored template (subject + html with {{var}} merge tokens)
-  const { data: settings } = await admin
-    .from("app_settings")
-    .select("review_email_subject, review_email_html")
-    .eq("id", 1)
-    .maybeSingle();
+  // 1) Resolve the template UUID (cached in app_settings)
+  const { uuid: templateUuid, error: tplError } = await resolveTemplateUuid(admin, SURECONTACT_API_KEY);
+  if (!templateUuid) return json({ error: tplError || "Template not found" }, 502);
 
-  const vars: Record<string, string> = {
-    first_name: firstName,
-    client_name: recipientName || firstName,
-    business_name: businessName,
-    portal_url: portalUrl,
-    preview_url: previewUrl,
-  };
-  const substitute = (s: string) =>
-    s.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => vars[k] ?? "");
-
-  const sendBody: Record<string, unknown> = {
-    track_opens: true,
-    track_clicks: true,
-  };
-
-  if (settings?.review_email_html) {
-    sendBody.subject = substitute(settings.review_email_subject || "Your site preview is ready");
-    sendBody.body = substitute(settings.review_email_html);
-  } else {
-    sendBody.subject = "Your site preview is ready — let's gather your feedback";
-    sendBody.body = buildEmailHtml(firstName, portalUrl);
+  // 2) Upsert the contact so SureContact has fresh primary_fields + custom_fields
+  //    available to the template merge tags.
+  const upsert = await upsertSureContact(
+    {
+      email: recipientEmail,
+      firstName,
+      lastName,
+      company: businessName,
+      phone: recipientPhone ?? "",
+      customFields: {
+        portal_url: portalUrl,
+        preview_url: previewUrl,
+        business_name: businessName,
+        client_name: recipientName ?? firstName,
+      },
+      metadata: { form_source: "cre8visions_crm", trigger: "preview_review" },
+    },
+    SURECONTACT_API_KEY,
+  );
+  if (!upsert.ok) {
+    return json({ error: upsert.error || `Upsert failed (${upsert.status})`, details: upsert.data }, 502);
   }
 
-  if (recipientSureUuid) {
-    sendBody.contact_uuid = recipientSureUuid;
-  } else {
-    sendBody.contact_email = recipientEmail;
-    if (recipientName) sendBody.contact_name = recipientName;
-  }
+  // 3) Send via template
+  const sendPayload = {
+    contact_email: recipientEmail,
+    template_uuid: templateUuid,
+  };
 
   try {
     const resp = await fetch(SURECONTACT_SEND_URL, {
@@ -203,7 +214,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify(sendBody),
+      body: JSON.stringify(sendPayload),
     });
     let data: any = null;
     try { data = await resp.json(); } catch { /* */ }
@@ -215,7 +226,7 @@ Deno.serve(async (req) => {
       success: true,
       recipient: recipientEmail,
       preview_url: previewUrl,
-      used_template: !!settings?.review_email_html,
+      template_uuid: templateUuid,
       surecontact: data,
     });
   } catch (e) {
