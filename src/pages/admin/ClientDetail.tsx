@@ -65,6 +65,30 @@ export default function ClientDetail() {
   const [openEdit, setOpenEdit] = useState(false);
   const [editForm, setEditForm] = useState({ business_name: "", contact_name: "", contact_email: "", contact_phone: "" });
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editProject, setEditProject] = useState<Project | null>(null);
+  const [projectEditForm, setProjectEditForm] = useState({ name: "", business_name: "", notes: "" });
+  const [savingProjectEdit, setSavingProjectEdit] = useState(false);
+
+  const openProjectEdit = (e: React.MouseEvent, p: Project) => {
+    e.stopPropagation();
+    setProjectEditForm({ name: p.name ?? "", business_name: p.business_name ?? "", notes: p.notes ?? "" });
+    setEditProject(p);
+  };
+
+  const saveProjectEdit = async () => {
+    if (!editProject) return;
+    setSavingProjectEdit(true);
+    const { error } = await supabase.from("client_projects").update({
+      name: projectEditForm.name.trim() || editProject.name,
+      business_name: projectEditForm.business_name.trim() || null,
+      notes: projectEditForm.notes.trim() || null,
+    }).eq("id", editProject.id);
+    setSavingProjectEdit(false);
+    if (error) return toast.error(error.message);
+    toast.success("Project updated");
+    setEditProject(null);
+    load();
+  };
 
   const openEditDialog = () => {
     if (!client) return;
@@ -342,6 +366,13 @@ export default function ClientDetail() {
                       )}
                       <button
                         className="crm-btn crm-btn--ghost crm-btn--sm"
+                        onClick={(e) => openProjectEdit(e, p)}
+                        title="Edit project"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        className="crm-btn crm-btn--ghost crm-btn--sm"
                         onClick={(e) => { e.stopPropagation(); setResourceProject(p); }}
                         title="Links & notes"
                       >
@@ -441,6 +472,33 @@ export default function ClientDetail() {
             <button className="crm-btn crm-btn--ghost" onClick={() => setOpenEdit(false)}>Cancel</button>
             <button className="crm-btn crm-btn--primary" onClick={saveEdit} disabled={savingEdit}>
               {savingEdit ? "Saving…" : "Save"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!editProject} onOpenChange={(v) => { if (!v) setEditProject(null); }}>
+        <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Edit project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <label className="crm-label">Project name</label>
+              <input className="crm-input" value={projectEditForm.name} onChange={(e) => setProjectEditForm({ ...projectEditForm, name: e.target.value })} />
+            </div>
+            <div>
+              <label className="crm-label">Business name</label>
+              <input className="crm-input" value={projectEditForm.business_name} onChange={(e) => setProjectEditForm({ ...projectEditForm, business_name: e.target.value })} placeholder="Which business this project is for" />
+            </div>
+            <div>
+              <label className="crm-label">Notes</label>
+              <textarea className="crm-input" rows={3} value={projectEditForm.notes} onChange={(e) => setProjectEditForm({ ...projectEditForm, notes: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <button className="crm-btn crm-btn--ghost" onClick={() => setEditProject(null)}>Cancel</button>
+            <button className="crm-btn crm-btn--primary" onClick={saveProjectEdit} disabled={savingProjectEdit}>
+              {savingProjectEdit ? "Saving…" : "Save"}
             </button>
           </DialogFooter>
         </DialogContent>
