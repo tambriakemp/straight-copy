@@ -1,46 +1,134 @@
 ## Goal
-When a SureCart order completes for the **Web Development** product (`5b5d573d-f503-4966-bdd8-9b054eca6856`), auto-create a `web_development` project under the matching client — reusing the client if their email is found, creating a new one if not. No onboarding invite email is sent.
 
-## Webhook changes (`supabase/functions/surecart-webhook/index.ts`)
+For every Web Development project, automatically seed the full 51-task backlog organized into 7 epics, with correct assignees, descriptions, instructions, acceptance criteria, and (where applicable) a linked SureContact email template. Wire all 8 templates so agency-triggered emails are buttons on the matching tasks, and auto-triggered emails fire from server-side events. Also add a manual "Seed Web Dev tasks" button so the project the user is currently viewing (and any past ones) can be backfilled.
 
-1. Add a constant for the Web Dev product ID and detect it from the first line item's product:
-   ```ts
-   const WEB_DEV_PRODUCT_ID = '5b5d573d-f503-4966-bdd8-9b054eca6856'
-   ```
-2. On `order.paid` / `checkout.completed` / `invoice.paid`, **before** the existing onboarding-invite branch, check if `productId === WEB_DEV_PRODUCT_ID`. If yes, run the new Web Dev flow and `return` — do not fall through to invite creation or email send.
+## Source of truth
 
-## Web Dev flow
+A new code module: `supabase/functions/_shared/web-dev-tasks.ts`
 
-1. **Idempotency**: look up `client_projects` where `notes` contains the SureCart order id (or add a small `source_order_id` text column — see "DB" below). If a project already exists for this order, return early.
-2. **Find existing client** by email (case-insensitive). Match against either:
-   - `clients.contact_email`, OR
-   - `client_contacts.email` (then resolve the parent `client_id`).
-   
-   Use two `.select()` queries with `.ilike('contact_email', email)` and `.ilike('email', email)`. First hit wins; prefer non-archived.
-3. **Create client if missing** with: `business_name` (from `customer.company` if SureCart provides it, else null), `contact_name` (full name), `contact_email`, `contact_phone`, `tier: 'launch'` (default — Web Dev is one-time, not a tier), `surecart_order_id`, `surecart_customer_id`, `pipeline_stage: 'intake_submitted'`. Do **not** set `surecart_subscription_id` (one-time purchase).
-4. **Create the project**:
-   - `client_id`: matched or new
-   - `type: 'web_development'`
-   - `name`: `"Web Development - " + (client.contact_name || client.business_name || 'Client')`
-   - `status: 'active'`
-   - `notes`: `"Auto-created from SureCart order #${orderNumber}"`
-5. **Skip** the onboarding invite insert and the `send-transactional-email` invoke entirely for this product.
-6. Return `{ ok: true, web_dev: true, client_id, project_id, reused_client: boolean }`.
+Exports a typed structure:
 
-## DB migration (small, one column)
+```ts
+export const WEB_DEV_EPICS = [
+  { key: 'intake',     name: 'Phase 01 — Intake & Kickoff',        order: 1 },
+  { key: 'discovery',  name: 'Phase 02 — Discovery & Planning',    order: 2 },
+  { key: 'design',     name: 'Phase 03 — Design',                  order: 3 },
+  { key: 'dev',        name: 'Phase 04 — Development',             order: 4 },
+  { key: 'qa',         name: 'Phase 05 — QA & Pre-Launch',         order: 5 },
+  { key: 'launch',     name: 'Phase 06 — Launch',                  order: 6 },
+  { key: 'handoff',    name: 'Phase 07 — Handoff & Closure',       order: 7 },
+];
 
-Add `source_order_id text` to `client_projects` with a partial unique index so re-deliveries of the same SureCart webhook don't create duplicate projects:
-```sql
-ALTER TABLE public.client_projects ADD COLUMN source_order_id text;
-CREATE UNIQUE INDEX client_projects_source_order_id_uidx
-  ON public.client_projects(source_order_id) WHERE source_order_id IS NOT NULL;
+export const WEB_DEV_TASKS = [
+  { epic: 'intake', num: '1.1', name: '...', assignee_kind: 'auto',
+    description: '...', instructions: [...], acceptance_criteria: [...],
+    email: { uuid: 'aa81debf...', trigger: 'auto' | 'agency',
+             template_key: 'web-dev-kickoff' } },
+  // ...51 entries total
+];
 ```
-No new RLS or GRANTs needed (table already has them). The idempotency check in the webhook becomes a simple `.eq('source_order_id', orderId).maybeSingle()`.
 
-## Out of scope
-- No UI changes — the new project appears automatically on the client's existing project list / Dashboard.
-- No subscription-status syncing (Web Dev is one-time).
-- Existing Launch/Growth tier flow is untouched.
+The 51 task definitions come straight from the attached workflow doc. Owner maps to `assignee_kind`:
 
-## Verification
-- Trigger a SureCart test webhook with the Web Dev product → confirm one project row appears under the correct client (new or existing); re-fire same event → no duplicate; no email sent; existing Launch purchase flow still creates an invite as before.
+- "System"/"Auto" → `auto`
+- "Agency"/agency-led → `admin`
+- "Client" → `client`
+- mixed (e.g. "Agency sends, Client submits") → `admin` (primary actor) with note in description
+
+Instructions list is folded into the task description (markdown bullets) since `project_tasks` has no separate instructions field. `acceptance_criteria` maps directly to the existing JSON column.
+
+## Seeding logic
+
+New helper `supabase/functions/_shared/web-dev-tasks.ts → seedWebDevTasks(sb, projectId)`:
+
+1. Idempotency: bail if the project already has an epic with `journey_stage_key = 'web_dev:intake'`. Lets the function be called safely from both webhook and admin button.
+2. Insert all 7 epics into `project_task_epics` with `journey_stage_key = 'web_dev:<key>'`, `locked = true`, ordered.
+3. Insert 51 tasks into `project_tasks` with correct `epic_id`, `assignee_kind`, `status='backlog'`, `order_index` matching doc order, `acceptance_criteria`, and (for tasks with an email) store the template UUID + trigger in a new `metadata` field — see schema change below.
+
+### Schema change (migration)
+
+`project_tasks` currently has no place for the SureContact template binding. Add one column:
+
+```sql
+ALTER TABLE public.project_tasks ADD COLUMN email_template jsonb;
+-- shape: { "template_uuid": "...", "trigger": "agency" | "auto",
+--          "template_key": "web-dev-kickoff", "sent_at": "...", "last_send_error": null }
+```
+
+No GRANT changes needed (table already exposed). No new table required.
+
+## Webhook integration
+
+In `supabase/functions/surecart-webhook/index.ts`, after successful `client_projects.insert(...)` in the Web Dev branch (line ~400), call `seedWebDevTasks(supabase, newProject.id)`. Errors are logged but do not fail the webhook (project still useful without tasks; admin can re-seed via button).
+
+## Admin "Seed Web Dev tasks" button
+
+- Add a route in the existing admin tasks API (`supabase/functions/project-tasks/index.ts`): `POST /seed-web-dev` with `{ project_id }`. Validates the project is `type='web_development'`, calls `seedWebDevTasks`, returns count of created tasks/epics.
+- In `src/components/admin/tasks/ProjectTasksPanel.tsx`, show a "Seed Web Dev tasks" button in the header when `project.type === 'web_development'` AND the project currently has zero tasks. Clicking calls the new endpoint, then refetches.
+
+## Email wiring (all 8 templates)
+
+Add `supabase/functions/_shared/web-dev-emails.ts`:
+
+```ts
+export const WEB_DEV_EMAIL_TEMPLATES = {
+  'web-dev-kickoff':                { uuid: 'aa81debf...', trigger: 'agency' },
+  'web-dev-contract-signed':        { uuid: '375741e8...', trigger: 'auto' },
+  'web-dev-questionnaire-complete': { uuid: 'ccd63937...', trigger: 'auto' },
+  'web-dev-design-concepts-ready':  { uuid: '4d87b58a...', trigger: 'agency' },
+  'web-dev-design-approved':        { uuid: '08c4a5e9...', trigger: 'agency' },
+  'web-dev-prelaunch-preview':      { uuid: 'd2283bd3...', trigger: 'agency' },
+  'web-dev-launch-confirmation':    { uuid: '5b4efb27...', trigger: 'agency' },
+  'web-dev-postlaunch-followup':    { uuid: '745635fc...', trigger: 'auto-3d-after-launch' },
+};
+```
+
+New shared function `sendWebDevTemplate(sb, { taskId, templateKey, clientId, extraMergeFields })`:
+
+1. Looks up the primary client contact (email/name/phone/business_name).
+2. Builds `customFields` (SureContact merge fields): `portal_url`, `project_name`, `project_url`, `contract_link`, `loom_url`, plus any `extraMergeFields` the specific template needs (e.g. launch summary, design preview URL).
+3. Calls existing `upsertSureContact()` to refresh merge data.
+4. POSTs to `https://api.surecontact.com/api/v1/public/emails/send` with `{ contact_email, template_uuid }` — same pattern as `send-preview-review-email`.
+5. On success, updates the task's `email_template.sent_at`; on failure stores `last_send_error`.
+
+### New edge function `send-web-dev-email`
+
+Thin wrapper around `sendWebDevTemplate`. Admin-auth (same `requireAdmin` pattern as `project-tasks/index.ts`). Body: `{ task_id, extra_merge_fields? }`. Reads task to get `email_template.template_uuid` + `client_project_id` → resolves client.
+
+### UI: per-task "Send email" button
+
+In `ProjectTasksPanel.tsx` task card, when `task.email_template?.template_uuid` exists AND `email_template.trigger === 'agency'`:
+
+- Show a small button: "Send: <template-key>". Disabled while sending. Shows `sent_at` timestamp once sent (toast confirms; allow resend).
+- For `trigger === 'auto'`, show a passive badge "Auto-fires on …" instead of a button.
+
+### Auto-fire wiring
+
+Three auto-trigger events to hook:
+
+| Template                          | Trigger event                                                              |
+|----------------------------------|----------------------------------------------------------------------------|
+| `web-dev-contract-signed`        | After `client_contracts` insert (existing `contract-sign` edge function)   |
+| `web-dev-questionnaire-complete` | After onboarding submission completes for a web_dev project                |
+| `web-dev-postlaunch-followup`    | 3 days after launch — added to existing `process-email-queue` cron pattern |
+
+For the post-launch one: when the "Site published to live domain" task (4-or-6) gets marked complete, enqueue a delayed send (use a new `web_dev_scheduled_emails` table with `send_after`, processed by an existing or new cron).
+
+## Files touched
+
+- `supabase/migrations/<ts>_web_dev_tasks.sql` — add `email_template jsonb` column to `project_tasks`; add `web_dev_scheduled_emails` table + GRANTs/RLS.
+- `supabase/functions/_shared/web-dev-tasks.ts` (new) — definitions + `seedWebDevTasks`.
+- `supabase/functions/_shared/web-dev-emails.ts` (new) — template registry + `sendWebDevTemplate`.
+- `supabase/functions/surecart-webhook/index.ts` — call `seedWebDevTasks` after web_dev project insert.
+- `supabase/functions/project-tasks/index.ts` — add `POST /seed-web-dev` route.
+- `supabase/functions/send-web-dev-email/index.ts` (new) — admin endpoint for manual sends.
+- `supabase/functions/contract-sign/index.ts` — if contract is for a web_dev project, fire `web-dev-contract-signed`.
+- `supabase/functions/save-onboarding/index.ts` — if submission is tied to a web_dev project, fire `web-dev-questionnaire-complete`.
+- `supabase/functions/process-email-queue/index.ts` (or new `dispatch-web-dev-scheduled` cron) — drain `web_dev_scheduled_emails`.
+- `src/components/admin/tasks/ProjectTasksPanel.tsx` — Seed button + per-task email button + auto-fire badge.
+
+## Out of scope (for this pass)
+
+- Editing the SureContact templates themselves (UUIDs are referenced only).
+- Per-page subtasks under Development (4.6 stays a single task; users can add subtasks later).
+- Reordering or renaming tasks after they're seeded — admins can edit normally.

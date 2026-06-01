@@ -50,6 +50,8 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const [filterEpic, setFilterEpic] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [dragId, setDragId] = useState<string | null>(null);
+  const [projectType, setProjectType] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   const reload = async () => {
     try {
@@ -66,6 +68,9 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   useEffect(() => {
     setLoading(true);
     void reload();
+    // Load project type for Web Dev seed button
+    supabase.from("client_projects").select("type").eq("id", clientProjectId).maybeSingle()
+      .then(({ data }) => setProjectType(data?.type ?? null));
     // realtime
     const ch = supabase.channel(`project_tasks_${clientProjectId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "project_tasks", filter: `client_project_id=eq.${clientProjectId}` },
@@ -76,6 +81,24 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     return () => { void supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientProjectId]);
+
+  const handleSeedWebDev = async () => {
+    if (!confirm("Seed the full Web Dev backlog (7 epics, 50 tasks) into this project?")) return;
+    setSeeding(true);
+    try {
+      const result = await tasksApi.seedWebDev(clientProjectId);
+      if (result.seeded) {
+        toast.success(`Seeded ${result.epics} epics and ${result.tasks} tasks`);
+        await reload();
+      } else {
+        toast.info(`Already seeded (${result.reason ?? "no-op"})`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Seed failed");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const topLevel = useMemo(
     () => tasks.filter((t) => !t.parent_task_id)
@@ -171,6 +194,12 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
 
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          {projectType === "web_development" && tasks.length === 0 && !loading && (
+            <Button variant="outline" size="sm" onClick={handleSeedWebDev} disabled={seeding}
+              className="bg-transparent border-accent/40 !text-accent hover:bg-accent/10">
+              {seeding ? "Seeding…" : "Seed Web Dev tasks"}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setEpicsOpen(true)}
             className="bg-transparent border-warm-white/20 !text-warm-white hover:bg-warm-white/10">
             Manage epics
@@ -300,6 +329,56 @@ function KanbanColumn({
     </div>
   );
 }
+
+function TaskEmailSection({ task, onChanged }: { task: Task; onChanged: () => Promise<void> | void }) {
+  const [sending, setSending] = useState(false);
+  const tpl = task.email_template!;
+  const isAuto = tpl.trigger === "auto";
+  const send = async () => {
+    if (!confirm(`Send "${tpl.template_key}" email to client now?`)) return;
+    setSending(true);
+    try {
+      const res = await tasksApi.sendWebDevEmail(task.id);
+      if (res.ok) toast.success(`Sent to ${res.recipient}`);
+      else toast.error("Send failed");
+      await onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Send failed");
+    } finally {
+      setSending(false);
+    }
+  };
+  return (
+    <section className="tp-sec" style={{ borderTop: "1px solid hsl(var(--warm-white) / 0.1)", paddingTop: 16, marginTop: 8 }}>
+      <div className="tp-label" style={{ marginBottom: 8 }}>SureContact email</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <Badge variant="outline" className="border-warm-white/20 !text-warm-white">
+          {tpl.template_key}
+        </Badge>
+        <Badge variant="outline" className={isAuto ? "border-accent/40 !text-accent" : "border-warm-white/20 !text-warm-white"}>
+          {isAuto ? "Auto-fires from server event" : "Agency triggered"}
+        </Badge>
+        {tpl.sent_at && (
+          <span className="!text-warm-white/70" style={{ fontSize: 12 }}>
+            Last sent: {new Date(tpl.sent_at).toLocaleString()}
+          </span>
+        )}
+        {!isAuto && (
+          <Button size="sm" onClick={send} disabled={sending}
+            className="bg-accent !text-accent-foreground hover:bg-accent/90 ml-auto">
+            {sending ? "Sending…" : tpl.sent_at ? "Resend email" : "Send email"}
+          </Button>
+        )}
+      </div>
+      {tpl.last_send_error && (
+        <div style={{ marginTop: 8, fontSize: 12, color: "hsl(0 70% 65%)" }}>
+          Last error: {tpl.last_send_error}
+        </div>
+      )}
+    </section>
+  );
+}
+
 
 function DraggableCard({ task, epics, subtaskCount, onOpen }: {
   task: Task; epics: Epic[]; subtaskCount: number; onOpen: (id: string) => void;
@@ -780,6 +859,11 @@ function TaskDetailSheet({
                 />
               </div>
             </section>
+
+            {/* SureContact email binding (Web Dev tasks) */}
+            {task.email_template?.template_key && (
+              <TaskEmailSection task={task} onChanged={onChanged} />
+            )}
 
             {/* Details */}
             <Section title="Details" collapsed={collapsed.details} onToggle={() => toggle("details")}>

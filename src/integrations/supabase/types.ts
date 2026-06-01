@@ -1747,6 +1747,7 @@ export type Database = {
           description: string | null
           design_url: string | null
           due_date: string | null
+          email_template: Json | null
           epic_id: string | null
           id: string
           journey_item_key: string | null
@@ -1775,6 +1776,7 @@ export type Database = {
           description?: string | null
           design_url?: string | null
           due_date?: string | null
+          email_template?: Json | null
           epic_id?: string | null
           id?: string
           journey_item_key?: string | null
@@ -1803,6 +1805,7 @@ export type Database = {
           description?: string | null
           design_url?: string | null
           due_date?: string | null
+          email_template?: Json | null
           epic_id?: string | null
           id?: string
           journey_item_key?: string | null
@@ -2110,6 +2113,47 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      web_dev_scheduled_emails: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          send_after: string
+          sent_at: string | null
+          task_id: string
+          template_key: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          send_after: string
+          sent_at?: string | null
+          task_id: string
+          template_key: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          send_after?: string
+          sent_at?: string | null
+          task_id?: string
+          template_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "web_dev_scheduled_emails_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
             referencedColumns: ["id"]
           },
         ]

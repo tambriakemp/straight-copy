@@ -2,6 +2,7 @@
 // Public endpoint (verify_jwt = false). Verifies SureCart signature.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { seedWebDevTasks } from '../_shared/web-dev-tasks.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -405,6 +406,14 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    // Seed full Web Dev task backlog (7 epics, 50 tasks). Non-fatal on error.
+    try {
+      const seed = await seedWebDevTasks(supabase, newProject.id)
+      console.log('Web Dev: seed result', seed)
+    } catch (e) {
+      console.error('Web Dev: seedWebDevTasks failed', e)
     }
 
     return new Response(JSON.stringify({

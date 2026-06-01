@@ -5,6 +5,7 @@ import {
   uploadTaskAttachment, listEpics, createEpic, updateEpic, deleteEpic,
   TASK_STATUSES, TASK_PRIORITIES, ASSIGNEE_KINDS, TASK_SIZES, TASK_PLATFORMS,
 } from "../_shared/project-tasks.ts";
+import { seedWebDevTasks } from "../_shared/web-dev-tasks.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -80,6 +81,18 @@ Deno.serve(async (req) => {
       if (att) await sb.storage.from((att as any).bucket || "project-task-attachments").remove([att.storage_path]);
       await sb.from("project_task_attachments").delete().eq("id", parts[1]);
       return json({ ok: true });
+    }
+
+    // ---- SEED Web Dev ----
+    if (parts[0] === "seed-web-dev" && method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      const projectId = body.project_id;
+      if (!projectId) return json({ error: "project_id required" }, 400);
+      const { data: proj } = await sb.from("client_projects").select("type").eq("id", projectId).maybeSingle();
+      if (!proj) return json({ error: "Project not found" }, 404);
+      if (proj.type !== "web_development") return json({ error: "Project is not web_development" }, 400);
+      const result = await seedWebDevTasks(sb, projectId);
+      return json(result);
     }
 
     // ---- TASKS ----
