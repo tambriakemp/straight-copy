@@ -1533,7 +1533,7 @@
   border: 1px solid hsl(40 20% 97% / 0.12);
   border-radius: 6px;
   background: hsl(28 12% 8% / 0.6);
-  max-height: 420px;
+  max-height: 520px;
   overflow-y: auto;
 }
 .crm-shell .portal-contract__doc-head {
@@ -1542,12 +1542,12 @@
 }
 .crm-shell .portal-contract__doc-title {
   font-family: var(--crm-font-serif);
-  font-size: 22px;
+  font-size: 26px;
   color: var(--crm-warm-white);
 }
 .crm-shell .portal-contract__doc-meta {
   margin-top: 6px;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--crm-stone);
   font-style: italic;
   font-family: var(--crm-font-serif);
@@ -1557,17 +1557,18 @@
 .crm-shell .portal-contract__section-heading {
   font-family: var(--crm-font-serif);
   font-weight: 600;
-  font-size: 17px;
+  font-size: 19px;
   color: var(--crm-warm-white);
   margin-bottom: 6px;
   letter-spacing: 0.02em;
 }
 .crm-shell .portal-contract__section-body {
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: 16px;
+  line-height: 1.7;
   color: hsl(40 8% 75%);
   font-family: var(--crm-font-serif);
 }
+
 
 .crm-shell .portal-contract__sign-panel {
   margin-top: 20px;
