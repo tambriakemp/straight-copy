@@ -83,6 +83,18 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // ---- SEED Web Dev ----
+    if (parts[0] === "seed-web-dev" && method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      const projectId = body.project_id;
+      if (!projectId) return json({ error: "project_id required" }, 400);
+      const { data: proj } = await sb.from("client_projects").select("type").eq("id", projectId).maybeSingle();
+      if (!proj) return json({ error: "Project not found" }, 404);
+      if (proj.type !== "web_development") return json({ error: "Project is not web_development" }, 400);
+      const result = await seedWebDevTasks(sb, projectId);
+      return json(result);
+    }
+
     // ---- TASKS ----
     if (parts[0] === "tasks" && parts.length === 1 && method === "GET") {
       const pid = url.searchParams.get("project_id");
