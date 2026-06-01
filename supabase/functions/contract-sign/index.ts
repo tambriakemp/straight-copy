@@ -600,7 +600,7 @@ Deno.serve(async (req) => {
     // Load client (all actions need the client record)
     const { data: client, error: clientErr } = await supabase
       .from("clients")
-      .select("id, business_name, contact_name, tier, archived")
+      .select("id, business_name, contact_name, contact_email, tier, archived")
       .eq("id", input.clientId)
       .maybeSingle();
     if (clientErr) throw clientErr;
@@ -659,12 +659,14 @@ Deno.serve(async (req) => {
             id: client.id,
             business_name: client.business_name,
             contact_name: client.contact_name,
+            contact_email: client.contact_email,
             tier: client.tier,
           },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
 
     if (input.action === "sign") {
       // Refuse to double-sign
