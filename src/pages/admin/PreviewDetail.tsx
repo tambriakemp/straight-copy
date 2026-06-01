@@ -925,6 +925,88 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         pagePath={aiEditPath ?? ""}
         onApplied={load}
       />
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Send Review Email</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <p style={{ fontSize: 13, color: "var(--crm-taupe)", margin: 0 }}>
+              Pick which client contact should receive the site preview review email. The email is sent through SureContact so it appears in that contact's activity history.
+            </p>
+            {pickerLoading ? (
+              <div style={{ fontSize: 14, padding: "12px 0" }}>Loading contacts…</div>
+            ) : pickerContacts.length === 0 ? (
+              <div style={{ fontSize: 14, color: "var(--crm-taupe)", fontStyle: "italic", padding: "12px 0" }}>
+                No contacts with an email on this client. Add one from the client page first.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {pickerContacts.map((c) => (
+                  <label
+                    key={c.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      padding: 12,
+                      border: pickerSelected === c.id ? "1px solid hsl(40 30% 60% / 0.6)" : "1px solid var(--crm-border-dark)",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      background: pickerSelected === c.id ? "hsl(40 20% 97% / 0.04)" : "transparent",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="review-contact"
+                      checked={pickerSelected === c.id}
+                      onChange={() => setPickerSelected(c.id)}
+                      style={{ marginTop: 3 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+                        <span>{c.name || <em style={{ color: "var(--crm-taupe)" }}>(no name)</em>}</span>
+                        {c.is_primary && (
+                          <span style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(40 30% 70%)" }}>
+                            Primary
+                          </span>
+                        )}
+                        {c.role && (
+                          <span style={{ fontSize: 11, color: "var(--crm-taupe)" }}>· {c.role}</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 2 }}>{c.email}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+            <div style={{ borderTop: "1px solid var(--crm-border-dark)", paddingTop: 10, marginTop: 6 }}>
+              <button
+                type="button"
+                className="crm-btn crm-btn--ghost crm-btn--sm"
+                onClick={createReviewTemplate}
+                disabled={creatingTemplate}
+                title="Create or refresh the SureContact email template used for this email"
+                style={{ fontSize: 11 }}
+              >
+                {creatingTemplate ? "Setting up template…" : "Create / refresh SureContact template"}
+              </button>
+            </div>
+          </div>
+          <DialogFooter>
+            <button className="crm-btn crm-btn--ghost" onClick={() => setPickerOpen(false)}>Cancel</button>
+            <button
+              className="crm-btn crm-btn--primary"
+              onClick={sendReviewEmail}
+              disabled={sendingEmail || !pickerSelected || pickerContacts.length === 0}
+            >
+              {sendingEmail ? "Sending…" : "Send"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Wrap>
   );
 }
