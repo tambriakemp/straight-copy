@@ -142,7 +142,7 @@ export default function ClientDetail() {
       if (type === "app_development" || type === "web_development" || type === "marketing") {
         const { data: proj, error } = await supabase
           .from("client_projects")
-          .insert({ client_id: id, type, name: name.trim() })
+          .insert({ client_id: id, type, name: name.trim(), business_name: projectBusinessName.trim() || null })
           .select("*").single();
         if (error) throw error;
         toast.success(`${TYPE_LABEL[type]} project created`);
