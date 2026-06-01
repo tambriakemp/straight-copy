@@ -93,7 +93,11 @@ export default function AppDevelopmentView() {
 
           <ProjectTabsContent value="tasks">
             <ProjectTasksPanel clientProjectId={projectId!} />
+            {project.type === "web_development" && (
+              <ContractAuditPanel clientId={clientId!} clientProjectId={projectId!} />
+            )}
           </ProjectTabsContent>
+
 
           <ProjectTabsContent value="proposals">
             <ProjectProposalsPanel clientId={clientId!} clientProjectId={projectId!} portalUrl={portalUrl} />
