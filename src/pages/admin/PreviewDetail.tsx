@@ -12,6 +12,7 @@ import AiEditDialog from "@/components/admin/preview/AiEditDialog";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 
 type Project = any; type FileRow = any; type Comment = any; type Reply = any;
@@ -267,17 +268,55 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   };
 
   const [sendingEmail, setSendingEmail] = useState(false);
-  const sendReviewEmail = async () => {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerContacts, setPickerContacts] = useState<Array<{ id: string; name: string | null; email: string | null; role: string | null; is_primary: boolean }>>([]);
+  const [pickerSelected, setPickerSelected] = useState<string | null>(null);
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
+
+  const openReviewEmailPicker = async () => {
     if (!project?.client_project_id) {
       toast.error("Link this preview to a client first.");
       return;
     }
-    if (!confirm("Send the site preview review email to the client now?")) return;
+    setPickerOpen(true);
+    setPickerLoading(true);
+    try {
+      const { data: cp } = await supabase
+        .from("client_projects")
+        .select("client_id")
+        .eq("id", project.client_project_id)
+        .maybeSingle();
+      if (!cp?.client_id) throw new Error("Client not found for this preview.");
+      const { data: rows } = await supabase
+        .from("client_contacts")
+        .select("id, name, email, role, is_primary")
+        .eq("client_id", cp.client_id)
+        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: true });
+      const contacts = (rows ?? []).filter((c: any) => c.email);
+      setPickerContacts(contacts as any);
+      const primary = contacts.find((c: any) => c.is_primary) ?? contacts[0];
+      setPickerSelected(primary?.id ?? null);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to load contacts");
+    } finally {
+      setPickerLoading(false);
+    }
+  };
+
+  const sendReviewEmail = async () => {
+    if (!project?.client_project_id) return;
+    if (!pickerSelected) {
+      toast.error("Pick a contact to send to.");
+      return;
+    }
     setSendingEmail(true);
+    setPickerOpen(false);
     const toastId = toast.loading("Sending review email…");
     try {
       const { data, error } = await supabase.functions.invoke("send-preview-review-email", {
-        body: { preview_project_id: project.id },
+        body: { preview_project_id: project.id, contact_id: pickerSelected },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -286,6 +325,21 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
       toast.error(e?.message || "Failed to send email", { id: toastId, duration: 8000 });
     } finally {
       setSendingEmail(false);
+    }
+  };
+
+  const createReviewTemplate = async () => {
+    setCreatingTemplate(true);
+    const toastId = toast.loading("Setting up SureContact template…");
+    try {
+      const { data, error } = await supabase.functions.invoke("create-surecontact-review-template", { body: {} });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Template ${data?.action ?? "saved"} in SureContact`, { id: toastId, duration: 5000 });
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to set up template", { id: toastId, duration: 8000 });
+    } finally {
+      setCreatingTemplate(false);
     }
   };
 
@@ -382,9 +436,9 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
             <span style={{ width: 1, height: 22, background: "var(--crm-border-dark)", margin: "0 4px" }} />
             <button
               className="crm-btn crm-btn--ghost crm-btn--sm"
-              onClick={sendReviewEmail}
+              onClick={openReviewEmailPicker}
               disabled={sendingEmail || !project.client_project_id}
-              title={project.client_project_id ? "Send review instructions to the client" : "Link to a client to enable"}
+              title={project.client_project_id ? "Send review instructions to a client contact" : "Link to a client to enable"}
             >
               <Mail size={12} /> {sendingEmail ? "Sending…" : "Send Review Email"}
             </button>
@@ -871,6 +925,88 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         pagePath={aiEditPath ?? ""}
         onApplied={load}
       />
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Send Review Email</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <p style={{ fontSize: 13, color: "var(--crm-taupe)", margin: 0 }}>
+              Pick which client contact should receive the site preview review email. The email is sent through SureContact so it appears in that contact's activity history.
+            </p>
+            {pickerLoading ? (
+              <div style={{ fontSize: 14, padding: "12px 0" }}>Loading contacts…</div>
+            ) : pickerContacts.length === 0 ? (
+              <div style={{ fontSize: 14, color: "var(--crm-taupe)", fontStyle: "italic", padding: "12px 0" }}>
+                No contacts with an email on this client. Add one from the client page first.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {pickerContacts.map((c) => (
+                  <label
+                    key={c.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      padding: 12,
+                      border: pickerSelected === c.id ? "1px solid hsl(40 30% 60% / 0.6)" : "1px solid var(--crm-border-dark)",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      background: pickerSelected === c.id ? "hsl(40 20% 97% / 0.04)" : "transparent",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="review-contact"
+                      checked={pickerSelected === c.id}
+                      onChange={() => setPickerSelected(c.id)}
+                      style={{ marginTop: 3 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+                        <span>{c.name || <em style={{ color: "var(--crm-taupe)" }}>(no name)</em>}</span>
+                        {c.is_primary && (
+                          <span style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(40 30% 70%)" }}>
+                            Primary
+                          </span>
+                        )}
+                        {c.role && (
+                          <span style={{ fontSize: 11, color: "var(--crm-taupe)" }}>· {c.role}</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 2 }}>{c.email}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+            <div style={{ borderTop: "1px solid var(--crm-border-dark)", paddingTop: 10, marginTop: 6 }}>
+              <button
+                type="button"
+                className="crm-btn crm-btn--ghost crm-btn--sm"
+                onClick={createReviewTemplate}
+                disabled={creatingTemplate}
+                title="Create or refresh the SureContact email template used for this email"
+                style={{ fontSize: 11 }}
+              >
+                {creatingTemplate ? "Setting up template…" : "Create / refresh SureContact template"}
+              </button>
+            </div>
+          </div>
+          <DialogFooter>
+            <button className="crm-btn crm-btn--ghost" onClick={() => setPickerOpen(false)}>Cancel</button>
+            <button
+              className="crm-btn crm-btn--primary"
+              onClick={sendReviewEmail}
+              disabled={sendingEmail || !pickerSelected || pickerContacts.length === 0}
+            >
+              {sendingEmail ? "Sending…" : "Send"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Wrap>
   );
 }

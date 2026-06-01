@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen, FileSignature, Globe, Megaphone, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen, FileSignature, Globe, Megaphone, Pencil, Star, Trash2 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
@@ -45,6 +45,18 @@ const TYPE_LABEL: Record<Project["type"], string> = {
 
 const tierLabel = (t: string) => (t === "growth" ? "Growth" : "Launch");
 
+type ContactRow = {
+  id?: string;
+  _localKey: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  is_primary: boolean;
+};
+
+const makeLocalKey = () => `new_${Math.random().toString(36).slice(2, 10)}`;
+
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
@@ -63,7 +75,8 @@ export default function ClientDetail() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resourceProject, setResourceProject] = useState<Project | null>(null);
   const [openEdit, setOpenEdit] = useState(false);
-  const [editForm, setEditForm] = useState({ business_name: "", contact_name: "", contact_email: "", contact_phone: "" });
+  const [editForm, setEditForm] = useState({ business_name: "" });
+  const [editContacts, setEditContacts] = useState<ContactRow[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [projectEditForm, setProjectEditForm] = useState({ name: "", business_name: "", notes: "" });
@@ -90,32 +103,146 @@ export default function ClientDetail() {
     load();
   };
 
-  const openEditDialog = () => {
+  const openEditDialog = async () => {
     if (!client) return;
-    setEditForm({
-      business_name: client.business_name ?? "",
-      contact_name: client.contact_name ?? "",
-      contact_email: client.contact_email ?? "",
-      contact_phone: client.contact_phone ?? "",
-    });
+    setEditForm({ business_name: client.business_name ?? "" });
+    // Load existing contacts
+    const { data: rows } = await supabase
+      .from("client_contacts")
+      .select("id, name, email, phone, role, is_primary, order_index")
+      .eq("client_id", client.id)
+      .order("is_primary", { ascending: false })
+      .order("order_index", { ascending: true })
+      .order("created_at", { ascending: true });
+    let list: ContactRow[] = (rows ?? []).map((r: any) => ({
+      id: r.id,
+      _localKey: r.id,
+      name: r.name ?? "",
+      email: r.email ?? "",
+      phone: r.phone ?? "",
+      role: r.role ?? "",
+      is_primary: !!r.is_primary,
+    }));
+    if (list.length === 0) {
+      // Seed from legacy fields if nothing migrated
+      list = [{
+        _localKey: makeLocalKey(),
+        name: client.contact_name ?? "",
+        email: client.contact_email ?? "",
+        phone: client.contact_phone ?? "",
+        role: "",
+        is_primary: true,
+      }];
+    } else if (!list.some((c) => c.is_primary)) {
+      list[0].is_primary = true;
+    }
+    setEditContacts(list);
     setOpenEdit(true);
   };
 
-  const saveEdit = async () => {
-    if (!id) return;
-    setSavingEdit(true);
-    const { error } = await supabase.from("clients").update({
-      business_name: editForm.business_name.trim() || null,
-      contact_name: editForm.contact_name.trim() || null,
-      contact_email: editForm.contact_email.trim() || null,
-      contact_phone: editForm.contact_phone.trim() || null,
-    }).eq("id", id);
-    setSavingEdit(false);
-    if (error) return toast.error(error.message);
-    toast.success("Client updated");
-    setOpenEdit(false);
-    load();
+  const addContactRow = () => {
+    setEditContacts((prev) => [
+      ...prev,
+      { _localKey: makeLocalKey(), name: "", email: "", phone: "", role: "", is_primary: prev.length === 0 },
+    ]);
   };
+
+  const updateContactRow = (key: string, patch: Partial<ContactRow>) => {
+    setEditContacts((prev) => prev.map((c) => (c._localKey === key ? { ...c, ...patch } : c)));
+  };
+
+  const removeContactRow = (key: string) => {
+    setEditContacts((prev) => {
+      const next = prev.filter((c) => c._localKey !== key);
+      // Ensure exactly one primary if any remain
+      if (next.length > 0 && !next.some((c) => c.is_primary)) {
+        next[0] = { ...next[0], is_primary: true };
+      }
+      return next;
+    });
+  };
+
+  const setPrimaryContact = (key: string) => {
+    setEditContacts((prev) => prev.map((c) => ({ ...c, is_primary: c._localKey === key })));
+  };
+
+  const saveEdit = async () => {
+    if (!id || !client) return;
+    // Validate
+    const cleaned = editContacts
+      .map((c) => ({ ...c, name: c.name.trim(), email: c.email.trim(), phone: c.phone.trim(), role: c.role.trim() }))
+      .filter((c) => c.name || c.email || c.phone);
+    if (cleaned.length > 0 && !cleaned.some((c) => c.is_primary)) {
+      cleaned[0].is_primary = true;
+    }
+    const primaryCount = cleaned.filter((c) => c.is_primary).length;
+    if (primaryCount > 1) {
+      return toast.error("Only one contact can be marked primary");
+    }
+    const primary = cleaned.find((c) => c.is_primary) ?? null;
+
+    setSavingEdit(true);
+    try {
+      // 1) Update business_name + legacy mirror to primary
+      const { error: clientErr } = await supabase.from("clients").update({
+        business_name: editForm.business_name.trim() || null,
+        contact_name: primary?.name || null,
+        contact_email: primary?.email || null,
+        contact_phone: primary?.phone || null,
+      }).eq("id", id);
+      if (clientErr) throw clientErr;
+
+      // 2) Sync client_contacts: delete missing, upsert remaining
+      const keptIds = cleaned.filter((c) => c.id).map((c) => c.id as string);
+      // Fetch current ids to find ones to delete
+      const { data: current } = await supabase
+        .from("client_contacts")
+        .select("id")
+        .eq("client_id", id);
+      const toDelete = (current ?? [])
+        .map((r: any) => r.id as string)
+        .filter((cid) => !keptIds.includes(cid));
+
+      // To avoid the partial unique index conflict during reassignment,
+      // first clear is_primary on all existing rows, then upsert with final values.
+      if ((current ?? []).length > 0) {
+        await supabase.from("client_contacts").update({ is_primary: false }).eq("client_id", id);
+      }
+
+      if (toDelete.length) {
+        await supabase.from("client_contacts").delete().in("id", toDelete);
+      }
+
+      // Upsert remaining (existing rows by id, new rows insert)
+      for (let i = 0; i < cleaned.length; i++) {
+        const c = cleaned[i];
+        const payload = {
+          client_id: id,
+          name: c.name || null,
+          email: c.email || null,
+          phone: c.phone || null,
+          role: c.role || null,
+          is_primary: c.is_primary,
+          order_index: i,
+        };
+        if (c.id) {
+          const { error } = await supabase.from("client_contacts").update(payload).eq("id", c.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("client_contacts").insert(payload);
+          if (error) throw error;
+        }
+      }
+      toast.success("Client updated");
+      setOpenEdit(false);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
 
   const base = useMemo(() => window.location.origin, []);
 
@@ -474,7 +601,7 @@ export default function ClientDetail() {
         onOpenChange={(v) => { if (!v) setResourceProject(null); }}
       />
       <Dialog open={openEdit} onOpenChange={setOpenEdit}>
-        <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md">
+        <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Edit client</DialogTitle>
           </DialogHeader>
@@ -483,17 +610,94 @@ export default function ClientDetail() {
               <label className="crm-label">Business name</label>
               <input className="crm-input" value={editForm.business_name} onChange={(e) => setEditForm({ ...editForm, business_name: e.target.value })} />
             </div>
-            <div>
-              <label className="crm-label">Contact name</label>
-              <input className="crm-input" value={editForm.contact_name} onChange={(e) => setEditForm({ ...editForm, contact_name: e.target.value })} />
-            </div>
-            <div>
-              <label className="crm-label">Contact email</label>
-              <input className="crm-input" type="email" value={editForm.contact_email} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })} />
-            </div>
-            <div>
-              <label className="crm-label">Contact phone</label>
-              <input className="crm-input" value={editForm.contact_phone} onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })} />
+
+            <div style={{ marginTop: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <label className="crm-label" style={{ margin: 0 }}>Contacts</label>
+                <button type="button" className="crm-btn crm-btn--ghost crm-btn--sm" onClick={addContactRow}>
+                  <Plus size={12} /> Add contact
+                </button>
+              </div>
+              <p style={{ fontSize: 12, color: "var(--crm-taupe)", margin: "0 0 12px" }}>
+                The primary contact is mirrored to the client's main email and used as the default recipient for client emails.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {editContacts.length === 0 && (
+                  <div style={{ fontSize: 13, color: "var(--crm-taupe)", fontStyle: "italic", padding: "8px 0" }}>
+                    No contacts yet. Click "Add contact" above.
+                  </div>
+                )}
+                {editContacts.map((c) => (
+                  <div
+                    key={c._localKey}
+                    style={{
+                      border: c.is_primary ? "1px solid hsl(40 30% 60% / 0.5)" : "1px solid var(--crm-border-dark)",
+                      borderRadius: 4,
+                      padding: 12,
+                      background: c.is_primary ? "hsl(40 20% 97% / 0.03)" : "transparent",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
+                      <button
+                        type="button"
+                        className="crm-btn crm-btn--ghost crm-btn--sm"
+                        onClick={() => setPrimaryContact(c._localKey)}
+                        disabled={c.is_primary}
+                        title={c.is_primary ? "Primary contact" : "Make primary"}
+                        style={{ fontSize: 11 }}
+                      >
+                        <Star size={11} style={{ fill: c.is_primary ? "currentColor" : "none" }} />
+                        {c.is_primary ? "Primary" : "Make primary"}
+                      </button>
+                      <button
+                        type="button"
+                        className="crm-btn crm-btn--ghost crm-btn--sm"
+                        onClick={() => removeContactRow(c._localKey)}
+                        title="Remove"
+                        style={{ padding: 6 }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div>
+                        <label className="crm-label" style={{ fontSize: 10 }}>Name</label>
+                        <input
+                          className="crm-input"
+                          value={c.name}
+                          onChange={(e) => updateContactRow(c._localKey, { name: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="crm-label" style={{ fontSize: 10 }}>Role</label>
+                        <input
+                          className="crm-input"
+                          value={c.role}
+                          placeholder="Owner, Marketing, etc."
+                          onChange={(e) => updateContactRow(c._localKey, { role: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="crm-label" style={{ fontSize: 10 }}>Email</label>
+                        <input
+                          className="crm-input"
+                          type="email"
+                          value={c.email}
+                          onChange={(e) => updateContactRow(c._localKey, { email: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="crm-label" style={{ fontSize: 10 }}>Phone</label>
+                        <input
+                          className="crm-input"
+                          value={c.phone}
+                          onChange={(e) => updateContactRow(c._localKey, { phone: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>

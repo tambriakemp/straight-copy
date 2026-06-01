@@ -1,5 +1,13 @@
-// Sends the "Site Preview Ready" review email to a client via SureContact's
-// transactional /emails/send endpoint.
+// Sends the "Site Preview Ready" review email to a client contact via
+// SureContact's transactional /emails/send endpoint.
+//
+// Prefers a SureContact template (configured in app_settings.review_email_template_uuid)
+// so every send shows up in the contact's SureContact activity history with the
+// same template. Falls back to inline HTML if no template uuid is configured yet.
+//
+// Accepts an optional `contact_id` referencing public.client_contacts.
+// If omitted, falls back to the client's primary contact, then to the legacy
+// clients.contact_* columns.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -40,11 +48,9 @@ function buildEmailHtml(firstName: string, portalUrl: string) {
 <body style="margin:0;padding:0;background:#f6f3ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#2a2622;">
   <div style="max-width:600px;margin:0 auto;padding:40px 28px;background:#ffffff;">
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;">Hi ${safeName},</p>
-
     <p style="font-size:16px;line-height:1.6;margin:0 0 18px;">
-      Your site preview is live and ready for your eyes. Head to your client portal to walk through it before we move into the next phase of the build.
+      Your site preview is live and ready for your eyes. Head to your client portal to walk through it.
     </p>
-
     <p style="margin:28px 0;text-align:center;">
       <a href="${safeUrl}"
          style="display:inline-block;background:#8a6d4e;color:#ffffff;text-decoration:none;
@@ -52,37 +58,6 @@ function buildEmailHtml(firstName: string, portalUrl: string) {
         Open my client portal
       </a>
     </p>
-
-    <p style="font-size:16px;line-height:1.6;margin:0 0 12px;"><strong>How to review your preview:</strong></p>
-    <ol style="font-size:15px;line-height:1.7;padding-left:22px;margin:0 0 22px;">
-      <li>Click the button above to open your client portal.</li>
-      <li>Scroll to the <strong>Site Preview</strong> section — you'll see every page listed.</li>
-      <li>Click <strong>View</strong> next to each page to open it in a new tab and look it over.</li>
-      <li>Back in the portal, for each page either:
-        <ul style="margin:6px 0 0;padding-left:22px;">
-          <li>Click <strong>Comments</strong> under the page to leave specific feedback (we'll see every note tied to that page), or</li>
-          <li>Click <strong>Approve</strong> once that page is good to go.</li>
-        </ul>
-      </li>
-      <li>Repeat for every page so we know exactly what's approved and what still needs tweaks.</li>
-    </ol>
-
-    <p style="font-size:16px;line-height:1.6;margin:0 0 12px;"><strong>What to look for:</strong></p>
-    <ul style="font-size:15px;line-height:1.7;padding-left:22px;margin:0 0 22px;">
-      <li>Does the overall feel match your brand?</li>
-      <li>Is the messaging clear from the moment someone lands?</li>
-      <li>Are there sections you want emphasized, softened, or removed?</li>
-      <li>Anything missing that a visitor would expect to see?</li>
-    </ul>
-
-    <p style="font-size:16px;line-height:1.6;margin:0 0 18px;">
-      Don't worry about being too picky — the more specific you are now, the faster we land on the final version. Aim to leave your feedback or approvals within the next 3 business days so we can keep your build on schedule.
-    </p>
-
-    <p style="font-size:16px;line-height:1.6;margin:0 0 28px;">
-      If anything is broken or you can't access the portal, just reply to this email.
-    </p>
-
     <p style="font-size:16px;line-height:1.6;margin:0;">Talking soon,</p>
     <p style="font-size:16px;line-height:1.6;margin:4px 0 0;">Bree<br/>Cre8 Visions</p>
   </div>
@@ -94,7 +69,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
 
-  // Auth: must be an admin user
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
@@ -113,9 +87,9 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return json({ error: "invalid json" }, 400); }
 
   const previewProjectId: string | undefined = body?.preview_project_id;
+  const contactId: string | undefined = body?.contact_id;
   if (!previewProjectId) return json({ error: "preview_project_id required" }, 400);
 
-  // Load preview project + linked client
   const { data: preview } = await admin
     .from("preview_projects")
     .select("id, slug, name, client_project_id")
@@ -135,27 +109,87 @@ Deno.serve(async (req) => {
 
   const { data: client } = await admin
     .from("clients")
-    .select("id, contact_name, contact_email, surecontact_contact_uuid")
+    .select("id, business_name, contact_name, contact_email, surecontact_contact_uuid")
     .eq("id", cp.client_id)
     .maybeSingle();
-  if (!client?.contact_email) return json({ error: "client has no contact_email" }, 400);
+  if (!client) return json({ error: "client not found" }, 404);
+
+  // Resolve which contact to send to
+  let recipientEmail: string | null = null;
+  let recipientName: string | null = null;
+  let recipientSureUuid: string | null = null;
+
+  if (contactId) {
+    const { data: contact } = await admin
+      .from("client_contacts")
+      .select("id, name, email, surecontact_contact_uuid, client_id")
+      .eq("id", contactId)
+      .maybeSingle();
+    if (!contact || contact.client_id !== cp.client_id) {
+      return json({ error: "contact not found for this client" }, 400);
+    }
+    recipientEmail = contact.email;
+    recipientName = contact.name;
+    recipientSureUuid = contact.surecontact_contact_uuid;
+  } else {
+    // Try primary contact from client_contacts
+    const { data: primary } = await admin
+      .from("client_contacts")
+      .select("name, email, surecontact_contact_uuid")
+      .eq("client_id", cp.client_id)
+      .eq("is_primary", true)
+      .maybeSingle();
+    if (primary?.email) {
+      recipientEmail = primary.email;
+      recipientName = primary.name;
+      recipientSureUuid = primary.surecontact_contact_uuid;
+    } else {
+      recipientEmail = client.contact_email;
+      recipientName = client.contact_name;
+      recipientSureUuid = client.surecontact_contact_uuid;
+    }
+  }
+
+  if (!recipientEmail) return json({ error: "contact has no email" }, 400);
 
   const origin = req.headers.get("origin") ?? "https://cre8visions.com";
   const portalUrl = `${origin.replace(/\/$/, "")}/portal/${cp.client_id}`;
   const previewUrl = `${origin.replace(/\/$/, "")}/p/${preview.slug}`;
-  const firstName = (client.contact_name || "").trim().split(/\s+/)[0] || "there";
-  const html = buildEmailHtml(firstName, portalUrl);
+  const firstName = (recipientName || "").trim().split(/\s+/)[0] || "there";
+  const businessName = client.business_name || "your business";
+
+  // Look up template uuid (if configured)
+  const { data: settings } = await admin
+    .from("app_settings")
+    .select("review_email_template_uuid")
+    .eq("id", 1)
+    .maybeSingle();
+  const templateUuid: string | null = settings?.review_email_template_uuid ?? null;
 
   const sendBody: Record<string, unknown> = {
-    subject: "Your site preview is ready — let's gather your feedback",
-    body: html,
     track_opens: true,
     track_clicks: true,
   };
-  if (client.surecontact_contact_uuid) {
-    sendBody.contact_uuid = client.surecontact_contact_uuid;
+
+  if (templateUuid) {
+    sendBody.template_uuid = templateUuid;
+    sendBody.variables = {
+      first_name: firstName,
+      client_name: recipientName || firstName,
+      business_name: businessName,
+      portal_url: portalUrl,
+      preview_url: previewUrl,
+    };
   } else {
-    sendBody.contact_email = client.contact_email;
+    sendBody.subject = "Your site preview is ready — let's gather your feedback";
+    sendBody.body = buildEmailHtml(firstName, portalUrl);
+  }
+
+  if (recipientSureUuid) {
+    sendBody.contact_uuid = recipientSureUuid;
+  } else {
+    sendBody.contact_email = recipientEmail;
+    if (recipientName) sendBody.contact_name = recipientName;
   }
 
   try {
@@ -174,7 +208,13 @@ Deno.serve(async (req) => {
       console.error("[send-preview-review-email] SureContact failed", resp.status, data);
       return json({ error: data?.message || `SureContact error ${resp.status}`, details: data }, 502);
     }
-    return json({ success: true, recipient: client.contact_email, preview_url: previewUrl, surecontact: data });
+    return json({
+      success: true,
+      recipient: recipientEmail,
+      preview_url: previewUrl,
+      used_template: !!templateUuid,
+      surecontact: data,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "network error";
     return json({ error: msg }, 500);

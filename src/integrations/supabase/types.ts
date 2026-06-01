@@ -59,6 +59,24 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          id: number
+          review_email_template_uuid: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          review_email_template_uuid?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          review_email_template_uuid?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_automations: {
         Row: {
           client_id: string
@@ -148,6 +166,56 @@ export type Database = {
             columns: ["client_project_id"]
             isOneToOne: false
             referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_contacts: {
+        Row: {
+          client_id: string
+          created_at: string
+          email: string | null
+          id: string
+          is_primary: boolean
+          name: string | null
+          order_index: number
+          phone: string | null
+          role: string | null
+          surecontact_contact_uuid: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          name?: string | null
+          order_index?: number
+          phone?: string | null
+          role?: string | null
+          surecontact_contact_uuid?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          name?: string | null
+          order_index?: number
+          phone?: string | null
+          role?: string | null
+          surecontact_contact_uuid?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_contacts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
