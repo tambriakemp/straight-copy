@@ -403,6 +403,37 @@ export default function ClientDetail() {
         open={!!resourceProject}
         onOpenChange={(v) => { if (!v) setResourceProject(null); }}
       />
+      <Dialog open={openEdit} onOpenChange={setOpenEdit}>
+        <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Edit client</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <label className="crm-label">Business name</label>
+              <input className="crm-input" value={editForm.business_name} onChange={(e) => setEditForm({ ...editForm, business_name: e.target.value })} />
+            </div>
+            <div>
+              <label className="crm-label">Contact name</label>
+              <input className="crm-input" value={editForm.contact_name} onChange={(e) => setEditForm({ ...editForm, contact_name: e.target.value })} />
+            </div>
+            <div>
+              <label className="crm-label">Contact email</label>
+              <input className="crm-input" type="email" value={editForm.contact_email} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })} />
+            </div>
+            <div>
+              <label className="crm-label">Contact phone</label>
+              <input className="crm-input" value={editForm.contact_phone} onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <button className="crm-btn crm-btn--ghost" onClick={() => setOpenEdit(false)}>Cancel</button>
+            <button className="crm-btn crm-btn--primary" onClick={saveEdit} disabled={savingEdit}>
+              {savingEdit ? "Saving…" : "Save"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
