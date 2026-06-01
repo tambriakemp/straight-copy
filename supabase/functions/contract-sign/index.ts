@@ -752,6 +752,18 @@ Deno.serve(async (req) => {
         console.warn("[contract-sign] checklist flip failed:", e);
       }
 
+      // Auto-fire SureContact "Contract signed" template for web_dev projects.
+      try {
+        const { autoFireWebDevTemplate } = await import("../_shared/web-dev-emails.ts");
+        await autoFireWebDevTemplate(supabase, {
+          clientId: input.clientId,
+          templateKey: "web-dev-contract-signed",
+          extraMergeFields: { contract_pdf_url: pdfUrl ?? "" },
+        });
+      } catch (e) {
+        console.warn("[contract-sign] web-dev auto-fire failed:", e);
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
