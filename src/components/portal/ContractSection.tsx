@@ -18,6 +18,15 @@ type SignedContract = {
   pdf_url: string | null;
 };
 
+type ClientInfo = {
+  id: string;
+  business_name: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  tier: string;
+};
+
+
 function collectAuditData() {
   const nav: any = typeof navigator !== "undefined" ? navigator : {};
   const scr: any = typeof screen !== "undefined" ? screen : {};
