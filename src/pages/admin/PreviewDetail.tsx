@@ -12,6 +12,7 @@ import AiEditDialog from "@/components/admin/preview/AiEditDialog";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 
 type Project = any; type FileRow = any; type Comment = any; type Reply = any;
@@ -267,17 +268,55 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   };
 
   const [sendingEmail, setSendingEmail] = useState(false);
-  const sendReviewEmail = async () => {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerContacts, setPickerContacts] = useState<Array<{ id: string; name: string | null; email: string | null; role: string | null; is_primary: boolean }>>([]);
+  const [pickerSelected, setPickerSelected] = useState<string | null>(null);
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
+
+  const openReviewEmailPicker = async () => {
     if (!project?.client_project_id) {
       toast.error("Link this preview to a client first.");
       return;
     }
-    if (!confirm("Send the site preview review email to the client now?")) return;
+    setPickerOpen(true);
+    setPickerLoading(true);
+    try {
+      const { data: cp } = await supabase
+        .from("client_projects")
+        .select("client_id")
+        .eq("id", project.client_project_id)
+        .maybeSingle();
+      if (!cp?.client_id) throw new Error("Client not found for this preview.");
+      const { data: rows } = await supabase
+        .from("client_contacts")
+        .select("id, name, email, role, is_primary")
+        .eq("client_id", cp.client_id)
+        .order("is_primary", { ascending: false })
+        .order("created_at", { ascending: true });
+      const contacts = (rows ?? []).filter((c: any) => c.email);
+      setPickerContacts(contacts as any);
+      const primary = contacts.find((c: any) => c.is_primary) ?? contacts[0];
+      setPickerSelected(primary?.id ?? null);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to load contacts");
+    } finally {
+      setPickerLoading(false);
+    }
+  };
+
+  const sendReviewEmail = async () => {
+    if (!project?.client_project_id) return;
+    if (!pickerSelected) {
+      toast.error("Pick a contact to send to.");
+      return;
+    }
     setSendingEmail(true);
+    setPickerOpen(false);
     const toastId = toast.loading("Sending review email…");
     try {
       const { data, error } = await supabase.functions.invoke("send-preview-review-email", {
-        body: { preview_project_id: project.id },
+        body: { preview_project_id: project.id, contact_id: pickerSelected },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -286,6 +325,21 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
       toast.error(e?.message || "Failed to send email", { id: toastId, duration: 8000 });
     } finally {
       setSendingEmail(false);
+    }
+  };
+
+  const createReviewTemplate = async () => {
+    setCreatingTemplate(true);
+    const toastId = toast.loading("Setting up SureContact template…");
+    try {
+      const { data, error } = await supabase.functions.invoke("create-surecontact-review-template", { body: {} });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Template ${data?.action ?? "saved"} in SureContact`, { id: toastId, duration: 5000 });
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to set up template", { id: toastId, duration: 8000 });
+    } finally {
+      setCreatingTemplate(false);
     }
   };
 
