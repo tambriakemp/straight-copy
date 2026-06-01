@@ -1,7 +1,7 @@
 // Admin-only endpoint to send a SureContact Web Dev template manually from a
 // task card in the admin tasks panel.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
-import { sendWebDevTemplate } from "../_shared/web-dev-emails.ts";
+import { findTaskByTemplate, scheduleWebDevEmail, sendWebDevTemplate } from "../_shared/web-dev-emails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
