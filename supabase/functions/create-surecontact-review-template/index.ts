@@ -1,7 +1,8 @@
-// Creates (or updates) the "Site Preview Ready" transactional template in
-// SureContact and stores its uuid in app_settings.review_email_template_uuid.
-// Admin-gated. Idempotent: if a uuid is already stored, the existing template
-// is updated rather than duplicated.
+// Stores the "Site Preview Ready" review email subject + HTML in app_settings.
+// SureContact's public API does not expose template create/update (returns 405),
+// so we keep the template locally and send it inline through /emails/send.
+// The send still goes through SureContact, so it shows up in the contact's
+// activity history.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -10,10 +11,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const SC_BASE = "https://api.surecontact.com/api/v1/public/email-templates";
-
-const TEMPLATE_NAME = "Site Preview Ready (Cre8 Visions)";
-const TEMPLATE_SUBJECT = "Your site preview is ready — let's gather your feedback";
+const TEMPLATE_SUBJECT =
+  "Your site preview is ready — let's gather your feedback";
 
 const TEMPLATE_HTML = `<!DOCTYPE html>
 <html>
@@ -102,82 +101,23 @@ Deno.serve(async (req) => {
     const { data: isAdmin } = await admin.rpc("is_admin", { _user_id: userData.user.id });
     if (!isAdmin) return json({ error: "Forbidden" }, 403);
 
-    const apiKey = Deno.env.get("SURECONTACT_API_KEY");
-    if (!apiKey) return json({ error: "SURECONTACT_API_KEY not configured" }, 500);
-
-    // Check for an existing stored uuid
-    const { data: settings } = await admin
+    const { error } = await admin
       .from("app_settings")
-      .select("review_email_template_uuid")
-      .eq("id", 1)
-      .maybeSingle();
-    const existingUuid = settings?.review_email_template_uuid as string | null | undefined;
-
-    const payload = {
-      name: TEMPLATE_NAME,
-      subject: TEMPLATE_SUBJECT,
-      body_html: TEMPLATE_HTML,
-      type: "transactional",
-    };
-
-    let resp: Response;
-    if (existingUuid) {
-      // Try to update existing
-      resp = await fetch(`${SC_BASE}/${existingUuid}`, {
-        method: "PUT",
-        headers: {
-          "X-API-Key": apiKey,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-      if (resp.status === 404) {
-        // Template was deleted upstream; fall through to create
-        resp = await fetch(SC_BASE, {
-          method: "POST",
-          headers: {
-            "X-API-Key": apiKey,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-      }
-    } else {
-      resp = await fetch(SC_BASE, {
-        method: "POST",
-        headers: {
-          "X-API-Key": apiKey,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-    }
-
-    const data = await resp.json().catch(() => null);
-    if (!resp.ok) {
-      console.error("[create-surecontact-review-template] failed", resp.status, data);
-      return json({ error: `SureContact returned ${resp.status}`, details: data }, 502);
-    }
-
-    const uuid: string | null =
-      data?.data?.uuid ?? data?.uuid ?? existingUuid ?? null;
-    if (!uuid) {
-      return json({ error: "SureContact response missing template uuid", details: data }, 502);
-    }
-
-    await admin
-      .from("app_settings")
-      .update({ review_email_template_uuid: uuid, updated_at: new Date().toISOString() })
+      .update({
+        review_email_subject: TEMPLATE_SUBJECT,
+        review_email_html: TEMPLATE_HTML,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", 1);
+
+    if (error) return json({ error: error.message }, 500);
 
     return json({
       success: true,
-      uuid,
-      action: existingUuid ? "updated" : "created",
+      action: "saved",
+      subject: TEMPLATE_SUBJECT,
       variables: ["first_name", "business_name", "portal_url", "preview_url", "client_name"],
+      note: "Template stored locally and sent inline via SureContact /emails/send so it appears in contact activity history.",
     });
   } catch (e) {
     console.error("[create-surecontact-review-template]", e);

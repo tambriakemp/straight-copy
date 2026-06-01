@@ -62,16 +62,22 @@ export type Database = {
       app_settings: {
         Row: {
           id: number
+          review_email_html: string | null
+          review_email_subject: string | null
           review_email_template_uuid: string | null
           updated_at: string
         }
         Insert: {
           id?: number
+          review_email_html?: string | null
+          review_email_subject?: string | null
           review_email_template_uuid?: string | null
           updated_at?: string
         }
         Update: {
           id?: number
+          review_email_html?: string | null
+          review_email_subject?: string | null
           review_email_template_uuid?: string | null
           updated_at?: string
         }

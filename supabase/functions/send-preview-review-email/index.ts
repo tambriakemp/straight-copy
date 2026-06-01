@@ -158,28 +158,31 @@ Deno.serve(async (req) => {
   const firstName = (recipientName || "").trim().split(/\s+/)[0] || "there";
   const businessName = client.business_name || "your business";
 
-  // Look up template uuid (if configured)
+  // Look up stored template (subject + html with {{var}} merge tokens)
   const { data: settings } = await admin
     .from("app_settings")
-    .select("review_email_template_uuid")
+    .select("review_email_subject, review_email_html")
     .eq("id", 1)
     .maybeSingle();
-  const templateUuid: string | null = settings?.review_email_template_uuid ?? null;
+
+  const vars: Record<string, string> = {
+    first_name: firstName,
+    client_name: recipientName || firstName,
+    business_name: businessName,
+    portal_url: portalUrl,
+    preview_url: previewUrl,
+  };
+  const substitute = (s: string) =>
+    s.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => vars[k] ?? "");
 
   const sendBody: Record<string, unknown> = {
     track_opens: true,
     track_clicks: true,
   };
 
-  if (templateUuid) {
-    sendBody.template_uuid = templateUuid;
-    sendBody.variables = {
-      first_name: firstName,
-      client_name: recipientName || firstName,
-      business_name: businessName,
-      portal_url: portalUrl,
-      preview_url: previewUrl,
-    };
+  if (settings?.review_email_html) {
+    sendBody.subject = substitute(settings.review_email_subject || "Your site preview is ready");
+    sendBody.body = substitute(settings.review_email_html);
   } else {
     sendBody.subject = "Your site preview is ready — let's gather your feedback";
     sendBody.body = buildEmailHtml(firstName, portalUrl);
@@ -212,7 +215,7 @@ Deno.serve(async (req) => {
       success: true,
       recipient: recipientEmail,
       preview_url: previewUrl,
-      used_template: !!templateUuid,
+      used_template: !!settings?.review_email_html,
       surecontact: data,
     });
   } catch (e) {
