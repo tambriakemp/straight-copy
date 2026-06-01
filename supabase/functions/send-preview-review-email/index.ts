@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
       success: true,
       recipient: recipientEmail,
       preview_url: previewUrl,
-      used_template: !!templateUuid,
+      used_template: !!settings?.review_email_html,
       surecontact: data,
     });
   } catch (e) {
