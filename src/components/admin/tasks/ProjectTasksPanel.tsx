@@ -194,6 +194,12 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
 
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          {projectType === "web_development" && tasks.length === 0 && !loading && (
+            <Button variant="outline" size="sm" onClick={handleSeedWebDev} disabled={seeding}
+              className="bg-transparent border-accent/40 !text-accent hover:bg-accent/10">
+              {seeding ? "Seeding…" : "Seed Web Dev tasks"}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setEpicsOpen(true)}
             className="bg-transparent border-warm-white/20 !text-warm-white hover:bg-warm-white/10">
             Manage epics
