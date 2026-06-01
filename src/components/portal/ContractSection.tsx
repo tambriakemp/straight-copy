@@ -67,9 +67,11 @@ function collectAuditData() {
 export default function ContractSection({
   clientId,
   contactName,
+  eyebrow = "Node 01 · Intake",
 }: {
   clientId: string;
   contactName: string | null;
+  eyebrow?: string | null;
 }) {
   // Collapsed by default; we expand automatically when there's no signed
   // contract yet (so the client sees the document and the sign CTA).
