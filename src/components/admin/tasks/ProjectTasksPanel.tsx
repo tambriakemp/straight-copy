@@ -68,6 +68,9 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   useEffect(() => {
     setLoading(true);
     void reload();
+    // Load project type for Web Dev seed button
+    supabase.from("client_projects").select("type").eq("id", clientProjectId).maybeSingle()
+      .then(({ data }) => setProjectType(data?.type ?? null));
     // realtime
     const ch = supabase.channel(`project_tasks_${clientProjectId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "project_tasks", filter: `client_project_id=eq.${clientProjectId}` },
@@ -78,6 +81,24 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     return () => { void supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientProjectId]);
+
+  const handleSeedWebDev = async () => {
+    if (!confirm("Seed the full Web Dev backlog (7 epics, 50 tasks) into this project?")) return;
+    setSeeding(true);
+    try {
+      const result = await tasksApi.seedWebDev(clientProjectId);
+      if (result.seeded) {
+        toast.success(`Seeded ${result.epics} epics and ${result.tasks} tasks`);
+        await reload();
+      } else {
+        toast.info(`Already seeded (${result.reason ?? "no-op"})`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Seed failed");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const topLevel = useMemo(
     () => tasks.filter((t) => !t.parent_task_id)
