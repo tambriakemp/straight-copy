@@ -485,7 +485,54 @@ export default function ContractSection({
                 </div>
               ) : (
                 <div className="portal-contract__sign-panel">
+                  <div className="portal-contract__identity">
+                    <div className="portal-contract__identity-title">
+                      Confirm your information
+                    </div>
+                    <div className="portal-contract__identity-hint">
+                      This information will appear on the executed agreement.
+                    </div>
+                    <div className="portal-contract__identity-grid">
+                      <div>
+                        <label className="portal-access__field-label">
+                          Business / Company name
+                        </label>
+                        <input
+                          type="text"
+                          className="portal-contract__input"
+                          value={businessName}
+                          onChange={(e) => setBusinessName(e.target.value)}
+                          placeholder="e.g. Acme Studio LLC"
+                          maxLength={200}
+                        />
+                      </div>
+                      <div>
+                        <label className="portal-access__field-label">Your name</label>
+                        <input
+                          type="text"
+                          className="portal-contract__input"
+                          value={confirmContactName}
+                          onChange={(e) => setConfirmContactName(e.target.value)}
+                          placeholder="e.g. Jane Doe"
+                          maxLength={200}
+                        />
+                      </div>
+                      <div className="portal-contract__identity-full">
+                        <label className="portal-access__field-label">Email</label>
+                        <input
+                          type="email"
+                          className="portal-contract__input"
+                          value={confirmEmail}
+                          onChange={(e) => setConfirmEmail(e.target.value)}
+                          placeholder="you@company.com"
+                          maxLength={255}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="portal-contract__sign-tabs">
+
                     <button
                       type="button"
                       className={`portal-contract__tab ${mode === "typed" ? "is-active" : ""}`}
