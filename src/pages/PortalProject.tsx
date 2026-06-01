@@ -391,6 +391,7 @@ export default function PortalProject() {
 
   const currentProject = projects.find((p) => p.id === projectId) ?? null;
   const isAutomation = currentProject?.type === "automation_build";
+  const isWebDev = currentProject?.type === "web_development";
   const isPreviewable = currentProject?.type === "app_development"
     || currentProject?.type === "web_development"
     || currentProject?.type === "marketing";
@@ -628,6 +629,19 @@ export default function PortalProject() {
                   </div>
                 ),
               });
+              // Web Development projects get a Contract tab so the client can
+              // review and sign the Web Dev Services Agreement.
+              if (isWebDev) {
+                tabs.push({
+                  value: "contract",
+                  label: "Contract",
+                  node: (
+                    <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
+                      <ContractSection clientId={clientId!} contactName={client.contact_name} />
+                    </div>
+                  ),
+                });
+              }
               for (const p of clientTaskPanels) tabs.push(p);
             }
 
@@ -665,8 +679,8 @@ export default function PortalProject() {
 
             // Deep-link support: focus=contract|brand-kit picks the tab.
             const initialTab =
-              focus === "contract" && tabs.find((t) => t.value === "client-tasks") ? "client-tasks"
-              : focus === "contract" && tabs.find((t) => t.value === "contract") ? "contract"
+              focus === "contract" && tabs.find((t) => t.value === "contract") ? "contract"
+              : focus === "contract" && tabs.find((t) => t.value === "client-tasks") ? "client-tasks"
               : focus === "brand-kit" && tabs.find((t) => t.value === "client-tasks") ? "client-tasks"
               : focus === "brand-kit" && tabs.find((t) => t.value === "brand-kit") ? "brand-kit"
 
