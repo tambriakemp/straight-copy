@@ -86,3 +86,10 @@ verify_jwt = false
 
 [functions.build-automation-01]
 verify_jwt = false
+
+[functions.send-web-dev-email]
+verify_jwt = true
+
+[functions.dispatch-web-dev-scheduled]
+verify_jwt = false
+
