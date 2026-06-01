@@ -313,25 +313,65 @@ export async function renderContractPdf(input: RenderInput): Promise<Uint8Array>
     font: c.fonts.serifItalic,
     color: TAUPE,
   });
-  c.y -= 18;
+  c.y -= 22;
 
-  c.page.drawText(`Client: ${input.businessName}`, {
-    x: MARGIN_X,
-    y: c.y - 10,
-    size: 10,
-    font: c.fonts.body,
-    color: INK,
+  // Parties block — two columns: Service Provider / Client
+  const partiesColW = (PAGE_W - MARGIN_X * 2 - 24) / 2;
+  const partiesLeftX = MARGIN_X;
+  const partiesRightX = MARGIN_X + partiesColW + 24;
+  const partiesTop = c.y;
+  const drawPartyCol = (
+    x: number,
+    label: string,
+    headline: string,
+    lines: string[],
+  ) => {
+    let py = partiesTop;
+    c.page.drawText(label, {
+      x, y: py - 8, size: 8, font: c.fonts.body, color: BRONZE,
+    });
+    py -= 18;
+    c.page.drawText(headline, {
+      x, y: py - 11, size: 11, font: c.fonts.serifBold, color: INK,
+    });
+    py -= 18;
+    for (const ln of lines) {
+      if (!ln) { py -= 4; continue; }
+      const wrapped = wrapText(ln, c.fonts.body, 9.5, partiesColW);
+      for (const w of wrapped) {
+        c.page.drawText(w, {
+          x, y: py - 9, size: 9.5, font: c.fonts.body, color: INK,
+        });
+        py -= 13;
+      }
+    }
+    return py;
+  };
+  const effectiveDateStr = new Date(input.signedAt).toLocaleDateString("en-US", {
+    year: "numeric", month: "long", day: "numeric",
   });
-  c.y -= 16;
+  const leftEnd = drawPartyCol(partiesLeftX, "SERVICE PROVIDER", "Cre8 Visions, LLC", [
+    "Atlanta, Georgia",
+    "hello@cre8visions.com",
+    "cre8visions.com",
+  ]);
+  const rightEnd = drawPartyCol(partiesRightX, "CLIENT", input.businessName || "Client", [
+    input.clientName || "",
+    input.clientEmail || "",
+    "",
+    `Effective Date: ${effectiveDateStr}`,
+  ]);
+  c.y = Math.min(leftEnd, rightEnd) - 6;
   c.page.drawText(`Version: ${input.template.version}`, {
     x: MARGIN_X,
-    y: c.y - 10,
-    size: 9,
+    y: c.y - 9,
+    size: 8,
     font: c.fonts.body,
     color: TAUPE,
   });
-  c.y -= 22;
+  c.y -= 16;
   drawHorizontalRule(c);
+
 
   // Sections
   for (const section of input.template.sections) {
