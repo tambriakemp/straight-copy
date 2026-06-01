@@ -695,7 +695,9 @@ Deno.serve(async (req) => {
 
       const audit = (input as any).audit ?? null;
 
-      // Insert contract row first (gets ID for pdf path)
+      // Insert contract row first (gets ID for pdf path). Always stamp the
+      // canonical agency identity here so the DB row matches what the PDF
+      // renders, even if the table default ever drifts.
       const { data: inserted, error: insertErr } = await supabase
         .from("client_contracts")
         .insert({
@@ -710,11 +712,13 @@ Deno.serve(async (req) => {
           client_ip: ip,
           client_user_agent: ua,
           client_audit: audit,
+          agency_signer_name: AGENCY_SIGNER_NAME,
           agency_countersigned_at: now.toISOString(),
         })
         .select("id, agency_signer_name")
         .single();
       if (insertErr) throw insertErr;
+
 
       // Render PDF
       let pdfPath: string | null = null;
