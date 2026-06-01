@@ -16,6 +16,8 @@ const PRODUCT_TIER_MAP: Record<string, 'launch' | 'growth'> = {
   'b23d2c69-5584-434f-8589-cc27acaa6cba': 'growth',
 }
 
+const WEB_DEV_PRODUCT_ID = '5b5d573d-f503-4966-bdd8-9b054eca6856'
+
 const SITE_URL = 'https://cre8visions.com'
 
 function randomToken(len = 20) {
