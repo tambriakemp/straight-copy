@@ -1553,6 +1553,67 @@
   font-family: var(--crm-font-serif);
 }
 .crm-shell .portal-contract__doc-body { padding: 18px 22px 22px; }
+.crm-shell .portal-contract__parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  padding: 16px 18px;
+  margin-bottom: 22px;
+  border: 1px solid hsl(40 20% 97% / 0.14);
+  border-radius: 6px;
+  background: hsl(28 12% 10% / 0.5);
+}
+.crm-shell .portal-contract__party-label {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--crm-bronze, hsl(28 40% 46%));
+  margin-bottom: 8px;
+}
+.crm-shell .portal-contract__party-name {
+  font-family: var(--crm-font-serif);
+  font-size: 18px;
+  color: var(--crm-warm-white);
+  margin-bottom: 4px;
+}
+.crm-shell .portal-contract__party-meta {
+  font-family: var(--crm-font-serif);
+  font-size: 14px;
+  color: hsl(40 8% 75%);
+  line-height: 1.5;
+}
+@media (max-width: 640px) {
+  .crm-shell .portal-contract__parties { grid-template-columns: 1fr; }
+}
+.crm-shell .portal-contract__identity {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid hsl(40 20% 97% / 0.12);
+  border-radius: 6px;
+  background: hsl(28 12% 9% / 0.6);
+}
+.crm-shell .portal-contract__identity-title {
+  font-family: var(--crm-font-serif);
+  font-size: 15px;
+  color: var(--crm-warm-white);
+}
+.crm-shell .portal-contract__identity-hint {
+  font-size: 12px;
+  color: var(--crm-stone);
+  margin-top: 2px;
+  margin-bottom: 10px;
+}
+.crm-shell .portal-contract__identity-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+.crm-shell .portal-contract__identity-full { grid-column: 1 / -1; }
+@media (max-width: 640px) {
+  .crm-shell .portal-contract__identity-grid { grid-template-columns: 1fr; }
+  .crm-shell .portal-contract__identity-full { grid-column: auto; }
+}
+
 .crm-shell .portal-contract__section { margin-bottom: 16px; }
 .crm-shell .portal-contract__section-heading {
   font-family: var(--crm-font-serif);
