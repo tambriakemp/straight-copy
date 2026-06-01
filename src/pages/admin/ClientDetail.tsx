@@ -183,7 +183,7 @@ export default function ClientDetail() {
       toast.error(e?.message || "Failed");
     } finally {
       setCreating(false);
-      setOpenNew(false); setName("");
+      setOpenNew(false); setName(""); setProjectBusinessName("");
     }
   };
 
