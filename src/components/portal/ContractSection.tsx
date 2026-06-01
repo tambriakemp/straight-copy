@@ -434,6 +434,34 @@ export default function ContractSection({
                   </div>
                 </div>
                 <div className="portal-contract__doc-body">
+                  <div className="portal-contract__parties">
+                    <div className="portal-contract__party">
+                      <div className="portal-contract__party-label">Service Provider</div>
+                      <div className="portal-contract__party-name">Cre8 Visions, LLC</div>
+                      <div className="portal-contract__party-meta">Atlanta, Georgia</div>
+                      <div className="portal-contract__party-meta">hello@cre8visions.com</div>
+                      <div className="portal-contract__party-meta">cre8visions.com</div>
+                    </div>
+                    <div className="portal-contract__party">
+                      <div className="portal-contract__party-label">Client</div>
+                      <div className="portal-contract__party-name">
+                        {businessName.trim() || client?.business_name || "[Your business name]"}
+                      </div>
+                      <div className="portal-contract__party-meta">
+                        {confirmContactName.trim() || client?.contact_name || contactName || "[Your name]"}
+                      </div>
+                      <div className="portal-contract__party-meta">
+                        {confirmEmail.trim() || client?.contact_email || "[Your email]"}
+                      </div>
+                      <div className="portal-contract__party-meta">
+                        Effective Date: {new Date().toLocaleDateString(undefined, {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </div>
+                    </div>
+                  </div>
                   {template.sections.map((s) => (
                     <div key={s.heading} className="portal-contract__section">
                       <div className="portal-contract__section-heading">{s.heading}</div>
@@ -442,6 +470,7 @@ export default function ContractSection({
                   ))}
                 </div>
               </div>
+
 
               {!showSignPanel ? (
                 <div className="portal-access__footer" style={{ marginTop: 16 }}>
