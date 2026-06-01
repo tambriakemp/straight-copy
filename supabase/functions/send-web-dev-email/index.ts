@@ -71,5 +71,28 @@ Deno.serve(async (req) => {
     projectId: task.client_project_id as string,
     extraMergeFields: extra,
   });
+
+  // When launch confirmation is sent, schedule the post-launch follow-up
+  // for 3 days later on the task that's bound to that template.
+  if (result.ok && tpl.template_key === "web-dev-launch-confirmation") {
+    try {
+      const followupTask = await findTaskByTemplate(
+        sb,
+        task.client_project_id as string,
+        "web-dev-postlaunch-followup",
+      );
+      if (followupTask) {
+        const sendAfter = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+        await scheduleWebDevEmail(sb, {
+          taskId: followupTask.id,
+          templateKey: "web-dev-postlaunch-followup",
+          sendAfter,
+        });
+      }
+    } catch (e) {
+      console.warn("[send-web-dev-email] enqueue follow-up failed:", e);
+    }
+  }
+
   return json(result, result.ok ? 200 : (result.status || 500));
 });
