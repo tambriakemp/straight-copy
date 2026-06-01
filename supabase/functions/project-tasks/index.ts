@@ -5,6 +5,7 @@ import {
   uploadTaskAttachment, listEpics, createEpic, updateEpic, deleteEpic,
   TASK_STATUSES, TASK_PRIORITIES, ASSIGNEE_KINDS, TASK_SIZES, TASK_PLATFORMS,
 } from "../_shared/project-tasks.ts";
+import { seedWebDevTasks } from "../_shared/web-dev-tasks.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
