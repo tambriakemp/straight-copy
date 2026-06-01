@@ -103,32 +103,147 @@ export default function ClientDetail() {
     load();
   };
 
-  const openEditDialog = () => {
+  const openEditDialog = async () => {
     if (!client) return;
-    setEditForm({
-      business_name: client.business_name ?? "",
-      contact_name: client.contact_name ?? "",
-      contact_email: client.contact_email ?? "",
-      contact_phone: client.contact_phone ?? "",
-    });
+    setEditForm({ business_name: client.business_name ?? "" });
+    // Load existing contacts
+    const { data: rows } = await supabase
+      .from("client_contacts")
+      .select("id, name, email, phone, role, is_primary, order_index")
+      .eq("client_id", client.id)
+      .order("is_primary", { ascending: false })
+      .order("order_index", { ascending: true })
+      .order("created_at", { ascending: true });
+    let list: ContactRow[] = (rows ?? []).map((r: any) => ({
+      id: r.id,
+      _localKey: r.id,
+      name: r.name ?? "",
+      email: r.email ?? "",
+      phone: r.phone ?? "",
+      role: r.role ?? "",
+      is_primary: !!r.is_primary,
+    }));
+    if (list.length === 0) {
+      // Seed from legacy fields if nothing migrated
+      list = [{
+        _localKey: makeLocalKey(),
+        name: client.contact_name ?? "",
+        email: client.contact_email ?? "",
+        phone: client.contact_phone ?? "",
+        role: "",
+        is_primary: true,
+      }];
+    } else if (!list.some((c) => c.is_primary)) {
+      list[0].is_primary = true;
+    }
+    setEditContacts(list);
     setOpenEdit(true);
   };
 
-  const saveEdit = async () => {
-    if (!id) return;
-    setSavingEdit(true);
-    const { error } = await supabase.from("clients").update({
-      business_name: editForm.business_name.trim() || null,
-      contact_name: editForm.contact_name.trim() || null,
-      contact_email: editForm.contact_email.trim() || null,
-      contact_phone: editForm.contact_phone.trim() || null,
-    }).eq("id", id);
-    setSavingEdit(false);
-    if (error) return toast.error(error.message);
-    toast.success("Client updated");
-    setOpenEdit(false);
-    load();
+  const addContactRow = () => {
+    setEditContacts((prev) => [
+      ...prev,
+      { _localKey: makeLocalKey(), name: "", email: "", phone: "", role: "", is_primary: prev.length === 0 },
+    ]);
   };
+
+  const updateContactRow = (key: string, patch: Partial<ContactRow>) => {
+    setEditContacts((prev) => prev.map((c) => (c._localKey === key ? { ...c, ...patch } : c)));
+  };
+
+  const removeContactRow = (key: string) => {
+    setEditContacts((prev) => {
+      const next = prev.filter((c) => c._localKey !== key);
+      // Ensure exactly one primary if any remain
+      if (next.length > 0 && !next.some((c) => c.is_primary)) {
+        next[0] = { ...next[0], is_primary: true };
+      }
+      return next;
+    });
+  };
+
+  const setPrimaryContact = (key: string) => {
+    setEditContacts((prev) => prev.map((c) => ({ ...c, is_primary: c._localKey === key })));
+  };
+
+  const saveEdit = async () => {
+    if (!id || !client) return;
+    // Validate
+    const cleaned = editContacts
+      .map((c) => ({ ...c, name: c.name.trim(), email: c.email.trim(), phone: c.phone.trim(), role: c.role.trim() }))
+      .filter((c) => c.name || c.email || c.phone);
+    if (cleaned.length > 0 && !cleaned.some((c) => c.is_primary)) {
+      cleaned[0].is_primary = true;
+    }
+    const primaryCount = cleaned.filter((c) => c.is_primary).length;
+    if (primaryCount > 1) {
+      return toast.error("Only one contact can be marked primary");
+    }
+    const primary = cleaned.find((c) => c.is_primary) ?? null;
+
+    setSavingEdit(true);
+    try {
+      // 1) Update business_name + legacy mirror to primary
+      const updateClient: Record<string, any> = {
+        business_name: editForm.business_name.trim() || null,
+        contact_name: primary?.name || null,
+        contact_email: primary?.email || null,
+        contact_phone: primary?.phone || null,
+      };
+      const { error: clientErr } = await supabase.from("clients").update(updateClient).eq("id", id);
+      if (clientErr) throw clientErr;
+
+      // 2) Sync client_contacts: delete missing, upsert remaining
+      const keptIds = cleaned.filter((c) => c.id).map((c) => c.id as string);
+      // Fetch current ids to find ones to delete
+      const { data: current } = await supabase
+        .from("client_contacts")
+        .select("id")
+        .eq("client_id", id);
+      const toDelete = (current ?? [])
+        .map((r: any) => r.id as string)
+        .filter((cid) => !keptIds.includes(cid));
+
+      // To avoid the partial unique index conflict during reassignment,
+      // first clear is_primary on all existing rows, then upsert with final values.
+      if ((current ?? []).length > 0) {
+        await supabase.from("client_contacts").update({ is_primary: false }).eq("client_id", id);
+      }
+
+      if (toDelete.length) {
+        await supabase.from("client_contacts").delete().in("id", toDelete);
+      }
+
+      // Upsert remaining (existing rows by id, new rows insert)
+      for (let i = 0; i < cleaned.length; i++) {
+        const c = cleaned[i];
+        const payload = {
+          client_id: id,
+          name: c.name || null,
+          email: c.email || null,
+          phone: c.phone || null,
+          role: c.role || null,
+          is_primary: c.is_primary,
+          order_index: i,
+        };
+        if (c.id) {
+          const { error } = await supabase.from("client_contacts").update(payload).eq("id", c.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("client_contacts").insert(payload);
+          if (error) throw error;
+        }
+      }
+      toast.success("Client updated");
+      setOpenEdit(false);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
 
   const base = useMemo(() => window.location.origin, []);
 
