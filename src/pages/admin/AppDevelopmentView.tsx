@@ -8,6 +8,7 @@ import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
 import ProjectPreviewCard from "@/components/admin/ProjectPreviewCard";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
+import ContractAuditPanel from "@/components/admin/ContractAuditPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
 
 import {
@@ -92,7 +93,11 @@ export default function AppDevelopmentView() {
 
           <ProjectTabsContent value="tasks">
             <ProjectTasksPanel clientProjectId={projectId!} />
+            {project.type === "web_development" && (
+              <ContractAuditPanel clientId={clientId!} clientProjectId={projectId!} />
+            )}
           </ProjectTabsContent>
+
 
           <ProjectTabsContent value="proposals">
             <ProjectProposalsPanel clientId={clientId!} clientProjectId={projectId!} portalUrl={portalUrl} />

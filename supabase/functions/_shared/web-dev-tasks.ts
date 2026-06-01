@@ -13,6 +13,12 @@ export const WEB_DEV_EPICS = [
   { key: "handoff",   name: "Phase 07 — Handoff & Closure" },
 ] as const;
 
+// Task numbers that the contract-sign flow must auto-complete the moment
+// the client signs the Web Development Services Agreement in the portal.
+// Keep in sync with WEB_DEV_TASKS — 1.2 (Contract sent) and 1.3 (Contract
+// countersigned by agency).
+export const WEB_DEV_CONTRACT_AUTO_COMPLETE_NUMS = ["1.2", "1.3"] as const;
+
 export type WebDevAssignee = "auto" | "admin" | "client";
 
 export interface WebDevTaskDef {
@@ -819,3 +825,63 @@ export async function seedWebDevTasks(
 
   return { seeded: true, epics: epicRows.length, tasks: taskRows.length };
 }
+
+export interface ContractTaskCompletionResult {
+  id: string;
+  name: string;
+  num: string;
+  was_already_complete: boolean;
+}
+
+/**
+ * Auto-complete the Web Dev tasks that contract signing satisfies (1.2 + 1.3).
+ *
+ * Lookup is anchored on the canonical task name prefix `${num} — ` produced by
+ * seedWebDevTasks() so we never accidentally close a different task that
+ * happens to start with the same digits (e.g. 11.2, 1.20). Returns the list of
+ * matched tasks so the caller can surface them in the signing audit log.
+ */
+export async function completeWebDevContractTasks(
+  sb: SupabaseClient,
+  projectId: string,
+  completedAt: Date,
+): Promise<ContractTaskCompletionResult[]> {
+  const nums = [...WEB_DEV_CONTRACT_AUTO_COMPLETE_NUMS];
+  const orFilter = nums.map((n) => `name.ilike.${n} —%`).join(",");
+  const { data: matched, error: matchErr } = await sb
+    .from("project_tasks")
+    .select("id, name, status")
+    .eq("client_project_id", projectId)
+    .or(orFilter);
+  if (matchErr) throw matchErr;
+
+  const results: ContractTaskCompletionResult[] = [];
+  for (const num of nums) {
+    const prefix = `${num} —`;
+    const row = (matched ?? []).find((r: { name: string }) =>
+      typeof r.name === "string" && r.name.startsWith(prefix),
+    );
+    if (!row) {
+      console.warn(`[web-dev-tasks] no task found for num=${num} in project=${projectId}`);
+      continue;
+    }
+    const alreadyDone = row.status === "complete";
+    if (!alreadyDone) {
+      await sb
+        .from("project_tasks")
+        .update({ status: "complete", completed_at: completedAt.toISOString() })
+        .eq("id", row.id);
+    }
+    await sb.from("project_task_activity").insert({
+      task_id: row.id,
+      kind: "contract_auto_complete",
+      message: alreadyDone
+        ? `Task already complete when contract was signed (${num}).`
+        : `Auto-completed by contract signing (${num}).`,
+      metadata: { num, source: "contract-sign" },
+    });
+    results.push({ id: row.id, name: row.name, num, was_already_complete: alreadyDone });
+  }
+  return results;
+}
+

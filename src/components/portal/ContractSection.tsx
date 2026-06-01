@@ -321,6 +321,25 @@ export default function ContractSection({
         <div className="portal-access__body">
           {isSigned && contract ? (
             <div className="portal-contract__signed">
+              <div className="portal-contract__download-banner">
+                <div className="portal-contract__download-banner-text">
+                  <div className="portal-contract__download-eyebrow">Fully executed</div>
+                  <div className="portal-contract__download-title">
+                    {template.title} — signed PDF
+                  </div>
+                  <div className="portal-contract__download-meta">
+                    Keep this for your records. A copy is stored with your project.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="portal-contract__btn portal-contract__btn--primary"
+                  onClick={downloadPdf}
+                  disabled={!contract.pdf_path}
+                >
+                  ⇣ Download Agreement (PDF)
+                </button>
+              </div>
               <p className="portal-access__intro">
                 Your <strong>{template.title}</strong> is signed and countersigned. A copy is on file
                 for both parties.

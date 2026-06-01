@@ -20,6 +20,10 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// Canonical agency identity that countersigns every executed agreement. Falls
+// back to the historical default if the secret is not configured so existing
+// signatures keep matching the PDFs already on file.
+const AGENCY_SIGNER_NAME = Deno.env.get("AGENCY_SIGNER_NAME") ?? "Tambria Kemp";
 
 const FONTS = {
   serifRegular: "https://fonts.gstatic.com/s/lora/v37/0QI6MX1D_JOuGQbT0gvTJPa787weuyJG.ttf",
@@ -691,7 +695,9 @@ Deno.serve(async (req) => {
 
       const audit = (input as any).audit ?? null;
 
-      // Insert contract row first (gets ID for pdf path)
+      // Insert contract row first (gets ID for pdf path). Always stamp the
+      // canonical agency identity here so the DB row matches what the PDF
+      // renders, even if the table default ever drifts.
       const { data: inserted, error: insertErr } = await supabase
         .from("client_contracts")
         .insert({
@@ -706,11 +712,13 @@ Deno.serve(async (req) => {
           client_ip: ip,
           client_user_agent: ua,
           client_audit: audit,
+          agency_signer_name: AGENCY_SIGNER_NAME,
           agency_countersigned_at: now.toISOString(),
         })
         .select("id, agency_signer_name")
         .single();
       if (insertErr) throw insertErr;
+
 
       // Render PDF
       let pdfPath: string | null = null;
@@ -782,21 +790,25 @@ Deno.serve(async (req) => {
         console.warn("[contract-sign] web-dev auto-fire failed:", e);
       }
 
-      // Auto-complete the "Contract sent" (1.2) and "Contract countersigned" (1.3)
-      // backlog tasks on the web_dev project, since both happen automatically
-      // the moment the client signs in the portal.
+      // Auto-complete the "Contract sent" (1.2) and "Contract countersigned"
+      // (1.3) backlog tasks on the web_dev project, since both happen
+      // automatically the moment the client signs in the portal. Use the
+      // canonical helper so the mapping is verified against the seeded task
+      // names (no brittle ilike on bare numbers).
+      let autoCompletedTasks: Array<{ id: string; name: string; num: string; was_already_complete: boolean }> = [];
       if (linkedProjectId) {
         try {
-          await supabase
-            .from("project_tasks")
-            .update({ status: "complete", completed_at: now.toISOString() })
-            .eq("client_project_id", linkedProjectId)
-            .in("status", ["backlog", "in_progress", "ready_for_claude", "blocked"])
-            .or("name.ilike.1.2 %,name.ilike.1.3 %");
+          const { completeWebDevContractTasks } = await import("../_shared/web-dev-tasks.ts");
+          autoCompletedTasks = await completeWebDevContractTasks(
+            supabase,
+            linkedProjectId,
+            now,
+          );
         } catch (e) {
           console.warn("[contract-sign] auto-complete tasks failed:", e);
         }
       }
+
 
 
       return new Response(
@@ -806,10 +818,15 @@ Deno.serve(async (req) => {
           pdfUrl,
           pdfPath,
           signedAt: now.toISOString(),
+          agencyCountersignedAt: now.toISOString(),
+          agencySignerName: inserted.agency_signer_name,
+          linkedProjectId,
+          autoCompletedTasks,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
 
     if (input.action === "download") {
       const { data: row } = await supabase
