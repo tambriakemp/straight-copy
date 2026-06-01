@@ -607,7 +607,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const template = getContractTemplate(client.tier);
+    // If the client has an active web_development project, that contract
+    // takes precedence over the tier-based contract.
+    const { data: webDevProject } = await supabase
+      .from("client_projects")
+      .select("id")
+      .eq("client_id", input.clientId)
+      .eq("type", "web_development")
+      .neq("status", "archived")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const template = getContractTemplate(
+      client.tier,
+      webDevProject ? "web_development" : null,
+    );
+    const linkedProjectId: string | null = webDevProject?.id ?? null;
+
 
     if (input.action === "get") {
       const { data: existing } = await supabase
