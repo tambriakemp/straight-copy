@@ -347,7 +347,7 @@ export default function ContractSection({
         aria-expanded={open}
       >
         <div className="portal-access__toggle-left">
-          <div className="portal-access__eyebrow">Node 01 · Intake</div>
+          {eyebrow ? <div className="portal-access__eyebrow">{eyebrow}</div> : null}
           <h2 className="portal-access__title">
             Sign Your <em>Agreement</em>.
           </h2>
