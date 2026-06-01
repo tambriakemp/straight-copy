@@ -328,20 +328,6 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
     }
   };
 
-  const createReviewTemplate = async () => {
-    setCreatingTemplate(true);
-    const toastId = toast.loading("Setting up SureContact template…");
-    try {
-      const { data, error } = await supabase.functions.invoke("create-surecontact-review-template", { body: {} });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      toast.success(`Template ${data?.action ?? "saved"} in SureContact`, { id: toastId, duration: 5000 });
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to set up template", { id: toastId, duration: 8000 });
-    } finally {
-      setCreatingTemplate(false);
-    }
-  };
 
   if (loading || !project) {
     const loadingNode = <div style={{ padding: embedded ? 24 : "48px 52px" }}>Loading…</div>;
