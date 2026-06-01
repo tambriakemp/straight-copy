@@ -78,11 +78,15 @@ export default function ContractSection({
   const [loading, setLoading] = useState(true);
   const [template, setTemplate] = useState<ContractTemplate | null>(null);
   const [contract, setContract] = useState<SignedContract | null>(null);
+  const [client, setClient] = useState<ClientInfo | null>(null);
 
   // Sign flow state
   const [showSignPanel, setShowSignPanel] = useState(false);
   const [mode, setMode] = useState<"typed" | "drawn">("typed");
   const [typedName, setTypedName] = useState(contactName ?? "");
+  const [businessName, setBusinessName] = useState("");
+  const [confirmContactName, setConfirmContactName] = useState(contactName ?? "");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -109,6 +113,13 @@ export default function ContractSection({
       if (!resp.ok) throw new Error(data.error || "Failed to load contract");
       setTemplate(data.template);
       setContract(data.contract);
+      if (data.client) {
+        setClient(data.client);
+        setBusinessName((prev) => prev || data.client.business_name || "");
+        setConfirmContactName((prev) => prev || data.client.contact_name || contactName || "");
+        setConfirmEmail((prev) => prev || data.client.contact_email || "");
+        if (!typedName) setTypedName(data.client.contact_name || contactName || "");
+      }
       // Auto-expand only when unsigned — keep collapsed once signed unless
       // the client explicitly opens it.
       if (!userToggled) {
@@ -120,6 +131,7 @@ export default function ContractSection({
       setLoading(false);
     }
   };
+
 
   // ---------- Drawing ----------
   const initCanvas = () => {
