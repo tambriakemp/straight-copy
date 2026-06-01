@@ -154,7 +154,7 @@ export default function ClientDetail() {
         }
         const { data: proj, error } = await supabase
           .from("client_projects")
-          .insert({ client_id: id, type, name: name.trim() })
+          .insert({ client_id: id, type, name: name.trim(), business_name: projectBusinessName.trim() || null })
           .select("*").single();
         if (error) throw error;
 
