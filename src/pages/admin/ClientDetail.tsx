@@ -60,6 +60,36 @@ export default function ClientDetail() {
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resourceProject, setResourceProject] = useState<Project | null>(null);
+  const [openEdit, setOpenEdit] = useState(false);
+  const [editForm, setEditForm] = useState({ business_name: "", contact_name: "", contact_email: "", contact_phone: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEditDialog = () => {
+    if (!client) return;
+    setEditForm({
+      business_name: client.business_name ?? "",
+      contact_name: client.contact_name ?? "",
+      contact_email: client.contact_email ?? "",
+      contact_phone: client.contact_phone ?? "",
+    });
+    setOpenEdit(true);
+  };
+
+  const saveEdit = async () => {
+    if (!id) return;
+    setSavingEdit(true);
+    const { error } = await supabase.from("clients").update({
+      business_name: editForm.business_name.trim() || null,
+      contact_name: editForm.contact_name.trim() || null,
+      contact_email: editForm.contact_email.trim() || null,
+      contact_phone: editForm.contact_phone.trim() || null,
+    }).eq("id", id);
+    setSavingEdit(false);
+    if (error) return toast.error(error.message);
+    toast.success("Client updated");
+    setOpenEdit(false);
+    load();
+  };
 
   const base = useMemo(() => window.location.origin, []);
 
