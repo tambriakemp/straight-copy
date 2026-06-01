@@ -65,6 +65,30 @@ export default function ClientDetail() {
   const [openEdit, setOpenEdit] = useState(false);
   const [editForm, setEditForm] = useState({ business_name: "", contact_name: "", contact_email: "", contact_phone: "" });
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editProject, setEditProject] = useState<Project | null>(null);
+  const [projectEditForm, setProjectEditForm] = useState({ name: "", business_name: "", notes: "" });
+  const [savingProjectEdit, setSavingProjectEdit] = useState(false);
+
+  const openProjectEdit = (e: React.MouseEvent, p: Project) => {
+    e.stopPropagation();
+    setProjectEditForm({ name: p.name ?? "", business_name: p.business_name ?? "", notes: p.notes ?? "" });
+    setEditProject(p);
+  };
+
+  const saveProjectEdit = async () => {
+    if (!editProject) return;
+    setSavingProjectEdit(true);
+    const { error } = await supabase.from("client_projects").update({
+      name: projectEditForm.name.trim() || editProject.name,
+      business_name: projectEditForm.business_name.trim() || null,
+      notes: projectEditForm.notes.trim() || null,
+    }).eq("id", editProject.id);
+    setSavingProjectEdit(false);
+    if (error) return toast.error(error.message);
+    toast.success("Project updated");
+    setEditProject(null);
+    load();
+  };
 
   const openEditDialog = () => {
     if (!client) return;
