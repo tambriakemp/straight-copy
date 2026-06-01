@@ -679,8 +679,8 @@ export default function PortalProject() {
 
             // Deep-link support: focus=contract|brand-kit picks the tab.
             const initialTab =
-              focus === "contract" && tabs.find((t) => t.value === "client-tasks") ? "client-tasks"
-              : focus === "contract" && tabs.find((t) => t.value === "contract") ? "contract"
+              focus === "contract" && tabs.find((t) => t.value === "contract") ? "contract"
+              : focus === "contract" && tabs.find((t) => t.value === "client-tasks") ? "client-tasks"
               : focus === "brand-kit" && tabs.find((t) => t.value === "client-tasks") ? "client-tasks"
               : focus === "brand-kit" && tabs.find((t) => t.value === "brand-kit") ? "brand-kit"
 
