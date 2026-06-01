@@ -810,6 +810,11 @@ function TaskDetailSheet({
               </div>
             </section>
 
+            {/* SureContact email binding (Web Dev tasks) */}
+            {task.email_template?.template_key && (
+              <TaskEmailSection task={task} onChanged={onChanged} />
+            )}
+
             {/* Details */}
             <Section title="Details" collapsed={collapsed.details} onToggle={() => toggle("details")}>
               <div className="tp-grid2">
