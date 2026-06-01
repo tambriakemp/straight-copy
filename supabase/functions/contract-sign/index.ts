@@ -569,8 +569,13 @@ const SignSchema = z.object({
   // typed: just the name; drawn: PNG data URL up to ~250KB
   signatureData: z.string().min(1).max(400_000),
   agreed: z.literal(true),
+  // Optional client-confirmed identity fields rendered on the agreement
+  businessName: z.string().trim().max(200).optional(),
+  contactName: z.string().trim().max(200).optional(),
+  contactEmail: z.string().trim().email().max(255).optional(),
   audit: z.record(z.any()).optional(),
 });
+
 
 const DownloadSchema = z.object({
   action: z.literal("download"),
