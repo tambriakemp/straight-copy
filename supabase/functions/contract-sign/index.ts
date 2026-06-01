@@ -256,6 +256,7 @@ interface RenderInput {
   template: ContractTemplate;
   businessName: string;
   clientName: string;
+  clientEmail?: string | null;
   clientSignature: { type: "typed" | "drawn"; data: string; name: string };
   signedAt: Date;
   agencyName: string;
@@ -266,6 +267,7 @@ interface RenderInput {
   contractId?: string;
   templateVersion?: string;
 }
+
 
 export async function renderContractPdf(input: RenderInput): Promise<Uint8Array> {
   const fontBytes = await loadFonts();
