@@ -391,6 +391,7 @@ export default function PortalProject() {
 
   const currentProject = projects.find((p) => p.id === projectId) ?? null;
   const isAutomation = currentProject?.type === "automation_build";
+  const isWebDev = currentProject?.type === "web_development";
   const isPreviewable = currentProject?.type === "app_development"
     || currentProject?.type === "web_development"
     || currentProject?.type === "marketing";
