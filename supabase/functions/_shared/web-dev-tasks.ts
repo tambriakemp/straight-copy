@@ -13,6 +13,12 @@ export const WEB_DEV_EPICS = [
   { key: "handoff",   name: "Phase 07 — Handoff & Closure" },
 ] as const;
 
+// Task numbers that the contract-sign flow must auto-complete the moment
+// the client signs the Web Development Services Agreement in the portal.
+// Keep in sync with WEB_DEV_TASKS — 1.2 (Contract sent) and 1.3 (Contract
+// countersigned by agency).
+export const WEB_DEV_CONTRACT_AUTO_COMPLETE_NUMS = ["1.2", "1.3"] as const;
+
 export type WebDevAssignee = "auto" | "admin" | "client";
 
 export interface WebDevTaskDef {
