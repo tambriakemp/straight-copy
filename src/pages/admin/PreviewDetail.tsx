@@ -974,18 +974,6 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                 ))}
               </div>
             )}
-            <div style={{ borderTop: "1px solid var(--crm-border-dark)", paddingTop: 10, marginTop: 6 }}>
-              <button
-                type="button"
-                className="crm-btn crm-btn--ghost crm-btn--sm"
-                onClick={createReviewTemplate}
-                disabled={creatingTemplate}
-                title="Create or refresh the SureContact email template used for this email"
-                style={{ fontSize: 11 }}
-              >
-                {creatingTemplate ? "Setting up template…" : "Create / refresh SureContact template"}
-              </button>
-            </div>
           </div>
           <DialogFooter>
             <button className="crm-btn crm-btn--ghost" onClick={() => setPickerOpen(false)}>Cancel</button>
