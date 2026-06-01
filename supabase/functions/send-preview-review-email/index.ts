@@ -188,9 +188,6 @@ Deno.serve(async (req) => {
       phone: recipientPhone ?? "",
       customFields: {
         portal_url: portalUrl,
-        preview_url: previewUrl,
-        business_name: businessName,
-        client_name: recipientName ?? firstName,
       },
       metadata: { form_source: "cre8visions_crm", trigger: "preview_review" },
     },
