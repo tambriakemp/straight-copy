@@ -67,9 +67,11 @@ function collectAuditData() {
 export default function ContractSection({
   clientId,
   contactName,
+  eyebrow = "Node 01 · Intake",
 }: {
   clientId: string;
   contactName: string | null;
+  eyebrow?: string | null;
 }) {
   // Collapsed by default; we expand automatically when there's no signed
   // contract yet (so the client sees the document and the sign CTA).
@@ -305,7 +307,23 @@ export default function ContractSection({
     }
   };
 
-  if (loading) return null;
+  if (loading && !template) {
+    return (
+      <section className="portal-access is-closed" aria-busy="true">
+        <div className="portal-access__toggle" style={{ pointerEvents: "none", opacity: 0.7 }}>
+          <div className="portal-access__toggle-left">
+            {eyebrow ? <div className="portal-access__eyebrow">{eyebrow}</div> : null}
+            <h2 className="portal-access__title">
+              Sign Your <em>Agreement</em>.
+            </h2>
+          </div>
+          <div className="portal-access__toggle-right">
+            <span className="portal-access__status">Loading…</span>
+          </div>
+        </div>
+      </section>
+    );
+  }
   if (!template) return null;
 
   const isSigned = !!contract;
@@ -329,7 +347,7 @@ export default function ContractSection({
         aria-expanded={open}
       >
         <div className="portal-access__toggle-left">
-          <div className="portal-access__eyebrow">Node 01 · Intake</div>
+          {eyebrow ? <div className="portal-access__eyebrow">{eyebrow}</div> : null}
           <h2 className="portal-access__title">
             Sign Your <em>Agreement</em>.
           </h2>
