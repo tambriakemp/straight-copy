@@ -18,6 +18,15 @@ type SignedContract = {
   pdf_url: string | null;
 };
 
+type ClientInfo = {
+  id: string;
+  business_name: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  tier: string;
+};
+
+
 function collectAuditData() {
   const nav: any = typeof navigator !== "undefined" ? navigator : {};
   const scr: any = typeof screen !== "undefined" ? screen : {};
@@ -69,11 +78,15 @@ export default function ContractSection({
   const [loading, setLoading] = useState(true);
   const [template, setTemplate] = useState<ContractTemplate | null>(null);
   const [contract, setContract] = useState<SignedContract | null>(null);
+  const [client, setClient] = useState<ClientInfo | null>(null);
 
   // Sign flow state
   const [showSignPanel, setShowSignPanel] = useState(false);
   const [mode, setMode] = useState<"typed" | "drawn">("typed");
   const [typedName, setTypedName] = useState(contactName ?? "");
+  const [businessName, setBusinessName] = useState("");
+  const [confirmContactName, setConfirmContactName] = useState(contactName ?? "");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -100,6 +113,13 @@ export default function ContractSection({
       if (!resp.ok) throw new Error(data.error || "Failed to load contract");
       setTemplate(data.template);
       setContract(data.contract);
+      if (data.client) {
+        setClient(data.client);
+        setBusinessName((prev) => prev || data.client.business_name || "");
+        setConfirmContactName((prev) => prev || data.client.contact_name || contactName || "");
+        setConfirmEmail((prev) => prev || data.client.contact_email || "");
+        if (!typedName) setTypedName(data.client.contact_name || contactName || "");
+      }
       // Auto-expand only when unsigned — keep collapsed once signed unless
       // the client explicitly opens it.
       if (!userToggled) {
@@ -111,6 +131,7 @@ export default function ContractSection({
       setLoading(false);
     }
   };
+
 
   // ---------- Drawing ----------
   const initCanvas = () => {
@@ -230,8 +251,12 @@ export default function ContractSection({
           signatureName,
           signatureData,
           agreed: true,
+          businessName: businessName.trim() || undefined,
+          contactName: confirmContactName.trim() || undefined,
+          contactEmail: confirmEmail.trim() || undefined,
           audit,
         }),
+
       });
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || "Signing failed");
@@ -409,6 +434,34 @@ export default function ContractSection({
                   </div>
                 </div>
                 <div className="portal-contract__doc-body">
+                  <div className="portal-contract__parties">
+                    <div className="portal-contract__party">
+                      <div className="portal-contract__party-label">Service Provider</div>
+                      <div className="portal-contract__party-name">Cre8 Visions, LLC</div>
+                      <div className="portal-contract__party-meta">Atlanta, Georgia</div>
+                      <div className="portal-contract__party-meta">hello@cre8visions.com</div>
+                      <div className="portal-contract__party-meta">cre8visions.com</div>
+                    </div>
+                    <div className="portal-contract__party">
+                      <div className="portal-contract__party-label">Client</div>
+                      <div className="portal-contract__party-name">
+                        {businessName.trim() || client?.business_name || "[Your business name]"}
+                      </div>
+                      <div className="portal-contract__party-meta">
+                        {confirmContactName.trim() || client?.contact_name || contactName || "[Your name]"}
+                      </div>
+                      <div className="portal-contract__party-meta">
+                        {confirmEmail.trim() || client?.contact_email || "[Your email]"}
+                      </div>
+                      <div className="portal-contract__party-meta">
+                        Effective Date: {new Date().toLocaleDateString(undefined, {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </div>
+                    </div>
+                  </div>
                   {template.sections.map((s) => (
                     <div key={s.heading} className="portal-contract__section">
                       <div className="portal-contract__section-heading">{s.heading}</div>
@@ -417,6 +470,7 @@ export default function ContractSection({
                   ))}
                 </div>
               </div>
+
 
               {!showSignPanel ? (
                 <div className="portal-access__footer" style={{ marginTop: 16 }}>
@@ -431,7 +485,54 @@ export default function ContractSection({
                 </div>
               ) : (
                 <div className="portal-contract__sign-panel">
+                  <div className="portal-contract__identity">
+                    <div className="portal-contract__identity-title">
+                      Confirm your information
+                    </div>
+                    <div className="portal-contract__identity-hint">
+                      This information will appear on the executed agreement.
+                    </div>
+                    <div className="portal-contract__identity-grid">
+                      <div>
+                        <label className="portal-access__field-label">
+                          Business / Company name
+                        </label>
+                        <input
+                          type="text"
+                          className="portal-contract__input"
+                          value={businessName}
+                          onChange={(e) => setBusinessName(e.target.value)}
+                          placeholder="e.g. Acme Studio LLC"
+                          maxLength={200}
+                        />
+                      </div>
+                      <div>
+                        <label className="portal-access__field-label">Your name</label>
+                        <input
+                          type="text"
+                          className="portal-contract__input"
+                          value={confirmContactName}
+                          onChange={(e) => setConfirmContactName(e.target.value)}
+                          placeholder="e.g. Jane Doe"
+                          maxLength={200}
+                        />
+                      </div>
+                      <div className="portal-contract__identity-full">
+                        <label className="portal-access__field-label">Email</label>
+                        <input
+                          type="email"
+                          className="portal-contract__input"
+                          value={confirmEmail}
+                          onChange={(e) => setConfirmEmail(e.target.value)}
+                          placeholder="you@company.com"
+                          maxLength={255}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="portal-contract__sign-tabs">
+
                     <button
                       type="button"
                       className={`portal-contract__tab ${mode === "typed" ? "is-active" : ""}`}

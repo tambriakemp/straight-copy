@@ -256,6 +256,7 @@ interface RenderInput {
   template: ContractTemplate;
   businessName: string;
   clientName: string;
+  clientEmail?: string | null;
   clientSignature: { type: "typed" | "drawn"; data: string; name: string };
   signedAt: Date;
   agencyName: string;
@@ -266,6 +267,7 @@ interface RenderInput {
   contractId?: string;
   templateVersion?: string;
 }
+
 
 export async function renderContractPdf(input: RenderInput): Promise<Uint8Array> {
   const fontBytes = await loadFonts();
@@ -311,25 +313,65 @@ export async function renderContractPdf(input: RenderInput): Promise<Uint8Array>
     font: c.fonts.serifItalic,
     color: TAUPE,
   });
-  c.y -= 18;
+  c.y -= 22;
 
-  c.page.drawText(`Client: ${input.businessName}`, {
-    x: MARGIN_X,
-    y: c.y - 10,
-    size: 10,
-    font: c.fonts.body,
-    color: INK,
+  // Parties block — two columns: Service Provider / Client
+  const partiesColW = (PAGE_W - MARGIN_X * 2 - 24) / 2;
+  const partiesLeftX = MARGIN_X;
+  const partiesRightX = MARGIN_X + partiesColW + 24;
+  const partiesTop = c.y;
+  const drawPartyCol = (
+    x: number,
+    label: string,
+    headline: string,
+    lines: string[],
+  ) => {
+    let py = partiesTop;
+    c.page.drawText(label, {
+      x, y: py - 8, size: 8, font: c.fonts.body, color: BRONZE,
+    });
+    py -= 18;
+    c.page.drawText(headline, {
+      x, y: py - 11, size: 11, font: c.fonts.serifBold, color: INK,
+    });
+    py -= 18;
+    for (const ln of lines) {
+      if (!ln) { py -= 4; continue; }
+      const wrapped = wrapText(ln, c.fonts.body, 9.5, partiesColW);
+      for (const w of wrapped) {
+        c.page.drawText(w, {
+          x, y: py - 9, size: 9.5, font: c.fonts.body, color: INK,
+        });
+        py -= 13;
+      }
+    }
+    return py;
+  };
+  const effectiveDateStr = new Date(input.signedAt).toLocaleDateString("en-US", {
+    year: "numeric", month: "long", day: "numeric",
   });
-  c.y -= 16;
+  const leftEnd = drawPartyCol(partiesLeftX, "SERVICE PROVIDER", "Cre8 Visions, LLC", [
+    "Atlanta, Georgia",
+    "hello@cre8visions.com",
+    "cre8visions.com",
+  ]);
+  const rightEnd = drawPartyCol(partiesRightX, "CLIENT", input.businessName || "Client", [
+    input.clientName || "",
+    input.clientEmail || "",
+    "",
+    `Effective Date: ${effectiveDateStr}`,
+  ]);
+  c.y = Math.min(leftEnd, rightEnd) - 6;
   c.page.drawText(`Version: ${input.template.version}`, {
     x: MARGIN_X,
-    y: c.y - 10,
-    size: 9,
+    y: c.y - 9,
+    size: 8,
     font: c.fonts.body,
     color: TAUPE,
   });
-  c.y -= 22;
+  c.y -= 16;
   drawHorizontalRule(c);
+
 
   // Sections
   for (const section of input.template.sections) {
@@ -569,8 +611,13 @@ const SignSchema = z.object({
   // typed: just the name; drawn: PNG data URL up to ~250KB
   signatureData: z.string().min(1).max(400_000),
   agreed: z.literal(true),
+  // Optional client-confirmed identity fields rendered on the agreement
+  businessName: z.string().trim().max(200).optional(),
+  contactName: z.string().trim().max(200).optional(),
+  contactEmail: z.string().trim().email().max(255).optional(),
   audit: z.record(z.any()).optional(),
 });
+
 
 const DownloadSchema = z.object({
   action: z.literal("download"),
@@ -600,7 +647,7 @@ Deno.serve(async (req) => {
     // Load client (all actions need the client record)
     const { data: client, error: clientErr } = await supabase
       .from("clients")
-      .select("id, business_name, contact_name, tier, archived")
+      .select("id, business_name, contact_name, contact_email, tier, archived")
       .eq("id", input.clientId)
       .maybeSingle();
     if (clientErr) throw clientErr;
@@ -659,12 +706,14 @@ Deno.serve(async (req) => {
             id: client.id,
             business_name: client.business_name,
             contact_name: client.contact_name,
+            contact_email: client.contact_email,
             tier: client.tier,
           },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
 
     if (input.action === "sign") {
       // Refuse to double-sign
@@ -694,6 +743,31 @@ Deno.serve(async (req) => {
       const now = new Date();
 
       const audit = (input as any).audit ?? null;
+
+      // Confirmed identity at time of signing — fall back to whatever is on
+      // the client record so older flows keep working.
+      const confirmedBusiness =
+        (input as any).businessName?.trim() || client.business_name || "";
+      const confirmedContact =
+        (input as any).contactName?.trim() || client.contact_name || input.signatureName;
+      const confirmedEmail =
+        (input as any).contactEmail?.trim() || client.contact_email || "";
+
+      // Write any updates back to the client record so the rest of the
+      // portal reflects the names the client confirmed on the contract.
+      const clientPatch: Record<string, string> = {};
+      if (confirmedBusiness && confirmedBusiness !== (client.business_name ?? "")) {
+        clientPatch.business_name = confirmedBusiness;
+      }
+      if (confirmedContact && confirmedContact !== (client.contact_name ?? "")) {
+        clientPatch.contact_name = confirmedContact;
+      }
+      if (confirmedEmail && confirmedEmail !== (client.contact_email ?? "")) {
+        clientPatch.contact_email = confirmedEmail;
+      }
+      if (Object.keys(clientPatch).length) {
+        await supabase.from("clients").update(clientPatch).eq("id", client.id);
+      }
 
       // Insert contract row first (gets ID for pdf path). Always stamp the
       // canonical agency identity here so the DB row matches what the PDF
@@ -726,8 +800,9 @@ Deno.serve(async (req) => {
       try {
         const pdfBytes = await renderContractPdf({
           template,
-          businessName: client.business_name ?? "Client",
-          clientName: client.contact_name ?? input.signatureName,
+          businessName: confirmedBusiness || "Client",
+          clientName: confirmedContact,
+          clientEmail: confirmedEmail || null,
           clientSignature: {
             type: input.signatureType,
             data: input.signatureData,
@@ -742,6 +817,7 @@ Deno.serve(async (req) => {
           contractId: inserted.id,
           templateVersion: template.version,
         });
+
 
         pdfPath = `contracts/${input.clientId}/${inserted.id}.pdf`;
         const { error: upErr } = await supabase.storage
