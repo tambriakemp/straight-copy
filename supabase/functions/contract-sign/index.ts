@@ -782,21 +782,25 @@ Deno.serve(async (req) => {
         console.warn("[contract-sign] web-dev auto-fire failed:", e);
       }
 
-      // Auto-complete the "Contract sent" (1.2) and "Contract countersigned" (1.3)
-      // backlog tasks on the web_dev project, since both happen automatically
-      // the moment the client signs in the portal.
+      // Auto-complete the "Contract sent" (1.2) and "Contract countersigned"
+      // (1.3) backlog tasks on the web_dev project, since both happen
+      // automatically the moment the client signs in the portal. Use the
+      // canonical helper so the mapping is verified against the seeded task
+      // names (no brittle ilike on bare numbers).
+      let autoCompletedTasks: Array<{ id: string; name: string; num: string; was_already_complete: boolean }> = [];
       if (linkedProjectId) {
         try {
-          await supabase
-            .from("project_tasks")
-            .update({ status: "complete", completed_at: now.toISOString() })
-            .eq("client_project_id", linkedProjectId)
-            .in("status", ["backlog", "in_progress", "ready_for_claude", "blocked"])
-            .or("name.ilike.1.2 %,name.ilike.1.3 %");
+          const { completeWebDevContractTasks } = await import("../_shared/web-dev-tasks.ts");
+          autoCompletedTasks = await completeWebDevContractTasks(
+            supabase,
+            linkedProjectId,
+            now,
+          );
         } catch (e) {
           console.warn("[contract-sign] auto-complete tasks failed:", e);
         }
       }
+
 
 
       return new Response(
