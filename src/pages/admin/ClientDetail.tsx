@@ -25,6 +25,7 @@ type Project = {
   client_id: string;
   type: "automation_build" | "site_preview" | "app_development" | "web_development" | "marketing";
   name: string;
+  business_name: string | null;
   status: string;
   notes: string | null;
   created_at: string;
