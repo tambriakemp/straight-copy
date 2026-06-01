@@ -251,8 +251,12 @@ export default function ContractSection({
           signatureName,
           signatureData,
           agreed: true,
+          businessName: businessName.trim() || undefined,
+          contactName: confirmContactName.trim() || undefined,
+          contactEmail: confirmEmail.trim() || undefined,
           audit,
         }),
+
       });
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || "Signing failed");
