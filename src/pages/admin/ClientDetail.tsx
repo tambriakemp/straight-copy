@@ -350,35 +350,31 @@ export default function ClientDetail() {
                     cursor: "pointer",
                     transition: "border-color 200ms",
                     display: "flex", flexDirection: "column", gap: 14,
+                    position: "relative",
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--crm-accent)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--crm-border-dark)"; }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                  <span
+                    title={isBuild ? statusText : p.status}
+                    style={{
+                      position: "absolute",
+                      top: 12,
+                      left: 12,
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: "hsl(140 60% 45%)",
+                      boxShadow: "0 0 0 3px hsl(140 60% 45% / 0.18)",
+                    }}
+                  />
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", paddingLeft: 18 }}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", whiteSpace: "nowrap" }}>
                       <Icon size={12} style={{ flexShrink: 0 }} /> {TYPE_LABEL[p.type]}
                     </span>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                      {isBuild ? (
-                        <span className={`roster__tier roster__tier--${tierForCard.toLowerCase()}`}>{tierLabel(tierForCard)}</span>
-                      ) : (
-                        <span style={{ fontSize: 14, color: "var(--crm-taupe)", textTransform: "uppercase", letterSpacing: "0.2em" }}>{p.status}</span>
-                      )}
-                      <button
-                        className="crm-btn crm-btn--ghost crm-btn--sm"
-                        onClick={(e) => openProjectEdit(e, p)}
-                        title="Edit project"
-                      >
-                        <Pencil size={12} />
-                      </button>
-                      <button
-                        className="crm-btn crm-btn--ghost crm-btn--sm"
-                        onClick={(e) => { e.stopPropagation(); setResourceProject(p); }}
-                        title="Links & notes"
-                      >
-                        <FolderOpen size={12} />
-                      </button>
-                    </div>
+                    {isBuild && (
+                      <span className={`roster__tier roster__tier--${tierForCard.toLowerCase()}`}>{tierLabel(tierForCard)}</span>
+                    )}
                   </div>
                   <div>
                     <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 26, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
@@ -400,25 +396,57 @@ export default function ClientDetail() {
                             {String(stageIdx).padStart(2, "0")} / {String(total || 0).padStart(2, "0")}
                           </span>
                         </div>
-                        <div style={{ textAlign: "right" }}>
-                          <div className="roster__days" style={{ fontSize: 26 }}>{daysSince}d</div>
-                          <span className="roster__days-date">since start</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ textAlign: "right" }}>
+                            <div className="roster__days" style={{ fontSize: 26 }}>{daysSince}d</div>
+                            <span className="roster__days-date">since start</span>
+                          </div>
+                          <button
+                            className="crm-btn crm-btn--ghost crm-btn--sm"
+                            onClick={(e) => openProjectEdit(e, p)}
+                            title="Edit project"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            className="crm-btn crm-btn--ghost crm-btn--sm"
+                            onClick={(e) => { e.stopPropagation(); setResourceProject(p); }}
+                            title="Links & notes"
+                          >
+                            <FolderOpen size={12} />
+                          </button>
                         </div>
                       </div>
                       <div style={{ fontFamily: "var(--crm-font-serif)", fontStyle: "italic", color: "var(--crm-stone)", fontSize: 16 }}>
                         {nextAction}
                       </div>
-                      <div className="roster__status" style={{ fontSize: 13 }}>
-                        <span className={`status-dot status-dot--${stageStatus}`} /> {statusText}
-                      </div>
                     </>
                   )}
 
                   {!isBuild && (
-                    <div style={{ marginTop: 6, fontSize: 15, color: "var(--crm-stone)" }}>
-                      Updated {new Date(p.updated_at).toLocaleDateString()}
+                    <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <span style={{ fontSize: 15, color: "var(--crm-stone)" }}>
+                        Updated {new Date(p.updated_at).toLocaleDateString()}
+                      </span>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                        <button
+                          className="crm-btn crm-btn--ghost crm-btn--sm"
+                          onClick={(e) => openProjectEdit(e, p)}
+                          title="Edit project"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          className="crm-btn crm-btn--ghost crm-btn--sm"
+                          onClick={(e) => { e.stopPropagation(); setResourceProject(p); }}
+                          title="Links & notes"
+                        >
+                          <FolderOpen size={12} />
+                        </button>
+                      </div>
                     </div>
                   )}
+
 
                   {preview && (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 8, borderTop: "1px solid var(--crm-border-dark)" }}>
