@@ -353,6 +353,11 @@ export default function ClientDetail() {
                     <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 26, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
                       {p.name}
                     </h3>
+                    {p.business_name && (
+                      <div style={{ marginTop: 4, fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                        {p.business_name}
+                      </div>
+                    )}
                   </div>
 
                   {isBuild && (
