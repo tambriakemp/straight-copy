@@ -57,6 +57,7 @@ export default function ClientDetail() {
   const [openNew, setOpenNew] = useState(false);
   const [type, setType] = useState<Project["type"]>("automation_build");
   const [name, setName] = useState("");
+  const [projectBusinessName, setProjectBusinessName] = useState("");
   const [tier, setTier] = useState<"launch" | "growth">("launch");
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
