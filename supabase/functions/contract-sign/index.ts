@@ -818,10 +818,15 @@ Deno.serve(async (req) => {
           pdfUrl,
           pdfPath,
           signedAt: now.toISOString(),
+          agencyCountersignedAt: now.toISOString(),
+          agencySignerName: inserted.agency_signer_name,
+          linkedProjectId,
+          autoCompletedTasks,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
 
     if (input.action === "download") {
       const { data: row } = await supabase
