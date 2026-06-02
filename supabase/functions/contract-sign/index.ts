@@ -601,11 +601,13 @@ async function flipIntakeChecklist(supabase: any, clientId: string) {
 const GetSchema = z.object({
   action: z.literal("get"),
   clientId: z.string().uuid(),
+  projectId: z.string().uuid().optional(),
 });
 
 const SignSchema = z.object({
   action: z.literal("sign"),
   clientId: z.string().uuid(),
+  projectId: z.string().uuid().optional(),
   signatureType: z.enum(["typed", "drawn"]),
   signatureName: z.string().trim().min(2).max(120),
   // typed: just the name; drawn: PNG data URL up to ~250KB
