@@ -2117,6 +2117,39 @@ export type Database = {
           },
         ]
       }
+      web_dev_discovery: {
+        Row: {
+          client_id: string
+          client_project_id: string | null
+          completed: boolean
+          conversation: Json
+          created_at: string
+          id: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          client_project_id?: string | null
+          completed?: boolean
+          conversation?: Json
+          created_at?: string
+          id?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          client_project_id?: string | null
+          completed?: boolean
+          conversation?: Json
+          created_at?: string
+          id?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       web_dev_scheduled_emails: {
         Row: {
           attempts: number
