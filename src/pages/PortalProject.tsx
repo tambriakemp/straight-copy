@@ -574,6 +574,9 @@ export default function PortalProject() {
                   </div>
                 ),
               });
+            }
+
+
 
             if (isAutomation && !!onboardingInvite) {
               clientTaskPanels.push({
