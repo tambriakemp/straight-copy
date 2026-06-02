@@ -28,8 +28,17 @@ type Project = {
   business_name: string | null;
   status: string;
   notes: string | null;
+  primary_contact_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type ContactOption = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  role: string | null;
+  is_primary: boolean;
 };
 
 type PreviewLink = { id: string; slug: string; client_project_id: string | null };
@@ -79,13 +88,26 @@ export default function ClientDetail() {
   const [editContacts, setEditContacts] = useState<ContactRow[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
-  const [projectEditForm, setProjectEditForm] = useState({ name: "", business_name: "", notes: "" });
+  const [projectEditForm, setProjectEditForm] = useState({ name: "", business_name: "", notes: "", primary_contact_id: "" });
+  const [projectEditContacts, setProjectEditContacts] = useState<ContactOption[]>([]);
   const [savingProjectEdit, setSavingProjectEdit] = useState(false);
 
-  const openProjectEdit = (e: React.MouseEvent, p: Project) => {
+  const openProjectEdit = async (e: React.MouseEvent, p: Project) => {
     e.stopPropagation();
-    setProjectEditForm({ name: p.name ?? "", business_name: p.business_name ?? "", notes: p.notes ?? "" });
+    setProjectEditForm({
+      name: p.name ?? "",
+      business_name: p.business_name ?? "",
+      notes: p.notes ?? "",
+      primary_contact_id: p.primary_contact_id ?? "",
+    });
+    setProjectEditContacts([]);
     setEditProject(p);
+    const { data: rows } = await supabase
+      .from("client_contacts")
+      .select("id, name, email, role, is_primary")
+      .eq("client_id", p.client_id)
+      .order("order_index", { ascending: true });
+    setProjectEditContacts((rows ?? []) as ContactOption[]);
   };
 
   const saveProjectEdit = async () => {
@@ -95,6 +117,7 @@ export default function ClientDetail() {
       name: projectEditForm.name.trim() || editProject.name,
       business_name: projectEditForm.business_name.trim() || null,
       notes: projectEditForm.notes.trim() || null,
+      primary_contact_id: projectEditForm.primary_contact_id || null,
     }).eq("id", editProject.id);
     setSavingProjectEdit(false);
     if (error) return toast.error(error.message);
@@ -725,6 +748,28 @@ export default function ClientDetail() {
             <div>
               <label className="crm-label">Notes</label>
               <textarea className="crm-input" rows={3} value={projectEditForm.notes} onChange={(e) => setProjectEditForm({ ...projectEditForm, notes: e.target.value })} />
+            </div>
+            <div>
+              <label className="crm-label">Primary contact for this project</label>
+              <select
+                className="crm-input"
+                value={projectEditForm.primary_contact_id}
+                onChange={(e) => setProjectEditForm({ ...projectEditForm, primary_contact_id: e.target.value })}
+              >
+                <option value="">— Use client default contact —</option>
+                {projectEditContacts.map((c) => {
+                  const label = c.name || c.email || "Unnamed contact";
+                  const email = c.email ? ` <${c.email}>` : "";
+                  const role = c.role ? ` · ${c.role}` : "";
+                  const def = c.is_primary ? "  (client default)" : "";
+                  return (
+                    <option key={c.id} value={c.id}>{`${label}${email}${role}${def}`}</option>
+                  );
+                })}
+              </select>
+              <p className="text-xs text-[hsl(40_20%_97%/0.55)] mt-1">
+                Contract and all outbound project emails will default to this contact.
+              </p>
             </div>
           </div>
           <DialogFooter>
