@@ -88,13 +88,26 @@ export default function ClientDetail() {
   const [editContacts, setEditContacts] = useState<ContactRow[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
-  const [projectEditForm, setProjectEditForm] = useState({ name: "", business_name: "", notes: "" });
+  const [projectEditForm, setProjectEditForm] = useState({ name: "", business_name: "", notes: "", primary_contact_id: "" });
+  const [projectEditContacts, setProjectEditContacts] = useState<ContactOption[]>([]);
   const [savingProjectEdit, setSavingProjectEdit] = useState(false);
 
-  const openProjectEdit = (e: React.MouseEvent, p: Project) => {
+  const openProjectEdit = async (e: React.MouseEvent, p: Project) => {
     e.stopPropagation();
-    setProjectEditForm({ name: p.name ?? "", business_name: p.business_name ?? "", notes: p.notes ?? "" });
+    setProjectEditForm({
+      name: p.name ?? "",
+      business_name: p.business_name ?? "",
+      notes: p.notes ?? "",
+      primary_contact_id: p.primary_contact_id ?? "",
+    });
+    setProjectEditContacts([]);
     setEditProject(p);
+    const { data: rows } = await supabase
+      .from("client_contacts")
+      .select("id, name, email, role, is_primary")
+      .eq("client_id", p.client_id)
+      .order("order_index", { ascending: true });
+    setProjectEditContacts((rows ?? []) as ContactOption[]);
   };
 
   const saveProjectEdit = async () => {
@@ -104,6 +117,7 @@ export default function ClientDetail() {
       name: projectEditForm.name.trim() || editProject.name,
       business_name: projectEditForm.business_name.trim() || null,
       notes: projectEditForm.notes.trim() || null,
+      primary_contact_id: projectEditForm.primary_contact_id || null,
     }).eq("id", editProject.id);
     setSavingProjectEdit(false);
     if (error) return toast.error(error.message);
