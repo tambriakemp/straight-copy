@@ -188,6 +188,29 @@ export default function PortalProject() {
 
   useEffect(() => { resolve(); }, [resolve]);
 
+  // Check whether the contract for the current web-dev project has been signed.
+  // This gates the discovery questionnaire chat.
+  useEffect(() => {
+    if (!projectId) { setContractSigned(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("client_contracts")
+          .select("id, client_signed_at")
+          .eq("client_project_id", projectId)
+          .not("client_signed_at", "is", null)
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled) setContractSigned(!!data?.client_signed_at);
+      } catch {
+        if (!cancelled) setContractSigned(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+
   // Persist transcript locally
   useEffect(() => {
     if (!lsKey) return;
