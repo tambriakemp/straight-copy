@@ -779,29 +779,54 @@ Deno.serve(async (req) => {
 
       const audit = (input as any).audit ?? null;
 
-      // Confirmed identity at time of signing — fall back to whatever is on
-      // the client record so older flows keep working.
+      // Confirmed identity at time of signing — fall back to the project's
+      // primary contact if one is assigned, otherwise to the client record.
       const confirmedBusiness =
         (input as any).businessName?.trim() || client.business_name || "";
       const confirmedContact =
-        (input as any).contactName?.trim() || client.contact_name || input.signatureName;
+        (input as any).contactName?.trim() || effectiveContactName || input.signatureName;
       const confirmedEmail =
-        (input as any).contactEmail?.trim() || client.contact_email || "";
+        (input as any).contactEmail?.trim() || effectiveContactEmail || "";
 
-      // Write any updates back to the client record so the rest of the
-      // portal reflects the names the client confirmed on the contract.
-      const clientPatch: Record<string, string> = {};
-      if (confirmedBusiness && confirmedBusiness !== (client.business_name ?? "")) {
-        clientPatch.business_name = confirmedBusiness;
-      }
-      if (confirmedContact && confirmedContact !== (client.contact_name ?? "")) {
-        clientPatch.contact_name = confirmedContact;
-      }
-      if (confirmedEmail && confirmedEmail !== (client.contact_email ?? "")) {
-        clientPatch.contact_email = confirmedEmail;
-      }
-      if (Object.keys(clientPatch).length) {
-        await supabase.from("clients").update(clientPatch).eq("id", client.id);
+      // When this project has its own primary contact assigned, write any
+      // confirmed name/email updates to that contact row instead of the
+      // client record so we don't clobber the client default.
+      if (projectRow?.primary_contact_id) {
+        const contactPatch: Record<string, string> = {};
+        if (confirmedContact && confirmedContact !== (projectContact?.name ?? "")) {
+          contactPatch.name = confirmedContact;
+        }
+        if (confirmedEmail && confirmedEmail !== (projectContact?.email ?? "")) {
+          contactPatch.email = confirmedEmail;
+        }
+        if (Object.keys(contactPatch).length) {
+          await supabase
+            .from("client_contacts")
+            .update(contactPatch)
+            .eq("id", projectRow.primary_contact_id);
+        }
+        // Business name still belongs to the client record.
+        if (confirmedBusiness && confirmedBusiness !== (client.business_name ?? "")) {
+          await supabase
+            .from("clients")
+            .update({ business_name: confirmedBusiness })
+            .eq("id", client.id);
+        }
+      } else {
+        // Original behavior: write back to the client record.
+        const clientPatch: Record<string, string> = {};
+        if (confirmedBusiness && confirmedBusiness !== (client.business_name ?? "")) {
+          clientPatch.business_name = confirmedBusiness;
+        }
+        if (confirmedContact && confirmedContact !== (client.contact_name ?? "")) {
+          clientPatch.contact_name = confirmedContact;
+        }
+        if (confirmedEmail && confirmedEmail !== (client.contact_email ?? "")) {
+          clientPatch.contact_email = confirmedEmail;
+        }
+        if (Object.keys(clientPatch).length) {
+          await supabase.from("clients").update(clientPatch).eq("id", client.id);
+        }
       }
 
       // Insert contract row first (gets ID for pdf path). Always stamp the
