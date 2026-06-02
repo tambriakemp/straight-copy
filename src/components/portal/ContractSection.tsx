@@ -111,7 +111,7 @@ export default function ContractSection({
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/contract-sign`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-        body: JSON.stringify({ action: "get", clientId }),
+        body: JSON.stringify({ action: "get", clientId, projectId }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Failed to load contract");
