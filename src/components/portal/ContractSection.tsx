@@ -66,10 +66,12 @@ function collectAuditData() {
 
 export default function ContractSection({
   clientId,
+  projectId,
   contactName,
   eyebrow = "Node 01 · Intake",
 }: {
   clientId: string;
+  projectId?: string;
   contactName: string | null;
   eyebrow?: string | null;
 }) {
