@@ -740,8 +740,8 @@ Deno.serve(async (req) => {
           client: {
             id: client.id,
             business_name: client.business_name,
-            contact_name: client.contact_name,
-            contact_email: client.contact_email,
+            contact_name: effectiveContactName,
+            contact_email: effectiveContactEmail,
             tier: client.tier,
           },
         }),
