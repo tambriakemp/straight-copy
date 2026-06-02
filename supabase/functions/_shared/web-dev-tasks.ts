@@ -4,13 +4,13 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
 export const WEB_DEV_EPICS = [
-  { key: "intake",    name: "Phase 01 — Intake & Kickoff" },
-  { key: "discovery", name: "Phase 02 — Discovery & Planning" },
-  { key: "design",    name: "Phase 03 — Design" },
-  { key: "dev",       name: "Phase 04 — Development" },
-  { key: "qa",        name: "Phase 05 — QA & Pre-Launch" },
-  { key: "launch",    name: "Phase 06 — Launch" },
-  { key: "handoff",   name: "Phase 07 — Handoff & Closure" },
+  { key: "intake",    name: "Phase 01 — Intake & Kickoff",       color: "#39a0a7" },
+  { key: "discovery", name: "Phase 02 — Discovery & Planning",   color: "#ff47f9" },
+  { key: "design",    name: "Phase 03 — Design",                 color: "#472f9d" },
+  { key: "dev",       name: "Phase 04 — Development",            color: "#d45916" },
+  { key: "qa",        name: "Phase 05 — QA & Pre-Launch",        color: "#808080" },
+  { key: "launch",    name: "Phase 06 — Launch",                 color: "#00b859" },
+  { key: "handoff",   name: "Phase 07 — Handoff & Closure",      color: "#9e7133" },
 ] as const;
 
 // Task numbers that the contract-sign flow must auto-complete the moment
@@ -778,6 +778,7 @@ export async function seedWebDevTasks(
   const epicRows = WEB_DEV_EPICS.map((e, i) => ({
     client_project_id: projectId,
     name: e.name,
+    color: e.color,
     journey_stage_key: `web_dev:${e.key}`,
     order_index: i + 1,
     locked: true,
