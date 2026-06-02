@@ -93,3 +93,10 @@ verify_jwt = true
 [functions.dispatch-web-dev-scheduled]
 verify_jwt = false
 
+[functions.web-dev-discovery-chat]
+verify_jwt = false
+
+[functions.notify-discovery-complete]
+verify_jwt = false
+
+
