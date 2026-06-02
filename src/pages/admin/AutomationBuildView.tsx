@@ -6,6 +6,7 @@ import AdminContractSection from "@/components/admin/AdminContractSection";
 
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
+import ProjectPrimaryContactCard from "@/components/admin/ProjectPrimaryContactCard";
 import AutomationSubscriptionPanel from "@/components/admin/AutomationSubscriptionPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
 import CoPostSettingsCard from "@/components/admin/social/CoPostSettingsCard";
