@@ -68,20 +68,45 @@ export async function sendWebDevTemplate(
     return { ok: false, status: 404, error: "Client not found" };
   }
 
-  // Prefer primary contact from client_contacts when present
+  // Prefer the project's assigned primary contact when present; otherwise
+  // fall back to the client-level primary contact, then to the client record.
   let email = client.contact_email as string | null;
   let name = client.contact_name as string | null;
   let phone = client.contact_phone as string | null;
-  const { data: primary } = await sb
-    .from("client_contacts")
-    .select("email, name, phone")
-    .eq("client_id", client.id)
-    .eq("is_primary", true)
-    .maybeSingle();
-  if (primary?.email) {
-    email = primary.email;
-    name = primary.name ?? name;
-    phone = primary.phone ?? phone;
+
+  let projectPrimaryId: string | null = null;
+  if (args.projectId) {
+    const { data: proj } = await sb
+      .from("client_projects")
+      .select("primary_contact_id")
+      .eq("id", args.projectId)
+      .maybeSingle();
+    projectPrimaryId = (proj?.primary_contact_id as string | null) ?? null;
+  }
+
+  if (projectPrimaryId) {
+    const { data: pc } = await sb
+      .from("client_contacts")
+      .select("email, name, phone")
+      .eq("id", projectPrimaryId)
+      .maybeSingle();
+    if (pc?.email) {
+      email = pc.email;
+      name = pc.name ?? name;
+      phone = pc.phone ?? phone;
+    }
+  } else {
+    const { data: primary } = await sb
+      .from("client_contacts")
+      .select("email, name, phone")
+      .eq("client_id", client.id)
+      .eq("is_primary", true)
+      .maybeSingle();
+    if (primary?.email) {
+      email = primary.email;
+      name = primary.name ?? name;
+      phone = primary.phone ?? phone;
+    }
   }
   if (!email) {
     return { ok: false, status: 422, error: "Client has no email on file" };
