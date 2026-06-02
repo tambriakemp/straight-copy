@@ -442,6 +442,7 @@ export default function AutomationBuildView() {
           <ProjectTabsContent value="settings">
             {projectId ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                <ProjectPrimaryContactCard clientId={client.id} clientProjectId={projectId} />
                 <ProjectSecretsPanel clientProjectId={projectId} />
                 <CoPostSettingsCard clientProjectId={projectId} />
               </div>
