@@ -416,6 +416,7 @@ export type Database = {
           id: string
           name: string
           notes: string | null
+          primary_contact_id: string | null
           source_order_id: string | null
           status: string
           type: string
@@ -428,6 +429,7 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
+          primary_contact_id?: string | null
           source_order_id?: string | null
           status?: string
           type: string
@@ -440,6 +442,7 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          primary_contact_id?: string | null
           source_order_id?: string | null
           status?: string
           type?: string
@@ -451,6 +454,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_projects_primary_contact_id_fkey"
+            columns: ["primary_contact_id"]
+            isOneToOne: false
+            referencedRelation: "client_contacts"
             referencedColumns: ["id"]
           },
         ]

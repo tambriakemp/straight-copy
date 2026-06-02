@@ -6,6 +6,7 @@ import AdminContractSection from "@/components/admin/AdminContractSection";
 
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
+import ProjectPrimaryContactCard from "@/components/admin/ProjectPrimaryContactCard";
 import AutomationSubscriptionPanel from "@/components/admin/AutomationSubscriptionPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
 import CoPostSettingsCard from "@/components/admin/social/CoPostSettingsCard";
@@ -442,6 +443,7 @@ export default function AutomationBuildView() {
           <ProjectTabsContent value="settings">
             {projectId ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                <ProjectPrimaryContactCard clientId={client.id} clientProjectId={projectId} />
                 <ProjectSecretsPanel clientProjectId={projectId} />
                 <CoPostSettingsCard clientProjectId={projectId} />
               </div>

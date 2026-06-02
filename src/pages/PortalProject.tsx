@@ -549,6 +549,7 @@ export default function PortalProject() {
                   <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
                     <ContractSection
                       clientId={clientId!}
+                      projectId={currentProject.id}
                       contactName={client.contact_name}
                       eyebrow={isWebDev ? null : "Node 01 · Intake"}
                     />
