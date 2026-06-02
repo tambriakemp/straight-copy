@@ -660,23 +660,56 @@ Deno.serve(async (req) => {
       });
     }
 
-    // If the client has an active web_development project, that contract
-    // takes precedence over the tier-based contract.
-    const { data: webDevProject } = await supabase
-      .from("client_projects")
-      .select("id")
-      .eq("client_id", input.clientId)
-      .eq("type", "web_development")
-      .neq("status", "archived")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // Resolve the linked project: prefer an explicit projectId from the caller,
+    // otherwise fall back to the most recent active web_development project.
+    let linkedProjectId: string | null = null;
+    let projectRow: { id: string; type: string | null; primary_contact_id: string | null } | null = null;
+    if ((input as any).projectId) {
+      const { data: explicit } = await supabase
+        .from("client_projects")
+        .select("id, type, primary_contact_id")
+        .eq("id", (input as any).projectId)
+        .eq("client_id", input.clientId)
+        .maybeSingle();
+      if (explicit) {
+        projectRow = explicit as typeof projectRow;
+        linkedProjectId = explicit.id;
+      }
+    }
+    if (!linkedProjectId) {
+      const { data: webDevProject } = await supabase
+        .from("client_projects")
+        .select("id, type, primary_contact_id")
+        .eq("client_id", input.clientId)
+        .eq("type", "web_development")
+        .neq("status", "archived")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (webDevProject) {
+        projectRow = webDevProject as typeof projectRow;
+        linkedProjectId = webDevProject.id;
+      }
+    }
 
     const template = getContractTemplate(
       client.tier,
-      webDevProject ? "web_development" : null,
+      projectRow?.type === "web_development" ? "web_development" : null,
     );
-    const linkedProjectId: string | null = webDevProject?.id ?? null;
+
+    // If this project has its own primary contact, prefer those identity
+    // fields for the contract over the client defaults.
+    let projectContact: { name: string | null; email: string | null } | null = null;
+    if (projectRow?.primary_contact_id) {
+      const { data: pc } = await supabase
+        .from("client_contacts")
+        .select("id, name, email")
+        .eq("id", projectRow.primary_contact_id)
+        .maybeSingle();
+      if (pc) projectContact = { name: pc.name, email: pc.email };
+    }
+    const effectiveContactName = projectContact?.name ?? client.contact_name;
+    const effectiveContactEmail = projectContact?.email ?? client.contact_email;
 
 
     if (input.action === "get") {
