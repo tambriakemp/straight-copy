@@ -28,8 +28,17 @@ type Project = {
   business_name: string | null;
   status: string;
   notes: string | null;
+  primary_contact_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type ContactOption = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  role: string | null;
+  is_primary: boolean;
 };
 
 type PreviewLink = { id: string; slug: string; client_project_id: string | null };
