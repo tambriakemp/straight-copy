@@ -100,6 +100,8 @@ export default function PortalProject() {
     cancel_at_period_end: false,
   });
   const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [contractSigned, setContractSigned] = useState(false);
+
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
