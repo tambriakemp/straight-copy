@@ -10,8 +10,6 @@ import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import ContractAuditPanel from "@/components/admin/ContractAuditPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
-import ProjectPrimaryContactCard from "@/components/admin/ProjectPrimaryContactCard";
-import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
 
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
