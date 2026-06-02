@@ -124,13 +124,6 @@ export default function AppDevelopmentView() {
               <SocialTab clientProjectId={projectId!} />
             </ProjectTabsContent>
           )}
-
-          <ProjectTabsContent value="settings">
-            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-              <ProjectPrimaryContactCard clientId={clientId!} clientProjectId={projectId!} />
-              <ProjectSecretsPanel clientProjectId={projectId!} />
-            </div>
-          </ProjectTabsContent>
         </ProjectTabs>
 
 
