@@ -9,6 +9,7 @@ import ProposalsSection from "@/components/portal/ProposalsSection";
 import InvoiceSection from "@/components/portal/InvoiceSection";
 import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
 import PortalProjectPreviewCard from "@/components/portal/PortalProjectPreviewCard";
+import WebDevDiscoveryChat from "@/components/portal/WebDevDiscoveryChat";
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
 } from "@/components/ProjectTabs";
