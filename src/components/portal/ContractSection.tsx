@@ -251,6 +251,7 @@ export default function ContractSection({
         body: JSON.stringify({
           action: "sign",
           clientId,
+          projectId,
           signatureType: mode,
           signatureName,
           signatureData,
