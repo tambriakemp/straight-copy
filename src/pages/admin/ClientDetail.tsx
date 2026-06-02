@@ -749,6 +749,28 @@ export default function ClientDetail() {
               <label className="crm-label">Notes</label>
               <textarea className="crm-input" rows={3} value={projectEditForm.notes} onChange={(e) => setProjectEditForm({ ...projectEditForm, notes: e.target.value })} />
             </div>
+            <div>
+              <label className="crm-label">Primary contact for this project</label>
+              <select
+                className="crm-input"
+                value={projectEditForm.primary_contact_id}
+                onChange={(e) => setProjectEditForm({ ...projectEditForm, primary_contact_id: e.target.value })}
+              >
+                <option value="">— Use client default contact —</option>
+                {projectEditContacts.map((c) => {
+                  const label = c.name || c.email || "Unnamed contact";
+                  const email = c.email ? ` <${c.email}>` : "";
+                  const role = c.role ? ` · ${c.role}` : "";
+                  const def = c.is_primary ? "  (client default)" : "";
+                  return (
+                    <option key={c.id} value={c.id}>{`${label}${email}${role}${def}`}</option>
+                  );
+                })}
+              </select>
+              <p className="text-xs text-[hsl(40_20%_97%/0.55)] mt-1">
+                Contract and all outbound project emails will default to this contact.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <button className="crm-btn crm-btn--ghost" onClick={() => setEditProject(null)}>Cancel</button>
