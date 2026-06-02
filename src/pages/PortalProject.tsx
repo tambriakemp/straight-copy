@@ -557,6 +557,24 @@ export default function PortalProject() {
               });
             }
 
+            // Discovery questionnaire chat — Web Dev projects only.
+            // The component itself renders a locked state until the contract is signed.
+            if (isWebDev) {
+              clientTaskPanels.push({
+                value: "discovery",
+                label: "Discovery",
+                node: (
+                  <div id="portal-discovery" style={{ scrollMarginTop: 24 }}>
+                    <WebDevDiscoveryChat
+                      clientId={clientId!}
+                      projectId={currentProject.id}
+                      contactName={client.contact_name}
+                      contractSigned={contractSigned}
+                    />
+                  </div>
+                ),
+              });
+
             if (isAutomation && !!onboardingInvite) {
               clientTaskPanels.push({
                 value: "brand-voice",
