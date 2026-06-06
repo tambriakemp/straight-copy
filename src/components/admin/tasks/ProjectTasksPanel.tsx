@@ -391,10 +391,12 @@ function KanbanColumn({
         <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.7)", fontSize: 14 }}>{tasks.length}</span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
-        {tasks.map((t) => (
-          <DraggableCard key={t.id} task={t} epics={epics}
-            subtaskCount={(subtasksByParent.get(t.id) ?? []).length} onOpen={onOpen} />
-        ))}
+        <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+          {tasks.map((t) => (
+            <SortableCard key={t.id} task={t} epics={epics}
+              subtaskCount={(subtasksByParent.get(t.id) ?? []).length} onOpen={onOpen} />
+          ))}
+        </SortableContext>
       </div>
     </div>
   );
