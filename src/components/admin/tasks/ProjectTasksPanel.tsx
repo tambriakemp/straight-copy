@@ -1310,6 +1310,189 @@ function Section({
   );
 }
 
+/* ---------------- Comments section ---------------- */
+
+function CommentsSection({
+  taskId, collapsed, onToggle,
+}: { taskId: string; collapsed?: boolean; onToggle: () => void }) {
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { comments } = await tasksApi.listComments(taskId);
+      setComments(comments);
+    } catch (e) {
+      console.error("[comments] load", e);
+    } finally { setLoading(false); }
+  }, [taskId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const submit = async () => {
+    const body = draft.trim();
+    if (!body) return;
+    setPosting(true);
+    try {
+      const { comment } = await tasksApi.addComment(taskId, body);
+      setComments((c) => [...c, comment]);
+      setDraft("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to post comment");
+    } finally { setPosting(false); }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Delete this comment?")) return;
+    try {
+      await tasksApi.deleteComment(id);
+      setComments((c) => c.filter((x) => x.id !== id));
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Delete failed"); }
+  };
+
+  // @mention popup logic
+  const onDraftChange = (val: string) => {
+    setDraft(val);
+    const ta = taRef.current;
+    const caret = ta?.selectionStart ?? val.length;
+    const before = val.slice(0, caret);
+    const m = before.match(/@([a-zA-Z0-9_\-]*)$/);
+    if (m) {
+      setMentionQuery(m[1].toLowerCase());
+      setMentionOpen(true);
+    } else {
+      setMentionOpen(false);
+    }
+  };
+
+  const insertMention = (handle: string) => {
+    const ta = taRef.current;
+    const caret = ta?.selectionStart ?? draft.length;
+    const before = draft.slice(0, caret);
+    const after = draft.slice(caret);
+    const replaced = before.replace(/@([a-zA-Z0-9_\-]*)$/, `@${handle} `);
+    const next = replaced + after;
+    setDraft(next);
+    setMentionOpen(false);
+    setTimeout(() => {
+      ta?.focus();
+      const pos = replaced.length;
+      ta?.setSelectionRange(pos, pos);
+    }, 0);
+  };
+
+  const filteredHandles = MENTIONABLE_HANDLES.filter(
+    (h) => h.handle.includes(mentionQuery) || h.label.toLowerCase().includes(mentionQuery),
+  );
+
+  const renderBody = (text: string) => {
+    const parts = text.split(/(@[a-zA-Z0-9_\-]+)/g);
+    return parts.map((p, i) =>
+      p.startsWith("@") ? (
+        <span key={i} className="tp-mention">{p}</span>
+      ) : (
+        <React.Fragment key={i}>{p}</React.Fragment>
+      ),
+    );
+  };
+
+  return (
+    <Section title="Comments" count={comments.length} collapsed={collapsed} onToggle={onToggle}>
+      <div className="tp-comments">
+        {loading && comments.length === 0 ? (
+          <div className="tp-empty">Loading…</div>
+        ) : comments.length === 0 ? (
+          <div className="tp-empty">No comments yet.</div>
+        ) : (
+          <div className="tp-comm-list">
+            {comments.map((c) => (
+              <div key={c.id} className="tp-comm">
+                <div className="tp-comm-head">
+                  <span className="tp-comm-author">{c.author_name}</span>
+                  <span className="tp-comm-time">
+                    {new Date(c.created_at).toLocaleString(undefined, {
+                      month: "short", day: "numeric", year: "numeric",
+                      hour: "numeric", minute: "2-digit",
+                    })}
+                  </span>
+                  {c.mentions.length > 0 && (
+                    <span className="tp-comm-tags">
+                      {c.mentions.map((m) => (
+                        <span key={m} className="tp-mention-chip">@{m}</span>
+                      ))}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="tp-row-del"
+                    style={{ marginLeft: "auto", opacity: 1 }}
+                    onClick={() => remove(c.id)}
+                    aria-label="Delete comment"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                <div className="tp-comm-body">{renderBody(c.body)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="tp-comm-form">
+          <div className="tp-comm-form-wrap">
+            <textarea
+              ref={taRef}
+              className="tp-comm-input"
+              placeholder="Add a comment… type @ to mention (e.g. @claude-code)"
+              value={draft}
+              onChange={(e) => onDraftChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setMentionOpen(false);
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); void submit(); }
+              }}
+              rows={3}
+            />
+            {mentionOpen && filteredHandles.length > 0 && (
+              <div className="tp-mention-pop">
+                {filteredHandles.map((h) => (
+                  <button
+                    key={h.handle}
+                    type="button"
+                    className="tp-mention-opt"
+                    onMouseDown={(e) => { e.preventDefault(); insertMention(h.handle); }}
+                  >
+                    <span className="tp-mention-opt-h">@{h.handle}</span>
+                    <span className="tp-mention-opt-l">{h.label}</span>
+                    {h.hint && <span className="tp-mention-opt-x">{h.hint}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="tp-comm-actions">
+            <span className="tp-comm-hint">⌘/Ctrl + Enter to post</span>
+            <button
+              type="button"
+              className="tp-btn"
+              disabled={posting || !draft.trim()}
+              onClick={() => void submit()}
+            >
+              {posting ? "Posting…" : "Post comment"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+
 
 /* ---------------- Acceptance criteria checklist ---------------- */
 
