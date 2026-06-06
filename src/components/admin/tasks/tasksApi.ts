@@ -204,4 +204,17 @@ export const tasksApi = {
     if (!res.ok) throw new Error(data?.error ?? res.statusText);
     return data as { ok: boolean; recipient?: string };
   },
+
+  listComments: (taskId: string) =>
+    invoke<{ comments: TaskComment[] }>(`/tasks/${taskId}/comments`),
+  addComment: (taskId: string, body: string, opts?: { mentions?: string[]; author_name?: string }) =>
+    invoke<{ comment: TaskComment }>(`/tasks/${taskId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body, mentions: opts?.mentions, author_name: opts?.author_name }),
+    }),
+  updateComment: (id: string, patch: { body?: string; mentions?: string[] }) =>
+    invoke<{ comment: TaskComment }>(`/comments/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteComment: (id: string) =>
+    invoke<{ ok: true }>(`/comments/${id}`, { method: "DELETE" }),
 };
+
