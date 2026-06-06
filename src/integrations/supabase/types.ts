@@ -2501,6 +2501,7 @@ export type Database = {
       }
       automation_01_criteria_for: { Args: { _key: string }; Returns: Json }
       brain_setup_criteria_for: { Args: { _key: string }; Returns: Json }
+      client_exists_active: { Args: { _client_id: string }; Returns: boolean }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
