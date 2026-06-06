@@ -1250,7 +1250,11 @@ function TaskDetailSheet({
               </Section>
             )}
 
+            {/* Comments */}
+            <CommentsSection taskId={task.id} collapsed={collapsed.comments} onToggle={() => toggle("comments")} />
+
             {/* Activity */}
+
             <Section title="Activity" collapsed={collapsed.activity} onToggle={() => toggle("activity")}>
               {activity.length === 0 ? (
                 <div className="tp-empty">No activity yet.</div>
