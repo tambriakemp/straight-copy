@@ -99,4 +99,13 @@ verify_jwt = false
 [functions.notify-discovery-complete]
 verify_jwt = false
 
+[functions.generate-progress-report]
+verify_jwt = false
+
+[functions.dispatch-weekly-progress-reports]
+verify_jwt = false
+
+
+
+
 
