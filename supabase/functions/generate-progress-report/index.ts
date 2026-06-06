@@ -87,6 +87,9 @@ Deno.serve(async (req) => {
 
     const tasks = taskRows ?? [];
     if (tasks.length === 0) {
+      if (isPreview) {
+        return json({ ok: true, preview: true, skipped: "no_tasks_completed", period: window.label });
+      }
       await sb.from("project_progress_reports").insert({
         client_project_id: projectId,
         period_start: window.start.toISOString(),
