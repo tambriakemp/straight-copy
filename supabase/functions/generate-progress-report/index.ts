@@ -162,7 +162,6 @@ Deno.serve(async (req) => {
         periodLabel: window.label,
         weekOf: window.weekOf,
         portalUrl,
-        deliveryDate,
         completedTasks: shape(completed),
         inProgressTasks: shape(inProgress),
         nextTasks: shape(next),
