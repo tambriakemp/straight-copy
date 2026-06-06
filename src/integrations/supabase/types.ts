@@ -1766,6 +1766,47 @@ export type Database = {
           },
         ]
       }
+      project_task_comments: {
+        Row: {
+          author_name: string
+          author_user_id: string | null
+          body: string
+          created_at: string
+          id: string
+          mentions: string[]
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_name: string
+          author_user_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          mentions?: string[]
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_name?: string
+          author_user_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          mentions?: string[]
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_task_epics: {
         Row: {
           client_project_id: string

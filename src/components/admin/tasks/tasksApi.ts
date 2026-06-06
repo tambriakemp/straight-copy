@@ -112,6 +112,25 @@ export interface TaskActivity {
   metadata?: Record<string, unknown>;
 }
 
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  author_user_id: string | null;
+  author_name: string;
+  body: string;
+  mentions: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const MENTIONABLE_HANDLES: { handle: string; label: string; hint?: string }[] = [
+  { handle: "claude-code", label: "Claude Code", hint: "AI engineer" },
+  { handle: "claude", label: "Claude", hint: "AI assistant" },
+  { handle: "team", label: "Team", hint: "Everyone" },
+];
+
+
+
 
 async function invoke<T>(path: string, init: RequestInit = {}): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -185,4 +204,17 @@ export const tasksApi = {
     if (!res.ok) throw new Error(data?.error ?? res.statusText);
     return data as { ok: boolean; recipient?: string };
   },
+
+  listComments: (taskId: string) =>
+    invoke<{ comments: TaskComment[] }>(`/tasks/${taskId}/comments`),
+  addComment: (taskId: string, body: string, opts?: { mentions?: string[]; author_name?: string }) =>
+    invoke<{ comment: TaskComment }>(`/tasks/${taskId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body, mentions: opts?.mentions, author_name: opts?.author_name }),
+    }),
+  updateComment: (id: string, patch: { body?: string; mentions?: string[] }) =>
+    invoke<{ comment: TaskComment }>(`/comments/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteComment: (id: string) =>
+    invoke<{ ok: true }>(`/comments/${id}`, { method: "DELETE" }),
 };
+

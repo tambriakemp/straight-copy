@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useDroppable, useSensor, useSensors,
@@ -18,10 +18,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { supabase } from "@/integrations/supabase/client";
 import {
   tasksApi, TASK_STATUSES, STATUS_LABELS, STATUS_COLORS, PRIORITIES, PRIORITY_COLORS,
-  TASK_SIZES, TASK_PLATFORMS,
+  TASK_SIZES, TASK_PLATFORMS, MENTIONABLE_HANDLES,
   type Task, type Epic, type TaskStatus, type TaskPriority, type AssigneeKind,
-  type TaskSize, type TaskPlatform, type AcceptanceCriterion, type TaskActivity,
+  type TaskSize, type TaskPlatform, type AcceptanceCriterion, type TaskActivity, type TaskComment,
 } from "./tasksApi";
+
 
 const ASSIGNEE_LABEL: Record<AssigneeKind, string> = {
   unassigned: "Unassigned",
@@ -765,6 +766,44 @@ const TASK_PANEL_STYLE = `
 .tp-act-txt { font-size:13px; color: var(--tp-stone); }
 .tp-act-time { font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color: var(--tp-taupe); }
 
+/* Comments */
+.tp-comments { display:flex; flex-direction:column; gap:14px; }
+.tp-comm-list { display:flex; flex-direction:column; gap:10px; }
+.tp-comm { padding:12px 14px; border:1px solid var(--tp-border); border-radius:6px; background: rgba(255,255,255,0.02); }
+.tp-comm-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+.tp-comm-author { font-size:12px; font-weight:600; color: var(--tp-stone); letter-spacing:0.04em; }
+.tp-comm-time { font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color: var(--tp-taupe); }
+.tp-comm-tags { display:inline-flex; gap:4px; flex-wrap:wrap; }
+.tp-mention-chip { font-size:10px; padding:2px 6px; border-radius:3px;
+  background: rgba(120, 170, 220, 0.15); color: hsl(200 70% 75%); letter-spacing:0.04em; }
+.tp-comm-body { font-size:13px; color: var(--tp-stone); white-space: pre-wrap; line-height:1.5; }
+.tp-mention { color: hsl(200 70% 70%); background: rgba(120,170,220,0.10); padding:0 3px; border-radius:3px; }
+.tp-comm-form { display:flex; flex-direction:column; gap:8px; margin-top:4px; }
+.tp-comm-form-wrap { position:relative; }
+.tp-comm-input { width:100%; min-height:72px; padding:10px 12px; resize:vertical;
+  background: rgba(0,0,0,0.15); border:1px solid var(--tp-border); border-radius:6px;
+  color: var(--tp-stone); font: inherit; font-size:13px; line-height:1.5; }
+.tp-comm-input:focus { outline:none; border-color: var(--tp-accent); }
+.tp-mention-pop { position:absolute; left:0; bottom:calc(100% + 4px);
+  background: var(--tp-bg-elev, #1f1d1a); border:1px solid var(--tp-border);
+  border-radius:6px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); z-index:50;
+  display:flex; flex-direction:column; min-width:220px; overflow:hidden; }
+.tp-mention-opt { display:flex; align-items:baseline; gap:8px; padding:8px 12px;
+  text-align:left; background:transparent; border:0; cursor:pointer; color: var(--tp-stone);
+  font-size:12px; }
+.tp-mention-opt:hover { background: rgba(255,255,255,0.06); }
+.tp-mention-opt-h { color: hsl(200 70% 70%); font-weight:600; }
+.tp-mention-opt-l { color: var(--tp-stone); }
+.tp-mention-opt-x { color: var(--tp-taupe); font-size:10px; margin-left:auto; }
+.tp-comm-actions { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.tp-comm-hint { font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color: var(--tp-taupe); }
+.tp-btn { padding:6px 14px; font-size:11px; letter-spacing:0.18em; text-transform:uppercase;
+  background:transparent; color: var(--tp-stone); border:1px solid var(--tp-border);
+  border-radius:4px; cursor:pointer; transition: all 0.15s; }
+.tp-btn:hover:not(:disabled) { border-color: var(--tp-accent); color: var(--tp-accent); }
+.tp-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+
 @media (max-width: 767px) {
   .tp-grid2 { grid-template-columns: 1fr; }
   .tp-header, .tp-body { padding-left: 22px; padding-right: 22px; }
@@ -1250,7 +1289,11 @@ function TaskDetailSheet({
               </Section>
             )}
 
+            {/* Comments */}
+            <CommentsSection taskId={task.id} collapsed={collapsed.comments} onToggle={() => toggle("comments")} />
+
             {/* Activity */}
+
             <Section title="Activity" collapsed={collapsed.activity} onToggle={() => toggle("activity")}>
               {activity.length === 0 ? (
                 <div className="tp-empty">No activity yet.</div>
@@ -1304,6 +1347,189 @@ function Section({
     </section>
   );
 }
+
+/* ---------------- Comments section ---------------- */
+
+function CommentsSection({
+  taskId, collapsed, onToggle,
+}: { taskId: string; collapsed?: boolean; onToggle: () => void }) {
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { comments } = await tasksApi.listComments(taskId);
+      setComments(comments);
+    } catch (e) {
+      console.error("[comments] load", e);
+    } finally { setLoading(false); }
+  }, [taskId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const submit = async () => {
+    const body = draft.trim();
+    if (!body) return;
+    setPosting(true);
+    try {
+      const { comment } = await tasksApi.addComment(taskId, body);
+      setComments((c) => [...c, comment]);
+      setDraft("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to post comment");
+    } finally { setPosting(false); }
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Delete this comment?")) return;
+    try {
+      await tasksApi.deleteComment(id);
+      setComments((c) => c.filter((x) => x.id !== id));
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Delete failed"); }
+  };
+
+  // @mention popup logic
+  const onDraftChange = (val: string) => {
+    setDraft(val);
+    const ta = taRef.current;
+    const caret = ta?.selectionStart ?? val.length;
+    const before = val.slice(0, caret);
+    const m = before.match(/@([a-zA-Z0-9_\-]*)$/);
+    if (m) {
+      setMentionQuery(m[1].toLowerCase());
+      setMentionOpen(true);
+    } else {
+      setMentionOpen(false);
+    }
+  };
+
+  const insertMention = (handle: string) => {
+    const ta = taRef.current;
+    const caret = ta?.selectionStart ?? draft.length;
+    const before = draft.slice(0, caret);
+    const after = draft.slice(caret);
+    const replaced = before.replace(/@([a-zA-Z0-9_\-]*)$/, `@${handle} `);
+    const next = replaced + after;
+    setDraft(next);
+    setMentionOpen(false);
+    setTimeout(() => {
+      ta?.focus();
+      const pos = replaced.length;
+      ta?.setSelectionRange(pos, pos);
+    }, 0);
+  };
+
+  const filteredHandles = MENTIONABLE_HANDLES.filter(
+    (h) => h.handle.includes(mentionQuery) || h.label.toLowerCase().includes(mentionQuery),
+  );
+
+  const renderBody = (text: string) => {
+    const parts = text.split(/(@[a-zA-Z0-9_\-]+)/g);
+    return parts.map((p, i) =>
+      p.startsWith("@") ? (
+        <span key={i} className="tp-mention">{p}</span>
+      ) : (
+        <React.Fragment key={i}>{p}</React.Fragment>
+      ),
+    );
+  };
+
+  return (
+    <Section title="Comments" count={comments.length} collapsed={collapsed} onToggle={onToggle}>
+      <div className="tp-comments">
+        {loading && comments.length === 0 ? (
+          <div className="tp-empty">Loading…</div>
+        ) : comments.length === 0 ? (
+          <div className="tp-empty">No comments yet.</div>
+        ) : (
+          <div className="tp-comm-list">
+            {comments.map((c) => (
+              <div key={c.id} className="tp-comm">
+                <div className="tp-comm-head">
+                  <span className="tp-comm-author">{c.author_name}</span>
+                  <span className="tp-comm-time">
+                    {new Date(c.created_at).toLocaleString(undefined, {
+                      month: "short", day: "numeric", year: "numeric",
+                      hour: "numeric", minute: "2-digit",
+                    })}
+                  </span>
+                  {c.mentions.length > 0 && (
+                    <span className="tp-comm-tags">
+                      {c.mentions.map((m) => (
+                        <span key={m} className="tp-mention-chip">@{m}</span>
+                      ))}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="tp-row-del"
+                    style={{ marginLeft: "auto", opacity: 1 }}
+                    onClick={() => remove(c.id)}
+                    aria-label="Delete comment"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                <div className="tp-comm-body">{renderBody(c.body)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="tp-comm-form">
+          <div className="tp-comm-form-wrap">
+            <textarea
+              ref={taRef}
+              className="tp-comm-input"
+              placeholder="Add a comment… type @ to mention (e.g. @claude-code)"
+              value={draft}
+              onChange={(e) => onDraftChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setMentionOpen(false);
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); void submit(); }
+              }}
+              rows={3}
+            />
+            {mentionOpen && filteredHandles.length > 0 && (
+              <div className="tp-mention-pop">
+                {filteredHandles.map((h) => (
+                  <button
+                    key={h.handle}
+                    type="button"
+                    className="tp-mention-opt"
+                    onMouseDown={(e) => { e.preventDefault(); insertMention(h.handle); }}
+                  >
+                    <span className="tp-mention-opt-h">@{h.handle}</span>
+                    <span className="tp-mention-opt-l">{h.label}</span>
+                    {h.hint && <span className="tp-mention-opt-x">{h.hint}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="tp-comm-actions">
+            <span className="tp-comm-hint">⌘/Ctrl + Enter to post</span>
+            <button
+              type="button"
+              className="tp-btn"
+              disabled={posting || !draft.trim()}
+              onClick={() => void submit()}
+            >
+              {posting ? "Posting…" : "Post comment"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 
 
 /* ---------------- Acceptance criteria checklist ---------------- */
