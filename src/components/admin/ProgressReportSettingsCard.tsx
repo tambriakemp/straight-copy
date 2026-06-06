@@ -106,6 +106,35 @@ export default function ProgressReportSettingsCard({
     }
   };
 
+  const previewReport = async () => {
+    setPreviewing(true);
+    setPreviewData({}); // open modal in loading state
+    const { data, error } = await supabase.functions.invoke("generate-progress-report", {
+      body: { projectId: clientProjectId, preview: true },
+    });
+    setPreviewing(false);
+    if (error) {
+      setPreviewData(null);
+      toast.error(error.message);
+      return;
+    }
+    const res = data as { ok?: boolean; subject?: string; html?: string; recipients?: string[]; period?: string; taskCount?: number; skipped?: string; error?: string } | null;
+    if (res?.error) {
+      setPreviewData(null);
+      toast.error(res.error);
+      return;
+    }
+    setPreviewData({
+      subject: res?.subject,
+      html: res?.html,
+      recipients: res?.recipients,
+      period: res?.period,
+      taskCount: res?.taskCount,
+      skipped: res?.skipped,
+    });
+  };
+
+
   if (loading) {
     return (
       <div style={cardStyle}>
