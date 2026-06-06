@@ -26,10 +26,8 @@ export interface ProgressReportData {
   report_completed: string;       // HTML <ul> of completed items
   report_in_progress: string;     // HTML <ul> of in-progress items
   report_next: string;            // HTML <ul> of next-up items
-  report_action_items: string;    // HTML <ul> or "" if none
   report_current_phase: string;   // e.g. "Phase 4 — Development"
   report_progress: string;        // e.g. "On track — 60% complete"
-  delivery_date: string;          // human date or "TBD"
   portal_url: string;
   project_name: string;
   business_name: string;
