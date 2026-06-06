@@ -18,10 +18,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { supabase } from "@/integrations/supabase/client";
 import {
   tasksApi, TASK_STATUSES, STATUS_LABELS, STATUS_COLORS, PRIORITIES, PRIORITY_COLORS,
-  TASK_SIZES, TASK_PLATFORMS,
+  TASK_SIZES, TASK_PLATFORMS, MENTIONABLE_HANDLES,
   type Task, type Epic, type TaskStatus, type TaskPriority, type AssigneeKind,
-  type TaskSize, type TaskPlatform, type AcceptanceCriterion, type TaskActivity,
+  type TaskSize, type TaskPlatform, type AcceptanceCriterion, type TaskActivity, type TaskComment,
 } from "./tasksApi";
+
 
 const ASSIGNEE_LABEL: Record<AssigneeKind, string> = {
   unassigned: "Unassigned",
