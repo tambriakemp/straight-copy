@@ -1047,7 +1047,23 @@ function TaskDetailSheet({
                         <button type="button" onClick={() => removeTag(t)} aria-label={`Remove ${t}`}>×</button>
                       </span>
                     ))}
-                    <button type="button" className="tp-tag-add" onClick={addTag}>+ Add tag</button>
+                    <input
+                      type="text"
+                      value={tagDraft}
+                      onChange={(e) => setTagDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === ",") {
+                          e.preventDefault();
+                          if (tagDraft.trim()) { addTagValue(tagDraft); setTagDraft(""); }
+                        } else if (e.key === "Backspace" && !tagDraft && tags.length > 0) {
+                          removeTag(tags[tags.length - 1]);
+                        }
+                      }}
+                      onBlur={() => { if (tagDraft.trim()) { addTagValue(tagDraft); setTagDraft(""); } }}
+                      placeholder={tags.length === 0 ? "Type and press Enter…" : "Add tag…"}
+                      className="tp-input"
+                      style={{ flex: 1, minWidth: 140, padding: "6px 10px", fontSize: 13 }}
+                    />
                   </div>
                 </div>
               </div>
