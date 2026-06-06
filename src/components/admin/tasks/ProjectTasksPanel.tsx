@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useDraggable, useDroppable, useSensor, useSensors,
+  DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useDroppable, useSensor, useSensors,
 } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag, Copy, ChevronDown, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +51,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const [epicsOpen, setEpicsOpen] = useState(false);
   const [filterEpic, setFilterEpic] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
+  const [filterTag, setFilterTag] = useState<string>("all");
   const [dragId, setDragId] = useState<string | null>(null);
   const [projectType, setProjectType] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
@@ -100,11 +103,18 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     }
   };
 
+  const allTags = useMemo(() => {
+    const s = new Set<string>();
+    for (const t of tasks) for (const tag of t.tags ?? []) if (tag) s.add(tag);
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [tasks]);
+
   const topLevel = useMemo(
     () => tasks.filter((t) => !t.parent_task_id)
       .filter((t) => filterEpic === "all" || t.epic_id === filterEpic || (filterEpic === "none" && !t.epic_id))
-      .filter((t) => filterAssignee === "all" || t.assignee_kind === filterAssignee),
-    [tasks, filterEpic, filterAssignee],
+      .filter((t) => filterAssignee === "all" || t.assignee_kind === filterAssignee)
+      .filter((t) => filterTag === "all" || (t.tags ?? []).includes(filterTag)),
+    [tasks, filterEpic, filterAssignee, filterTag],
   );
 
   const subtasksByParent = useMemo(() => {
@@ -124,16 +134,55 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const onDragEnd = async (e: DragEndEvent) => {
     setDragId(null);
     const taskId = String(e.active.id);
-    const overId = e.over?.id;
-    if (!overId) return;
-    const target = String(overId);
-    if (!TASK_STATUSES.includes(target as TaskStatus)) return;
+    const overId = e.over?.id != null ? String(e.over.id) : null;
+    if (!overId || overId === taskId) return;
     const t = tasks.find((x) => x.id === taskId);
-    if (!t || t.status === target) return;
-    // optimistic
-    setTasks((prev) => prev.map((x) => x.id === taskId ? { ...x, status: target as TaskStatus } : x));
+    if (!t) return;
+
+    let targetStatus: TaskStatus;
+    let overTask: Task | undefined;
+    if ((TASK_STATUSES as readonly string[]).includes(overId)) {
+      targetStatus = overId as TaskStatus;
+    } else {
+      overTask = tasks.find((x) => x.id === overId);
+      if (!overTask) return;
+      targetStatus = overTask.status;
+    }
+
+    // Build new ordering for the target column (top-level only, excluding the dragged task)
+    const targetCol = topLevel
+      .filter((x) => x.status === targetStatus && x.id !== taskId)
+      .sort((a, b) => a.order_index - b.order_index);
+    const insertIdx = overTask ? Math.max(0, targetCol.findIndex((x) => x.id === overTask!.id)) : targetCol.length;
+    const newCol = [...targetCol];
+    newCol.splice(insertIdx, 0, { ...t, status: targetStatus });
+
+    const statusChanged = t.status !== targetStatus;
+    const updates: Array<{ id: string; order_index: number; status?: TaskStatus }> = [];
+    newCol.forEach((task, idx) => {
+      const newIdx = idx + 1;
+      const isMoved = task.id === taskId;
+      if (task.order_index !== newIdx || (isMoved && statusChanged)) {
+        updates.push({
+          id: task.id,
+          order_index: newIdx,
+          ...(isMoved && statusChanged ? { status: targetStatus } : {}),
+        });
+      }
+    });
+    if (updates.length === 0) return;
+
+    // Optimistic
+    setTasks((prev) => prev.map((x) => {
+      const u = updates.find((u) => u.id === x.id);
+      if (!u) return x;
+      return { ...x, order_index: u.order_index, ...(u.status ? { status: u.status } : {}) };
+    }));
+
     try {
-      await tasksApi.update(taskId, { status: target as TaskStatus });
+      await Promise.all(updates.map((u) =>
+        tasksApi.update(u.id, { order_index: u.order_index, ...(u.status ? { status: u.status } : {}) }),
+      ));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to move task");
       void reload();
@@ -189,6 +238,21 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
             {ASSIGNEE_OPTIONS.map((a) => <SelectItem key={a} value={a}>{ASSIGNEE_LABEL[a]}</SelectItem>)}
           </SelectContent>
         </Select>
+
+        <Select value={filterTag} onValueChange={setFilterTag}>
+          <SelectTrigger className="w-[160px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+            <SelectValue placeholder="Tag" />
+          </SelectTrigger>
+          <SelectContent className={taskSelectContentClass}>
+            <SelectItem value="all">All tags</SelectItem>
+            {allTags.length === 0 ? (
+              <div style={{ padding: "8px 10px", fontSize: 13, color: "hsl(var(--warm-white) / 0.5)" }}>No tags yet</div>
+            ) : (
+              allTags.map((tag) => <SelectItem key={tag} value={tag}>{tag}</SelectItem>)
+            )}
+          </SelectContent>
+        </Select>
+
 
 
 
@@ -327,10 +391,12 @@ function KanbanColumn({
         <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.7)", fontSize: 14 }}>{tasks.length}</span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
-        {tasks.map((t) => (
-          <DraggableCard key={t.id} task={t} epics={epics}
-            subtaskCount={(subtasksByParent.get(t.id) ?? []).length} onOpen={onOpen} />
-        ))}
+        <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+          {tasks.map((t) => (
+            <SortableCard key={t.id} task={t} epics={epics}
+              subtaskCount={(subtasksByParent.get(t.id) ?? []).length} onOpen={onOpen} />
+          ))}
+        </SortableContext>
       </div>
     </div>
   );
@@ -386,19 +452,20 @@ function TaskEmailSection({ task, onChanged }: { task: Task; onChanged: () => Pr
 }
 
 
-function DraggableCard({ task, epics, subtaskCount, onOpen }: {
+function SortableCard({ task, epics, subtaskCount, onOpen }: {
   task: Task; epics: Epic[]; subtaskCount: number; onOpen: (id: string) => void;
 }) {
-  const { setNodeRef, listeners, attributes, transform, isDragging } = useDraggable({ id: task.id });
+  const { setNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({ id: task.id });
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      onClick={() => onOpen(task.id)}
+      onClick={() => { if (!isDragging) onOpen(task.id); }}
       style={{
         opacity: isDragging ? 0.4 : 1,
-        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+        transform: CSS.Transform.toString(transform),
+        transition,
         cursor: "grab",
       }}
     >
@@ -406,6 +473,7 @@ function DraggableCard({ task, epics, subtaskCount, onOpen }: {
     </div>
   );
 }
+
 
 function TaskCard({ task, epics, subtaskCount, dragging }: {
   task: Task; epics: Epic[]; subtaskCount: number; dragging?: boolean;
