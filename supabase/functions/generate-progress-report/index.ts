@@ -17,10 +17,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { projectId, forceSend } = await req.json();
+    const { projectId, forceSend, preview } = await req.json();
     if (!projectId || typeof projectId !== "string") {
       return json({ ok: false, error: "projectId is required" }, 400);
     }
+    const isPreview = preview === true;
 
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,
