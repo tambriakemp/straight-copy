@@ -452,19 +452,20 @@ function TaskEmailSection({ task, onChanged }: { task: Task; onChanged: () => Pr
 }
 
 
-function DraggableCard({ task, epics, subtaskCount, onOpen }: {
+function SortableCard({ task, epics, subtaskCount, onOpen }: {
   task: Task; epics: Epic[]; subtaskCount: number; onOpen: (id: string) => void;
 }) {
-  const { setNodeRef, listeners, attributes, transform, isDragging } = useDraggable({ id: task.id });
+  const { setNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({ id: task.id });
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      onClick={() => onOpen(task.id)}
+      onClick={() => { if (!isDragging) onOpen(task.id); }}
       style={{
         opacity: isDragging ? 0.4 : 1,
-        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+        transform: CSS.Transform.toString(transform),
+        transition,
         cursor: "grab",
       }}
     >
@@ -472,6 +473,7 @@ function DraggableCard({ task, epics, subtaskCount, onOpen }: {
     </div>
   );
 }
+
 
 function TaskCard({ task, epics, subtaskCount, dragging }: {
   task: Task; epics: Epic[]; subtaskCount: number; dragging?: boolean;
