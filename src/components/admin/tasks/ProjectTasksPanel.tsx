@@ -204,9 +204,22 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
             className="bg-transparent border-warm-white/20 !text-warm-white hover:bg-warm-white/10">
             Manage epics
           </Button>
-          <Button size="sm" onClick={() => setCreating(true)}
-            className="bg-accent !text-accent-foreground hover:bg-accent/90">
-            <Plus size={14} style={{ marginRight: 6 }} /> New task
+          <Button size="sm" disabled={creating} onClick={async () => {
+            setCreating(true);
+            try {
+              const { task } = await tasksApi.create({
+                client_project_id: clientProjectId,
+                name: "Untitled task",
+              });
+              await reload();
+              setOpenTaskId(task.id);
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Create failed");
+            } finally {
+              setCreating(false);
+            }
+          }} className="bg-accent !text-accent-foreground hover:bg-accent/90">
+            <Plus size={14} style={{ marginRight: 6 }} /> {creating ? "Creating…" : "New task"}
           </Button>
         </div>
       </div>
@@ -259,13 +272,6 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         />
       )}
 
-      <NewTaskDialog
-        open={creating}
-        onOpenChange={setCreating}
-        epics={epics}
-        clientProjectId={clientProjectId}
-        onCreated={reload}
-      />
 
       <EpicManagerDialog
         open={epicsOpen}
