@@ -417,6 +417,9 @@ export type Database = {
           name: string
           notes: string | null
           primary_contact_id: string | null
+          progress_report_enabled: boolean
+          progress_report_last_sent_at: string | null
+          progress_report_recipient_ids: string[]
           source_order_id: string | null
           status: string
           type: string
@@ -430,6 +433,9 @@ export type Database = {
           name: string
           notes?: string | null
           primary_contact_id?: string | null
+          progress_report_enabled?: boolean
+          progress_report_last_sent_at?: string | null
+          progress_report_recipient_ids?: string[]
           source_order_id?: string | null
           status?: string
           type: string
@@ -443,6 +449,9 @@ export type Database = {
           name?: string
           notes?: string | null
           primary_contact_id?: string | null
+          progress_report_enabled?: boolean
+          progress_report_last_sent_at?: string | null
+          progress_report_recipient_ids?: string[]
           source_order_id?: string | null
           status?: string
           type?: string
@@ -1580,6 +1589,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      project_progress_reports: {
+        Row: {
+          client_project_id: string
+          created_at: string
+          error: string | null
+          id: string
+          period_end: string
+          period_start: string
+          recipients: string[]
+          sent_at: string | null
+          summary_html: string | null
+          summary_markdown: string | null
+          task_ids: string[]
+        }
+        Insert: {
+          client_project_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          period_end: string
+          period_start: string
+          recipients?: string[]
+          sent_at?: string | null
+          summary_html?: string | null
+          summary_markdown?: string | null
+          task_ids?: string[]
+        }
+        Update: {
+          client_project_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          recipients?: string[]
+          sent_at?: string | null
+          summary_html?: string | null
+          summary_markdown?: string | null
+          task_ids?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_progress_reports_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       project_secrets: {
         Row: {
