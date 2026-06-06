@@ -247,12 +247,12 @@ Return ONLY the JSON, no markdown fence.`;
   };
 }
 
-function renderBulletList(items: string[], accent: "green" | "gold" | "blue" | "amber"): string {
+function renderBulletList(items: string[], accent: "green" | "gold" | "blue"): string {
   if (items.length === 0) return "";
   const color =
     accent === "green" ? "#3f7a4a" :
     accent === "gold" ? "#b48a2a" :
-    accent === "blue" ? "#3b6fa0" : "#c1843a";
+    "#3b6fa0";
   const lis = items
     .map(
       (i) =>
