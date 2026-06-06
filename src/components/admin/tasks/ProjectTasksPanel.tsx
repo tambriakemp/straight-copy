@@ -103,11 +103,18 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     }
   };
 
+  const allTags = useMemo(() => {
+    const s = new Set<string>();
+    for (const t of tasks) for (const tag of t.tags ?? []) if (tag) s.add(tag);
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [tasks]);
+
   const topLevel = useMemo(
     () => tasks.filter((t) => !t.parent_task_id)
       .filter((t) => filterEpic === "all" || t.epic_id === filterEpic || (filterEpic === "none" && !t.epic_id))
-      .filter((t) => filterAssignee === "all" || t.assignee_kind === filterAssignee),
-    [tasks, filterEpic, filterAssignee],
+      .filter((t) => filterAssignee === "all" || t.assignee_kind === filterAssignee)
+      .filter((t) => filterTag === "all" || (t.tags ?? []).includes(filterTag)),
+    [tasks, filterEpic, filterAssignee, filterTag],
   );
 
   const subtasksByParent = useMemo(() => {
