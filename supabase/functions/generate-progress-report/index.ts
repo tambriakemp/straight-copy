@@ -1,10 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import {
-  generateProgressSummary,
+  generateProgressReportData,
   getWeeklyWindow,
-  renderProgressReportHtml,
+  renderProgressReportPreviewHtml,
   sendProgressReportEmail,
-  type CompletedTaskForSummary,
+  type TaskForSummary,
 } from "../_shared/progress-report-email.ts";
 
 const corsHeaders = {
@@ -15,6 +15,13 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   try {
     const { projectId, forceSend, preview } = await req.json();
@@ -28,7 +35,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // 1. Load project + client
     const { data: project, error: projErr } = await sb
       .from("client_projects")
       .select("id, client_id, name, type, primary_contact_id, progress_report_enabled, progress_report_recipient_ids")
@@ -46,12 +52,11 @@ Deno.serve(async (req) => {
       .eq("id", project.client_id)
       .maybeSingle();
 
-    // 2. Resolve recipients
+    // Resolve recipients
     let recipientIds: string[] = (project.progress_report_recipient_ids as string[] | null) ?? [];
     if (recipientIds.length === 0 && project.primary_contact_id) {
       recipientIds = [project.primary_contact_id as string];
     }
-
     const recipients: Array<{ email: string; name: string | null; phone: string | null }> = [];
     if (recipientIds.length > 0) {
       const { data: cs } = await sb
@@ -62,129 +67,155 @@ Deno.serve(async (req) => {
         if ((c as any).email) recipients.push({ email: (c as any).email, name: (c as any).name, phone: (c as any).phone });
       }
     }
-    // Fall back to client-level email if still empty
     if (recipients.length === 0 && client?.contact_email) {
       recipients.push({ email: client.contact_email, name: client.contact_name, phone: client.contact_phone });
     }
-
-    // Always copy admin
     const adminEmail = Deno.env.get("PROGRESS_REPORT_ADMIN_EMAIL") || "tambria@cre8visions.com";
     if (!recipients.some((r) => r.email.toLowerCase() === adminEmail.toLowerCase())) {
       recipients.push({ email: adminEmail, name: "Tambria Kemp", phone: null });
     }
 
-    // 3. Compute the weekly window and pull completed tasks
+    // Weekly window
     const window = getWeeklyWindow(new Date());
 
-    const { data: taskRows, error: taskErr } = await sb
+    // Pull tasks: completed this week, currently in progress, queued next
+    const { data: completedRows, error: cErr } = await sb
       .from("project_tasks")
       .select("id, name, description, epic_id, updated_at, status")
       .eq("client_project_id", projectId)
       .eq("status", "complete")
       .gte("updated_at", window.start.toISOString())
       .lt("updated_at", window.end.toISOString());
-    if (taskErr) return json({ ok: false, error: taskErr.message }, 500);
+    if (cErr) return json({ ok: false, error: cErr.message }, 500);
 
-    const tasks = taskRows ?? [];
-    if (tasks.length === 0) {
-      if (isPreview) {
-        return json({ ok: true, preview: true, skipped: "no_tasks_completed", period: window.label });
-      }
+    const { data: inProgressRows } = await sb
+      .from("project_tasks")
+      .select("id, name, description, epic_id, updated_at, status")
+      .eq("client_project_id", projectId)
+      .in("status", ["in_progress", "needs_review", "blocked"])
+      .order("updated_at", { ascending: false })
+      .limit(12);
+
+    const { data: nextRows } = await sb
+      .from("project_tasks")
+      .select("id, name, description, epic_id, updated_at, status, order_index")
+      .eq("client_project_id", projectId)
+      .in("status", ["ready_for_claude", "backlog"])
+      .order("order_index", { ascending: true })
+      .limit(10);
+
+    const completed = completedRows ?? [];
+    const inProgress = inProgressRows ?? [];
+    const next = nextRows ?? [];
+
+    if (completed.length === 0 && inProgress.length === 0 && !isPreview) {
       await sb.from("project_progress_reports").insert({
         client_project_id: projectId,
         period_start: window.start.toISOString(),
         period_end: window.end.toISOString(),
         task_ids: [],
         recipients: recipients.map((r) => r.email),
-        error: "no_tasks_completed",
+        error: "no_activity",
       } as never);
-      return json({ ok: true, skipped: "no_tasks_completed" });
+      return json({ ok: true, skipped: "no_activity" });
     }
 
-    // Resolve epic names
-    const epicIds = Array.from(new Set(tasks.map((t) => (t as any).epic_id).filter(Boolean))) as string[];
-    let epicMap = new Map<string, string>();
+    // Epic name lookup across all
+    const epicIds = Array.from(
+      new Set(
+        [...completed, ...inProgress, ...next]
+          .map((t) => (t as any).epic_id)
+          .filter(Boolean),
+      ),
+    ) as string[];
+    const epicMap = new Map<string, string>();
     if (epicIds.length > 0) {
       const { data: epics } = await sb
         .from("project_task_epics")
         .select("id, name")
         .in("id", epicIds);
-      epicMap = new Map((epics ?? []).map((e) => [(e as any).id, (e as any).name]));
+      for (const e of epics ?? []) epicMap.set((e as any).id, (e as any).name);
     }
 
-    const summaryInput: CompletedTaskForSummary[] = tasks.map((t) => ({
-      id: (t as any).id,
-      name: (t as any).name,
-      description: (t as any).description,
-      epic_name: (t as any).epic_id ? (epicMap.get((t as any).epic_id) ?? null) : null,
-      completed_at: (t as any).updated_at,
-    }));
+    const shape = (rows: any[]): TaskForSummary[] =>
+      rows.map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        epic_name: t.epic_id ? (epicMap.get(t.epic_id) ?? null) : null,
+        status: t.status,
+        updated_at: t.updated_at,
+      }));
 
-    // 4. Generate AI summary
-    let summary;
-    try {
-      summary = await generateProgressSummary(summaryInput, project.name as string, window.label);
-    } catch (e) {
-      const err = e instanceof Error ? e.message : String(e);
-      await sb.from("project_progress_reports").insert({
-        client_project_id: projectId,
-        period_start: window.start.toISOString(),
-        period_end: window.end.toISOString(),
-        task_ids: tasks.map((t) => (t as any).id),
-        recipients: recipients.map((r) => r.email),
-        error: `ai_failed: ${err}`.slice(0, 1000),
-      } as never);
-      return json({ ok: false, error: err }, 500);
-    }
+    // Delivery date — pull next upcoming delivery for this project
+    const { data: delivery } = await sb
+      .from("client_deliveries")
+      .select("delivery_date, title")
+      .eq("client_project_id", projectId)
+      .gte("delivery_date", new Date().toISOString().slice(0, 10))
+      .order("delivery_date", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const deliveryDate = delivery?.delivery_date
+      ? new Date(delivery.delivery_date as string).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+      : "TBD";
 
     const portalUrl = `https://cre8visions.com/portal/${project.client_id}`;
-    const subject = `${project.name} — Weekly Progress (${window.label})`;
 
-    if (isPreview) {
-      const previewHtml = renderProgressReportHtml({
+    // Generate report fields via AI
+    let reportData;
+    try {
+      reportData = await generateProgressReportData({
         projectName: project.name as string,
         businessName: client?.business_name ?? null,
         contactName: recipients[0]?.name ?? null,
         periodLabel: window.label,
-        summary,
+        weekOf: window.weekOf,
         portalUrl,
-        taskCount: tasks.length,
+        deliveryDate,
+        completedTasks: shape(completed),
+        inProgressTasks: shape(inProgress),
+        nextTasks: shape(next),
       });
+    } catch (e) {
+      const err = e instanceof Error ? e.message : String(e);
+      if (!isPreview) {
+        await sb.from("project_progress_reports").insert({
+          client_project_id: projectId,
+          period_start: window.start.toISOString(),
+          period_end: window.end.toISOString(),
+          task_ids: completed.map((t) => (t as any).id),
+          recipients: recipients.map((r) => r.email),
+          error: `ai_failed: ${err}`.slice(0, 1000),
+        } as never);
+      }
+      return json({ ok: false, error: err }, 500);
+    }
+
+    const subject = `${project.name} — Weekly Progress (${window.label})`;
+
+    if (isPreview) {
+      const previewHtml = renderProgressReportPreviewHtml(reportData);
       return json({
         ok: true,
         preview: true,
         subject,
         html: previewHtml,
-        summary,
-        taskCount: tasks.length,
+        data: reportData,
+        taskCount: completed.length,
         period: window.label,
         recipients: recipients.map((r) => r.email),
       });
     }
 
-
-    // 5. Send to each recipient
+    // Send to each recipient (personalize contact_name + greeting per recipient)
     const sendResults: Array<{ email: string; ok: boolean; error?: string }> = [];
     for (const r of recipients) {
-      const html = renderProgressReportHtml({
-        projectName: project.name as string,
-        businessName: client?.business_name ?? null,
-        contactName: r.name,
-        periodLabel: window.label,
-        summary,
-        portalUrl,
-        taskCount: tasks.length,
-      });
+      const perRecipient = { ...reportData, contact_name: r.name || reportData.contact_name };
       const res = await sendProgressReportEmail({
         recipient: { email: r.email, name: r.name, company: client?.business_name ?? null, phone: r.phone },
-        subject,
-        html,
+        data: perRecipient,
         tags: ["weekly_progress_report"],
-        mergeFields: {
-          project_name: project.name,
-          business_name: client?.business_name,
-          period_label: window.label,
-        },
       });
       sendResults.push({ email: r.email, ok: res.ok, error: res.error });
     }
@@ -192,13 +223,12 @@ Deno.serve(async (req) => {
     const anySent = sendResults.some((r) => r.ok);
     const errorSummary = sendResults.filter((r) => !r.ok).map((r) => `${r.email}: ${r.error}`).join("; ") || null;
 
-    // 6. Persist log
     await sb.from("project_progress_reports").insert({
       client_project_id: projectId,
       period_start: window.start.toISOString(),
       period_end: window.end.toISOString(),
-      summary_markdown: `${summary.overview}\n\n${summary.bullets.map((b) => `- ${b}`).join("\n")}`,
-      task_ids: tasks.map((t) => (t as any).id),
+      summary_markdown: `${reportData.report_intro}\n\nPhase: ${reportData.report_current_phase}\nStatus: ${reportData.report_progress}`,
+      task_ids: completed.map((t) => (t as any).id),
       recipients: sendResults.filter((r) => r.ok).map((r) => r.email),
       sent_at: anySent ? new Date().toISOString() : null,
       error: errorSummary,
@@ -215,18 +245,11 @@ Deno.serve(async (req) => {
       ok: anySent,
       recipients: sendResults.filter((r) => r.ok).map((r) => r.email),
       failures: sendResults.filter((r) => !r.ok),
-      taskCount: tasks.length,
+      taskCount: completed.length,
       period: window.label,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown error";
     return json({ ok: false, error: msg }, 500);
-  }
-
-  function json(body: unknown, status = 200) {
-    return new Response(JSON.stringify(body), {
-      status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
   }
 });
