@@ -272,13 +272,6 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         />
       )}
 
-      <NewTaskDialog
-        open={creating}
-        onOpenChange={setCreating}
-        epics={epics}
-        clientProjectId={clientProjectId}
-        onCreated={reload}
-      />
 
       <EpicManagerDialog
         open={epicsOpen}
