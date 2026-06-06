@@ -138,7 +138,6 @@ export async function generateProgressReportData(args: {
   periodLabel: string;
   weekOf: string;
   portalUrl: string;
-  deliveryDate: string;
   completedTasks: TaskForSummary[];
   inProgressTasks: TaskForSummary[];
   nextTasks: TaskForSummary[];
