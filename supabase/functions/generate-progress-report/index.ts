@@ -140,6 +140,29 @@ Deno.serve(async (req) => {
     const portalUrl = `https://cre8visions.com/portal/${project.client_id}`;
     const subject = `${project.name} — Weekly Progress (${window.label})`;
 
+    if (isPreview) {
+      const previewHtml = renderProgressReportHtml({
+        projectName: project.name as string,
+        businessName: client?.business_name ?? null,
+        contactName: recipients[0]?.name ?? null,
+        periodLabel: window.label,
+        summary,
+        portalUrl,
+        taskCount: tasks.length,
+      });
+      return json({
+        ok: true,
+        preview: true,
+        subject,
+        html: previewHtml,
+        summary,
+        taskCount: tasks.length,
+        period: window.label,
+        recipients: recipients.map((r) => r.email),
+      });
+    }
+
+
     // 5. Send to each recipient
     const sendResults: Array<{ email: string; ok: boolean; error?: string }> = [];
     for (const r of recipients) {
