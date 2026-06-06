@@ -20,6 +20,10 @@ export default function ProgressReportSettingsCard({
   const [primaryContactId, setPrimaryContactId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewData, setPreviewData] = useState<{
+    subject?: string; html?: string; recipients?: string[]; period?: string; taskCount?: number; skipped?: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +105,35 @@ export default function ProgressReportSettingsCard({
       toast.error(res?.error || "Failed to send report.");
     }
   };
+
+  const previewReport = async () => {
+    setPreviewing(true);
+    setPreviewData({}); // open modal in loading state
+    const { data, error } = await supabase.functions.invoke("generate-progress-report", {
+      body: { projectId: clientProjectId, preview: true },
+    });
+    setPreviewing(false);
+    if (error) {
+      setPreviewData(null);
+      toast.error(error.message);
+      return;
+    }
+    const res = data as { ok?: boolean; subject?: string; html?: string; recipients?: string[]; period?: string; taskCount?: number; skipped?: string; error?: string } | null;
+    if (res?.error) {
+      setPreviewData(null);
+      toast.error(res.error);
+      return;
+    }
+    setPreviewData({
+      subject: res?.subject,
+      html: res?.html,
+      recipients: res?.recipients,
+      period: res?.period,
+      taskCount: res?.taskCount,
+      skipped: res?.skipped,
+    });
+  };
+
 
   if (loading) {
     return (
@@ -191,7 +224,15 @@ export default function ProgressReportSettingsCard({
             ? `Last sent ${format(new Date(lastSentAt), "MMM d, yyyy · h:mm a")}`
             : "Never sent."}
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={previewReport}
+            disabled={previewing}
+            style={btnGhost}
+          >
+            {previewing ? "Generating…" : "Preview report"}
+          </button>
           <button
             type="button"
             onClick={sendNow}
@@ -210,6 +251,60 @@ export default function ProgressReportSettingsCard({
           </button>
         </div>
       </div>
+
+      {previewData !== null && (
+        <div
+          onClick={() => setPreviewData(null)}
+          style={{
+            position: "fixed", inset: 0, background: "hsl(40 8% 4% / 0.75)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 24,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(880px, 100%)", maxHeight: "90vh",
+              background: "var(--crm-ink, #1a1a1a)",
+              border: "1px solid var(--crm-border-dark)",
+              borderRadius: 12, display: "flex", flexDirection: "column", overflow: "hidden",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--crm-border-dark)" }}>
+              <div>
+                <div style={eyebrowStyle}>Preview · {previewData.period ?? "this week"}</div>
+                <div style={{ color: "var(--crm-warm-white)", fontSize: 14, marginTop: 4 }}>
+                  {previewData.subject ?? "Weekly Progress Report"}
+                </div>
+              </div>
+              <button type="button" onClick={() => setPreviewData(null)} style={{ ...btnGhost, padding: "6px 12px" }}>
+                Close
+              </button>
+            </div>
+            <div style={{ padding: "10px 20px", borderBottom: "1px solid var(--crm-border-dark)", fontSize: 12, color: "var(--crm-taupe)" }}>
+              {previewData.recipients?.length
+                ? <>Would send to: {previewData.recipients.join(", ")}{typeof previewData.taskCount === "number" ? ` · ${previewData.taskCount} completed task(s)` : ""}</>
+                : previewing ? "Generating preview…" : "—"}
+            </div>
+            <div style={{ flex: 1, overflow: "auto", background: "#fff" }}>
+              {previewing && !previewData.html ? (
+                <div style={{ padding: 40, textAlign: "center", color: "#666" }}>Generating preview…</div>
+              ) : previewData.skipped === "no_tasks_completed" ? (
+                <div style={{ padding: 40, textAlign: "center", color: "#666" }}>
+                  No tasks were completed this week — no report would be sent.
+                </div>
+              ) : previewData.html ? (
+                <iframe
+                  title="Progress report preview"
+                  srcDoc={previewData.html}
+                  style={{ width: "100%", height: "70vh", border: 0, background: "#fff" }}
+                />
+              ) : (
+                <div style={{ padding: 40, textAlign: "center", color: "#666" }}>No preview available.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

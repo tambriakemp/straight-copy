@@ -17,10 +17,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { projectId, forceSend } = await req.json();
+    const { projectId, forceSend, preview } = await req.json();
     if (!projectId || typeof projectId !== "string") {
       return json({ ok: false, error: "projectId is required" }, 400);
     }
+    const isPreview = preview === true;
 
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -35,7 +36,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (projErr || !project) return json({ ok: false, error: "Project not found" }, 404);
 
-    if (!project.progress_report_enabled && !forceSend) {
+    if (!project.progress_report_enabled && !forceSend && !isPreview) {
       return json({ ok: true, skipped: "disabled" });
     }
 
@@ -86,6 +87,9 @@ Deno.serve(async (req) => {
 
     const tasks = taskRows ?? [];
     if (tasks.length === 0) {
+      if (isPreview) {
+        return json({ ok: true, preview: true, skipped: "no_tasks_completed", period: window.label });
+      }
       await sb.from("project_progress_reports").insert({
         client_project_id: projectId,
         period_start: window.start.toISOString(),
@@ -135,6 +139,29 @@ Deno.serve(async (req) => {
 
     const portalUrl = `https://cre8visions.com/portal/${project.client_id}`;
     const subject = `${project.name} — Weekly Progress (${window.label})`;
+
+    if (isPreview) {
+      const previewHtml = renderProgressReportHtml({
+        projectName: project.name as string,
+        businessName: client?.business_name ?? null,
+        contactName: recipients[0]?.name ?? null,
+        periodLabel: window.label,
+        summary,
+        portalUrl,
+        taskCount: tasks.length,
+      });
+      return json({
+        ok: true,
+        preview: true,
+        subject,
+        html: previewHtml,
+        summary,
+        taskCount: tasks.length,
+        period: window.label,
+        recipients: recipients.map((r) => r.email),
+      });
+    }
+
 
     // 5. Send to each recipient
     const sendResults: Array<{ email: string; ok: boolean; error?: string }> = [];
