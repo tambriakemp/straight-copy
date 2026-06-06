@@ -10,6 +10,8 @@ import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import ContractAuditPanel from "@/components/admin/ContractAuditPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
+import ProgressReportSettingsCard from "@/components/admin/ProgressReportSettingsCard";
+
 
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
@@ -33,7 +35,7 @@ export default function AppDevelopmentView() {
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const isMarketing = project?.type === "marketing";
-  const [tab, setTab] = useState<"tasks" | "proposals" | "schedule" | "preview" | "social">("tasks");
+  const [tab, setTab] = useState<"tasks" | "proposals" | "schedule" | "preview" | "social" | "settings">("tasks");
 
 
 
@@ -88,8 +90,10 @@ export default function AppDevelopmentView() {
             <ProjectTabsTrigger value="schedule">Payment Schedule</ProjectTabsTrigger>
             <ProjectTabsTrigger value="preview">Preview</ProjectTabsTrigger>
             {isMarketing && <ProjectTabsTrigger value="social">Social</ProjectTabsTrigger>}
+            <ProjectTabsTrigger value="settings">Settings</ProjectTabsTrigger>
 
           </ProjectTabsList>
+
 
           <ProjectTabsContent value="tasks">
             <ProjectTasksPanel clientProjectId={projectId!} />
@@ -122,7 +126,12 @@ export default function AppDevelopmentView() {
               <SocialTab clientProjectId={projectId!} />
             </ProjectTabsContent>
           )}
+
+          <ProjectTabsContent value="settings">
+            <ProgressReportSettingsCard clientId={clientId!} clientProjectId={projectId!} />
+          </ProjectTabsContent>
         </ProjectTabs>
+
 
 
       </div>

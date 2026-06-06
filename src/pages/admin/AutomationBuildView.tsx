@@ -9,6 +9,8 @@ import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
 import AutomationSubscriptionPanel from "@/components/admin/AutomationSubscriptionPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
 import CoPostSettingsCard from "@/components/admin/social/CoPostSettingsCard";
+import ProgressReportSettingsCard from "@/components/admin/ProgressReportSettingsCard";
+
 import {
   ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
 } from "@/components/ProjectTabs";
@@ -442,6 +444,7 @@ export default function AutomationBuildView() {
           <ProjectTabsContent value="settings">
             {projectId ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                <ProgressReportSettingsCard clientId={client.id} clientProjectId={projectId} />
                 <ProjectSecretsPanel clientProjectId={projectId} />
                 <CoPostSettingsCard clientProjectId={projectId} />
               </div>
@@ -451,6 +454,7 @@ export default function AutomationBuildView() {
               </div>
             )}
           </ProjectTabsContent>
+
 
 
           {projectId && (
