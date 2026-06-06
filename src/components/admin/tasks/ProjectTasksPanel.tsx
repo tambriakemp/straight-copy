@@ -239,6 +239,21 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           </SelectContent>
         </Select>
 
+        <Select value={filterTag} onValueChange={setFilterTag}>
+          <SelectTrigger className="w-[160px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+            <SelectValue placeholder="Tag" />
+          </SelectTrigger>
+          <SelectContent className={taskSelectContentClass}>
+            <SelectItem value="all">All tags</SelectItem>
+            {allTags.length === 0 ? (
+              <div style={{ padding: "8px 10px", fontSize: 13, color: "hsl(var(--warm-white) / 0.5)" }}>No tags yet</div>
+            ) : (
+              allTags.map((tag) => <SelectItem key={tag} value={tag}>{tag}</SelectItem>)
+            )}
+          </SelectContent>
+        </Select>
+
+
 
 
 
