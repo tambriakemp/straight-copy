@@ -303,6 +303,18 @@ Return ONLY the JSON, no markdown fence.`;
   if (!parsed.overview || !Array.isArray(parsed.bullets)) {
     throw new Error("AI response missing required fields");
   }
-  parsed.bullets = parsed.bullets.slice(0, 5).map(String);
+  parsed.bullets = parsed.bullets.slice(0, 5).map((b: unknown) => {
+    if (typeof b === "string") return b;
+    if (b && typeof b === "object") {
+      const o = b as Record<string, unknown>;
+      const lead = o.lead ?? o.title ?? o.heading ?? o.headline ?? o.name;
+      const body = o.body ?? o.description ?? o.detail ?? o.text ?? o.content ?? o.elaboration;
+      if (lead && body) return `**${String(lead)}**: ${String(body)}`;
+      if (lead) return `**${String(lead)}**`;
+      if (body) return String(body);
+      return Object.values(o).map(String).join(" — ");
+    }
+    return String(b);
+  });
   return parsed;
 }
