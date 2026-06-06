@@ -20,6 +20,10 @@ export default function ProgressReportSettingsCard({
   const [primaryContactId, setPrimaryContactId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewData, setPreviewData] = useState<{
+    subject?: string; html?: string; recipients?: string[]; period?: string; taskCount?: number; skipped?: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
