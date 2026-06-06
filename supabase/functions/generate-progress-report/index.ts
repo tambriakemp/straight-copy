@@ -147,18 +147,8 @@ Deno.serve(async (req) => {
         updated_at: t.updated_at,
       }));
 
-    // Delivery date — pull next upcoming delivery for this project
-    const { data: delivery } = await sb
-      .from("client_deliveries")
-      .select("delivery_date, title")
-      .eq("client_project_id", projectId)
-      .gte("delivery_date", new Date().toISOString().slice(0, 10))
-      .order("delivery_date", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    const deliveryDate = delivery?.delivery_date
-      ? new Date(delivery.delivery_date as string).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-      : "TBD";
+
+
 
     const portalUrl = `https://cre8visions.com/portal/${project.client_id}`;
 
@@ -172,7 +162,6 @@ Deno.serve(async (req) => {
         periodLabel: window.label,
         weekOf: window.weekOf,
         portalUrl,
-        deliveryDate,
         completedTasks: shape(completed),
         inProgressTasks: shape(inProgress),
         nextTasks: shape(next),

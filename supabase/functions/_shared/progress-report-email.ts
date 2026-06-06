@@ -26,10 +26,8 @@ export interface ProgressReportData {
   report_completed: string;       // HTML <ul> of completed items
   report_in_progress: string;     // HTML <ul> of in-progress items
   report_next: string;            // HTML <ul> of next-up items
-  report_action_items: string;    // HTML <ul> or "" if none
   report_current_phase: string;   // e.g. "Phase 4 — Development"
   report_progress: string;        // e.g. "On track — 60% complete"
-  delivery_date: string;          // human date or "TBD"
   portal_url: string;
   project_name: string;
   business_name: string;
@@ -140,7 +138,6 @@ export async function generateProgressReportData(args: {
   periodLabel: string;
   weekOf: string;
   portalUrl: string;
-  deliveryDate: string;
   completedTasks: TaskForSummary[];
   inProgressTasks: TaskForSummary[];
   nextTasks: TaskForSummary[];
@@ -180,7 +177,6 @@ Produce a JSON object with these exact string fields:
 - "completed_bullets": array of 1-6 strings. Each string is a single sentence summarizing a meaningful completed item (group related tasks). No markdown.
 - "in_progress_bullets": array of 0-5 strings, same style. Empty array if nothing is in progress.
 - "next_bullets": array of 0-5 strings, same style. Empty array if nothing is queued.
-- "action_items": array of 0-4 strings describing anything you need from the client this week. Empty array if nothing.
 
 Return ONLY the JSON, no markdown fence.`;
 
@@ -235,7 +231,6 @@ Return ONLY the JSON, no markdown fence.`;
   const completedBullets = toStringArr(parsed.completed_bullets);
   const inProgressBullets = toStringArr(parsed.in_progress_bullets);
   const nextBullets = toStringArr(parsed.next_bullets);
-  const actionItems = toStringArr(parsed.action_items);
 
   return {
     report_week: args.weekOf,
@@ -243,10 +238,8 @@ Return ONLY the JSON, no markdown fence.`;
     report_completed: renderBulletList(completedBullets, "green"),
     report_in_progress: renderBulletList(inProgressBullets, "gold"),
     report_next: renderBulletList(nextBullets, "blue"),
-    report_action_items: renderBulletList(actionItems, "amber"),
     report_current_phase: String(parsed.current_phase || "").trim() || "In Progress",
     report_progress: String(parsed.progress || "").trim() || "On track.",
-    delivery_date: args.deliveryDate,
     portal_url: args.portalUrl,
     project_name: args.projectName,
     business_name: args.businessName || "",
@@ -254,12 +247,12 @@ Return ONLY the JSON, no markdown fence.`;
   };
 }
 
-function renderBulletList(items: string[], accent: "green" | "gold" | "blue" | "amber"): string {
+function renderBulletList(items: string[], accent: "green" | "gold" | "blue"): string {
   if (items.length === 0) return "";
   const color =
     accent === "green" ? "#3f7a4a" :
     accent === "gold" ? "#b48a2a" :
-    accent === "blue" ? "#3b6fa0" : "#c1843a";
+    "#3b6fa0";
   const lis = items
     .map(
       (i) =>
@@ -298,8 +291,7 @@ export function renderProgressReportPreviewHtml(data: ProgressReportData): strin
             <tr>
               <td style="padding:12px 16px;font-family:'Karla',Arial,sans-serif;font-size:13px;color:#7a6a55;">
                 <strong style="color:#2b2722;">Phase:</strong> ${escapeHtml(data.report_current_phase)}<br/>
-                <strong style="color:#2b2722;">Status:</strong> ${escapeHtml(data.report_progress)}<br/>
-                <strong style="color:#2b2722;">Target delivery:</strong> ${escapeHtml(data.delivery_date)}
+                <strong style="color:#2b2722;">Status:</strong> ${escapeHtml(data.report_progress)}
               </td>
             </tr>
           </table>
@@ -307,7 +299,6 @@ export function renderProgressReportPreviewHtml(data: ProgressReportData): strin
         ${section("Completed this week", data.report_completed)}
         ${section("In progress", data.report_in_progress)}
         ${section("Coming up next", data.report_next)}
-        ${section("Action items for you", data.report_action_items)}
         <tr><td style="padding:28px 40px 36px 40px;">
           <a href="${escapeAttr(data.portal_url)}" style="display:inline-block;font-family:'Karla',Arial,sans-serif;font-size:12px;letter-spacing:0.25em;text-transform:uppercase;color:#2b2722;text-decoration:none;border:1px solid #2b2722;padding:12px 22px;border-radius:2px;">View in client portal</a>
         </td></tr>
