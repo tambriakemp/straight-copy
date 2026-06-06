@@ -1768,6 +1768,7 @@ export type Database = {
       }
       project_task_comments: {
         Row: {
+          acknowledged_by: string[]
           author_name: string
           author_user_id: string | null
           body: string
@@ -1778,6 +1779,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acknowledged_by?: string[]
           author_name: string
           author_user_id?: string | null
           body: string
@@ -1788,6 +1790,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acknowledged_by?: string[]
           author_name?: string
           author_user_id?: string | null
           body?: string

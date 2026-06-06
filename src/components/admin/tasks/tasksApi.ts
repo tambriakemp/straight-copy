@@ -119,6 +119,7 @@ export interface TaskComment {
   author_name: string;
   body: string;
   mentions: string[];
+  acknowledged_by?: string[];
   created_at: string;
   updated_at: string;
 }
