@@ -231,7 +231,6 @@ Return ONLY the JSON, no markdown fence.`;
   const completedBullets = toStringArr(parsed.completed_bullets);
   const inProgressBullets = toStringArr(parsed.in_progress_bullets);
   const nextBullets = toStringArr(parsed.next_bullets);
-  const actionItems = toStringArr(parsed.action_items);
 
   return {
     report_week: args.weekOf,
@@ -239,10 +238,8 @@ Return ONLY the JSON, no markdown fence.`;
     report_completed: renderBulletList(completedBullets, "green"),
     report_in_progress: renderBulletList(inProgressBullets, "gold"),
     report_next: renderBulletList(nextBullets, "blue"),
-    report_action_items: renderBulletList(actionItems, "amber"),
     report_current_phase: String(parsed.current_phase || "").trim() || "In Progress",
     report_progress: String(parsed.progress || "").trim() || "On track.",
-    delivery_date: args.deliveryDate,
     portal_url: args.portalUrl,
     project_name: args.projectName,
     business_name: args.businessName || "",
