@@ -218,6 +218,105 @@ mcp.tool("delete_task", {
   handler: async ({ id }: { id: string }) => textResult(await deleteTask(sb, id)),
 });
 
+mcp.tool("list_my_comments", {
+  description: "List task comments addressed to a given @handle (default 'claude-code'). Returns unacknowledged comments by default so Claude Code can iterate through fresh work. Pass include_acknowledged=true to include comments already marked seen, or project_id to scope to one project.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      handle: { type: "string", description: "Mention handle without the @, e.g. 'claude-code'. Defaults to 'claude-code'." },
+      project_id: { type: "string", description: "Optional client_projects.id to scope results." },
+      include_acknowledged: { type: "boolean", description: "Include comments this handle has already acknowledged. Defaults to false." },
+      limit: { type: "number", description: "Default 50, max 200." },
+    },
+  },
+  handler: async ({ handle, project_id, include_acknowledged, limit }: {
+    handle?: string; project_id?: string; include_acknowledged?: boolean; limit?: number;
+  }) => {
+    const h = (handle ?? "claude-code").toLowerCase();
+    let q = sb.from("project_task_comments")
+      .select("id, task_id, author_name, body, mentions, acknowledged_by, created_at, updated_at, task:project_tasks!inner(id, name, status, client_project_id)")
+      .contains("mentions", [h])
+      .order("created_at", { ascending: false })
+      .limit(Math.min(limit ?? 50, 200));
+    if (project_id) q = q.eq("task.client_project_id", project_id);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []).filter((r: any) =>
+      include_acknowledged ? true : !(r.acknowledged_by ?? []).includes(h),
+    );
+    return textResult({ handle: h, count: rows.length, comments: rows });
+  },
+});
+
+mcp.tool("list_task_comments", {
+  description: "List every comment on a single task, oldest first.",
+  inputSchema: {
+    type: "object",
+    properties: { task_id: { type: "string" } },
+    required: ["task_id"],
+  },
+  handler: async ({ task_id }: { task_id: string }) => {
+    const { data, error } = await sb.from("project_task_comments")
+      .select("*").eq("task_id", task_id).order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    return textResult(data ?? []);
+  },
+});
+
+mcp.tool("post_task_comment", {
+  description: "Post a new comment on a task. Mentions like @team are auto-extracted from body; pass `mentions` to override. `author_name` defaults to 'Claude Code'.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string" },
+      body: { type: "string" },
+      author_name: { type: "string" },
+      mentions: { type: "array", items: { type: "string" } },
+    },
+    required: ["task_id", "body"],
+  },
+  handler: async ({ task_id, body, author_name, mentions }: {
+    task_id: string; body: string; author_name?: string; mentions?: string[];
+  }) => {
+    const text = body.trim();
+    if (!text) throw new Error("body required");
+    const auto = Array.from(new Set(
+      (text.match(/@([a-zA-Z0-9_\-]+)/g) ?? []).map((m: string) => m.slice(1).toLowerCase()),
+    ));
+    const finalMentions = (mentions && mentions.length ? mentions : auto).map((s) => s.toLowerCase());
+    const { data, error } = await sb.from("project_task_comments").insert({
+      task_id, author_user_id: null, author_name: author_name ?? "Claude Code",
+      body: text, mentions: finalMentions,
+    }).select("*").single();
+    if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
+
+mcp.tool("acknowledge_comment", {
+  description: "Mark a comment as acknowledged by a handle (default 'claude-code') so it stops appearing in list_my_comments. Idempotent.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      comment_id: { type: "string" },
+      handle: { type: "string", description: "Defaults to 'claude-code'." },
+    },
+    required: ["comment_id"],
+  },
+  handler: async ({ comment_id, handle }: { comment_id: string; handle?: string }) => {
+    const h = (handle ?? "claude-code").toLowerCase();
+    const { data: cur, error: e1 } = await sb.from("project_task_comments")
+      .select("acknowledged_by").eq("id", comment_id).maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!cur) throw new Error("Comment not found");
+    const next = Array.from(new Set([...(cur.acknowledged_by ?? []), h]));
+    const { data, error } = await sb.from("project_task_comments")
+      .update({ acknowledged_by: next }).eq("id", comment_id).select("*").single();
+    if (error) throw new Error(error.message);
+    return textResult(data);
+  },
+});
+
 mcp.tool("attach_file_to_task", {
   description: "Attach an image, PDF, document, or other file to an existing task. Provide file_base64 as raw base64 or a data URL.",
   inputSchema: {
