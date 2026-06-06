@@ -177,7 +177,6 @@ Produce a JSON object with these exact string fields:
 - "completed_bullets": array of 1-6 strings. Each string is a single sentence summarizing a meaningful completed item (group related tasks). No markdown.
 - "in_progress_bullets": array of 0-5 strings, same style. Empty array if nothing is in progress.
 - "next_bullets": array of 0-5 strings, same style. Empty array if nothing is queued.
-- "action_items": array of 0-4 strings describing anything you need from the client this week. Empty array if nothing.
 
 Return ONLY the JSON, no markdown fence.`;
 
