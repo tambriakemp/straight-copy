@@ -112,6 +112,25 @@ export interface TaskActivity {
   metadata?: Record<string, unknown>;
 }
 
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  author_user_id: string | null;
+  author_name: string;
+  body: string;
+  mentions: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const MENTIONABLE_HANDLES: { handle: string; label: string; hint?: string }[] = [
+  { handle: "claude-code", label: "Claude Code", hint: "AI engineer" },
+  { handle: "claude", label: "Claude", hint: "AI assistant" },
+  { handle: "team", label: "Team", hint: "Everyone" },
+];
+
+
+
 
 async function invoke<T>(path: string, init: RequestInit = {}): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();

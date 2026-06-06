@@ -83,6 +83,80 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // ---- COMMENTS ----
+    // GET /tasks/:id/comments
+    if (parts[0] === "tasks" && parts[1] && parts[2] === "comments" && method === "GET") {
+      const { data, error } = await sb
+        .from("project_task_comments")
+        .select("*")
+        .eq("task_id", parts[1])
+        .order("created_at", { ascending: true });
+      if (error) return json({ error: error.message }, 500);
+      return json({ comments: data ?? [] });
+    }
+    // POST /tasks/:id/comments  { body, author_name?, mentions? }
+    if (parts[0] === "tasks" && parts[1] && parts[2] === "comments" && method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      const text = typeof body?.body === "string" ? body.body.trim() : "";
+      if (!text) return json({ error: "body required" }, 400);
+      const auto = Array.from(new Set(
+        (text.match(/@([a-zA-Z0-9_\-]+)/g) ?? []).map((m: string) => m.slice(1).toLowerCase()),
+      ));
+      const mentions: string[] = Array.isArray(body?.mentions) && body.mentions.length
+        ? body.mentions.map((s: string) => String(s).toLowerCase())
+        : auto;
+      let authorName = typeof body?.author_name === "string" && body.author_name.trim()
+        ? body.author_name.trim()
+        : "";
+      if (!authorName) {
+        const { data: u } = await sb.auth.admin.getUserById(guard.userId);
+        authorName = (u?.user?.email ?? "Admin").split("@")[0];
+      }
+      const { data, error } = await sb
+        .from("project_task_comments")
+        .insert({
+          task_id: parts[1],
+          author_user_id: guard.userId,
+          author_name: authorName,
+          body: text,
+          mentions,
+        })
+        .select("*")
+        .single();
+      if (error) return json({ error: error.message }, 500);
+      return json({ comment: data });
+    }
+    // PATCH /comments/:id
+    if (parts[0] === "comments" && parts[1] && method === "PATCH") {
+      const body = await req.json().catch(() => ({}));
+      const patch: Record<string, unknown> = {};
+      if (typeof body?.body === "string") {
+        patch.body = body.body;
+        const auto = Array.from(new Set(
+          (body.body.match(/@([a-zA-Z0-9_\-]+)/g) ?? []).map((m: string) => m.slice(1).toLowerCase()),
+        ));
+        patch.mentions = Array.isArray(body?.mentions) ? body.mentions : auto;
+      } else if (Array.isArray(body?.mentions)) {
+        patch.mentions = body.mentions;
+      }
+      const { data, error } = await sb
+        .from("project_task_comments")
+        .update(patch)
+        .eq("id", parts[1])
+        .select("*")
+        .single();
+      if (error) return json({ error: error.message }, 500);
+      return json({ comment: data });
+    }
+    // DELETE /comments/:id
+    if (parts[0] === "comments" && parts[1] && method === "DELETE") {
+      const { error } = await sb.from("project_task_comments").delete().eq("id", parts[1]);
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+
+
+
     // ---- SEED Web Dev ----
     if (parts[0] === "seed-web-dev" && method === "POST") {
       const body = await req.json().catch(() => ({}));
