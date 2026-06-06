@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (projErr || !project) return json({ ok: false, error: "Project not found" }, 404);
 
-    if (!project.progress_report_enabled && !forceSend) {
+    if (!project.progress_report_enabled && !forceSend && !isPreview) {
       return json({ ok: true, skipped: "disabled" });
     }
 
