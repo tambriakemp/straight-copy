@@ -134,16 +134,55 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const onDragEnd = async (e: DragEndEvent) => {
     setDragId(null);
     const taskId = String(e.active.id);
-    const overId = e.over?.id;
-    if (!overId) return;
-    const target = String(overId);
-    if (!TASK_STATUSES.includes(target as TaskStatus)) return;
+    const overId = e.over?.id != null ? String(e.over.id) : null;
+    if (!overId || overId === taskId) return;
     const t = tasks.find((x) => x.id === taskId);
-    if (!t || t.status === target) return;
-    // optimistic
-    setTasks((prev) => prev.map((x) => x.id === taskId ? { ...x, status: target as TaskStatus } : x));
+    if (!t) return;
+
+    let targetStatus: TaskStatus;
+    let overTask: Task | undefined;
+    if ((TASK_STATUSES as readonly string[]).includes(overId)) {
+      targetStatus = overId as TaskStatus;
+    } else {
+      overTask = tasks.find((x) => x.id === overId);
+      if (!overTask) return;
+      targetStatus = overTask.status;
+    }
+
+    // Build new ordering for the target column (top-level only, excluding the dragged task)
+    const targetCol = topLevel
+      .filter((x) => x.status === targetStatus && x.id !== taskId)
+      .sort((a, b) => a.order_index - b.order_index);
+    const insertIdx = overTask ? Math.max(0, targetCol.findIndex((x) => x.id === overTask!.id)) : targetCol.length;
+    const newCol = [...targetCol];
+    newCol.splice(insertIdx, 0, { ...t, status: targetStatus });
+
+    const statusChanged = t.status !== targetStatus;
+    const updates: Array<{ id: string; order_index: number; status?: TaskStatus }> = [];
+    newCol.forEach((task, idx) => {
+      const newIdx = idx + 1;
+      const isMoved = task.id === taskId;
+      if (task.order_index !== newIdx || (isMoved && statusChanged)) {
+        updates.push({
+          id: task.id,
+          order_index: newIdx,
+          ...(isMoved && statusChanged ? { status: targetStatus } : {}),
+        });
+      }
+    });
+    if (updates.length === 0) return;
+
+    // Optimistic
+    setTasks((prev) => prev.map((x) => {
+      const u = updates.find((u) => u.id === x.id);
+      if (!u) return x;
+      return { ...x, order_index: u.order_index, ...(u.status ? { status: u.status } : {}) };
+    }));
+
     try {
-      await tasksApi.update(taskId, { status: target as TaskStatus });
+      await Promise.all(updates.map((u) =>
+        tasksApi.update(u.id, { order_index: u.order_index, ...(u.status ? { status: u.status } : {}) }),
+      ));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to move task");
       void reload();
