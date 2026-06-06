@@ -790,10 +790,12 @@ function TaskDetailSheet({
   const attachments = task.attachments ?? [];
   const activity = task.activity ?? [];
 
-  const addTag = () => {
-    const t = prompt("Tag")?.trim();
+  const addTagValue = (raw: string) => {
+    const t = raw.trim().replace(/,$/, "").trim();
     if (!t) return;
-    const next = Array.from(new Set([...(draft.tags ?? []), t]));
+    const current = draft.tags ?? [];
+    if (current.includes(t)) return;
+    const next = [...current, t];
     setDraft({ ...draft, tags: next });
     void save({ tags: next });
   };
