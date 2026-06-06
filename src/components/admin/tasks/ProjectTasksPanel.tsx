@@ -740,6 +740,7 @@ function TaskDetailSheet({
   const [draft, setDraft] = useState<Task>(task);
   const [saving, setSaving] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
+  const [tagDraft, setTagDraft] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggle = (k: string) => setCollapsed((c) => ({ ...c, [k]: !c[k] }));
 
