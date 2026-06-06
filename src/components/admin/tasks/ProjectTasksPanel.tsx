@@ -51,6 +51,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const [epicsOpen, setEpicsOpen] = useState(false);
   const [filterEpic, setFilterEpic] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
+  const [filterTag, setFilterTag] = useState<string>("all");
   const [dragId, setDragId] = useState<string | null>(null);
   const [projectType, setProjectType] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
