@@ -291,8 +291,7 @@ export function renderProgressReportPreviewHtml(data: ProgressReportData): strin
             <tr>
               <td style="padding:12px 16px;font-family:'Karla',Arial,sans-serif;font-size:13px;color:#7a6a55;">
                 <strong style="color:#2b2722;">Phase:</strong> ${escapeHtml(data.report_current_phase)}<br/>
-                <strong style="color:#2b2722;">Status:</strong> ${escapeHtml(data.report_progress)}<br/>
-                <strong style="color:#2b2722;">Target delivery:</strong> ${escapeHtml(data.delivery_date)}
+                <strong style="color:#2b2722;">Status:</strong> ${escapeHtml(data.report_progress)}
               </td>
             </tr>
           </table>
@@ -300,7 +299,6 @@ export function renderProgressReportPreviewHtml(data: ProgressReportData): strin
         ${section("Completed this week", data.report_completed)}
         ${section("In progress", data.report_in_progress)}
         ${section("Coming up next", data.report_next)}
-        ${section("Action items for you", data.report_action_items)}
         <tr><td style="padding:28px 40px 36px 40px;">
           <a href="${escapeAttr(data.portal_url)}" style="display:inline-block;font-family:'Karla',Arial,sans-serif;font-size:12px;letter-spacing:0.25em;text-transform:uppercase;color:#2b2722;text-decoration:none;border:1px solid #2b2722;padding:12px 22px;border-radius:2px;">View in client portal</a>
         </td></tr>
