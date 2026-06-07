@@ -1272,7 +1272,14 @@ function TaskDetailSheet({
                             await onChanged();
                           }}
                         />
-                        <span className="tp-row-label">{st.name}</span>
+                        <button
+                          type="button"
+                          className="tp-row-label"
+                          onClick={() => setOpenTaskId(st.id)}
+                          style={{ background: "none", border: 0, padding: 0, textAlign: "left", cursor: "pointer", color: "inherit", font: "inherit", flex: 1 }}
+                        >
+                          {st.name}
+                        </button>
                         <span className="tp-row-meta">{TASK_STATUS_LABEL[st.status]}</span>
                         <button
                           className="tp-row-del"
