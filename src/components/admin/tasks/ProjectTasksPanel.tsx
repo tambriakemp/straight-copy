@@ -840,9 +840,10 @@ const ASSIGNEE_GLYPH: Record<AssigneeKind, string> = {
 };
 
 function TaskDetailSheet({
-  task, epics, subtasks, onClose, onChanged, clientProjectId,
+  task, epics, subtasks, onClose, onOpenTask, onChanged, clientProjectId,
 }: {
   task: Task; epics: Epic[]; subtasks: Task[]; onClose: () => void; onChanged: () => Promise<void>;
+  onOpenTask: (id: string) => void;
   clientProjectId: string;
 }) {
   const [draft, setDraft] = useState<Task>(task);
