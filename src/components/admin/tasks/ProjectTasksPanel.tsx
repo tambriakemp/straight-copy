@@ -1277,7 +1277,7 @@ function TaskDetailSheet({
                         <button
                           type="button"
                           className="tp-row-label"
-                          onClick={() => setOpenTaskId(st.id)}
+                          onClick={() => onOpenTask(st.id)}
                           style={{ background: "none", border: 0, padding: 0, textAlign: "left", cursor: "pointer", color: "inherit", font: "inherit", flex: 1 }}
                         >
                           {st.name}
