@@ -308,7 +308,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           >
             {TASK_STATUSES.map((s) => (
               <KanbanColumn key={s} status={s}
-                tasks={topLevel.filter((t) => t.status === s)}
+                tasks={topLevel.filter((t) => t.status === s).sort((a, b) => a.order_index - b.order_index)}
                 subtasksByParent={subtasksByParent}
                 epics={epics}
                 onOpen={setOpenTaskId}
