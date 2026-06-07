@@ -332,6 +332,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           epics={epics}
           subtasks={subtasksByParent.get(openTask.id) ?? []}
           onClose={() => setOpenTaskId(null)}
+          onOpenTask={setOpenTaskId}
           onChanged={reload}
           clientProjectId={clientProjectId}
         />
