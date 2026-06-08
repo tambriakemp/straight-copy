@@ -762,6 +762,11 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged, projectsB
                             />
                           </td>
                           <td style={td}>{t.name}</td>
+                          {projectsById && (
+                            <td style={{ ...td, color: "hsl(var(--warm-white) / 0.7)", fontSize: 13 }}>
+                              {projectsById.get(t.client_project_id)?.client_name ?? "—"}
+                            </td>
+                          )}
                           <td style={{ ...td, color: PRIORITY_COLORS[t.priority] }}>{t.priority}</td>
                           <td style={td}>{epics.find((e) => e.id === t.epic_id)?.name ?? "—"}</td>
                           <td style={td}>{t.assignee_kind}</td>
