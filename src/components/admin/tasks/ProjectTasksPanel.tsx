@@ -323,7 +323,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           </DragOverlay>
         </DndContext>
       ) : (
-        <ListView tasks={topLevel} epics={epics} subtasksByParent={subtasksByParent} onOpen={setOpenTaskId} />
+        <ListView tasks={topLevel} epics={epics} subtasksByParent={subtasksByParent} onOpen={setOpenTaskId} onChanged={reload} />
       )}
 
       {openTask && (
