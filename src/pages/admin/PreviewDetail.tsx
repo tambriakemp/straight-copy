@@ -511,6 +511,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
               {pages.map((f) => {
                 const isEntry = f.path === project.entry_path;
                 const url = `${base}/p/${project.slug}/${encodeURI(f.path)}`;
+                const approval = approvalsByPath[`page:${f.path}`];
                 return (
                   <div key={f.id} style={{
                     display: "flex", alignItems: "center", gap: 12,
