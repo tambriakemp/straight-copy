@@ -24,6 +24,7 @@ const McpAuthorize = lazy(() => import("./pages/admin/McpAuthorize.tsx"));
 const ResetPassword = lazy(() => import("./pages/admin/ResetPassword.tsx"));
 const Profile = lazy(() => import("./pages/admin/Profile.tsx"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard.tsx"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard.tsx"));
 const ClientDetail = lazy(() => import("./pages/admin/ClientDetail.tsx"));
 const Tokens = lazy(() => import("./pages/admin/Tokens.tsx"));
 const Invites = lazy(() => import("./pages/admin/Invites.tsx"));
@@ -69,7 +70,8 @@ const App = () => (
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/mcp-authorize" element={<McpAuthorize />} />
             <Route path="/admin/reset-password" element={<ResetPassword />} />
-            <Route path="/admin" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
+            <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+            <Route path="/admin/clients" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
             <Route path="/admin/tasks" element={<RequireAdmin><AllTasks /></RequireAdmin>} />
             <Route path="/admin/profile" element={<RequireAdmin><Profile /></RequireAdmin>} />
             <Route path="/admin/clients/:id" element={<RequireAdmin><ClientDetail /></RequireAdmin>} />

@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_events: {
+        Row: {
+          actor: string | null
+          client_id: string | null
+          client_project_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          kind: string
+          metadata: Json
+          occurred_at: string
+          title: string
+        }
+        Insert: {
+          actor?: string | null
+          client_id?: string | null
+          client_project_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind: string
+          metadata?: Json
+          occurred_at?: string
+          title: string
+        }
+        Update: {
+          actor?: string | null
+          client_id?: string | null
+          client_project_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          metadata?: Json
+          occurred_at?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_events_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_users: {
         Row: {
           created_at: string
