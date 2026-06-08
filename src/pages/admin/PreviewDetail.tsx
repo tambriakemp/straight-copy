@@ -50,6 +50,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   const [replies, setReplies] = useState<Reply[]>([]);
   const [externalPages, setExternalPages] = useState<Array<{ id: string; path: string; label: string | null; order_index: number }>>([]);
   const [pageComments, setPageComments] = useState<Array<{ id: string; path: string; author_name: string | null; body: string; created_at: string }>>([]);
+  const [approvalsByPath, setApprovalsByPath] = useState<Record<string, { approver_name: string | null; approved_at: string }>>({});
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -85,9 +86,23 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
     setMissing(data?.missing ?? []);
   };
 
-  useEffect(() => { load(); }, [id]);
+  const loadApprovals = async () => {
+    if (!id) return;
+    const { data } = await supabase
+      .from("preview_approvals")
+      .select("kind, path, approver_name, approved_at")
+      .eq("project_id", id);
+    const map: Record<string, { approver_name: string | null; approved_at: string }> = {};
+    for (const a of data ?? []) map[`${a.kind}:${a.path}`] = { approver_name: a.approver_name, approved_at: a.approved_at };
+    setApprovalsByPath(map);
+  };
+
+  useEffect(() => { load(); void loadApprovals(); }, [id]);
   useEffect(() => { if (project) loadMissing(); }, [project?.id, files.length]);
-  useEffect(() => { const t = setInterval(load, 20000); return () => clearInterval(t); }, [id]);
+  useEffect(() => {
+    const t = setInterval(() => { load(); void loadApprovals(); }, 15000);
+    return () => clearInterval(t);
+  }, [id]);
 
   const isExternal = !!project?.external_base_url;
   const shareUrl = project
@@ -478,6 +493,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           onCrawl={crawlExternal}
           crawling={crawling}
           lastCrawledAt={project.last_crawled_at}
+          approvalsByPath={approvalsByPath}
         />
       )}
       <section style={{ marginBottom: 28, marginTop: isExternal ? 22 : 0 }}>
@@ -496,6 +512,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
               {pages.map((f) => {
                 const isEntry = f.path === project.entry_path;
                 const url = `${base}/p/${project.slug}/${encodeURI(f.path)}`;
+                const approval = approvalsByPath[`page:${f.path}`];
                 return (
                   <div key={f.id} style={{
                     display: "flex", alignItems: "center", gap: 12,
@@ -522,6 +539,21 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                         {isEntry ? "Entry page · " : ""}{Math.ceil((f.size_bytes ?? 0) / 1024)} KB
                       </div>
                     </div>
+                    {approval && (
+                      <span
+                        title={`Approved ${new Date(approval.approved_at).toLocaleString()}`}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          padding: "4px 10px", borderRadius: 999,
+                          background: "hsl(140 30% 20% / 0.5)",
+                          border: "1px solid hsl(140 30% 35%)",
+                          color: "hsl(140 40% 75%)",
+                          fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
+                        }}
+                      >
+                        <Check size={12} /> Approved{approval.approver_name ? ` · ${approval.approver_name}` : ""}
+                      </span>
+                    )}
                     <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setAiEditPath(f.path)} title="Edit page with AI">
                       <Sparkles size={12} /> AI Edit
                     </button>
@@ -1175,7 +1207,7 @@ function ApprovalActivity({ projectId }: { projectId: string }) {
 }
 
 function ExternalPagesPanel({
-  baseUrl, pages, onSave, onCrawl, crawling, lastCrawledAt,
+  baseUrl, pages, onSave, onCrawl, crawling, lastCrawledAt, approvalsByPath,
 }: {
   baseUrl: string | null;
   pages: Array<{ id: string; path: string; label: string | null; order_index: number }>;
@@ -1183,6 +1215,7 @@ function ExternalPagesPanel({
   onCrawl: () => Promise<void>;
   crawling: boolean;
   lastCrawledAt?: string | null;
+  approvalsByPath?: Record<string, { approver_name: string | null; approved_at: string }>;
 }) {
   const [rows, setRows] = useState(pages.map((p) => ({ path: p.path, label: p.label || "" })));
   useEffect(() => { setRows(pages.map((p) => ({ path: p.path, label: p.label || "" }))); }, [pages]);
@@ -1210,19 +1243,36 @@ function ExternalPagesPanel({
         </div>
       ) : (
         <div style={{ display: "grid", gap: 8 }}>
-          {rows.map((r, i) => (
+          {rows.map((r, i) => {
+            const approval = approvalsByPath?.[`page:${r.path}`];
+            return (
             <div key={i} style={{
-              display: "grid", gridTemplateColumns: "1fr 1.5fr auto auto", gap: 8, alignItems: "center",
+              display: "grid", gridTemplateColumns: "1fr 1.5fr auto auto auto", gap: 8, alignItems: "center",
               padding: "10px 12px", background: "hsl(40 20% 97% / 0.03)", border: "1px solid var(--crm-border-dark)", borderRadius: 8,
             }}>
               <input className="crm-input" value={r.label} onChange={(e) => update(i, "label", e.target.value)} placeholder="Home" />
               <input className="crm-input" value={r.path} onChange={(e) => update(i, "path", e.target.value)} placeholder="/about" style={{ fontFamily: "monospace" }} />
+              {approval ? (
+                <span
+                  title={`Approved ${new Date(approval.approved_at).toLocaleString()}`}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "4px 10px", borderRadius: 999,
+                    background: "hsl(140 30% 20% / 0.5)",
+                    border: "1px solid hsl(140 30% 35%)",
+                    color: "hsl(140 40% 75%)",
+                    fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
+                  }}
+                >
+                  <Check size={12} /> {approval.approver_name || "Approved"}
+                </span>
+              ) : <span />}
               <a className="crm-btn crm-btn--ghost crm-btn--sm" href={baseUrl ? baseUrl + r.path : "#"} target="_blank" rel="noreferrer" title="Open page">
                 <ExternalLink size={12} /> View
               </a>
               <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => remove(i)} title="Remove"><Trash2 size={12} /></button>
             </div>
-          ))}
+          );})}
         </div>
       )}
 
