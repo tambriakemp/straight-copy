@@ -582,10 +582,11 @@ function TaskCard({ task, epics, subtaskCount, dragging, projectsById }: {
 
 /* ---------------- List view ---------------- */
 
-function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged }: {
+function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged, projectsById }: {
   tasks: Task[]; epics: Epic[]; subtasksByParent: Map<string, Task[]>;
   onOpen: (id: string) => void;
   onChanged: () => void | Promise<void>;
+  projectsById?: Map<string, ProjectLookup>;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<TaskStatus | "">("");
