@@ -86,9 +86,23 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
     setMissing(data?.missing ?? []);
   };
 
-  useEffect(() => { load(); }, [id]);
+  const loadApprovals = async () => {
+    if (!id) return;
+    const { data } = await supabase
+      .from("preview_approvals")
+      .select("kind, path, approver_name, approved_at")
+      .eq("project_id", id);
+    const map: Record<string, { approver_name: string | null; approved_at: string }> = {};
+    for (const a of data ?? []) map[`${a.kind}:${a.path}`] = { approver_name: a.approver_name, approved_at: a.approved_at };
+    setApprovalsByPath(map);
+  };
+
+  useEffect(() => { load(); void loadApprovals(); }, [id]);
   useEffect(() => { if (project) loadMissing(); }, [project?.id, files.length]);
-  useEffect(() => { const t = setInterval(load, 20000); return () => clearInterval(t); }, [id]);
+  useEffect(() => {
+    const t = setInterval(() => { load(); void loadApprovals(); }, 15000);
+    return () => clearInterval(t);
+  }, [id]);
 
   const isExternal = !!project?.external_base_url;
   const shareUrl = project
