@@ -498,8 +498,9 @@ function TaskEmailSection({ task, onChanged }: { task: Task; onChanged: () => Pr
 }
 
 
-function SortableCard({ task, epics, subtaskCount, onOpen }: {
+function SortableCard({ task, epics, subtaskCount, onOpen, projectsById }: {
   task: Task; epics: Epic[]; subtaskCount: number; onOpen: (id: string) => void;
+  projectsById?: Map<string, ProjectLookup>;
 }) {
   const { setNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({ id: task.id });
   return (
@@ -515,16 +516,18 @@ function SortableCard({ task, epics, subtaskCount, onOpen }: {
         cursor: "grab",
       }}
     >
-      <TaskCard task={task} epics={epics} subtaskCount={subtaskCount} />
+      <TaskCard task={task} epics={epics} subtaskCount={subtaskCount} projectsById={projectsById} />
     </div>
   );
 }
 
 
-function TaskCard({ task, epics, subtaskCount, dragging }: {
+function TaskCard({ task, epics, subtaskCount, dragging, projectsById }: {
   task: Task; epics: Epic[]; subtaskCount: number; dragging?: boolean;
+  projectsById?: Map<string, ProjectLookup>;
 }) {
   const epic = task.epic_id ? epics.find((e) => e.id === task.epic_id) : null;
+  const proj = projectsById?.get(task.client_project_id);
   return (
     <div style={{
       background: "rgba(20,16,12,0.6)",
@@ -533,6 +536,12 @@ function TaskCard({ task, epics, subtaskCount, dragging }: {
       padding: 10,
       boxShadow: dragging ? "0 8px 24px rgba(0,0,0,0.4)" : "none",
     }}>
+      {proj && (
+        <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase",
+          color: "hsl(var(--warm-white) / 0.6)", marginBottom: 6 }}>
+          {proj.client_name ?? "—"} · {proj.name}
+        </div>
+      )}
       {epic && (
         <div style={{ fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase",
           color: epic.color ?? "hsl(var(--warm-white))", marginBottom: 6 }}>
