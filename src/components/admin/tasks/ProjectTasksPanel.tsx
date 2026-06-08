@@ -791,6 +791,155 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged, projectsB
   );
 }
 
+/* ---------------- Calendar view ---------------- */
+
+function CalendarView({ tasks, onOpen, projectsById }: {
+  tasks: Task[];
+  onOpen: (id: string) => void;
+  projectsById?: Map<string, ProjectLookup>;
+}) {
+  const today = new Date();
+  const [cursor, setCursor] = useState<{ y: number; m: number }>({ y: today.getFullYear(), m: today.getMonth() });
+
+  const tasksByDate = useMemo(() => {
+    const m = new Map<string, Task[]>();
+    for (const t of tasks) {
+      if (!t.due_date) continue;
+      const arr = m.get(t.due_date) ?? [];
+      arr.push(t);
+      m.set(t.due_date, arr);
+    }
+    return m;
+  }, [tasks]);
+
+  const firstDay = new Date(cursor.y, cursor.m, 1);
+  const startWeekday = firstDay.getDay(); // 0=Sun
+  const daysInMonth = new Date(cursor.y, cursor.m + 1, 0).getDate();
+  const cells: Array<{ date: Date | null; iso: string | null }> = [];
+  for (let i = 0; i < startWeekday; i++) cells.push({ date: null, iso: null });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(cursor.y, cursor.m, d);
+    const iso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+    cells.push({ date: dt, iso });
+  }
+  while (cells.length % 7 !== 0) cells.push({ date: null, iso: null });
+
+  const monthName = firstDay.toLocaleString(undefined, { month: "long", year: "numeric" });
+  const undated = tasks.filter((t) => !t.due_date);
+
+  const goPrev = () => setCursor((c) => c.m === 0 ? { y: c.y - 1, m: 11 } : { y: c.y, m: c.m - 1 });
+  const goNext = () => setCursor((c) => c.m === 11 ? { y: c.y + 1, m: 0 } : { y: c.y, m: c.m + 1 });
+  const goToday = () => setCursor({ y: today.getFullYear(), m: today.getMonth() });
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <button onClick={goPrev} style={calNavBtn}><ChevronLeft size={14} /></button>
+        <button onClick={goNext} style={calNavBtn}><ChevronRight size={14} /></button>
+        <button onClick={goToday} style={{ ...calNavBtn, padding: "4px 10px", fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase" }}>Today</button>
+        <span style={{ fontSize: 16, color: "hsl(var(--warm-white))", letterSpacing: "0.06em" }}>{monthName}</span>
+        <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.6)", fontSize: 13 }}>
+          {tasks.filter((t) => t.due_date).length} dated · {undated.length} undated
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, background: "hsl(var(--warm-white) / 0.08)", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 8, overflow: "hidden" }}>
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+          <div key={d} style={{ background: "rgba(255,255,255,0.04)", padding: "8px 10px", fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "hsl(var(--warm-white) / 0.6)" }}>
+            {d}
+          </div>
+        ))}
+        {cells.map((cell, i) => {
+          const dayTasks = cell.iso ? (tasksByDate.get(cell.iso) ?? []) : [];
+          const isToday = cell.iso === todayIso;
+          return (
+            <div key={i} style={{
+              background: "hsl(40 8% 10%)",
+              minHeight: 110,
+              padding: 6,
+              opacity: cell.date ? 1 : 0.3,
+              outline: isToday ? "1px solid hsl(var(--accent))" : undefined,
+            }}>
+              {cell.date && (
+                <div style={{ fontSize: 12, color: isToday ? "hsl(var(--accent))" : "hsl(var(--warm-white) / 0.7)", marginBottom: 4 }}>
+                  {cell.date.getDate()}
+                </div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {dayTasks.slice(0, 4).map((t) => {
+                  const proj = projectsById?.get(t.client_project_id);
+                  return (
+                    <button key={t.id} onClick={() => onOpen(t.id)}
+                      style={{
+                        textAlign: "left",
+                        background: "rgba(255,255,255,0.06)",
+                        border: `1px solid ${STATUS_COLORS[t.status]}`,
+                        borderLeftWidth: 3,
+                        padding: "3px 6px",
+                        fontSize: 12,
+                        color: "hsl(var(--warm-white))",
+                        borderRadius: 3,
+                        cursor: "pointer",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={`${proj ? `[${proj.client_name ?? "?"}] ` : ""}${t.name}`}
+                    >
+                      {proj && <span style={{ opacity: 0.6, fontSize: 10 }}>{proj.client_name ?? "?"} · </span>}
+                      {t.name}
+                    </button>
+                  );
+                })}
+                {dayTasks.length > 4 && (
+                  <span style={{ fontSize: 11, color: "hsl(var(--warm-white) / 0.6)" }}>+{dayTasks.length - 4} more</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {undated.length > 0 && (
+        <div style={{ marginTop: 14, padding: 12, border: "1px dashed hsl(var(--warm-white) / 0.18)", borderRadius: 8 }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(var(--warm-white) / 0.6)", marginBottom: 8 }}>
+            No due date ({undated.length})
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {undated.map((t) => {
+              const proj = projectsById?.get(t.client_project_id);
+              return (
+                <button key={t.id} onClick={() => onOpen(t.id)} style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: `1px solid ${STATUS_COLORS[t.status]}`,
+                  borderLeftWidth: 3,
+                  padding: "4px 8px", fontSize: 12, color: "hsl(var(--warm-white))",
+                  borderRadius: 3, cursor: "pointer",
+                }}>
+                  {proj && <span style={{ opacity: 0.6 }}>{proj.client_name ?? "?"} · </span>}
+                  {t.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const calNavBtn: React.CSSProperties = {
+  background: "transparent",
+  color: "hsl(var(--warm-white))",
+  border: "1px solid hsl(var(--warm-white) / 0.18)",
+  borderRadius: 4,
+  padding: "4px 6px",
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+};
+
 const th: React.CSSProperties = { padding: "10px 12px" };
 const td: React.CSSProperties = { padding: "10px 12px" };
 const subLabel: React.CSSProperties = {
