@@ -7,7 +7,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const loc = useLocation();
 
   const nav = [
-    { to: "/admin", label: "▦ Clients", exact: true },
+    { to: "/admin", label: "◆ Dashboard", exact: true },
+    { to: "/admin/clients", label: "▦ Clients" },
     { to: "/admin/tasks", label: "✓ Tasks" },
     { to: "/admin/wiki", label: "❒ Knowledge Base" },
     { to: "/admin/invites", label: "✉ Invites" },
