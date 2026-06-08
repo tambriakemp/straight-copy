@@ -1243,19 +1243,36 @@ function ExternalPagesPanel({
         </div>
       ) : (
         <div style={{ display: "grid", gap: 8 }}>
-          {rows.map((r, i) => (
+          {rows.map((r, i) => {
+            const approval = approvalsByPath?.[`page:${r.path}`];
+            return (
             <div key={i} style={{
-              display: "grid", gridTemplateColumns: "1fr 1.5fr auto auto", gap: 8, alignItems: "center",
+              display: "grid", gridTemplateColumns: "1fr 1.5fr auto auto auto", gap: 8, alignItems: "center",
               padding: "10px 12px", background: "hsl(40 20% 97% / 0.03)", border: "1px solid var(--crm-border-dark)", borderRadius: 8,
             }}>
               <input className="crm-input" value={r.label} onChange={(e) => update(i, "label", e.target.value)} placeholder="Home" />
               <input className="crm-input" value={r.path} onChange={(e) => update(i, "path", e.target.value)} placeholder="/about" style={{ fontFamily: "monospace" }} />
+              {approval ? (
+                <span
+                  title={`Approved ${new Date(approval.approved_at).toLocaleString()}`}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "4px 10px", borderRadius: 999,
+                    background: "hsl(140 30% 20% / 0.5)",
+                    border: "1px solid hsl(140 30% 35%)",
+                    color: "hsl(140 40% 75%)",
+                    fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
+                  }}
+                >
+                  <Check size={12} /> {approval.approver_name || "Approved"}
+                </span>
+              ) : <span />}
               <a className="crm-btn crm-btn--ghost crm-btn--sm" href={baseUrl ? baseUrl + r.path : "#"} target="_blank" rel="noreferrer" title="Open page">
                 <ExternalLink size={12} /> View
               </a>
               <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => remove(i)} title="Remove"><Trash2 size={12} /></button>
             </div>
-          ))}
+          );})}
         </div>
       )}
 
