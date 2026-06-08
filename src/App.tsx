@@ -70,7 +70,8 @@ const App = () => (
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/mcp-authorize" element={<McpAuthorize />} />
             <Route path="/admin/reset-password" element={<ResetPassword />} />
-            <Route path="/admin" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
+            <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+            <Route path="/admin/clients" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
             <Route path="/admin/tasks" element={<RequireAdmin><AllTasks /></RequireAdmin>} />
             <Route path="/admin/profile" element={<RequireAdmin><Profile /></RequireAdmin>} />
             <Route path="/admin/clients/:id" element={<RequireAdmin><ClientDetail /></RequireAdmin>} />
