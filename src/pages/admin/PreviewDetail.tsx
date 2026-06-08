@@ -493,6 +493,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           onCrawl={crawlExternal}
           crawling={crawling}
           lastCrawledAt={project.last_crawled_at}
+          approvalsByPath={approvalsByPath}
         />
       )}
       <section style={{ marginBottom: 28, marginTop: isExternal ? 22 : 0 }}>
