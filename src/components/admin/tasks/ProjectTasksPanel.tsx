@@ -410,10 +410,11 @@ function tabBtnStyle(active: boolean): React.CSSProperties {
 /* ---------------- Kanban ---------------- */
 
 function KanbanColumn({
-  status, tasks, subtasksByParent, epics, onOpen,
+  status, tasks, subtasksByParent, epics, onOpen, projectsById,
 }: {
   status: TaskStatus; tasks: Task[]; subtasksByParent: Map<string, Task[]>; epics: Epic[];
   onOpen: (id: string) => void;
+  projectsById?: Map<string, ProjectLookup>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
@@ -438,7 +439,8 @@ function KanbanColumn({
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((t) => (
             <SortableCard key={t.id} task={t} epics={epics}
-              subtaskCount={(subtasksByParent.get(t.id) ?? []).length} onOpen={onOpen} />
+              subtaskCount={(subtasksByParent.get(t.id) ?? []).length} onOpen={onOpen}
+              projectsById={projectsById} />
           ))}
         </SortableContext>
       </div>
