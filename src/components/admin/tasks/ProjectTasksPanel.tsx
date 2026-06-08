@@ -529,45 +529,156 @@ function TaskCard({ task, epics, subtaskCount, dragging }: {
 
 /* ---------------- List view ---------------- */
 
-function ListView({ tasks, epics, subtasksByParent, onOpen }: {
+function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged }: {
   tasks: Task[]; epics: Epic[]; subtasksByParent: Map<string, Task[]>;
   onOpen: (id: string) => void;
+  onChanged: () => void | Promise<void>;
 }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<TaskStatus | "">("");
+  const [applying, setApplying] = useState(false);
+
+  // Drop stale ids when the underlying list changes
+  useEffect(() => {
+    setSelected((prev) => {
+      const ids = new Set(tasks.map((t) => t.id));
+      const next = new Set<string>();
+      prev.forEach((id) => { if (ids.has(id)) next.add(id); });
+      return next;
+    });
+  }, [tasks]);
+
+  const allChecked = tasks.length > 0 && selected.size === tasks.length;
+  const someChecked = selected.size > 0 && !allChecked;
+
+  const toggleAll = () => {
+    setSelected(allChecked ? new Set() : new Set(tasks.map((t) => t.id)));
+  };
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const applyBulkStatus = async () => {
+    if (!bulkStatus || selected.size === 0) return;
+    setApplying(true);
+    try {
+      const ids = Array.from(selected);
+      await Promise.all(ids.map((id) => tasksApi.update(id, { status: bulkStatus as TaskStatus })));
+      toast.success(`Updated ${ids.length} task${ids.length === 1 ? "" : "s"}`);
+      setSelected(new Set());
+      setBulkStatus("");
+      await onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Bulk update failed");
+    } finally {
+      setApplying(false);
+    }
+  };
+
   return (
-    <div style={{ border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 8, overflow: "hidden" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
-        <thead>
-          <tr style={{ background: "rgba(255,255,255,0.03)", color: "hsl(var(--warm-white) / 0.7)", textAlign: "left", fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            <th style={th}>Name</th><th style={th}>Status</th><th style={th}>Priority</th>
-            <th style={th}>Epic</th><th style={th}>Assignee</th><th style={th}>Due</th><th style={th}>Subs</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tasks.map((t) => (
-            <tr key={t.id} onClick={() => onOpen(t.id)}
-              style={{ borderTop: "1px solid hsl(var(--warm-white) / 0.12)", color: "hsl(var(--warm-white))", cursor: "pointer" }}>
-              <td style={td}>{t.name}</td>
-              <td style={td}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 999, background: STATUS_COLORS[t.status] }} />
-                  {STATUS_LABELS[t.status]}
-                </span>
-              </td>
-              <td style={{ ...td, color: PRIORITY_COLORS[t.priority] }}>{t.priority}</td>
-              <td style={td}>{epics.find((e) => e.id === t.epic_id)?.name ?? "—"}</td>
-              <td style={td}>{t.assignee_kind}</td>
-              <td style={td}>{t.due_date ?? "—"}</td>
-              <td style={td}>{(subtasksByParent.get(t.id) ?? []).length}</td>
+    <div>
+      {selected.size > 0 && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", marginBottom: 10,
+          border: "1px solid hsl(var(--warm-white) / 0.18)", borderRadius: 8,
+          background: "rgba(255,255,255,0.04)", color: "hsl(var(--warm-white))", fontSize: 14,
+        }}>
+          <span style={{ letterSpacing: "0.06em" }}>{selected.size} selected</span>
+          <div style={{ flex: 1 }} />
+          <select
+            value={bulkStatus}
+            onChange={(e) => setBulkStatus(e.target.value as TaskStatus | "")}
+            style={{
+              background: "hsl(40 8% 10%)", color: "hsl(var(--warm-white))",
+              border: "1px solid hsl(var(--warm-white) / 0.18)", padding: "6px 10px",
+              fontSize: 13, borderRadius: 4,
+            }}
+          >
+            <option value="">Change status…</option>
+            {TASK_STATUSES.map((s) => (
+              <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+          <Button size="sm" disabled={!bulkStatus || applying} onClick={applyBulkStatus}
+            className="bg-accent !text-accent-foreground hover:bg-accent/90">
+            {applying ? "Applying…" : "Apply"}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Clear</Button>
+        </div>
+      )}
+      <div style={{ border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 8, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
+          <thead>
+            <tr style={{ background: "rgba(255,255,255,0.03)", color: "hsl(var(--warm-white) / 0.7)", textAlign: "left", fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              <th style={{ ...th, width: 36 }}>
+                <input
+                  type="checkbox"
+                  checked={allChecked}
+                  ref={(el) => { if (el) el.indeterminate = someChecked; }}
+                  onChange={toggleAll}
+                  aria-label="Select all"
+                  style={{ cursor: "pointer" }}
+                />
+              </th>
+              <th style={th}>Name</th><th style={th}>Status</th><th style={th}>Priority</th>
+              <th style={th}>Epic</th><th style={th}>Assignee</th><th style={th}>Due</th><th style={th}>Subs</th>
             </tr>
-          ))}
-          {tasks.length === 0 && (
-            <tr><td colSpan={7} style={{ ...td, color: "hsl(var(--warm-white) / 0.7)", textAlign: "center" }}>No tasks.</td></tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {tasks.map((t) => {
+              const isSel = selected.has(t.id);
+              return (
+                <tr key={t.id}
+                  style={{
+                    borderTop: "1px solid hsl(var(--warm-white) / 0.12)",
+                    color: "hsl(var(--warm-white))",
+                    cursor: "pointer",
+                    background: isSel ? "rgba(255,255,255,0.04)" : undefined,
+                  }}
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('input[type="checkbox"]')) return;
+                    onOpen(t.id);
+                  }}
+                >
+                  <td style={td} onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={isSel}
+                      onChange={() => toggleOne(t.id)}
+                      aria-label={`Select ${t.name}`}
+                      style={{ cursor: "pointer" }}
+                    />
+                  </td>
+                  <td style={td}>{t.name}</td>
+                  <td style={td}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 999, background: STATUS_COLORS[t.status] }} />
+                      {STATUS_LABELS[t.status]}
+                    </span>
+                  </td>
+                  <td style={{ ...td, color: PRIORITY_COLORS[t.priority] }}>{t.priority}</td>
+                  <td style={td}>{epics.find((e) => e.id === t.epic_id)?.name ?? "—"}</td>
+                  <td style={td}>{t.assignee_kind}</td>
+                  <td style={td}>{t.due_date ?? "—"}</td>
+                  <td style={td}>{(subtasksByParent.get(t.id) ?? []).length}</td>
+                </tr>
+              );
+            })}
+            {tasks.length === 0 && (
+              <tr><td colSpan={8} style={{ ...td, color: "hsl(var(--warm-white) / 0.7)", textAlign: "center" }}>No tasks.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
+
 const th: React.CSSProperties = { padding: "10px 12px" };
 const td: React.CSSProperties = { padding: "10px 12px" };
 const subLabel: React.CSSProperties = {
