@@ -50,6 +50,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
   const [replies, setReplies] = useState<Reply[]>([]);
   const [externalPages, setExternalPages] = useState<Array<{ id: string; path: string; label: string | null; order_index: number }>>([]);
   const [pageComments, setPageComments] = useState<Array<{ id: string; path: string; author_name: string | null; body: string; created_at: string }>>([]);
+  const [approvalsByPath, setApprovalsByPath] = useState<Record<string, { approver_name: string | null; approved_at: string }>>({});
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [copied, setCopied] = useState(false);
