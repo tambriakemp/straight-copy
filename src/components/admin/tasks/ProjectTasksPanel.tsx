@@ -234,7 +234,29 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           <button onClick={() => setView("list")} style={tabBtnStyle(view === "list")}>
             <List size={14} style={{ marginRight: 6 }} /> List
           </button>
+          <button onClick={() => setView("calendar")} style={tabBtnStyle(view === "calendar")}>
+            <CalendarDays size={14} style={{ marginRight: 6 }} /> Calendar
+          </button>
         </div>
+
+        {aggregated && (
+          <Select value={filterClient} onValueChange={setFilterClient}>
+            <SelectTrigger className="w-[220px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+              <SelectValue placeholder="Client" />
+            </SelectTrigger>
+            <SelectContent className={taskSelectContentClass}>
+              <SelectItem value="all">All clients</SelectItem>
+              {projectLookup
+                .slice()
+                .sort((a, b) => (a.client_name ?? "").localeCompare(b.client_name ?? ""))
+                .map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {(p.client_name ?? "Unnamed")} — {p.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <Select value={filterEpic} onValueChange={setFilterEpic}>
           <SelectTrigger className="w-[180px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
@@ -271,38 +293,38 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           </SelectContent>
         </Select>
 
-
-
-
-
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          {projectType === "web_development" && tasks.length === 0 && !loading && (
+          {!aggregated && projectType === "web_development" && tasks.length === 0 && !loading && (
             <Button variant="outline" size="sm" onClick={handleSeedWebDev} disabled={seeding}
               className="bg-transparent border-accent/40 !text-accent hover:bg-accent/10">
               {seeding ? "Seeding…" : "Seed Web Dev tasks"}
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setEpicsOpen(true)}
-            className="bg-transparent border-warm-white/20 !text-warm-white hover:bg-warm-white/10">
-            Manage epics
-          </Button>
-          <Button size="sm" disabled={creating} onClick={async () => {
-            setCreating(true);
-            try {
-              const { task } = await tasksApi.create({
-                client_project_id: clientProjectId,
-                name: "Untitled task",
-              });
-              await reload();
-              setOpenTaskId(task.id);
-            } catch (e) {
-              toast.error(e instanceof Error ? e.message : "Create failed");
-            } finally {
-              setCreating(false);
-            }
-          }} className="bg-accent !text-accent-foreground hover:bg-accent/90">
-            <Plus size={14} style={{ marginRight: 6 }} /> {creating ? "Creating…" : "New task"}
-          </Button>
+          {!aggregated && (
+            <Button variant="outline" size="sm" onClick={() => setEpicsOpen(true)}
+              className="bg-transparent border-warm-white/20 !text-warm-white hover:bg-warm-white/10">
+              Manage epics
+            </Button>
+          )}
+          {!aggregated && (
+            <Button size="sm" disabled={creating} onClick={async () => {
+              setCreating(true);
+              try {
+                const { task } = await tasksApi.create({
+                  client_project_id: clientProjectId!,
+                  name: "Untitled task",
+                });
+                await reload();
+                setOpenTaskId(task.id);
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Create failed");
+              } finally {
+                setCreating(false);
+              }
+            }} className="bg-accent !text-accent-foreground hover:bg-accent/90">
+              <Plus size={14} style={{ marginRight: 6 }} /> {creating ? "Creating…" : "New task"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -329,18 +351,21 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
                 subtasksByParent={subtasksByParent}
                 epics={epics}
                 onOpen={setOpenTaskId}
+                projectsById={aggregated ? projectsById : undefined}
               />
             ))}
           </div>
           <DragOverlay>
             {dragId ? (() => {
               const t = tasks.find((x) => x.id === dragId);
-              return t ? <TaskCard task={t} epics={epics} subtaskCount={(subtasksByParent.get(t.id) ?? []).length} dragging /> : null;
+              return t ? <TaskCard task={t} epics={epics} subtaskCount={(subtasksByParent.get(t.id) ?? []).length} dragging projectsById={aggregated ? projectsById : undefined} /> : null;
             })() : null}
           </DragOverlay>
         </DndContext>
+      ) : view === "list" ? (
+        <ListView tasks={topLevel} epics={epics} subtasksByParent={subtasksByParent} onOpen={setOpenTaskId} onChanged={reload} projectsById={aggregated ? projectsById : undefined} />
       ) : (
-        <ListView tasks={topLevel} epics={epics} subtasksByParent={subtasksByParent} onOpen={setOpenTaskId} onChanged={reload} />
+        <CalendarView tasks={topLevel} onOpen={setOpenTaskId} projectsById={aggregated ? projectsById : undefined} />
       )}
 
       {openTask && (
@@ -351,7 +376,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           onClose={() => setOpenTaskId(null)}
           onOpenTask={setOpenTaskId}
           onChanged={reload}
-          clientProjectId={clientProjectId}
+          clientProjectId={openTask.client_project_id}
         />
       )}
 
