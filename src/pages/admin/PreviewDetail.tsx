@@ -1207,7 +1207,7 @@ function ApprovalActivity({ projectId }: { projectId: string }) {
 }
 
 function ExternalPagesPanel({
-  baseUrl, pages, onSave, onCrawl, crawling, lastCrawledAt,
+  baseUrl, pages, onSave, onCrawl, crawling, lastCrawledAt, approvalsByPath,
 }: {
   baseUrl: string | null;
   pages: Array<{ id: string; path: string; label: string | null; order_index: number }>;
@@ -1215,6 +1215,7 @@ function ExternalPagesPanel({
   onCrawl: () => Promise<void>;
   crawling: boolean;
   lastCrawledAt?: string | null;
+  approvalsByPath?: Record<string, { approver_name: string | null; approved_at: string }>;
 }) {
   const [rows, setRows] = useState(pages.map((p) => ({ path: p.path, label: p.label || "" })));
   useEffect(() => { setRows(pages.map((p) => ({ path: p.path, label: p.label || "" }))); }, [pages]);
