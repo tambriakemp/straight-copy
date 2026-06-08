@@ -30,6 +30,7 @@ const Invites = lazy(() => import("./pages/admin/Invites.tsx"));
 const Previews = lazy(() => import("./pages/admin/Previews.tsx"));
 const PreviewDetail = lazy(() => import("./pages/admin/PreviewDetail.tsx"));
 const ProjectDetail = lazy(() => import("./pages/admin/ProjectDetail.tsx"));
+const AllTasks = lazy(() => import("./pages/admin/AllTasks.tsx"));
 const PreviewViewer = lazy(() => import("./pages/PreviewViewer.tsx"));
 const RequireAdmin = lazy(() => import("./components/admin/RequireAdmin.tsx"));
 const RequireWiki = lazy(() => import("./components/admin/RequireWiki.tsx"));
