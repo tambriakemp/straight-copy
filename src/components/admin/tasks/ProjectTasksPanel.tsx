@@ -5,7 +5,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag, Copy, ChevronDown, Upload } from "lucide-react";
+import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag, Copy, ChevronDown, Upload, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,7 @@ import {
   TASK_SIZES, TASK_PLATFORMS, MENTIONABLE_HANDLES,
   type Task, type Epic, type TaskStatus, type TaskPriority, type AssigneeKind,
   type TaskSize, type TaskPlatform, type AcceptanceCriterion, type TaskActivity, type TaskComment,
+  type ProjectLookup,
 } from "./tasksApi";
 
 
@@ -34,17 +35,19 @@ const ASSIGNEE_LABEL: Record<AssigneeKind, string> = {
 };
 const ASSIGNEE_OPTIONS: AssigneeKind[] = ["unassigned", "auto", "client", "agency", "admin", "claude"];
 
-interface Props { clientProjectId: string }
+interface Props { clientProjectId?: string }
 
-type ViewMode = "kanban" | "list";
+type ViewMode = "kanban" | "list" | "calendar";
 
 const taskSurfaceClass = "bg-ink border-warm-white/15 !text-warm-white [&_*]:!text-warm-white [&_input]:!text-warm-white [&_textarea]:!text-warm-white [&_input::placeholder]:!text-taupe [&_textarea::placeholder]:!text-taupe";
 const taskInputClass = "bg-transparent border-warm-white/20 !text-warm-white placeholder:!text-taupe";
 const taskSelectContentClass = "bg-ink border-warm-white/15 !text-warm-white [&_*]:!text-warm-white";
 
 export default function ProjectTasksPanel({ clientProjectId }: Props) {
+  const aggregated = !clientProjectId;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [epics, setEpics] = useState<Epic[]>([]);
+  const [projectLookup, setProjectLookup] = useState<ProjectLookup[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>("kanban");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
@@ -53,15 +56,19 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const [filterEpic, setFilterEpic] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterTag, setFilterTag] = useState<string>("all");
+  const [filterClient, setFilterClient] = useState<string>("all");
   const [dragId, setDragId] = useState<string | null>(null);
   const [projectType, setProjectType] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
 
   const reload = async () => {
     try {
-      const data = await tasksApi.list(clientProjectId);
+      const data = aggregated
+        ? await tasksApi.listAll()
+        : await tasksApi.list(clientProjectId!);
       setTasks(data.tasks);
       setEpics(data.epics);
+      setProjectLookup(data.projects ?? []);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load tasks");
     } finally {
@@ -72,14 +79,16 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   useEffect(() => {
     setLoading(true);
     void reload();
-    // Load project type for Web Dev seed button
-    supabase.from("client_projects").select("type").eq("id", clientProjectId).maybeSingle()
-      .then(({ data }) => setProjectType(data?.type ?? null));
-    // realtime
-    const ch = supabase.channel(`project_tasks_${clientProjectId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "project_tasks", filter: `client_project_id=eq.${clientProjectId}` },
+    if (!aggregated) {
+      supabase.from("client_projects").select("type").eq("id", clientProjectId!).maybeSingle()
+        .then(({ data }) => setProjectType(data?.type ?? null));
+    }
+    const channelName = aggregated ? `project_tasks_all` : `project_tasks_${clientProjectId}`;
+    const taskFilter = aggregated ? undefined : { filter: `client_project_id=eq.${clientProjectId}` };
+    const ch = supabase.channel(channelName)
+      .on("postgres_changes", { event: "*", schema: "public", table: "project_tasks", ...(taskFilter ?? {}) },
         () => { void reload(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "project_task_epics", filter: `client_project_id=eq.${clientProjectId}` },
+      .on("postgres_changes", { event: "*", schema: "public", table: "project_task_epics", ...(taskFilter ?? {}) },
         () => { void reload(); })
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
@@ -87,6 +96,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   }, [clientProjectId]);
 
   const handleSeedWebDev = async () => {
+    if (!clientProjectId) return;
     if (!confirm("Seed the full Web Dev backlog (7 epics, 50 tasks) into this project?")) return;
     setSeeding(true);
     try {
@@ -110,12 +120,19 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [tasks]);
 
+  const projectsById = useMemo(() => {
+    const m = new Map<string, ProjectLookup>();
+    for (const p of projectLookup) m.set(p.id, p);
+    return m;
+  }, [projectLookup]);
+
   const topLevel = useMemo(
     () => tasks.filter((t) => !t.parent_task_id)
       .filter((t) => filterEpic === "all" || t.epic_id === filterEpic || (filterEpic === "none" && !t.epic_id))
       .filter((t) => filterAssignee === "all" || t.assignee_kind === filterAssignee)
-      .filter((t) => filterTag === "all" || (t.tags ?? []).includes(filterTag)),
-    [tasks, filterEpic, filterAssignee, filterTag],
+      .filter((t) => filterTag === "all" || (t.tags ?? []).includes(filterTag))
+      .filter((t) => !aggregated || filterClient === "all" || t.client_project_id === filterClient),
+    [tasks, filterEpic, filterAssignee, filterTag, filterClient, aggregated],
   );
 
   const subtasksByParent = useMemo(() => {
@@ -217,7 +234,29 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           <button onClick={() => setView("list")} style={tabBtnStyle(view === "list")}>
             <List size={14} style={{ marginRight: 6 }} /> List
           </button>
+          <button onClick={() => setView("calendar")} style={tabBtnStyle(view === "calendar")}>
+            <CalendarDays size={14} style={{ marginRight: 6 }} /> Calendar
+          </button>
         </div>
+
+        {aggregated && (
+          <Select value={filterClient} onValueChange={setFilterClient}>
+            <SelectTrigger className="w-[220px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+              <SelectValue placeholder="Client" />
+            </SelectTrigger>
+            <SelectContent className={taskSelectContentClass}>
+              <SelectItem value="all">All clients</SelectItem>
+              {projectLookup
+                .slice()
+                .sort((a, b) => (a.client_name ?? "").localeCompare(b.client_name ?? ""))
+                .map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {(p.client_name ?? "Unnamed")} — {p.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <Select value={filterEpic} onValueChange={setFilterEpic}>
           <SelectTrigger className="w-[180px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
@@ -254,38 +293,38 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           </SelectContent>
         </Select>
 
-
-
-
-
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          {projectType === "web_development" && tasks.length === 0 && !loading && (
+          {!aggregated && projectType === "web_development" && tasks.length === 0 && !loading && (
             <Button variant="outline" size="sm" onClick={handleSeedWebDev} disabled={seeding}
               className="bg-transparent border-accent/40 !text-accent hover:bg-accent/10">
               {seeding ? "Seeding…" : "Seed Web Dev tasks"}
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setEpicsOpen(true)}
-            className="bg-transparent border-warm-white/20 !text-warm-white hover:bg-warm-white/10">
-            Manage epics
-          </Button>
-          <Button size="sm" disabled={creating} onClick={async () => {
-            setCreating(true);
-            try {
-              const { task } = await tasksApi.create({
-                client_project_id: clientProjectId,
-                name: "Untitled task",
-              });
-              await reload();
-              setOpenTaskId(task.id);
-            } catch (e) {
-              toast.error(e instanceof Error ? e.message : "Create failed");
-            } finally {
-              setCreating(false);
-            }
-          }} className="bg-accent !text-accent-foreground hover:bg-accent/90">
-            <Plus size={14} style={{ marginRight: 6 }} /> {creating ? "Creating…" : "New task"}
-          </Button>
+          {!aggregated && (
+            <Button variant="outline" size="sm" onClick={() => setEpicsOpen(true)}
+              className="bg-transparent border-warm-white/20 !text-warm-white hover:bg-warm-white/10">
+              Manage epics
+            </Button>
+          )}
+          {!aggregated && (
+            <Button size="sm" disabled={creating} onClick={async () => {
+              setCreating(true);
+              try {
+                const { task } = await tasksApi.create({
+                  client_project_id: clientProjectId!,
+                  name: "Untitled task",
+                });
+                await reload();
+                setOpenTaskId(task.id);
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Create failed");
+              } finally {
+                setCreating(false);
+              }
+            }} className="bg-accent !text-accent-foreground hover:bg-accent/90">
+              <Plus size={14} style={{ marginRight: 6 }} /> {creating ? "Creating…" : "New task"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -312,18 +351,21 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
                 subtasksByParent={subtasksByParent}
                 epics={epics}
                 onOpen={setOpenTaskId}
+                projectsById={aggregated ? projectsById : undefined}
               />
             ))}
           </div>
           <DragOverlay>
             {dragId ? (() => {
               const t = tasks.find((x) => x.id === dragId);
-              return t ? <TaskCard task={t} epics={epics} subtaskCount={(subtasksByParent.get(t.id) ?? []).length} dragging /> : null;
+              return t ? <TaskCard task={t} epics={epics} subtaskCount={(subtasksByParent.get(t.id) ?? []).length} dragging projectsById={aggregated ? projectsById : undefined} /> : null;
             })() : null}
           </DragOverlay>
         </DndContext>
+      ) : view === "list" ? (
+        <ListView tasks={topLevel} epics={epics} subtasksByParent={subtasksByParent} onOpen={setOpenTaskId} onChanged={reload} projectsById={aggregated ? projectsById : undefined} />
       ) : (
-        <ListView tasks={topLevel} epics={epics} subtasksByParent={subtasksByParent} onOpen={setOpenTaskId} onChanged={reload} />
+        <CalendarView tasks={topLevel} onOpen={setOpenTaskId} projectsById={aggregated ? projectsById : undefined} />
       )}
 
       {openTask && (
@@ -334,7 +376,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           onClose={() => setOpenTaskId(null)}
           onOpenTask={setOpenTaskId}
           onChanged={reload}
-          clientProjectId={clientProjectId}
+          clientProjectId={openTask.client_project_id}
         />
       )}
 
@@ -368,10 +410,11 @@ function tabBtnStyle(active: boolean): React.CSSProperties {
 /* ---------------- Kanban ---------------- */
 
 function KanbanColumn({
-  status, tasks, subtasksByParent, epics, onOpen,
+  status, tasks, subtasksByParent, epics, onOpen, projectsById,
 }: {
   status: TaskStatus; tasks: Task[]; subtasksByParent: Map<string, Task[]>; epics: Epic[];
   onOpen: (id: string) => void;
+  projectsById?: Map<string, ProjectLookup>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
@@ -396,7 +439,8 @@ function KanbanColumn({
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((t) => (
             <SortableCard key={t.id} task={t} epics={epics}
-              subtaskCount={(subtasksByParent.get(t.id) ?? []).length} onOpen={onOpen} />
+              subtaskCount={(subtasksByParent.get(t.id) ?? []).length} onOpen={onOpen}
+              projectsById={projectsById} />
           ))}
         </SortableContext>
       </div>
@@ -454,8 +498,9 @@ function TaskEmailSection({ task, onChanged }: { task: Task; onChanged: () => Pr
 }
 
 
-function SortableCard({ task, epics, subtaskCount, onOpen }: {
+function SortableCard({ task, epics, subtaskCount, onOpen, projectsById }: {
   task: Task; epics: Epic[]; subtaskCount: number; onOpen: (id: string) => void;
+  projectsById?: Map<string, ProjectLookup>;
 }) {
   const { setNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({ id: task.id });
   return (
@@ -471,16 +516,18 @@ function SortableCard({ task, epics, subtaskCount, onOpen }: {
         cursor: "grab",
       }}
     >
-      <TaskCard task={task} epics={epics} subtaskCount={subtaskCount} />
+      <TaskCard task={task} epics={epics} subtaskCount={subtaskCount} projectsById={projectsById} />
     </div>
   );
 }
 
 
-function TaskCard({ task, epics, subtaskCount, dragging }: {
+function TaskCard({ task, epics, subtaskCount, dragging, projectsById }: {
   task: Task; epics: Epic[]; subtaskCount: number; dragging?: boolean;
+  projectsById?: Map<string, ProjectLookup>;
 }) {
   const epic = task.epic_id ? epics.find((e) => e.id === task.epic_id) : null;
+  const proj = projectsById?.get(task.client_project_id);
   return (
     <div style={{
       background: "rgba(20,16,12,0.6)",
@@ -489,6 +536,12 @@ function TaskCard({ task, epics, subtaskCount, dragging }: {
       padding: 10,
       boxShadow: dragging ? "0 8px 24px rgba(0,0,0,0.4)" : "none",
     }}>
+      {proj && (
+        <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase",
+          color: "hsl(var(--warm-white) / 0.6)", marginBottom: 6 }}>
+          {proj.client_name ?? "—"} · {proj.name}
+        </div>
+      )}
       {epic && (
         <div style={{ fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase",
           color: epic.color ?? "hsl(var(--warm-white))", marginBottom: 6 }}>
@@ -529,10 +582,11 @@ function TaskCard({ task, epics, subtaskCount, dragging }: {
 
 /* ---------------- List view ---------------- */
 
-function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged }: {
+function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged, projectsById }: {
   tasks: Task[]; epics: Epic[]; subtasksByParent: Map<string, Task[]>;
   onOpen: (id: string) => void;
   onChanged: () => void | Promise<void>;
+  projectsById?: Map<string, ProjectLookup>;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<TaskStatus | "">("");
@@ -675,7 +729,9 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged }: {
                           style={{ cursor: "pointer" }}
                         />
                       </th>
-                      <th style={th}>Name</th><th style={th}>Priority</th>
+                      <th style={th}>Name</th>
+                      {projectsById && <th style={th}>Client</th>}
+                      <th style={th}>Priority</th>
                       <th style={th}>Epic</th><th style={th}>Assignee</th><th style={th}>Due</th><th style={th}>Subs</th>
                     </tr>
                   </thead>
@@ -706,6 +762,11 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged }: {
                             />
                           </td>
                           <td style={td}>{t.name}</td>
+                          {projectsById && (
+                            <td style={{ ...td, color: "hsl(var(--warm-white) / 0.7)", fontSize: 13 }}>
+                              {projectsById.get(t.client_project_id)?.client_name ?? "—"}
+                            </td>
+                          )}
                           <td style={{ ...td, color: PRIORITY_COLORS[t.priority] }}>{t.priority}</td>
                           <td style={td}>{epics.find((e) => e.id === t.epic_id)?.name ?? "—"}</td>
                           <td style={td}>{t.assignee_kind}</td>
@@ -729,6 +790,155 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged }: {
     </div>
   );
 }
+
+/* ---------------- Calendar view ---------------- */
+
+function CalendarView({ tasks, onOpen, projectsById }: {
+  tasks: Task[];
+  onOpen: (id: string) => void;
+  projectsById?: Map<string, ProjectLookup>;
+}) {
+  const today = new Date();
+  const [cursor, setCursor] = useState<{ y: number; m: number }>({ y: today.getFullYear(), m: today.getMonth() });
+
+  const tasksByDate = useMemo(() => {
+    const m = new Map<string, Task[]>();
+    for (const t of tasks) {
+      if (!t.due_date) continue;
+      const arr = m.get(t.due_date) ?? [];
+      arr.push(t);
+      m.set(t.due_date, arr);
+    }
+    return m;
+  }, [tasks]);
+
+  const firstDay = new Date(cursor.y, cursor.m, 1);
+  const startWeekday = firstDay.getDay(); // 0=Sun
+  const daysInMonth = new Date(cursor.y, cursor.m + 1, 0).getDate();
+  const cells: Array<{ date: Date | null; iso: string | null }> = [];
+  for (let i = 0; i < startWeekday; i++) cells.push({ date: null, iso: null });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(cursor.y, cursor.m, d);
+    const iso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+    cells.push({ date: dt, iso });
+  }
+  while (cells.length % 7 !== 0) cells.push({ date: null, iso: null });
+
+  const monthName = firstDay.toLocaleString(undefined, { month: "long", year: "numeric" });
+  const undated = tasks.filter((t) => !t.due_date);
+
+  const goPrev = () => setCursor((c) => c.m === 0 ? { y: c.y - 1, m: 11 } : { y: c.y, m: c.m - 1 });
+  const goNext = () => setCursor((c) => c.m === 11 ? { y: c.y + 1, m: 0 } : { y: c.y, m: c.m + 1 });
+  const goToday = () => setCursor({ y: today.getFullYear(), m: today.getMonth() });
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <button onClick={goPrev} style={calNavBtn}><ChevronLeft size={14} /></button>
+        <button onClick={goNext} style={calNavBtn}><ChevronRight size={14} /></button>
+        <button onClick={goToday} style={{ ...calNavBtn, padding: "4px 10px", fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase" }}>Today</button>
+        <span style={{ fontSize: 16, color: "hsl(var(--warm-white))", letterSpacing: "0.06em" }}>{monthName}</span>
+        <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.6)", fontSize: 13 }}>
+          {tasks.filter((t) => t.due_date).length} dated · {undated.length} undated
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, background: "hsl(var(--warm-white) / 0.08)", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 8, overflow: "hidden" }}>
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+          <div key={d} style={{ background: "rgba(255,255,255,0.04)", padding: "8px 10px", fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "hsl(var(--warm-white) / 0.6)" }}>
+            {d}
+          </div>
+        ))}
+        {cells.map((cell, i) => {
+          const dayTasks = cell.iso ? (tasksByDate.get(cell.iso) ?? []) : [];
+          const isToday = cell.iso === todayIso;
+          return (
+            <div key={i} style={{
+              background: "hsl(40 8% 10%)",
+              minHeight: 110,
+              padding: 6,
+              opacity: cell.date ? 1 : 0.3,
+              outline: isToday ? "1px solid hsl(var(--accent))" : undefined,
+            }}>
+              {cell.date && (
+                <div style={{ fontSize: 12, color: isToday ? "hsl(var(--accent))" : "hsl(var(--warm-white) / 0.7)", marginBottom: 4 }}>
+                  {cell.date.getDate()}
+                </div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {dayTasks.slice(0, 4).map((t) => {
+                  const proj = projectsById?.get(t.client_project_id);
+                  return (
+                    <button key={t.id} onClick={() => onOpen(t.id)}
+                      style={{
+                        textAlign: "left",
+                        background: "rgba(255,255,255,0.06)",
+                        border: `1px solid ${STATUS_COLORS[t.status]}`,
+                        borderLeftWidth: 3,
+                        padding: "3px 6px",
+                        fontSize: 12,
+                        color: "hsl(var(--warm-white))",
+                        borderRadius: 3,
+                        cursor: "pointer",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={`${proj ? `[${proj.client_name ?? "?"}] ` : ""}${t.name}`}
+                    >
+                      {proj && <span style={{ opacity: 0.6, fontSize: 10 }}>{proj.client_name ?? "?"} · </span>}
+                      {t.name}
+                    </button>
+                  );
+                })}
+                {dayTasks.length > 4 && (
+                  <span style={{ fontSize: 11, color: "hsl(var(--warm-white) / 0.6)" }}>+{dayTasks.length - 4} more</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {undated.length > 0 && (
+        <div style={{ marginTop: 14, padding: 12, border: "1px dashed hsl(var(--warm-white) / 0.18)", borderRadius: 8 }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(var(--warm-white) / 0.6)", marginBottom: 8 }}>
+            No due date ({undated.length})
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {undated.map((t) => {
+              const proj = projectsById?.get(t.client_project_id);
+              return (
+                <button key={t.id} onClick={() => onOpen(t.id)} style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: `1px solid ${STATUS_COLORS[t.status]}`,
+                  borderLeftWidth: 3,
+                  padding: "4px 8px", fontSize: 12, color: "hsl(var(--warm-white))",
+                  borderRadius: 3, cursor: "pointer",
+                }}>
+                  {proj && <span style={{ opacity: 0.6 }}>{proj.client_name ?? "?"} · </span>}
+                  {t.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const calNavBtn: React.CSSProperties = {
+  background: "transparent",
+  color: "hsl(var(--warm-white))",
+  border: "1px solid hsl(var(--warm-white) / 0.18)",
+  borderRadius: 4,
+  padding: "4px 6px",
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+};
 
 const th: React.CSSProperties = { padding: "10px 12px" };
 const td: React.CSSProperties = { padding: "10px 12px" };

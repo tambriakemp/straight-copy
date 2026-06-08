@@ -74,16 +74,19 @@ function normalizeCriteria(input: unknown): AcceptanceCriterion[] {
 
 export async function listTasks(
   sb: SupabaseClient,
-  projectId: string,
+  projectId: string | null,
 ) {
+  const tasksQ = sb.from("project_tasks").select(TASK_FIELDS)
+    .order("order_index", { ascending: true })
+    .order("created_at", { ascending: true });
+  const epicsQ = sb.from("project_task_epics").select("*").order("order_index");
+  if (projectId) {
+    tasksQ.eq("client_project_id", projectId);
+    epicsQ.eq("client_project_id", projectId);
+  }
   const [tasksRes, epicsRes, attachRes] = await Promise.all([
-    sb.from("project_tasks").select(TASK_FIELDS)
-      .eq("client_project_id", projectId)
-      .order("order_index", { ascending: true })
-      .order("created_at", { ascending: true }),
-    sb.from("project_task_epics").select("*")
-      .eq("client_project_id", projectId)
-      .order("order_index"),
+    tasksQ,
+    epicsQ,
     sb.from("project_task_attachments").select("*"),
   ]);
   if (tasksRes.error) throw tasksRes.error;
@@ -93,7 +96,6 @@ export async function listTasks(
   const taskIds = (tasksRes.data ?? []).map((t: any) => t.id);
   const taskIdSet = new Set(taskIds);
 
-  // Activity
   const actByTask = new Map<string, any[]>();
   if (taskIds.length) {
     const actRes = await sb.from("project_task_activity")
@@ -116,8 +118,6 @@ export async function listTasks(
     attachByTask.set(a.task_id, arr);
   }
 
-  // Sign attachment URLs (1h), grouping by bucket so files stored outside the
-  // default attachments bucket (e.g. brand voice PDFs in client-assets) sign correctly.
   const allAttachments = (attachRes.data ?? []).filter((a: any) => taskIdSet.has(a.task_id));
   if (allAttachments.length) {
     const byBucket = new Map<string, any[]>();
@@ -143,7 +143,21 @@ export async function listTasks(
     activity: actByTask.get(t.id) ?? [],
   }));
 
-  return { tasks, epics: epicsRes.data ?? [] };
+  let projects: Array<{ id: string; name: string; client_id: string; client_name: string | null }> = [];
+  if (!projectId) {
+    const projectIds = Array.from(new Set((tasksRes.data ?? []).map((t: any) => t.client_project_id)));
+    if (projectIds.length) {
+      const { data: projRows } = await sb.from("client_projects")
+        .select("id, name, client_id, clients(business_name)")
+        .in("id", projectIds);
+      projects = (projRows ?? []).map((p: any) => ({
+        id: p.id, name: p.name, client_id: p.client_id,
+        client_name: p.clients?.business_name ?? null,
+      }));
+    }
+  }
+
+  return { tasks, epics: epicsRes.data ?? [], projects };
 }
 
 

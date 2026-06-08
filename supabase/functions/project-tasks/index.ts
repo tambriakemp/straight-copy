@@ -172,8 +172,9 @@ Deno.serve(async (req) => {
     // ---- TASKS ----
     if (parts[0] === "tasks" && parts.length === 1 && method === "GET") {
       const pid = url.searchParams.get("project_id");
-      if (!pid) return json({ error: "project_id required" }, 400);
-      return json(await listTasks(sb, pid));
+      const all = url.searchParams.get("all");
+      if (!pid && !all) return json({ error: "project_id required" }, 400);
+      return json(await listTasks(sb, all ? null : pid!));
     }
     if (parts[0] === "tasks" && parts.length === 1 && method === "POST") {
       const body = await req.json().catch(() => ({}));
