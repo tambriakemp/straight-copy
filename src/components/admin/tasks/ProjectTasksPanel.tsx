@@ -21,6 +21,7 @@ import {
   TASK_SIZES, TASK_PLATFORMS, MENTIONABLE_HANDLES,
   type Task, type Epic, type TaskStatus, type TaskPriority, type AssigneeKind,
   type TaskSize, type TaskPlatform, type AcceptanceCriterion, type TaskActivity, type TaskComment,
+  type ProjectLookup,
 } from "./tasksApi";
 
 
