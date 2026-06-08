@@ -579,6 +579,20 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged }: {
     }
   };
 
+  const [collapsed, setCollapsed] = useState<Set<TaskStatus>>(new Set());
+  const toggleGroup = (s: TaskStatus) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      next.has(s) ? next.delete(s) : next.add(s);
+      return next;
+    });
+  };
+
+  const grouped = TASK_STATUSES.map((s) => ({
+    status: s,
+    items: tasks.filter((t) => t.status === s),
+  })).filter((g) => g.items.length > 0);
+
   return (
     <div>
       {selected.size > 0 && (
@@ -610,70 +624,107 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged }: {
           <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Clear</Button>
         </div>
       )}
-      <div style={{ border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 8, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
-          <thead>
-            <tr style={{ background: "rgba(255,255,255,0.03)", color: "hsl(var(--warm-white) / 0.7)", textAlign: "left", fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              <th style={{ ...th, width: 36 }}>
-                <input
-                  type="checkbox"
-                  checked={allChecked}
-                  ref={(el) => { if (el) el.indeterminate = someChecked; }}
-                  onChange={toggleAll}
-                  aria-label="Select all"
-                  style={{ cursor: "pointer" }}
-                />
-              </th>
-              <th style={th}>Name</th><th style={th}>Status</th><th style={th}>Priority</th>
-              <th style={th}>Epic</th><th style={th}>Assignee</th><th style={th}>Due</th><th style={th}>Subs</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tasks.map((t) => {
-              const isSel = selected.has(t.id);
-              return (
-                <tr key={t.id}
-                  style={{
-                    borderTop: "1px solid hsl(var(--warm-white) / 0.12)",
-                    color: "hsl(var(--warm-white))",
-                    cursor: "pointer",
-                    background: isSel ? "rgba(255,255,255,0.04)" : undefined,
-                  }}
-                  onClick={(e) => {
-                    const target = e.target as HTMLElement;
-                    if (target.closest('input[type="checkbox"]')) return;
-                    onOpen(t.id);
-                  }}
-                >
-                  <td style={td} onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={isSel}
-                      onChange={() => toggleOne(t.id)}
-                      aria-label={`Select ${t.name}`}
-                      style={{ cursor: "pointer" }}
-                    />
-                  </td>
-                  <td style={td}>{t.name}</td>
-                  <td style={td}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 999, background: STATUS_COLORS[t.status] }} />
-                      {STATUS_LABELS[t.status]}
-                    </span>
-                  </td>
-                  <td style={{ ...td, color: PRIORITY_COLORS[t.priority] }}>{t.priority}</td>
-                  <td style={td}>{epics.find((e) => e.id === t.epic_id)?.name ?? "—"}</td>
-                  <td style={td}>{t.assignee_kind}</td>
-                  <td style={td}>{t.due_date ?? "—"}</td>
-                  <td style={td}>{(subtasksByParent.get(t.id) ?? []).length}</td>
-                </tr>
-              );
-            })}
-            {tasks.length === 0 && (
-              <tr><td colSpan={8} style={{ ...td, color: "hsl(var(--warm-white) / 0.7)", textAlign: "center" }}>No tasks.</td></tr>
-            )}
-          </tbody>
-        </table>
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {grouped.map(({ status, items }) => {
+          const isCollapsed = collapsed.has(status);
+          const groupIds = items.map((t) => t.id);
+          const groupAllSel = groupIds.every((id) => selected.has(id));
+          const groupSomeSel = !groupAllSel && groupIds.some((id) => selected.has(id));
+          const toggleGroupSel = () => {
+            setSelected((prev) => {
+              const next = new Set(prev);
+              if (groupAllSel) groupIds.forEach((id) => next.delete(id));
+              else groupIds.forEach((id) => next.add(id));
+              return next;
+            });
+          };
+          return (
+            <div key={status} style={{ border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 8, overflow: "hidden" }}>
+              <div
+                onClick={() => toggleGroup(status)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+                  background: "rgba(255,255,255,0.04)", cursor: "pointer",
+                  borderBottom: isCollapsed ? "none" : "1px solid hsl(var(--warm-white) / 0.12)",
+                }}
+              >
+                <span style={{ color: "hsl(var(--warm-white) / 0.7)", fontSize: 11, width: 12, display: "inline-block" }}>
+                  {isCollapsed ? "▸" : "▾"}
+                </span>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "3px 10px", borderRadius: 4,
+                  background: STATUS_COLORS[status], color: "hsl(40 8% 10%)",
+                  fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600,
+                }}>
+                  {STATUS_LABELS[status]}
+                </span>
+                <span style={{ color: "hsl(var(--warm-white) / 0.6)", fontSize: 13 }}>{items.length}</span>
+              </div>
+              {!isCollapsed && (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
+                  <thead>
+                    <tr style={{ background: "rgba(255,255,255,0.02)", color: "hsl(var(--warm-white) / 0.7)", textAlign: "left", fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                      <th style={{ ...th, width: 36 }}>
+                        <input
+                          type="checkbox"
+                          checked={groupAllSel}
+                          ref={(el) => { if (el) el.indeterminate = groupSomeSel; }}
+                          onChange={toggleGroupSel}
+                          aria-label={`Select all ${STATUS_LABELS[status]}`}
+                          style={{ cursor: "pointer" }}
+                        />
+                      </th>
+                      <th style={th}>Name</th><th style={th}>Priority</th>
+                      <th style={th}>Epic</th><th style={th}>Assignee</th><th style={th}>Due</th><th style={th}>Subs</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((t) => {
+                      const isSel = selected.has(t.id);
+                      return (
+                        <tr key={t.id}
+                          style={{
+                            borderTop: "1px solid hsl(var(--warm-white) / 0.12)",
+                            color: "hsl(var(--warm-white))",
+                            cursor: "pointer",
+                            background: isSel ? "rgba(255,255,255,0.04)" : undefined,
+                          }}
+                          onClick={(e) => {
+                            const target = e.target as HTMLElement;
+                            if (target.closest('input[type="checkbox"]')) return;
+                            onOpen(t.id);
+                          }}
+                        >
+                          <td style={td} onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isSel}
+                              onChange={() => toggleOne(t.id)}
+                              aria-label={`Select ${t.name}`}
+                              style={{ cursor: "pointer" }}
+                            />
+                          </td>
+                          <td style={td}>{t.name}</td>
+                          <td style={{ ...td, color: PRIORITY_COLORS[t.priority] }}>{t.priority}</td>
+                          <td style={td}>{epics.find((e) => e.id === t.epic_id)?.name ?? "—"}</td>
+                          <td style={td}>{t.assignee_kind}</td>
+                          <td style={td}>{t.due_date ?? "—"}</td>
+                          <td style={td}>{(subtasksByParent.get(t.id) ?? []).length}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          );
+        })}
+        {tasks.length === 0 && (
+          <div style={{ padding: 24, textAlign: "center", color: "hsl(var(--warm-white) / 0.7)", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 8 }}>
+            No tasks.
+          </div>
+        )}
       </div>
     </div>
   );
