@@ -538,6 +538,21 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                         {isEntry ? "Entry page · " : ""}{Math.ceil((f.size_bytes ?? 0) / 1024)} KB
                       </div>
                     </div>
+                    {approval && (
+                      <span
+                        title={`Approved ${new Date(approval.approved_at).toLocaleString()}`}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          padding: "4px 10px", borderRadius: 999,
+                          background: "hsl(140 30% 20% / 0.5)",
+                          border: "1px solid hsl(140 30% 35%)",
+                          color: "hsl(140 40% 75%)",
+                          fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
+                        }}
+                      >
+                        <Check size={12} /> Approved{approval.approver_name ? ` · ${approval.approver_name}` : ""}
+                      </span>
+                    )}
                     <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setAiEditPath(f.path)} title="Edit page with AI">
                       <Sparkles size={12} /> AI Edit
                     </button>
