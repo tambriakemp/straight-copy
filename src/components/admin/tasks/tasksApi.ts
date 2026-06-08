@@ -151,9 +151,18 @@ async function invoke<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+export interface ProjectLookup {
+  id: string;
+  name: string;
+  client_id: string;
+  client_name: string | null;
+}
+
 export const tasksApi = {
   list: (projectId: string) =>
-    invoke<{ tasks: Task[]; epics: Epic[] }>(`/tasks?project_id=${encodeURIComponent(projectId)}`),
+    invoke<{ tasks: Task[]; epics: Epic[]; projects?: ProjectLookup[] }>(`/tasks?project_id=${encodeURIComponent(projectId)}`),
+  listAll: () =>
+    invoke<{ tasks: Task[]; epics: Epic[]; projects: ProjectLookup[] }>(`/tasks?all=1`),
   create: (input: Partial<Task> & { client_project_id: string; name: string }) =>
     invoke<{ task: Task }>(`/tasks`, { method: "POST", body: JSON.stringify(input) }),
   update: (id: string, patch: Partial<Task>) =>
