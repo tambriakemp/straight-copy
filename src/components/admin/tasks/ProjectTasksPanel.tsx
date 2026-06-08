@@ -729,7 +729,9 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged, projectsB
                           style={{ cursor: "pointer" }}
                         />
                       </th>
-                      <th style={th}>Name</th><th style={th}>Priority</th>
+                      <th style={th}>Name</th>
+                      {projectsById && <th style={th}>Client</th>}
+                      <th style={th}>Priority</th>
                       <th style={th}>Epic</th><th style={th}>Assignee</th><th style={th}>Due</th><th style={th}>Subs</th>
                     </tr>
                   </thead>
