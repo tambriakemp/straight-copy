@@ -35,17 +35,19 @@ const ASSIGNEE_LABEL: Record<AssigneeKind, string> = {
 };
 const ASSIGNEE_OPTIONS: AssigneeKind[] = ["unassigned", "auto", "client", "agency", "admin", "claude"];
 
-interface Props { clientProjectId: string }
+interface Props { clientProjectId?: string }
 
-type ViewMode = "kanban" | "list";
+type ViewMode = "kanban" | "list" | "calendar";
 
 const taskSurfaceClass = "bg-ink border-warm-white/15 !text-warm-white [&_*]:!text-warm-white [&_input]:!text-warm-white [&_textarea]:!text-warm-white [&_input::placeholder]:!text-taupe [&_textarea::placeholder]:!text-taupe";
 const taskInputClass = "bg-transparent border-warm-white/20 !text-warm-white placeholder:!text-taupe";
 const taskSelectContentClass = "bg-ink border-warm-white/15 !text-warm-white [&_*]:!text-warm-white";
 
 export default function ProjectTasksPanel({ clientProjectId }: Props) {
+  const aggregated = !clientProjectId;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [epics, setEpics] = useState<Epic[]>([]);
+  const [projectLookup, setProjectLookup] = useState<ProjectLookup[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>("kanban");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
@@ -54,15 +56,19 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const [filterEpic, setFilterEpic] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterTag, setFilterTag] = useState<string>("all");
+  const [filterClient, setFilterClient] = useState<string>("all");
   const [dragId, setDragId] = useState<string | null>(null);
   const [projectType, setProjectType] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
 
   const reload = async () => {
     try {
-      const data = await tasksApi.list(clientProjectId);
+      const data = aggregated
+        ? await tasksApi.listAll()
+        : await tasksApi.list(clientProjectId!);
       setTasks(data.tasks);
       setEpics(data.epics);
+      setProjectLookup(data.projects ?? []);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load tasks");
     } finally {
@@ -73,14 +79,16 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   useEffect(() => {
     setLoading(true);
     void reload();
-    // Load project type for Web Dev seed button
-    supabase.from("client_projects").select("type").eq("id", clientProjectId).maybeSingle()
-      .then(({ data }) => setProjectType(data?.type ?? null));
-    // realtime
-    const ch = supabase.channel(`project_tasks_${clientProjectId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "project_tasks", filter: `client_project_id=eq.${clientProjectId}` },
+    if (!aggregated) {
+      supabase.from("client_projects").select("type").eq("id", clientProjectId!).maybeSingle()
+        .then(({ data }) => setProjectType(data?.type ?? null));
+    }
+    const channelName = aggregated ? `project_tasks_all` : `project_tasks_${clientProjectId}`;
+    const taskFilter = aggregated ? undefined : { filter: `client_project_id=eq.${clientProjectId}` };
+    const ch = supabase.channel(channelName)
+      .on("postgres_changes", { event: "*", schema: "public", table: "project_tasks", ...(taskFilter ?? {}) },
         () => { void reload(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "project_task_epics", filter: `client_project_id=eq.${clientProjectId}` },
+      .on("postgres_changes", { event: "*", schema: "public", table: "project_task_epics", ...(taskFilter ?? {}) },
         () => { void reload(); })
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
@@ -88,6 +96,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   }, [clientProjectId]);
 
   const handleSeedWebDev = async () => {
+    if (!clientProjectId) return;
     if (!confirm("Seed the full Web Dev backlog (7 epics, 50 tasks) into this project?")) return;
     setSeeding(true);
     try {
@@ -111,12 +120,19 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [tasks]);
 
+  const projectsById = useMemo(() => {
+    const m = new Map<string, ProjectLookup>();
+    for (const p of projectLookup) m.set(p.id, p);
+    return m;
+  }, [projectLookup]);
+
   const topLevel = useMemo(
     () => tasks.filter((t) => !t.parent_task_id)
       .filter((t) => filterEpic === "all" || t.epic_id === filterEpic || (filterEpic === "none" && !t.epic_id))
       .filter((t) => filterAssignee === "all" || t.assignee_kind === filterAssignee)
-      .filter((t) => filterTag === "all" || (t.tags ?? []).includes(filterTag)),
-    [tasks, filterEpic, filterAssignee, filterTag],
+      .filter((t) => filterTag === "all" || (t.tags ?? []).includes(filterTag))
+      .filter((t) => !aggregated || filterClient === "all" || t.client_project_id === filterClient),
+    [tasks, filterEpic, filterAssignee, filterTag, filterClient, aggregated],
   );
 
   const subtasksByParent = useMemo(() => {
