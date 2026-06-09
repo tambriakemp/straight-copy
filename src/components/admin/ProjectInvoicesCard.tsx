@@ -270,9 +270,7 @@ export default function ProjectInvoicesCard({
             {drafts.map((d, i) => {
               const locked = !!d.id && invoices.find(x => x.id === d.id)?.status !== "scheduled";
               return (
-                <div key={i} style={{
-                  display: "grid", gridTemplateColumns: "60px 1fr 140px 160px auto", gap: 8, alignItems: "center",
-                }}>
+                <div key={i} className="crm-invoice-edit-row">
                   <input className="crm-input" type="number" min={1} value={d.sequence} disabled={locked}
                     onChange={e => setDrafts(s => s.map((x, ix) => ix === i ? { ...x, sequence: parseInt(e.target.value) || 1 } : x))} />
                   <input className="crm-input" placeholder="Label (e.g. Deposit)" value={d.label} disabled={locked}
