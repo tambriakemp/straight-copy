@@ -30,6 +30,7 @@ export const ProjectTabsList = React.forwardRef<
     ref={ref}
     className={cn(
       "h-auto justify-start gap-1 rounded-none border-b border-[var(--crm-border-dark)] bg-transparent p-0",
+      "w-full overflow-x-auto flex-nowrap whitespace-nowrap scrollbar-none",
       className,
     )}
     style={style}
@@ -45,7 +46,7 @@ export const ProjectTabsTrigger = React.forwardRef<
   <TabsTrigger
     ref={ref}
     className={cn(
-      "relative rounded-none border-b-2 border-transparent bg-transparent px-4 py-3 text-[12px] uppercase tracking-[0.3em]",
+      "relative shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-3 sm:px-4 py-3 text-[11px] sm:text-[12px] uppercase tracking-[0.25em] sm:tracking-[0.3em]",
       "text-[var(--crm-taupe)] hover:text-[var(--crm-warm-white)] transition-colors",
       "data-[state=active]:border-[var(--crm-accent)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--crm-warm-white)] data-[state=active]:shadow-none",
       "data-[state=active]:font-normal",

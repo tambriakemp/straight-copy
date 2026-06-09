@@ -213,29 +213,26 @@ export default function ProjectInvoicesCard({
           {invoices.map(inv => {
             const sc = statusColor(inv.status);
             return (
-              <div key={inv.id} style={{
-                display: "grid", gridTemplateColumns: "auto 1fr auto auto auto", gap: 12, alignItems: "center",
-                padding: "12px 14px", border: "1px solid var(--crm-border-dark)", borderRadius: 8,
-              }}>
-                <div style={{ fontFamily: "var(--crm-font-serif)", fontSize: 20, color: "var(--crm-taupe)", width: 28, textAlign: "center" }}>
+              <div key={inv.id} className="crm-invoice-row">
+                <div className="crm-invoice-row__seq" style={{ fontFamily: "var(--crm-font-serif)", fontSize: 20, color: "var(--crm-taupe)", width: 28, textAlign: "center" }}>
                   {inv.sequence}
                 </div>
-                <div>
+                <div className="crm-invoice-row__label">
                   <div style={{ color: "var(--crm-warm-white)", fontSize: 17 }}>{inv.label}</div>
-                  <div style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
+                  <div className="crm-invoice-row__meta" style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
                     {inv.due_date ? `Due ${new Date(inv.due_date).toLocaleDateString()}` : "No due date"}
                     {inv.paid_at && ` · Paid ${new Date(inv.paid_at).toLocaleDateString()}`}
                     {inv.sent_at && !inv.paid_at && ` · Sent ${new Date(inv.sent_at).toLocaleDateString()}`}
                   </div>
                 </div>
-                <div style={{ color: "var(--crm-warm-white)", fontSize: 18, fontVariantNumeric: "tabular-nums" }}>
+                <div className="crm-invoice-row__amount" style={{ color: "var(--crm-warm-white)", fontSize: 18, fontVariantNumeric: "tabular-nums" }}>
                   {fmtUSD(inv.amount_cents)}
                 </div>
-                <span style={{
+                <span className="crm-invoice-row__status" style={{
                   fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase",
                   padding: "3px 9px", borderRadius: 999, background: sc.bg, color: sc.fg,
                 }}>{inv.status}</span>
-                <div style={{ display: "flex", gap: 4 }}>
+                <div className="crm-invoice-row__actions">
                   {(inv.status === "scheduled" || inv.status === "failed") && (
                     <>
                       <button className="crm-btn crm-btn--primary crm-btn--sm" disabled={busy === inv.id}
@@ -273,9 +270,7 @@ export default function ProjectInvoicesCard({
             {drafts.map((d, i) => {
               const locked = !!d.id && invoices.find(x => x.id === d.id)?.status !== "scheduled";
               return (
-                <div key={i} style={{
-                  display: "grid", gridTemplateColumns: "60px 1fr 140px 160px auto", gap: 8, alignItems: "center",
-                }}>
+                <div key={i} className="crm-invoice-edit-row">
                   <input className="crm-input" type="number" min={1} value={d.sequence} disabled={locked}
                     onChange={e => setDrafts(s => s.map((x, ix) => ix === i ? { ...x, sequence: parseInt(e.target.value) || 1 } : x))} />
                   <input className="crm-input" placeholder="Label (e.g. Deposit)" value={d.label} disabled={locked}

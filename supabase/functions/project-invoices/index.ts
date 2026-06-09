@@ -195,17 +195,34 @@ Deno.serve(async (req) => {
         // 1. Ensure a SureCart customer exists for this client.
         let customerId = client.surecart_customer_id as string | null;
         if (!customerId) {
-          const customerBody: any = {
-            customer: {
-              email: client.contact_email,
-              name: client.contact_name || client.business_name || client.contact_email,
-            },
-          };
-          const created = await surecart("/customers", {
-            method: "POST",
-            body: JSON.stringify(customerBody),
-          });
-          customerId = created.id;
+          const email = (client.contact_email || "").trim().toLowerCase();
+          const rawName = (client.contact_name || client.business_name || "").trim();
+          const parts = rawName ? rawName.split(/\s+/) : [];
+          const firstName = parts[0] || (email ? email.split("@")[0] : "Customer");
+          const lastName = parts.slice(1).join(" ") || (client.business_name || "").trim() || "—";
+
+          // Try to find an existing customer by email first (SureCart rejects duplicate emails).
+          try {
+            const existing = await surecart(`/customers?query=${encodeURIComponent(email)}`, { method: "GET" });
+            const match = (existing?.data ?? []).find((c: any) => (c.email || "").toLowerCase() === email);
+            if (match?.id) customerId = match.id;
+          } catch { /* ignore lookup failure, fall through to create */ }
+
+          if (!customerId) {
+            const created = await surecart("/customers", {
+              method: "POST",
+              body: JSON.stringify({
+                customer: {
+                  email,
+                  first_name: firstName,
+                  last_name: lastName,
+                  name: rawName || `${firstName} ${lastName}`.trim(),
+                },
+              }),
+            });
+            customerId = created.id;
+          }
+
           await supabase.from("clients")
             .update({ surecart_customer_id: customerId })
             .eq("id", client.id);
