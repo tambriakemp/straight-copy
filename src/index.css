@@ -1945,3 +1945,55 @@
   .crm-shell .journey-card__body { padding: 8px 18px 24px; gap: 24px; }
   .crm-shell .journey-card__head-aside { flex-direction: column-reverse; align-items: flex-end; gap: 8px; }
 }
+
+/* Scrollbar hide helper (used by horizontally-scrolling tab lists) */
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Responsive invoice rows for ProjectInvoicesCard */
+.crm-invoice-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--crm-border-dark);
+  border-radius: 8px;
+}
+.crm-invoice-row__actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.crm-invoice-edit-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 140px 160px auto;
+  gap: 8px;
+  align-items: center;
+}
+@media (max-width: 640px) {
+  .crm-invoice-row {
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "seq label"
+      "seq meta"
+      "amt status"
+      "actions actions";
+    row-gap: 6px;
+    padding: 12px;
+  }
+  .crm-invoice-row__seq { grid-area: seq; }
+  .crm-invoice-row__label { grid-area: label; }
+  .crm-invoice-row__meta { grid-area: meta; }
+  .crm-invoice-row__amount { grid-area: amt; justify-self: start; }
+  .crm-invoice-row__status { grid-area: status; justify-self: end; }
+  .crm-invoice-row__actions { grid-area: actions; justify-content: flex-start; }
+  .crm-invoice-edit-row {
+    grid-template-columns: 60px 1fr auto;
+    grid-template-areas:
+      "seq label label"
+      "amount date trash";
+    row-gap: 8px;
+  }
+  .crm-invoice-edit-row > :nth-child(1) { grid-area: seq; }
+  .crm-invoice-edit-row > :nth-child(2) { grid-area: label; }
+  .crm-invoice-edit-row > :nth-child(3) { grid-area: amount; }
+  .crm-invoice-edit-row > :nth-child(4) { grid-area: date; }
+  .crm-invoice-edit-row > :nth-child(5) { grid-area: trash; }
+}
