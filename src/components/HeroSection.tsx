@@ -28,8 +28,9 @@ const HeroSection = () => {
             className="font-serif font-light leading-[0.95] text-warm-white mb-14 animate-fade-up animate-fade-up-delay-2"
             style={{ fontSize: "clamp(64px, 9vw, 132px)", letterSpacing: "-0.01em" }}
           >
-            We architect the AI systems that run your{" "}
-            <em className="italic text-stone block">business.</em>
+            We architect the AI <br />
+            systems that <br />
+            run your <em className="italic text-stone">business.</em>
           </h1>
           <p className="text-[19px] font-light leading-[1.75] text-stone max-w-[640px] mb-16 animate-fade-up animate-fade-up-delay-3">
             You shouldn't be doing manually what a machine can do for you. We design, build, and maintain the AI operating system behind your business — so you can focus on growing it.
