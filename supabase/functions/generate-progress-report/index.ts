@@ -24,11 +24,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { projectId, forceSend, preview } = await req.json();
+    const { projectId, forceSend, preview, testRecipientEmail } = await req.json();
     if (!projectId || typeof projectId !== "string") {
       return json({ ok: false, error: "projectId is required" }, 400);
     }
     const isPreview = preview === true;
+    const testEmail = typeof testRecipientEmail === "string" && testRecipientEmail.includes("@")
+      ? testRecipientEmail.trim()
+      : null;
 
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,
