@@ -11,6 +11,7 @@ import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import ContractAuditPanel from "@/components/admin/ContractAuditPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
 import ProgressReportSettingsCard from "@/components/admin/ProgressReportSettingsCard";
+import CoPostSettingsCard from "@/components/admin/social/CoPostSettingsCard";
 
 
 import {
@@ -128,6 +129,7 @@ export default function AppDevelopmentView() {
           )}
 
           <ProjectTabsContent value="settings">
+            {isMarketing && <CoPostSettingsCard clientProjectId={projectId!} />}
             <ProgressReportSettingsCard clientId={clientId!} clientProjectId={projectId!} />
           </ProjectTabsContent>
         </ProjectTabs>
