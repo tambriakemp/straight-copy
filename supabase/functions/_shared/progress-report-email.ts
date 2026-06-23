@@ -56,6 +56,14 @@ export async function sendProgressReportEmail(args: {
   const { firstName, lastName } = splitContactName(args.recipient.name ?? "");
   // SureContact merges custom_fields on the contact into the template at send
   // time, so we push all report_* fields onto the contact before triggering.
+  // IMPORTANT: replace empty strings with a non-empty placeholder so the
+  // upsert helper doesn't strip them — otherwise SureContact leaves the raw
+  // {{merge_tag}} text in the email.
+  const customFields: Record<string, string> = {};
+  for (const [k, v] of Object.entries(args.data)) {
+    const s = v == null ? "" : String(v);
+    customFields[k] = s.trim().length > 0 ? s : " ";
+  }
   const upsert = await upsertSureContact(
     {
       email: args.recipient.email,
@@ -63,7 +71,7 @@ export async function sendProgressReportEmail(args: {
       lastName,
       company: args.recipient.company || args.data.business_name || "",
       phone: args.recipient.phone || "",
-      customFields: args.data as unknown as Record<string, string>,
+      customFields,
       tags: args.tags && args.tags.length > 0 ? args.tags : ["weekly_progress_report"],
       metadata: { form_source: "cre8visions_crm", trigger: "weekly_progress_report" },
     },
