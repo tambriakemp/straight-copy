@@ -2062,6 +2062,74 @@ export type Database = {
           },
         ]
       }
+      social_images: {
+        Row: {
+          caption: string | null
+          caption_error: string | null
+          caption_status: string
+          client_project_id: string
+          copost_error: string | null
+          copost_sent_at: string | null
+          copost_status: string
+          created_at: string
+          created_by: string | null
+          hashtags: string[]
+          height: number | null
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string
+          updated_at: string
+          width: number | null
+        }
+        Insert: {
+          caption?: string | null
+          caption_error?: string | null
+          caption_status?: string
+          client_project_id: string
+          copost_error?: string | null
+          copost_sent_at?: string | null
+          copost_status?: string
+          created_at?: string
+          created_by?: string | null
+          hashtags?: string[]
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          updated_at?: string
+          width?: number | null
+        }
+        Update: {
+          caption?: string | null
+          caption_error?: string | null
+          caption_status?: string
+          client_project_id?: string
+          copost_error?: string | null
+          copost_sent_at?: string | null
+          copost_status?: string
+          created_at?: string
+          created_by?: string | null
+          hashtags?: string[]
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          updated_at?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_images_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_post_batches: {
         Row: {
           brief: string | null
