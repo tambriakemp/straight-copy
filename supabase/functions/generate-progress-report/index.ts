@@ -116,16 +116,16 @@ Deno.serve(async (req) => {
     const inProgress = inProgressRows ?? [];
     const next = nextRows ?? [];
 
-    if (completed.length === 0 && inProgress.length === 0 && !isPreview) {
+    if (completed.length === 0 && !isPreview) {
       await sb.from("project_progress_reports").insert({
         client_project_id: projectId,
         period_start: window.start.toISOString(),
         period_end: window.end.toISOString(),
         task_ids: [],
         recipients: recipients.map((r) => r.email),
-        error: "no_activity",
+        error: "no_tasks_completed",
       } as never);
-      return json({ ok: true, skipped: "no_activity" });
+      return json({ ok: true, skipped: "no_tasks_completed" });
     }
 
     // Epic name lookup across all
