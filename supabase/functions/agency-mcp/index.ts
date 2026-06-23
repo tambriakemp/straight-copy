@@ -99,8 +99,16 @@ mcp.tool("list_tasks", {
 
 mcp.tool("get_task", {
   description: "Fetch a single task by id with subtasks and attachments.",
-  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
-  handler: async ({ id }: { id: string }) => {
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string", description: "project_tasks.id" },
+      id: { type: "string", description: "Deprecated alias for task_id." },
+    },
+  },
+  handler: async (args: any) => {
+    const id = args.task_id ?? args.id;
+    if (!id) throw new Error("task_id required");
     const { data, error } = await sb.from("project_tasks").select("*").eq("id", id).maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) throw new Error("Task not found");
@@ -161,11 +169,12 @@ mcp.tool("create_task", {
 });
 
 mcp.tool("update_task", {
-  description: "Update any task fields.",
+  description: "Update any task fields. Pass task_id to identify the task.",
   inputSchema: {
     type: "object",
     properties: {
-      id: { type: "string" },
+      task_id: { type: "string", description: "project_tasks.id of the task to update" },
+      id: { type: "string", description: "Deprecated alias for task_id." },
       epic_id: { type: ["string", "null"] },
       name: { type: "string" },
       description: { type: "string" },
@@ -177,9 +186,13 @@ mcp.tool("update_task", {
       tags: { type: "array", items: { type: "string" } },
       ...EXTRA_FIELD_PROPS,
     },
-    required: ["id"],
   },
-  handler: async ({ id, ...rest }: any) => textResult(await updateTask(sb, id, rest)),
+  handler: async (args: any) => {
+    const { task_id, id, ...rest } = args;
+    const targetId = task_id ?? id;
+    if (!targetId) throw new Error("task_id required");
+    return textResult(await updateTask(sb, targetId, rest));
+  },
 });
 
 mcp.tool("move_task_status", {
@@ -187,36 +200,57 @@ mcp.tool("move_task_status", {
   inputSchema: {
     type: "object",
     properties: {
-      id: { type: "string" },
+      task_id: { type: "string", description: "project_tasks.id" },
+      id: { type: "string", description: "Deprecated alias for task_id." },
       status: { type: "string", enum: TASK_STATUSES as unknown as string[] },
     },
-    required: ["id", "status"],
+    required: ["status"],
   },
-  handler: async ({ id, status }: { id: string; status: string }) =>
-    textResult(await updateTask(sb, id, { status: status as any })),
+  handler: async (args: any) => {
+    const targetId = args.task_id ?? args.id;
+    if (!targetId) throw new Error("task_id required");
+    return textResult(await updateTask(sb, targetId, { status: args.status as any }));
+  },
 });
 
 mcp.tool("add_comment_to_task", {
-  description: "Append a Claude-authored comment to a task's description (timestamped).",
+  description: "Append a Claude-authored comment to a task's description (timestamped). Prefer post_task_comment for proper threaded comments.",
   inputSchema: {
     type: "object",
-    properties: { id: { type: "string" }, comment: { type: "string" } },
-    required: ["id", "comment"],
+    properties: {
+      task_id: { type: "string", description: "project_tasks.id" },
+      id: { type: "string", description: "Deprecated alias for task_id." },
+      comment: { type: "string" },
+    },
+    required: ["comment"],
   },
-  handler: async ({ id, comment }: { id: string; comment: string }) => {
-    const { data } = await sb.from("project_tasks").select("description").eq("id", id).maybeSingle();
+  handler: async (args: any) => {
+    const targetId = args.task_id ?? args.id;
+    if (!targetId) throw new Error("task_id required");
+    const { data } = await sb.from("project_tasks").select("description").eq("id", targetId).maybeSingle();
     const prev = (data?.description ?? "").trim();
     const stamp = new Date().toISOString();
-    const next = `${prev ? prev + "\n\n" : ""}> **Claude (${stamp}):** ${comment}`;
-    return textResult(await updateTask(sb, id, { description: next }));
+    const next = `${prev ? prev + "\n\n" : ""}> **Claude (${stamp}):** ${args.comment}`;
+    return textResult(await updateTask(sb, targetId, { description: next }));
   },
 });
 
 mcp.tool("delete_task", {
   description: "Delete a task and its subtasks + attachments.",
-  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
-  handler: async ({ id }: { id: string }) => textResult(await deleteTask(sb, id)),
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string", description: "project_tasks.id" },
+      id: { type: "string", description: "Deprecated alias for task_id." },
+    },
+  },
+  handler: async (args: any) => {
+    const targetId = args.task_id ?? args.id;
+    if (!targetId) throw new Error("task_id required");
+    return textResult(await deleteTask(sb, targetId));
+  },
 });
+
 
 mcp.tool("list_my_comments", {
   description: "List task comments addressed to a given @handle (default 'claude-code'). Returns unacknowledged comments by default so Claude Code can iterate through fresh work. Pass include_acknowledged=true to include comments already marked seen, or project_id to scope to one project.",
