@@ -6,6 +6,7 @@ import NewBatchDialog from "./NewBatchDialog";
 import BatchList from "./BatchList";
 import BatchDetail from "./BatchDetail";
 import DesignTemplatesPanel from "./DesignTemplatesPanel";
+import ImagesPanel from "./ImagesPanel";
 
 export interface SocialBatch {
   id: string;
@@ -25,7 +26,7 @@ export default function SocialTab({ clientProjectId }: { clientProjectId: string
   const [loading, setLoading] = useState(true);
   const [newOpen, setNewOpen] = useState(false);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
-  const [view, setView] = useState<"batches" | "templates">("batches");
+  const [view, setView] = useState<"batches" | "templates" | "images">("batches");
 
   const load = async () => {
     const { data, error } = await supabase
@@ -74,11 +75,15 @@ export default function SocialTab({ clientProjectId }: { clientProjectId: string
             Generate batches of on-brand posts and carousels using the client's intake, brand kit, and brand voice.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Button onClick={() => setView(view === "batches" ? "templates" : "batches")}
-            className="bg-transparent border border-warm-white/25 text-warm-white hover:bg-warm-white/10">
-            {view === "batches" ? "Manage templates" : "Back to batches"}
-          </Button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {(["batches", "images", "templates"] as const).map((v) => (
+            <Button key={v} onClick={() => setView(v)}
+              className={view === v
+                ? "bg-warm-white text-ink hover:bg-warm-white/90"
+                : "bg-transparent border border-warm-white/25 text-warm-white hover:bg-warm-white/10"}>
+              {v === "batches" ? "Batches" : v === "images" ? "Images" : "Templates"}
+            </Button>
+          ))}
           {view === "batches" && (
             <Button onClick={() => setNewOpen(true)}
               className="bg-transparent border border-warm-white/25 text-warm-white hover:bg-warm-white/10">
@@ -88,11 +93,11 @@ export default function SocialTab({ clientProjectId }: { clientProjectId: string
         </div>
       </div>
 
-      {view === "batches" ? (
+      {view === "batches" && (
         <BatchList batches={batches} loading={loading} onOpen={(id) => setActiveBatchId(id)} />
-      ) : (
-        <DesignTemplatesPanel clientProjectId={clientProjectId} />
       )}
+      {view === "templates" && <DesignTemplatesPanel clientProjectId={clientProjectId} />}
+      {view === "images" && <ImagesPanel clientProjectId={clientProjectId} />}
 
       <NewBatchDialog
         open={newOpen}
