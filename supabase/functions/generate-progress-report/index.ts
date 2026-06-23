@@ -56,26 +56,31 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     // Resolve recipients
-    let recipientIds: string[] = (project.progress_report_recipient_ids as string[] | null) ?? [];
-    if (recipientIds.length === 0 && project.primary_contact_id) {
-      recipientIds = [project.primary_contact_id as string];
-    }
     const recipients: Array<{ email: string; name: string | null; phone: string | null }> = [];
-    if (recipientIds.length > 0) {
-      const { data: cs } = await sb
-        .from("client_contacts")
-        .select("id, name, email, phone")
-        .in("id", recipientIds);
-      for (const c of cs ?? []) {
-        if ((c as any).email) recipients.push({ email: (c as any).email, name: (c as any).name, phone: (c as any).phone });
+    if (testEmail) {
+      // Test send: only this address, skip admin copy
+      recipients.push({ email: testEmail, name: null, phone: null });
+    } else {
+      let recipientIds: string[] = (project.progress_report_recipient_ids as string[] | null) ?? [];
+      if (recipientIds.length === 0 && project.primary_contact_id) {
+        recipientIds = [project.primary_contact_id as string];
       }
-    }
-    if (recipients.length === 0 && client?.contact_email) {
-      recipients.push({ email: client.contact_email, name: client.contact_name, phone: client.contact_phone });
-    }
-    const adminEmail = Deno.env.get("PROGRESS_REPORT_ADMIN_EMAIL") || "tambria@cre8visions.com";
-    if (!recipients.some((r) => r.email.toLowerCase() === adminEmail.toLowerCase())) {
-      recipients.push({ email: adminEmail, name: "Tambria Kemp", phone: null });
+      if (recipientIds.length > 0) {
+        const { data: cs } = await sb
+          .from("client_contacts")
+          .select("id, name, email, phone")
+          .in("id", recipientIds);
+        for (const c of cs ?? []) {
+          if ((c as any).email) recipients.push({ email: (c as any).email, name: (c as any).name, phone: (c as any).phone });
+        }
+      }
+      if (recipients.length === 0 && client?.contact_email) {
+        recipients.push({ email: client.contact_email, name: client.contact_name, phone: client.contact_phone });
+      }
+      const adminEmail = Deno.env.get("PROGRESS_REPORT_ADMIN_EMAIL") || "tambria@cre8visions.com";
+      if (!recipients.some((r) => r.email.toLowerCase() === adminEmail.toLowerCase())) {
+        recipients.push({ email: adminEmail, name: "Tambria Kemp", phone: null });
+      }
     }
 
     // Weekly window
