@@ -75,8 +75,9 @@ verify_jwt = false
 [functions.project-invoices]
 verify_jwt = false
 
-[functions.project-tasks-mcp]
+[functions.agency-mcp]
 verify_jwt = false
+
 
 [functions.mcp-oauth]
 verify_jwt = false
