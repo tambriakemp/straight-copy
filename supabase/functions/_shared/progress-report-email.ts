@@ -256,11 +256,13 @@ Return ONLY the JSON, no markdown fence.`;
 }
 
 function renderBulletList(items: string[], accent: "green" | "gold" | "blue"): string {
-  if (items.length === 0) return "";
   const color =
     accent === "green" ? "#3f7a4a" :
     accent === "gold" ? "#b48a2a" :
     "#3b6fa0";
+  if (items.length === 0) {
+    return `<p style="margin:0;padding:0 0 0 12px;border-left:3px solid ${color};font-family:'Karla',Arial,sans-serif;font-size:15px;line-height:1.6;color:#7a6a55;font-style:italic;">Nothing to report this week.</p>`;
+  }
   const lis = items
     .map(
       (i) =>
