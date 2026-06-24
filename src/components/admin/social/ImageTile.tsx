@@ -179,8 +179,12 @@ export default function ImageTile({
             <IconBtn title="Regenerate" onClick={onRegenerate}><RefreshCw size={13} /></IconBtn>
             <IconBtn title="Copy caption" onClick={copyAll}><Copy size={13} /></IconBtn>
             <IconBtn title="Delete" onClick={onDelete}><Trash2 size={13} /></IconBtn>
-            <IconBtn title={sent ? "Already sent" : "Send to CoPost"} onClick={onSend} disabled={sent || sending}>
-              <Send size={13} />
+            <IconBtn
+              title={sent ? "Already sent" : image.copost_status === "error" ? "Retry send to CoPost" : "Send to CoPost"}
+              onClick={onSend}
+              disabled={sent || sending}
+            >
+              {image.copost_status === "error" ? <RefreshCw size={13} /> : <Send size={13} />}
             </IconBtn>
           </div>
         )}
