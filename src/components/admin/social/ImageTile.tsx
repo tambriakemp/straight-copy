@@ -116,6 +116,16 @@ export default function ImageTile({
             Sending…
           </div>
         )}
+        {image.copost_status === "error" && (
+          <div style={{
+            position: "absolute", top: 8, right: 8,
+            padding: "4px 8px", borderRadius: 4,
+            background: "rgba(180,50,50,0.9)", color: "#fff",
+            fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase",
+          }}>
+            Failed
+          </div>
+        )}
       </div>
 
       <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8, fontSize: 13, color: "var(--crm-warm-white)" }}>
@@ -169,8 +179,12 @@ export default function ImageTile({
             <IconBtn title="Regenerate" onClick={onRegenerate}><RefreshCw size={13} /></IconBtn>
             <IconBtn title="Copy caption" onClick={copyAll}><Copy size={13} /></IconBtn>
             <IconBtn title="Delete" onClick={onDelete}><Trash2 size={13} /></IconBtn>
-            <IconBtn title={sent ? "Already sent" : "Send to CoPost"} onClick={onSend} disabled={sent || sending}>
-              <Send size={13} />
+            <IconBtn
+              title={sent ? "Already sent" : image.copost_status === "error" ? "Retry send to CoPost" : "Send to CoPost"}
+              onClick={onSend}
+              disabled={sent || sending}
+            >
+              {image.copost_status === "error" ? <RefreshCw size={13} /> : <Send size={13} />}
             </IconBtn>
           </div>
         )}
