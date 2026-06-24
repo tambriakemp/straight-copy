@@ -132,11 +132,16 @@ export default function ImagesPanel({ clientProjectId }: { clientProjectId: stri
         body: { image_ids: ids },
       });
       if (error) throw error;
-      const errPayload = data as { error?: string; results?: Array<{ ok: boolean; error?: string }> };
+      const errPayload = data as { error?: string; results?: Array<{ ok: boolean; error?: string; skipped?: string }> };
       if (errPayload?.error) throw new Error(errPayload.error);
-      const okCount = errPayload?.results?.filter((r) => r.ok).length ?? 0;
-      const failCount = (errPayload?.results?.length ?? 0) - okCount;
+      const results = errPayload?.results ?? [];
+      const okCount = results.filter((r) => r.ok && !r.skipped).length;
+      const skippedSent = results.filter((r) => r.ok && r.skipped === "already sent").length;
+      const skippedInFlight = results.filter((r) => r.skipped === "already in progress").length;
+      const failCount = results.filter((r) => !r.ok && !r.skipped).length;
       if (okCount) toast.success(`Sent ${okCount} to CoPost`);
+      if (skippedSent) toast.message(`${skippedSent} already sent — skipped`);
+      if (skippedInFlight) toast.message(`${skippedInFlight} already in progress — skipped`);
       if (failCount) toast.error(`${failCount} failed`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Send to CoPost failed");
