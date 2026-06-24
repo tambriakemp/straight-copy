@@ -65,14 +65,26 @@ Deno.serve(async (req) => {
     return json({ error: "Stored CoPost URL is malformed" }, 400);
   }
 
-  const results: Array<{ id: string; ok: boolean; error?: string }> = [];
+  const results: Array<{ id: string; ok: boolean; skipped?: string; error?: string }> = [];
+
+  // Atomic idempotent claim: only flip rows that aren't already sending/sent.
+  const { data: claimed, error: claimErr } = await admin
+    .from("social_images")
+    .update({ copost_status: "sending", copost_error: null })
+    .in("id", ids)
+    .not("copost_status", "in", "(sending,sent)")
+    .select("*");
+  if (claimErr) return json({ error: claimErr.message }, 500);
+
+  const claimedIds = new Set((claimed ?? []).map((r) => r.id));
   for (const img of images) {
-    if (img.copost_status === "sent") {
-      results.push({ id: img.id, ok: true });
+    if (!claimedIds.has(img.id)) {
+      if (img.copost_status === "sent") results.push({ id: img.id, ok: true, skipped: "already sent" });
+      else if (img.copost_status === "sending") results.push({ id: img.id, ok: false, skipped: "already in progress" });
+      else results.push({ id: img.id, ok: false, error: "could not claim" });
       continue;
     }
     try {
-      await admin.from("social_images").update({ copost_status: "sending", copost_error: null }).eq("id", img.id);
 
       const { data: signed, error: sErr } = await admin.storage
         .from("social-images")
