@@ -34,6 +34,16 @@ export default function CoPostSettingsCard({ clientProjectId }: { clientProjectI
   const save = async (key: string) => {
     const value = (values[key] ?? "").trim();
     if (!value) { toast.error("Enter a value first"); return; }
+    if (key === "copost_endpoint_url") {
+      try {
+        const u = new URL(value);
+        if (u.protocol !== "https:") { toast.error("URL must use https://"); return; }
+        if (!u.host.endsWith("copost.io")) { toast.error("URL must be on the copost.io domain"); return; }
+      } catch {
+        toast.error("Enter a valid URL (e.g. https://api.copost.io/triggers/…)");
+        return;
+      }
+    }
     setSaving(key);
     try {
       const { data: { session } } = await supabase.auth.getSession();
