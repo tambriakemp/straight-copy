@@ -126,8 +126,8 @@
   position: fixed;
   top: 0; left: 0;
   pointer-events: none;
-  z-index: 9999;
-  transition: transform 0.15s ease;
+  z-index: 99999;
+  will-change: transform;
 }
 
 .custom-cursor-ring {
@@ -137,14 +137,27 @@
   position: fixed;
   top: 0; left: 0;
   pointer-events: none;
-  z-index: 9998;
-  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), width 0.3s, height 0.3s, border-color 0.3s;
+  z-index: 99998;
+  will-change: transform;
+  transition: width 0.3s, height 0.3s, border-color 0.3s;
 }
 
 .custom-cursor-ring.hover {
   width: 56px;
   height: 56px;
   border-color: hsl(var(--accent));
+}
+
+/* When custom cursor is active, hide native cursor everywhere on desktop
+   so buttons/links with their own cursor:pointer don't reveal the OS arrow. */
+@media (min-width: 769px) {
+  html.custom-cursor-active,
+  html.custom-cursor-active body,
+  html.custom-cursor-active *,
+  html.custom-cursor-active *::before,
+  html.custom-cursor-active *::after {
+    cursor: none !important;
+  }
 }
 
 /* Service card hover bottom line */
@@ -170,6 +183,8 @@
   body { cursor: auto; }
   .custom-cursor, .custom-cursor-ring { display: none; }
 }
+
+
 
 /* ============================================================
    CRM ADMIN — Dark editorial theme (scoped under .crm-shell)
