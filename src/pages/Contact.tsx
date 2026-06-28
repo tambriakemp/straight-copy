@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -20,6 +20,12 @@ const Contact = () => {
     message: "",
   });
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    void import("@/lib/metaPixel").then(({ trackMetaEvent }) => {
+      trackMetaEvent("Contact", { content_name: "contact_page" });
+    });
+  }, []);
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -55,6 +61,14 @@ const Contact = () => {
           templateData: { name: form.firstName.trim() },
         },
       }).catch((err) => console.error("Confirmation email error:", err));
+
+      // Fire Meta Lead event (pixel + CAPI)
+      try {
+        const { trackMetaEvent } = await import("@/lib/metaPixel");
+        trackMetaEvent("Lead", { content_name: "contact_form" }, {
+          email: form.email.trim(),
+        });
+      } catch { /* ignore */ }
 
       setSubmitted(true);
     } catch (err: any) {
