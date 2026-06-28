@@ -270,6 +270,10 @@ const Onboarding = () => {
         } catch { /* ignore */ }
       }
       setStage(7);
+      try {
+        const { trackMetaEvent } = await import("@/lib/metaPixel");
+        trackMetaEvent("CompleteRegistration", { content_name: "onboarding" });
+      } catch { /* ignore */ }
       setTimeout(() => setView("summary"), 1200);
     } catch (e) {
       console.error("finalize failed:", e);

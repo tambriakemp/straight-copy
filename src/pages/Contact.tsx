@@ -56,6 +56,14 @@ const Contact = () => {
         },
       }).catch((err) => console.error("Confirmation email error:", err));
 
+      // Fire Meta Lead event (pixel + CAPI)
+      try {
+        const { trackMetaEvent } = await import("@/lib/metaPixel");
+        trackMetaEvent("Lead", { content_name: "contact_form" }, {
+          email: form.email.trim(),
+        });
+      } catch { /* ignore */ }
+
       setSubmitted(true);
     } catch (err: any) {
       console.error("Form submission error:", err);
