@@ -52,12 +52,30 @@ Deno.serve(async (req) => {
   const ua = req.headers.get("user-agent") || undefined;
 
   const user_data: Record<string, unknown> = {};
-  if (body.user_data?.email) user_data.em = [await sha256(body.user_data.email)];
-  if (body.user_data?.phone) {
-    user_data.ph = [await sha256(body.user_data.phone.replace(/\D/g, ""))];
+
+  const rawEmail = body.user_data?.email?.trim().toLowerCase();
+  if (rawEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) && rawEmail.length <= 254) {
+    user_data.em = [await sha256(rawEmail)];
+  } else if (body.user_data?.email) {
+    console.warn("[meta-capi] dropped invalid email", { event: body.event_name });
   }
+
+  const rawPhone = body.user_data?.phone?.replace(/\D/g, "");
+  if (rawPhone && rawPhone.length >= 7 && rawPhone.length <= 15) {
+    user_data.ph = [await sha256(rawPhone)];
+  } else if (body.user_data?.phone) {
+    console.warn("[meta-capi] dropped invalid phone", { event: body.event_name });
+  }
+
   if (ip) user_data.client_ip_address = ip;
   if (ua) user_data.client_user_agent = ua;
+
+  if (!user_data.em && !user_data.ph && !ip && !ua) {
+    console.warn("[meta-capi] event has no user_data — match quality will be low", {
+      event: body.event_name,
+      event_id: body.event_id,
+    });
+  }
 
   const payload: Record<string, unknown> = {
     data: [
