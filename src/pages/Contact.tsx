@@ -76,12 +76,16 @@ const Contact = () => {
         },
       }).catch((err) => console.error("Confirmation email error:", err));
 
-      // Fire Meta Lead event (pixel + CAPI)
+      // Fire Meta Lead event (pixel + CAPI) — shares event_id with the
+      // earlier ClickContactCTA event so Meta dedupes the funnel correctly.
       try {
         const { trackMetaEvent } = await import("@/lib/metaPixel");
-        trackMetaEvent("Lead", { content_name: "contact_form" }, {
-          email: form.email.trim(),
-        });
+        trackMetaEvent(
+          "Lead",
+          { content_name: "contact_form" },
+          { email: form.email.trim() },
+          sharedEventId ?? undefined
+        );
       } catch { /* ignore */ }
 
       setSubmitted(true);
