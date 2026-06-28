@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -20,6 +20,12 @@ const Contact = () => {
     message: "",
   });
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    void import("@/lib/metaPixel").then(({ trackMetaEvent }) => {
+      trackMetaEvent("Contact", { content_name: "contact_page" });
+    });
+  }, []);
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
