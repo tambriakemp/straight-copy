@@ -42,6 +42,19 @@ const Contact = () => {
       return;
     }
 
+    // Fire CTA click event (shared event_id with the eventual Lead event)
+    let sharedEventId = leadEventId;
+    try {
+      const { trackMetaEvent } = await import("@/lib/metaPixel");
+      sharedEventId = trackMetaEvent(
+        "ClickContactCTA",
+        { content_name: "contact_form_submit_click" },
+        { email: form.email.trim() },
+        sharedEventId ?? undefined
+      );
+      setLeadEventId(sharedEventId);
+    } catch { /* ignore */ }
+
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("submit-contact", {
