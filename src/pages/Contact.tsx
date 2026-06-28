@@ -11,6 +11,7 @@ const Contact = () => {
   const { toast } = useToast();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [leadEventId, setLeadEventId] = useState<string | null>(null);
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
