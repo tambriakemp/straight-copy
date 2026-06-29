@@ -13,7 +13,9 @@ export type MetaEventName =
   | "Lead"
   | "CompleteRegistration"
   | "Contact"
-  | "ClickContactCTA";
+  | "ClickContactCTA"
+  | "ViewContent";
+
 
 // ---- Normalization + validation helpers ----
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
