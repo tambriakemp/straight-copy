@@ -1,6 +1,6 @@
 // Meta Pixel + Conversions API helpers
 // Pixel ID is public — safe to ship in client code.
-export const META_PIXEL_ID = "732407937637618";
+export const META_PIXEL_ID = "2501919503580418";
 
 declare global {
   interface Window {
