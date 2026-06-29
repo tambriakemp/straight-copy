@@ -104,7 +104,7 @@ export default function MetaAutoTracker() {
         if (pct >= threshold && !scrollFired.current.has(threshold)) {
           scrollFired.current.add(threshold);
           try {
-            trackMetaEvent("ViewContent", {
+            trackMetaEvent("ViewContent" as MetaEventName, {
               content_type: "scroll_depth",
               content_name: `scroll_${threshold}`,
               value: threshold,
