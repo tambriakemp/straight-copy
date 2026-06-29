@@ -56,7 +56,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <ScrollToTop />
+        <MetaAutoTracker />
         <Suspense fallback={<RouteFallback />}>
+
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/services" element={<Services />} />
