@@ -39,7 +39,7 @@ function classifyCta(el: HTMLAnchorElement | HTMLButtonElement): {
     }
     // File download
     if (/\.(pdf|zip|csv|xlsx?|docx?|pptx?|mp4|mov)(\?|$)/i.test(href)) {
-      return { name: "ViewContent", params: { content_type: "download", content_name: href.split("/").pop() } as Record<string, unknown> };
+      return { name: "ViewContent" as MetaEventName, params: { content_type: "download", content_name: href.split("/").pop() } as Record<string, unknown> };
     }
     // Outbound link
     try {
