@@ -39,13 +39,13 @@ function classifyCta(el: HTMLAnchorElement | HTMLButtonElement): {
     }
     // File download
     if (/\.(pdf|zip|csv|xlsx?|docx?|pptx?|mp4|mov)(\?|$)/i.test(href)) {
-      return { name: "ViewContent", params: { content_type: "download", content_name: href.split("/").pop() } as Record<string, unknown> };
+      return { name: "ViewContent" as MetaEventName, params: { content_type: "download", content_name: href.split("/").pop() } as Record<string, unknown> };
     }
     // Outbound link
     try {
       const url = new URL(href, window.location.href);
       if (url.origin !== window.location.origin && /^https?:$/.test(url.protocol)) {
-        return { name: "ViewContent", params: { content_type: "outbound", content_name: url.hostname + url.pathname } };
+        return { name: "ViewContent" as MetaEventName, params: { content_type: "outbound", content_name: url.hostname + url.pathname } };
       }
     } catch { /* ignore */ }
     return null;
@@ -104,7 +104,7 @@ export default function MetaAutoTracker() {
         if (pct >= threshold && !scrollFired.current.has(threshold)) {
           scrollFired.current.add(threshold);
           try {
-            trackMetaEvent("ViewContent", {
+            trackMetaEvent("ViewContent" as MetaEventName, {
               content_type: "scroll_depth",
               content_name: `scroll_${threshold}`,
               value: threshold,

@@ -17,6 +17,7 @@ export type MetaEventName =
   | "ViewContent";
 
 
+
 // ---- Normalization + validation helpers ----
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
