@@ -272,7 +272,12 @@ const Onboarding = () => {
       setStage(7);
       try {
         const { trackMetaEvent } = await import("@/lib/metaPixel");
-        trackMetaEvent("CompleteRegistration", { content_name: "onboarding" });
+        const s = data?.summary ?? {};
+        trackMetaEvent(
+          "CompleteRegistration",
+          { content_name: "onboarding" },
+          { email: s.contact_email, phone: s.contact_phone }
+        );
       } catch { /* ignore */ }
       setTimeout(() => setView("summary"), 1200);
     } catch (e) {
