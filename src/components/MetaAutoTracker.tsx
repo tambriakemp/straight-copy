@@ -45,7 +45,7 @@ function classifyCta(el: HTMLAnchorElement | HTMLButtonElement): {
     try {
       const url = new URL(href, window.location.href);
       if (url.origin !== window.location.origin && /^https?:$/.test(url.protocol)) {
-        return { name: "ViewContent", params: { content_type: "outbound", content_name: url.hostname + url.pathname } };
+        return { name: "ViewContent" as MetaEventName, params: { content_type: "outbound", content_name: url.hostname + url.pathname } };
       }
     } catch { /* ignore */ }
     return null;
