@@ -305,6 +305,11 @@ export default function ProjectInvoicesCard({
                           <ExternalLink size={12} /> Pay link
                         </button>
                       )}
+                      <button className="crm-btn crm-btn--ghost crm-btn--sm"
+                        onClick={() => openEmailDialog(inv)} disabled={busy === inv.id}
+                        title="Email payment link">
+                        <Mail size={12} /> Email
+                      </button>
                       <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => voidInvoice(inv)} disabled={busy === inv.id}>
                         <Ban size={12} /> Void
                       </button>
