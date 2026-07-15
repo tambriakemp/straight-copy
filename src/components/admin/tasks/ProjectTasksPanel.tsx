@@ -1180,9 +1180,18 @@ const TASK_PANEL_STYLE = `
 
 @media (max-width: 767px) {
   .tp-grid2 { grid-template-columns: 1fr; }
-  .tp-header, .tp-body { padding-left: 22px; padding-right: 22px; }
-  .tp-hero-title { font-size: 30px; }
+  .tp-header { padding: 16px 16px 14px; }
+  .tp-body { padding: 20px 16px 80px; }
+  .tp-hero-title { font-size: 26px; }
+  .tp-h-top { flex-wrap: wrap; gap: 10px; }
+  .tp-eyebrow { flex: 1 1 100%; }
+  .tp-statuschip { display: none; }
+  .tp-actions { margin-left: auto; }
+  .tp-mobile-only { display: block; }
+  .tp-desktop-only { display: none !important; }
+  .tp-textarea { min-height: 240px; }
 }
+.tp-mobile-only { display: none; }
 `;
 
 const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
