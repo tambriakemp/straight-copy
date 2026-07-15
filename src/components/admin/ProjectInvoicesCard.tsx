@@ -72,6 +72,53 @@ export default function ProjectInvoicesCard({
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [clientId, clientProjectId]);
 
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const { data } = await supabase
+        .from("client_contacts")
+        .select("id, name, email, is_primary")
+        .eq("client_id", clientId)
+        .order("is_primary", { ascending: false });
+      if (!cancel) setContacts((data ?? []).filter(c => !!c.email));
+    })();
+    return () => { cancel = true; };
+  }, [clientId]);
+
+  const openEmailDialog = (inv: Invoice) => {
+    const preselect = new Set<string>();
+    if (contacts[0]) preselect.add(contacts[0].id);
+    setEmailDialog({ invoice: inv, selected: preselect, extra: "" });
+  };
+
+  const sendEmailLink = async () => {
+    if (!emailDialog) return;
+    const extras = emailDialog.extra
+      .split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+    const invalid = extras.filter(e => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+    if (invalid.length) { toast.error(`Invalid email: ${invalid[0]}`); return; }
+    if (emailDialog.selected.size === 0 && extras.length === 0) {
+      toast.error("Pick at least one recipient"); return;
+    }
+    setSending(true);
+    const t = toast.loading("Sending payment link…");
+    try {
+      const r = await callFn({
+        action: "email-payment-link",
+        clientId,
+        invoiceId: emailDialog.invoice.id,
+        contactIds: Array.from(emailDialog.selected),
+        additionalEmails: extras,
+      });
+      const failed = (r.results ?? []).filter((x: { ok: boolean }) => !x.ok);
+      if (failed.length && r.sent === 0) throw new Error(failed[0].error || "Send failed");
+      toast.success(`Sent to ${r.sent} recipient${r.sent === 1 ? "" : "s"}${failed.length ? ` · ${failed.length} failed` : ""}`, { id: t });
+      setEmailDialog(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Send failed", { id: t });
+    } finally { setSending(false); }
+  };
+
   const beginEdit = () => {
     if (invoices.length === 0) {
       // Default 3x$5000 prefill
