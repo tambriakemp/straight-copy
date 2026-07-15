@@ -4,6 +4,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useWikiRole } from "@/hooks/useWikiRole";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   WIKI_DEPARTMENTS, WIKI_DOC_TYPES, WIKI_STATUSES, WIKI_ACCESS,
   WikiDocument, slugify, isStale, fmtDate,
