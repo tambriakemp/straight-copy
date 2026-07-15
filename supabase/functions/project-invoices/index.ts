@@ -58,13 +58,21 @@ const Schemas = z.discriminatedUnion("action", [
     dueDate: z.string().nullable().optional(),
   }),
   z.object({ action: z.literal("payment-link"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
+  z.object({
+    action: z.literal("email-payment-link"),
+    clientId: z.string().uuid(),
+    invoiceId: z.string().uuid(),
+    contactIds: z.array(z.string().uuid()).default([]),
+    additionalEmails: z.array(z.string().email()).default([]),
+    message: z.string().max(2000).optional(),
+  }),
   z.object({ action: z.literal("void"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
   z.object({ action: z.literal("delete"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
   z.object({ action: z.literal("portal-active"), clientId: z.string().uuid() }),
   z.object({ action: z.literal("portal-schedule"), clientId: z.string().uuid() }),
 ]);
 
-const ADMIN_ONLY = new Set(["list", "schedule", "send", "payment-link", "void", "delete"]);
+const ADMIN_ONLY = new Set(["list", "schedule", "send", "payment-link", "email-payment-link", "void", "delete"]);
 
 const checkoutIdFrom = (checkout: unknown) =>
   typeof checkout === "string" ? checkout :
