@@ -1049,7 +1049,7 @@ const TASK_PANEL_STYLE = `
 .tp-input:focus, .tp-select:focus, .tp-textarea:focus { border-color: var(--tp-accent); background: hsl(40 8% 8%); }
 .tp-input::placeholder, .tp-textarea::placeholder { color: var(--tp-taupe); font-style: italic;
   font-family: var(--tp-serif); font-size:15px; }
-.tp-textarea { padding:14px 16px; min-height:96px; line-height:1.7; resize: vertical; }
+.tp-textarea { padding:14px 16px; min-height:280px; line-height:1.7; resize: vertical; }
 .tp-select { appearance:none; cursor:pointer; padding-right:38px;
   background-image: linear-gradient(45deg, transparent 50%, var(--tp-stone) 50%),
                     linear-gradient(135deg, var(--tp-stone) 50%, transparent 50%);
