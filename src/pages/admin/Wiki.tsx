@@ -102,16 +102,16 @@ export function WikiList() {
 
   return (
     <AdminLayout>
-      <div style={pageScroll}><div style={page}>
+      <div style={pageScroll}><div style={isMobile ? { ...page, padding: "24px 16px 80px" } : page}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24 }}>
           <div>
             <p style={eyebrow}>Knowledge Base</p>
-            <h1 style={title}>Internal <em style={titleEm}>wiki</em></h1>
+            <h1 style={isMobile ? { ...title, fontSize: 38 } : title}>Internal <em style={titleEm}>wiki</em></h1>
             <hr style={rule} />
             <p style={sub}>SOPs, vendor notes, client resources — everything operational, in one searchable place.</p>
           </div>
           {isFounder && (
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <Link to="/admin/wiki/admin/users" style={{ ...btn, textDecoration: "none" }}><Users size={14} /> Users</Link>
               <Link to="/admin/wiki/admin/export" style={{ ...btn, textDecoration: "none" }}><Download size={14} /> Export</Link>
               <Link to="/admin/wiki/new" style={{ ...btnAccent, textDecoration: "none" }}><Plus size={14} /> New document</Link>
@@ -120,45 +120,51 @@ export function WikiList() {
         </div>
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "44px 0 28px" }}>
-          <div style={{ position: "relative", flex: 1, minWidth: 260 }}>
+          <div style={{ position: "relative", flex: 1, minWidth: isMobile ? "100%" : 260 }}>
             <Search size={14} style={{ position: "absolute", left: 12, top: 13, color: TAUPE }} />
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search title, content, tags…"
               style={{ ...input, paddingLeft: 36 }} />
           </div>
-          <select value={dept} onChange={e => setDept(e.target.value)} style={{ ...select, maxWidth: 220 }}>
+          <select value={dept} onChange={e => setDept(e.target.value)} style={{ ...select, maxWidth: isMobile ? "100%" : 220, flex: isMobile ? "1 1 100%" : undefined }}>
             <option value="">All departments</option>
             {WIKI_DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
-          <select value={type} onChange={e => setType(e.target.value)} style={{ ...select, maxWidth: 180 }}>
+          <select value={type} onChange={e => setType(e.target.value)} style={{ ...select, maxWidth: isMobile ? "100%" : 180, flex: isMobile ? "1 1 100%" : undefined }}>
             <option value="">All types</option>
             {WIKI_DOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-          <select value={status} onChange={e => setStatus(e.target.value)} style={{ ...select, maxWidth: 160 }}>
+          <select value={status} onChange={e => setStatus(e.target.value)} style={{ ...select, maxWidth: isMobile ? "100%" : 160, flex: isMobile ? "1 1 100%" : undefined }}>
             <option value="">All statuses</option>
             {WIKI_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
 
         <div style={{ border: `1px solid ${BORDER}`, background: CHARCOAL }}>
-          <div style={{
-            display: "grid", gridTemplateColumns: "1fr 180px 140px 110px 140px",
-            gap: 16, padding: "14px 24px", borderBottom: `1px solid ${BORDER}`,
-            fontSize: 12, letterSpacing: "0.25em", textTransform: "uppercase", color: STONE,
-          }}>
-            <div>Title</div><div>Department</div><div>Type</div><div>Status</div><div>Updated</div>
-          </div>
+          {!isMobile && (
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 180px 140px 110px 140px",
+              gap: 16, padding: "14px 24px", borderBottom: `1px solid ${BORDER}`,
+              fontSize: 12, letterSpacing: "0.25em", textTransform: "uppercase", color: STONE,
+            }}>
+              <div>Title</div><div>Department</div><div>Type</div><div>Status</div><div>Updated</div>
+            </div>
+          )}
           {!loaded ? <div style={{ padding: 32, color: TAUPE }}>Loading…</div> :
            filtered.length === 0 ? <div style={{ padding: 48, textAlign: "center", color: TAUPE, fontStyle: "italic" }}>No documents yet.</div> :
            filtered.map(d => (
             <div key={d.id} onClick={() => nav(`/admin/wiki/${d.slug}`)} style={{
-              display: "grid", gridTemplateColumns: "1fr 180px 140px 110px 140px",
-              gap: 16, padding: "18px 24px", borderBottom: `1px solid ${BORDER}`, cursor: "pointer",
-              alignItems: "center", transition: "background 0.2s",
+              display: isMobile ? "flex" : "grid",
+              flexDirection: isMobile ? "column" : undefined,
+              gridTemplateColumns: isMobile ? undefined : "1fr 180px 140px 110px 140px",
+              gap: isMobile ? 8 : 16,
+              padding: isMobile ? "16px 18px" : "18px 24px",
+              borderBottom: `1px solid ${BORDER}`, cursor: "pointer",
+              alignItems: isMobile ? "flex-start" : "center", transition: "background 0.2s",
             }}
               onMouseEnter={e => (e.currentTarget.style.background = "hsl(36 5% 18%)")}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
               <div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 300, color: CREAM, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: isMobile ? 20 : 22, fontWeight: 300, color: CREAM, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   {d.title}
                   {isStale(d.last_reviewed_at) && <span title="Not reviewed in 6+ months" style={{ color: "hsl(8 55% 70%)", fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase" }}>· stale</span>}
                   {d.access_level === "Founder Only" && <span title="Founder Only" style={{ color: ACCENT, fontSize: 12 }}>● founder</span>}
