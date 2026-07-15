@@ -2012,3 +2012,136 @@
   .crm-invoice-edit-row > :nth-child(4) { grid-area: date; }
   .crm-invoice-edit-row > :nth-child(5) { grid-area: trash; }
 }
+
+/* ============================================================
+   Mobile-native lock + shell
+   ============================================================ */
+html, body {
+  overscroll-behavior: none;
+  overscroll-behavior-x: none;
+}
+body {
+  width: 100%;
+  overflow-x: hidden;
+  touch-action: pan-y;
+}
+#root {
+  overflow-x: hidden;
+}
+
+:root {
+  --mobile-tabbar-height: 62px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+/* Prevent iOS text-size adjustment on landscape orientation */
+html { -webkit-text-size-adjust: 100%; }
+
+/* Hide desktop admin topnav on small screens */
+@media (max-width: 767px) {
+  .topnav { display: none !important; }
+  .crm-page { padding-left: 16px !important; padding-right: 16px !important; }
+
+  /* Reserve space for the fixed mobile bottom tab bar */
+  .crm-shell {
+    padding-bottom: calc(var(--mobile-tabbar-height) + var(--safe-bottom));
+  }
+
+  /* Roster (client list) — larger tap targets */
+  .roster { padding: 0 !important; }
+  .roster__ghost { display: none !important; }
+  .roster__title { font-size: 42px !important; line-height: 1.05 !important; }
+  .roster__head { padding-top: 12px !important; }
+  .roster__toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .roster__actions { justify-content: flex-start; flex-wrap: wrap; }
+
+  /* Any element that wants to become a bottom sheet on mobile */
+  [data-mobile-bottom-sheet="true"] {
+    right: 0 !important;
+    left: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 92dvh !important;
+    max-height: 92dvh !important;
+    border-top-left-radius: 20px !important;
+    border-top-right-radius: 20px !important;
+    animation: sheetUp 240ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+  }
+}
+
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Mobile top bar */
+.m-topbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 8px;
+  height: calc(52px + var(--safe-top));
+  padding: var(--safe-top) 12px 0 12px;
+  background: var(--crm-ink, hsl(36 5% 12%));
+  border-bottom: 1px solid var(--crm-border-dark, hsl(40 20% 97% / 0.08));
+  color: var(--crm-warm-white, hsl(40 20% 97%));
+}
+.m-topbar__title {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1;
+  margin: 0;
+  flex: 1;
+  text-align: center;
+  color: var(--crm-warm-white, hsl(40 20% 97%));
+}
+.m-topbar__btn {
+  min-width: 40px; height: 40px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 0;
+  color: var(--crm-warm-white, hsl(40 20% 97%));
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.m-topbar__btn:active { background: hsl(40 20% 97% / 0.08); }
+
+/* Mobile bottom tab bar */
+.m-tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  height: calc(var(--mobile-tabbar-height) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: var(--crm-ink, hsl(36 5% 10%));
+  border-top: 1px solid var(--crm-border-dark, hsl(40 20% 97% / 0.10));
+  backdrop-filter: saturate(140%) blur(12px);
+}
+.m-tabbar__item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px;
+  color: var(--crm-taupe, hsl(30 8% 62%));
+  font-family: 'Karla', sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-decoration: none;
+  background: transparent; border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.m-tabbar__item svg { width: 20px; height: 20px; }
+.m-tabbar__item--active {
+  color: var(--crm-warm-white, hsl(40 20% 97%));
+}
+.m-tabbar__item--active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 28px; height: 2px;
+  background: var(--crm-accent, hsl(30 25% 55%));
+  border-radius: 0 0 2px 2px;
+}
+.m-tabbar__item { position: relative; }
