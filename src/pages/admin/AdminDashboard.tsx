@@ -236,7 +236,7 @@ export default function Dashboard() {
           </div>
 
           {/* Activity feed */}
-          <div style={{ position: "sticky", top: 16, alignSelf: "start", minWidth: 0 }}>
+          <div style={{ position: isMobile ? "static" : "sticky", top: 16, alignSelf: "start", minWidth: 0 }}>
             <Section title="Activity">
               <div style={{ maxHeight: "calc(100vh - 180px)", overflowY: "auto" }}>
                 {loading ? <Empty>Loading…</Empty> : !data?.activity.length ? <Empty>No activity yet.</Empty> : (
