@@ -58,13 +58,21 @@ const Schemas = z.discriminatedUnion("action", [
     dueDate: z.string().nullable().optional(),
   }),
   z.object({ action: z.literal("payment-link"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
+  z.object({
+    action: z.literal("email-payment-link"),
+    clientId: z.string().uuid(),
+    invoiceId: z.string().uuid(),
+    contactIds: z.array(z.string().uuid()).default([]),
+    additionalEmails: z.array(z.string().email()).default([]),
+    message: z.string().max(2000).optional(),
+  }),
   z.object({ action: z.literal("void"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
   z.object({ action: z.literal("delete"), clientId: z.string().uuid(), invoiceId: z.string().uuid() }),
   z.object({ action: z.literal("portal-active"), clientId: z.string().uuid() }),
   z.object({ action: z.literal("portal-schedule"), clientId: z.string().uuid() }),
 ]);
 
-const ADMIN_ONLY = new Set(["list", "schedule", "send", "payment-link", "void", "delete"]);
+const ADMIN_ONLY = new Set(["list", "schedule", "send", "payment-link", "email-payment-link", "void", "delete"]);
 
 const checkoutIdFrom = (checkout: unknown) =>
   typeof checkout === "string" ? checkout :
@@ -331,6 +339,91 @@ Deno.serve(async (req) => {
       }).eq("id", row.id);
       if (upErr) throw upErr;
       return respond({ checkoutUrl: payUrl, invoiceId: payableInvoice.id || row.surecart_invoice_id });
+    }
+
+    if (input.action === "email-payment-link") {
+      const { data: row, error } = await supabase.from("project_invoices").select(COLS)
+        .eq("id", input.invoiceId).eq("client_id", input.clientId).maybeSingle();
+      if (error) throw error;
+      if (!row) return respond({ error: "Invoice not found" }, 404);
+
+      // Ensure we have a payable link — open the draft invoice if needed.
+      let payUrl = row.checkout_url as string | null;
+      if (row.surecart_invoice_id) {
+        try {
+          const current = await surecart(`/invoices/${row.surecart_invoice_id}`, { method: "GET" });
+          const usable = current.status === "draft"
+            ? await surecart(`/invoices/${row.surecart_invoice_id}/open`, { method: "PATCH" })
+            : current;
+          payUrl = usable.portal_url || payUrl;
+          if (payUrl && payUrl !== row.checkout_url) {
+            await supabase.from("project_invoices").update({ checkout_url: payUrl }).eq("id", row.id);
+          }
+        } catch (e) {
+          console.warn("[email-payment-link] refresh failed:", e);
+        }
+      }
+      if (!payUrl) return respond({ error: "No payment link available for this invoice yet. Send it first." }, 400);
+
+      // Collect recipient list: selected contacts + free-form additional emails.
+      const emailToName = new Map<string, string | null>();
+      if (input.contactIds.length) {
+        const { data: contacts } = await supabase
+          .from("client_contacts")
+          .select("id, email, name")
+          .eq("client_id", input.clientId)
+          .in("id", input.contactIds);
+        for (const c of contacts ?? []) {
+          const e = (c.email || "").trim().toLowerCase();
+          if (e) emailToName.set(e, c.name || null);
+        }
+      }
+      for (const raw of input.additionalEmails) {
+        const e = (raw || "").trim().toLowerCase();
+        if (e && !emailToName.has(e)) emailToName.set(e, null);
+      }
+      if (emailToName.size === 0) return respond({ error: "No recipients selected" }, 400);
+
+      const { data: proj } = await supabase.from("client_projects")
+        .select("name").eq("id", row.client_project_id).maybeSingle();
+      const projectName = proj?.name || "your project";
+
+      const amountFormatted = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: (row.currency || "usd").toUpperCase(),
+      }).format(row.amount_cents / 100);
+      const dueDateFormatted = row.due_date
+        ? new Date(String(row.due_date).length <= 10 ? row.due_date + "T12:00:00" : row.due_date)
+            .toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+        : null;
+
+      const results: { email: string; ok: boolean; error?: string }[] = [];
+      for (const [email, name] of emailToName) {
+        try {
+          const { error: sendErr } = await supabase.functions.invoke("send-transactional-email", {
+            body: {
+              templateName: "invoice-payment-link",
+              recipientEmail: email,
+              idempotencyKey: `invoice-paylink-${row.id}-${email}-${Date.now()}`,
+              templateData: {
+                recipientName: name,
+                projectName,
+                invoiceLabel: row.label,
+                amountFormatted,
+                dueDateFormatted,
+                payUrl,
+                fromName: "CRE8 Visions",
+              },
+            },
+          });
+          if (sendErr) throw sendErr;
+          results.push({ email, ok: true });
+        } catch (e) {
+          results.push({ email, ok: false, error: e instanceof Error ? e.message : "send failed" });
+        }
+      }
+      const okCount = results.filter(r => r.ok).length;
+      return respond({ success: okCount > 0, sent: okCount, results, payUrl });
     }
 
     if (input.action === "void") {
