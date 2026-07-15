@@ -7,8 +7,9 @@ import { seedWebDevTasks } from '../_shared/web-dev-tasks.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-surecart-signature',
+    'authorization, x-client-info, apikey, content-type, x-webhook-signature, x-webhook-timestamp, x-surecart-signature',
 }
+
 
 // Map SureCart product IDs → tier. Edit these to match your SureCart products.
 // Anything not listed defaults to "launch".
