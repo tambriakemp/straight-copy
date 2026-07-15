@@ -49,7 +49,8 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const [epics, setEpics] = useState<Epic[]>([]);
   const [projectLookup, setProjectLookup] = useState<ProjectLookup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<ViewMode>("kanban");
+  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+  const [view, setView] = useState<ViewMode>(isMobile ? "list" : "kanban");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [epicsOpen, setEpicsOpen] = useState(false);
