@@ -94,6 +94,7 @@ const money = (cents: number) =>
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
 
