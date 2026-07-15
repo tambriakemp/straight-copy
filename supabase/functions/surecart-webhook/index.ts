@@ -136,10 +136,13 @@ Deno.serve(async (req) => {
 
   const rawBody = await req.text()
   const signature =
+    req.headers.get('x-webhook-signature') ||
     req.headers.get('x-surecart-signature') ||
     req.headers.get('surecart-signature')
+  const timestamp = req.headers.get('x-webhook-timestamp')
 
-  const valid = await verifySignature(rawBody, signature, webhookSecret)
+  const valid = await verifySignature(rawBody, signature, timestamp, webhookSecret)
+
   if (!valid) {
     console.warn('Invalid SureCart signature')
     return new Response(JSON.stringify({ error: 'invalid_signature' }), {
