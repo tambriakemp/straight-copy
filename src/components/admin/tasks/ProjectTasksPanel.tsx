@@ -1049,7 +1049,7 @@ const TASK_PANEL_STYLE = `
 .tp-input:focus, .tp-select:focus, .tp-textarea:focus { border-color: var(--tp-accent); background: hsl(40 8% 8%); }
 .tp-input::placeholder, .tp-textarea::placeholder { color: var(--tp-taupe); font-style: italic;
   font-family: var(--tp-serif); font-size:15px; }
-.tp-textarea { padding:14px 16px; min-height:96px; line-height:1.7; resize: vertical; }
+.tp-textarea { padding:14px 16px; min-height:280px; line-height:1.7; resize: vertical; }
 .tp-select { appearance:none; cursor:pointer; padding-right:38px;
   background-image: linear-gradient(45deg, transparent 50%, var(--tp-stone) 50%),
                     linear-gradient(135deg, var(--tp-stone) 50%, transparent 50%);
@@ -1180,9 +1180,18 @@ const TASK_PANEL_STYLE = `
 
 @media (max-width: 767px) {
   .tp-grid2 { grid-template-columns: 1fr; }
-  .tp-header, .tp-body { padding-left: 22px; padding-right: 22px; }
-  .tp-hero-title { font-size: 30px; }
+  .tp-header { padding: 16px 16px 14px; }
+  .tp-body { padding: 20px 16px 80px; }
+  .tp-hero-title { font-size: 26px; }
+  .tp-h-top { flex-wrap: wrap; gap: 10px; }
+  .tp-eyebrow { flex: 1 1 100%; }
+  .tp-statuschip { display: none; }
+  .tp-actions { margin-left: auto; }
+  .tp-mobile-only { display: block; }
+  .tp-desktop-only { display: none !important; }
+  .tp-textarea { min-height: 240px; }
 }
+.tp-mobile-only { display: none; }
 `;
 
 const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
@@ -1362,7 +1371,16 @@ function TaskDetailSheet({
               <div className="tp-grid2">
                 <div className="tp-field tp-field--full">
                   <span className="tp-label">Status</span>
-                  <div className="tp-seg">
+                  <select
+                    className="tp-select tp-mobile-only"
+                    value={draft.status}
+                    onChange={(e) => { const s = e.target.value as TaskStatus; setDraft({ ...draft, status: s }); save({ status: s }); }}
+                  >
+                    {TASK_STATUSES.map((s) => (
+                      <option key={s} value={s}>{TASK_STATUS_LABEL[s]}</option>
+                    ))}
+                  </select>
+                  <div className="tp-seg tp-desktop-only">
                     {TASK_STATUSES.map((s) => {
                       const on = draft.status === s;
                       const tone = on ? TASK_STATUS_TONE[s] ?? "" : "";
