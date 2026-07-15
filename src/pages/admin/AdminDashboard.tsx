@@ -154,13 +154,13 @@ export default function Dashboard() {
         </div>
 
         {/* Revenue */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 24 }}>
           <RevenueCard label="Paid (last 30d)" amount={data?.revenue.paid_30d_cents ?? 0} loading={loading} />
           <RevenueCard label="Outstanding" amount={data?.revenue.outstanding_cents ?? 0} tone="warn" loading={loading} />
         </div>
 
         {/* Main two-column: left = upcoming + queues + recent. right = activity */}
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(280px, 1fr)", gap: 24, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.6fr) minmax(280px, 1fr)", gap: 24, alignItems: "start" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
             <Section title="Upcoming & overdue tasks" actionLabel="View all" onAction={() => navigate("/admin/tasks")}>
               {loading ? <Empty>Loading…</Empty> : !data?.upcoming.length ? <Empty>Nothing due in the next two weeks.</Empty> : (
