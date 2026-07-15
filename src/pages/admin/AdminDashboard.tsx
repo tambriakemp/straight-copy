@@ -187,7 +187,7 @@ export default function Dashboard() {
               )}
             </Section>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 24 }}>
               <Section title="Pending proposals">
                 {loading ? <Empty>Loading…</Empty> : !data?.pending_proposals.length ? <Empty>None awaiting signature.</Empty> : (
                   <div>
