@@ -1371,7 +1371,16 @@ function TaskDetailSheet({
               <div className="tp-grid2">
                 <div className="tp-field tp-field--full">
                   <span className="tp-label">Status</span>
-                  <div className="tp-seg">
+                  <select
+                    className="tp-select tp-mobile-only"
+                    value={draft.status}
+                    onChange={(e) => { const s = e.target.value as TaskStatus; setDraft({ ...draft, status: s }); save({ status: s }); }}
+                  >
+                    {TASK_STATUSES.map((s) => (
+                      <option key={s} value={s}>{TASK_STATUS_LABEL[s]}</option>
+                    ))}
+                  </select>
+                  <div className="tp-seg tp-desktop-only">
                     {TASK_STATUSES.map((s) => {
                       const on = draft.status === s;
                       const tone = on ? TASK_STATUS_TONE[s] ?? "" : "";
