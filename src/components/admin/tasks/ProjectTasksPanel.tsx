@@ -1291,7 +1291,8 @@ function TaskDetailSheet({
     <Sheet open onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side="right"
-        className="p-0 border-0 bg-transparent w-full sm:max-w-[720px] shadow-[-40px_0_120px_-30px_hsl(40_8%_4%/0.7)]"
+        data-mobile-bottom-sheet="true"
+        className="p-0 border-0 bg-transparent w-full sm:max-w-[720px] shadow-[-40px_0_120px_-30px_hsl(40_8%_4%/0.7)] overflow-y-auto"
       >
         <style>{TASK_PANEL_STYLE}</style>
         <SheetHeader className="sr-only">
