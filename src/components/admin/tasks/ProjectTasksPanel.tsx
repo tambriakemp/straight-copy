@@ -242,7 +242,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
 
         {aggregated && (
           <Select value={filterClient} onValueChange={setFilterClient}>
-            <SelectTrigger className="w-[220px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+            <SelectTrigger className="w-full md:w-[220px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
               <SelectValue placeholder="Client" />
             </SelectTrigger>
             <SelectContent className={taskSelectContentClass}>
@@ -260,7 +260,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         )}
 
         <Select value={filterEpic} onValueChange={setFilterEpic}>
-          <SelectTrigger className="w-[180px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+          <SelectTrigger className="w-full md:w-[180px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
             <SelectValue placeholder="Epic" />
           </SelectTrigger>
           <SelectContent className={taskSelectContentClass}>
@@ -271,7 +271,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         </Select>
 
         <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-          <SelectTrigger className="w-[160px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+          <SelectTrigger className="w-[calc(50%-5px)] md:w-[160px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
             <SelectValue placeholder="Assignee" />
           </SelectTrigger>
           <SelectContent className={taskSelectContentClass}>
@@ -281,7 +281,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         </Select>
 
         <Select value={filterTag} onValueChange={setFilterTag}>
-          <SelectTrigger className="w-[160px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+          <SelectTrigger className="w-[calc(50%-5px)] md:w-[160px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
             <SelectValue placeholder="Tag" />
           </SelectTrigger>
           <SelectContent className={taskSelectContentClass}>
