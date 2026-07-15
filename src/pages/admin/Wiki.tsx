@@ -432,15 +432,15 @@ export function WikiDetail() {
 
   return (
     <AdminLayout>
-      <div style={pageScroll}><div style={page}>
+      <div style={pageScroll}><div style={isMobile ? { ...page, padding: "24px 16px 80px" } : page}>
         <Link to="/admin/wiki" style={{ ...btn, textDecoration: "none", marginBottom: 24 }}>
           <ArrowLeft size={14} /> Knowledge Base
         </Link>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 48, marginTop: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 280px", gap: isMobile ? 24 : 48, marginTop: 16 }}>
           <div>
             <p style={eyebrow}>{doc.department} · {doc.doc_type}</p>
-            <h1 style={title}>{doc.title}</h1>
+            <h1 style={isMobile ? { ...title, fontSize: 36 } : title}>{doc.title}</h1>
             <hr style={rule} />
             <div style={{ marginTop: 32 }} className="wiki-prose-render">
               <div dangerouslySetInnerHTML={{ __html: doc.content }} />
