@@ -125,7 +125,7 @@ export default function Dashboard() {
               <DialogTrigger asChild>
                 <button className="crm-btn crm-btn--primary">+ New Client</button>
               </DialogTrigger>
-              <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md">
+              <DialogContent data-mobile-bottom-sheet="true" className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">New client</DialogTitle>
                 </DialogHeader>
