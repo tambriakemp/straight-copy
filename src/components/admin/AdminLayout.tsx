@@ -1,10 +1,14 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
+import MobileTabBar from "./MobileTabBar";
+import MobileTopBar from "./MobileTopBar";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  const { signOut, user } = useAdminAuth();
+  const { signOut } = useAdminAuth();
   const loc = useLocation();
+  const isMobile = useIsMobile();
 
   const nav = [
     { to: "/admin", label: "◆ Dashboard", exact: true },
@@ -18,6 +22,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const isActive = (to: string, exact?: boolean) =>
     exact ? loc.pathname === to : loc.pathname.startsWith(to);
+
+  if (isMobile) {
+    return (
+      <div className="crm-shell">
+        <MobileTopBar />
+        <div className="crm-page">{children}</div>
+        <MobileTabBar />
+      </div>
+    );
+  }
 
   return (
     <div className="crm-shell">

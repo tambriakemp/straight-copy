@@ -49,7 +49,8 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const [epics, setEpics] = useState<Epic[]>([]);
   const [projectLookup, setProjectLookup] = useState<ProjectLookup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<ViewMode>("kanban");
+  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+  const [view, setView] = useState<ViewMode>(isMobile ? "list" : "kanban");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [epicsOpen, setEpicsOpen] = useState(false);
@@ -227,7 +228,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     <div className="text-warm-white">
       {/* Toolbar */}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "inline-flex", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 6, overflow: "hidden" }}>
+        <div className="hidden md:inline-flex" style={{ border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 6, overflow: "hidden" }}>
           <button onClick={() => setView("kanban")} style={tabBtnStyle(view === "kanban")}>
             <LayoutGrid size={14} style={{ marginRight: 6 }} /> Kanban
           </button>
@@ -241,7 +242,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
 
         {aggregated && (
           <Select value={filterClient} onValueChange={setFilterClient}>
-            <SelectTrigger className="w-[220px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+            <SelectTrigger className="w-full md:w-[220px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
               <SelectValue placeholder="Client" />
             </SelectTrigger>
             <SelectContent className={taskSelectContentClass}>
@@ -259,7 +260,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         )}
 
         <Select value={filterEpic} onValueChange={setFilterEpic}>
-          <SelectTrigger className="w-[180px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+          <SelectTrigger className="w-full md:w-[180px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
             <SelectValue placeholder="Epic" />
           </SelectTrigger>
           <SelectContent className={taskSelectContentClass}>
@@ -270,7 +271,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         </Select>
 
         <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-          <SelectTrigger className="w-[160px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+          <SelectTrigger className="w-[calc(50%-5px)] md:w-[160px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
             <SelectValue placeholder="Assignee" />
           </SelectTrigger>
           <SelectContent className={taskSelectContentClass}>
@@ -280,7 +281,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         </Select>
 
         <Select value={filterTag} onValueChange={setFilterTag}>
-          <SelectTrigger className="w-[160px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
+          <SelectTrigger className="w-[calc(50%-5px)] md:w-[160px] bg-transparent border-warm-white/20 !text-warm-white [&_*]:!text-warm-white">
             <SelectValue placeholder="Tag" />
           </SelectTrigger>
           <SelectContent className={taskSelectContentClass}>
@@ -1290,7 +1291,8 @@ function TaskDetailSheet({
     <Sheet open onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side="right"
-        className="p-0 border-0 bg-transparent w-full sm:max-w-[720px] shadow-[-40px_0_120px_-30px_hsl(40_8%_4%/0.7)]"
+        data-mobile-bottom-sheet="true"
+        className="p-0 border-0 bg-transparent w-full sm:max-w-[720px] shadow-[-40px_0_120px_-30px_hsl(40_8%_4%/0.7)] overflow-y-auto"
       >
         <style>{TASK_PANEL_STYLE}</style>
         <SheetHeader className="sr-only">
