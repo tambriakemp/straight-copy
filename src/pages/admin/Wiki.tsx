@@ -400,6 +400,7 @@ export function WikiEdit({ mode }: { mode: "new" | "edit" }) {
 export function WikiDetail() {
   const { slug } = useParams();
   const nav = useNavigate();
+  const isMobile = useIsMobile();
   const { isFounder, hasAccess, loading } = useWikiRole();
   const [doc, setDoc] = useState<WikiDocument | null>(null);
   const [loadingDoc, setLoadingDoc] = useState(true);
