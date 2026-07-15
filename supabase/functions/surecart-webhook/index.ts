@@ -7,8 +7,9 @@ import { seedWebDevTasks } from '../_shared/web-dev-tasks.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-surecart-signature',
+    'authorization, x-client-info, apikey, content-type, x-webhook-signature, x-webhook-timestamp, x-surecart-signature',
 }
+
 
 // Map SureCart product IDs → tier. Edit these to match your SureCart products.
 // Anything not listed defaults to "launch".
@@ -45,13 +46,7 @@ function firstSubscriptionFromOrder(data: any): string {
   return ''
 }
 
-async function verifySignature(
-  rawBody: string,
-  signatureHeader: string | null,
-  secret: string
-): Promise<boolean> {
-  if (!signatureHeader) return false
-  // SureCart sends an HMAC-SHA256 hex digest of the raw body
+async function hmacSha256Hex(secret: string, message: string): Promise<string> {
   const enc = new TextEncoder()
   const key = await crypto.subtle.importKey(
     'raw',
@@ -60,33 +55,51 @@ async function verifySignature(
     false,
     ['sign']
   )
-  const sigBytes = await crypto.subtle.sign('HMAC', key, enc.encode(rawBody))
-  const bytes = new Uint8Array(sigBytes)
-  const expectedHex = Array.from(bytes)
+  const sigBytes = await crypto.subtle.sign('HMAC', key, enc.encode(message))
+  return Array.from(new Uint8Array(sigBytes))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
-  // base64
-  let bin = ''
-  for (const b of bytes) bin += String.fromCharCode(b)
-  const expectedB64 = btoa(bin)
-  const expectedB64Url = expectedB64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-  const expectedAll = [expectedHex, expectedB64, expectedB64Url]
+}
 
-  // SureCart header may be `t=...,v1=...`, base64, or hex. Try all.
-  const candidates: string[] = []
-  if (signatureHeader.includes('=') && signatureHeader.includes(',')) {
-    for (const part of signatureHeader.split(',')) {
+async function verifySignature(
+  rawBody: string,
+  signatureHeader: string | null,
+  timestampHeader: string | null,
+  secret: string
+): Promise<boolean> {
+  if (!signatureHeader) return false
+  const sig = signatureHeader.trim()
+
+  // SureCart: HMAC-SHA256 hex of `${timestamp}.${rawBody}`, sent in
+  // x-webhook-signature. x-webhook-timestamp holds the timestamp.
+  const candidatesToCheck: string[] = []
+  if (timestampHeader) {
+    candidatesToCheck.push(await hmacSha256Hex(secret, `${timestampHeader}.${rawBody}`))
+  }
+  // Fallbacks: some tooling / older payloads sign the body directly, or use
+  // a Stripe-style `t=...,v1=...` header. Accept those too.
+  candidatesToCheck.push(await hmacSha256Hex(secret, rawBody))
+
+  let headerSig = sig
+  let headerTs: string | null = null
+  if (sig.includes('=') && sig.includes(',')) {
+    for (const part of sig.split(',')) {
       const [k, v] = part.trim().split('=')
-      if (k && v && k.toLowerCase().startsWith('v')) candidates.push(v)
+      if (!k || !v) continue
+      if (k === 't') headerTs = v
+      else if (k.toLowerCase().startsWith('v')) headerSig = v
+    }
+    if (headerTs) {
+      candidatesToCheck.push(await hmacSha256Hex(secret, `${headerTs}.${rawBody}`))
     }
   }
-  candidates.push(signatureHeader.trim())
 
-  const matched = candidates.some((c) => expectedAll.some((e) => timingSafeEqual(c, e)))
+  const matched = candidatesToCheck.some((expected) => timingSafeEqual(headerSig, expected))
   if (!matched) {
-    const h = signatureHeader.trim()
-    const preview = h.length > 8 ? `${h.slice(0, 4)}…${h.slice(-4)}` : '(short)'
-    console.warn(`SureCart sig mismatch. header_len=${h.length} preview=${preview}`)
+    const preview = sig.length > 8 ? `${sig.slice(0, 4)}…${sig.slice(-4)}` : '(short)'
+    console.warn(
+      `SureCart sig mismatch. header_len=${sig.length} preview=${preview} ts=${timestampHeader ?? 'none'}`
+    )
   }
   return matched
 }
@@ -99,6 +112,7 @@ function timingSafeEqual(a: string, b: string): boolean {
   }
   return mismatch === 0
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -122,10 +136,13 @@ Deno.serve(async (req) => {
 
   const rawBody = await req.text()
   const signature =
+    req.headers.get('x-webhook-signature') ||
     req.headers.get('x-surecart-signature') ||
     req.headers.get('surecart-signature')
+  const timestamp = req.headers.get('x-webhook-timestamp')
 
-  const valid = await verifySignature(rawBody, signature, webhookSecret)
+  const valid = await verifySignature(rawBody, signature, timestamp, webhookSecret)
+
   if (!valid) {
     console.warn('Invalid SureCart signature')
     return new Response(JSON.stringify({ error: 'invalid_signature' }), {
