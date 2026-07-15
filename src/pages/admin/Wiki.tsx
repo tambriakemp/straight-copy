@@ -58,6 +58,7 @@ const statusTone = (s: string) => s === "Active" ? "hsl(150 35% 65%)" : s === "D
 // ===== LIST =====
 export function WikiList() {
   const { isFounder, hasAccess, loading } = useWikiRole();
+  const isMobile = useIsMobile();
   const nav = useNavigate();
   const [docs, setDocs] = useState<WikiDocument[]>([]);
   const [loaded, setLoaded] = useState(false);
