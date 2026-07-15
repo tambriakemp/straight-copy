@@ -355,6 +355,87 @@ export default function ProjectInvoicesCard({
           </div>
         </div>
       )}
+
+      <Dialog open={!!emailDialog} onOpenChange={(o) => !o && setEmailDialog(null)}>
+        <DialogContent data-mobile-bottom-sheet="true" className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Email payment link</DialogTitle>
+            <DialogDescription>
+              {emailDialog?.invoice.label} · {emailDialog && fmtUSD(emailDialog.invoice.amount_cents)}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
+                Client contacts
+              </div>
+              {contacts.length === 0 ? (
+                <div style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
+                  No contacts with email on file. Add contacts on the client page, or use additional emails below.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {contacts.map(c => {
+                    const checked = emailDialog?.selected.has(c.id) ?? false;
+                    return (
+                      <label key={c.id} style={{
+                        display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+                        border: "1px solid var(--crm-border-dark)", borderRadius: 6, cursor: "pointer",
+                        background: checked ? "hsl(40 20% 97% / 0.05)" : "transparent",
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => setEmailDialog(d => {
+                            if (!d) return d;
+                            const next = new Set(d.selected);
+                            if (e.target.checked) next.add(c.id); else next.delete(c.id);
+                            return { ...d, selected: next };
+                          })}
+                        />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ color: "var(--crm-warm-white)", fontSize: 14 }}>
+                            {c.name || c.email}
+                          </div>
+                          {c.name && (
+                            <div style={{ fontSize: 12, color: "var(--crm-taupe)" }}>{c.email}</div>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
+                Additional emails
+              </div>
+              <input
+                className="crm-input"
+                style={{ width: "100%" }}
+                placeholder="name@example.com, another@example.com"
+                value={emailDialog?.extra ?? ""}
+                onChange={(e) => setEmailDialog(d => d ? { ...d, extra: e.target.value } : d)}
+              />
+              <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 6 }}>
+                Comma or space separated.
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <button className="crm-btn crm-btn--ghost" onClick={() => setEmailDialog(null)} disabled={sending}>
+              <X size={12} /> Cancel
+            </button>
+            <button className="crm-btn crm-btn--primary" onClick={sendEmailLink} disabled={sending}>
+              <Send size={12} /> {sending ? "Sending…" : "Send link"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
