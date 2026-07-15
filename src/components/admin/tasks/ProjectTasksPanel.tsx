@@ -228,7 +228,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     <div className="text-warm-white">
       {/* Toolbar */}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "inline-flex", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 6, overflow: "hidden" }}>
+        <div className="hidden md:inline-flex" style={{ border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 6, overflow: "hidden" }}>
           <button onClick={() => setView("kanban")} style={tabBtnStyle(view === "kanban")}>
             <LayoutGrid size={14} style={{ marginRight: 6 }} /> Kanban
           </button>
