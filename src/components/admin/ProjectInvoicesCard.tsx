@@ -43,6 +43,9 @@ export default function ProjectInvoicesCard({
   const [editing, setEditing] = useState(false);
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [contacts, setContacts] = useState<{ id: string; name: string | null; email: string | null }[]>([]);
+  const [emailDialog, setEmailDialog] = useState<{ invoice: Invoice; selected: Set<string>; extra: string } | null>(null);
+  const [sending, setSending] = useState(false);
 
   const callFn = async (body: Record<string, unknown>) => {
     const { data: { session } } = await supabase.auth.getSession();
