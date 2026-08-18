@@ -104,7 +104,7 @@ export default function AdminLogin() {
                   type="password" required minLength={6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  autoComplete="current-password"
                 />
               </div>
             )}
@@ -135,27 +135,22 @@ export default function AdminLogin() {
             </button>
           </form>
 
-          <button
-            type="button"
-            onClick={() => {
-              if (mode === "forgot") setMode("signin");
-              else setMode(mode === "signin" ? "signup" : "signin");
-            }}
-            style={{
-              marginTop: 20,
-              background: "transparent", border: 0,
-              color: "hsl(30 10% 78%)",
-              fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase",
-              cursor: "pointer",
-              fontFamily: "Karla, sans-serif",
-            }}
-          >
-            {mode === "forgot"
-              ? "Back to sign in"
-              : mode === "signin"
-                ? "Need an account? Sign up"
-                : "Have an account? Sign in"}
-          </button>
+          {mode === "forgot" && (
+            <button
+              type="button"
+              onClick={() => setMode("signin")}
+              style={{
+                marginTop: 20,
+                background: "transparent", border: 0,
+                color: "hsl(30 10% 78%)",
+                fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase",
+                cursor: "pointer",
+                fontFamily: "Karla, sans-serif",
+              }}
+            >
+              Back to sign in
+            </button>
+          )}
         </div>
       </div>
     </div>
