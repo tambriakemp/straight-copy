@@ -44,8 +44,6 @@ export default function AdminLogin() {
   const title =
     mode === "signin" ? (
       <>Sign <em style={{ color: "hsl(30 25% 44%)" }}>in</em>.</>
-    ) : mode === "signup" ? (
-      <>Create <em style={{ color: "hsl(30 25% 44%)" }}>account</em>.</>
     ) : (
       <>Forgot <em style={{ color: "hsl(30 25% 44%)" }}>password</em>.</>
     );
@@ -53,11 +51,9 @@ export default function AdminLogin() {
   const subtitle =
     mode === "signin"
       ? "Admin access only."
-      : mode === "signup"
-        ? "Sign up, then ask the owner for admin access."
-        : "Enter your email and we'll send a recovery link.";
+      : "Enter your email and we'll send a recovery link.";
 
-  const cta = mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link";
+  const cta = mode === "signin" ? "Sign in" : "Send reset link";
 
   return (
     <div className="crm-shell">
