@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 
-type Mode = "signin" | "signup" | "forgot";
+type Mode = "signin" | "forgot";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -22,15 +22,7 @@ export default function AdminLogin() {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/admin` },
-        });
-        if (error) throw error;
-        toast.success("Account created. Check your email to confirm, then ask the owner to grant admin access.");
-      } else if (mode === "forgot") {
+      if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/admin/reset-password`,
         });
@@ -52,8 +44,6 @@ export default function AdminLogin() {
   const title =
     mode === "signin" ? (
       <>Sign <em style={{ color: "hsl(30 25% 44%)" }}>in</em>.</>
-    ) : mode === "signup" ? (
-      <>Create <em style={{ color: "hsl(30 25% 44%)" }}>account</em>.</>
     ) : (
       <>Forgot <em style={{ color: "hsl(30 25% 44%)" }}>password</em>.</>
     );
@@ -61,11 +51,9 @@ export default function AdminLogin() {
   const subtitle =
     mode === "signin"
       ? "Admin access only."
-      : mode === "signup"
-        ? "Sign up, then ask the owner for admin access."
-        : "Enter your email and we'll send a recovery link.";
+      : "Enter your email and we'll send a recovery link.";
 
-  const cta = mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link";
+  const cta = mode === "signin" ? "Sign in" : "Send reset link";
 
   return (
     <div className="crm-shell">
@@ -116,7 +104,7 @@ export default function AdminLogin() {
                   type="password" required minLength={6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  autoComplete="current-password"
                 />
               </div>
             )}
@@ -147,27 +135,22 @@ export default function AdminLogin() {
             </button>
           </form>
 
-          <button
-            type="button"
-            onClick={() => {
-              if (mode === "forgot") setMode("signin");
-              else setMode(mode === "signin" ? "signup" : "signin");
-            }}
-            style={{
-              marginTop: 20,
-              background: "transparent", border: 0,
-              color: "hsl(30 10% 78%)",
-              fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase",
-              cursor: "pointer",
-              fontFamily: "Karla, sans-serif",
-            }}
-          >
-            {mode === "forgot"
-              ? "Back to sign in"
-              : mode === "signin"
-                ? "Need an account? Sign up"
-                : "Have an account? Sign in"}
-          </button>
+          {mode === "forgot" && (
+            <button
+              type="button"
+              onClick={() => setMode("signin")}
+              style={{
+                marginTop: 20,
+                background: "transparent", border: 0,
+                color: "hsl(30 10% 78%)",
+                fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase",
+                cursor: "pointer",
+                fontFamily: "Karla, sans-serif",
+              }}
+            >
+              Back to sign in
+            </button>
+          )}
         </div>
       </div>
     </div>
