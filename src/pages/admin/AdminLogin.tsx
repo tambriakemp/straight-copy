@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 
-type Mode = "signin" | "signup" | "forgot";
+type Mode = "signin" | "forgot";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -22,15 +22,7 @@ export default function AdminLogin() {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/admin` },
-        });
-        if (error) throw error;
-        toast.success("Account created. Check your email to confirm, then ask the owner to grant admin access.");
-      } else if (mode === "forgot") {
+      if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/admin/reset-password`,
         });
