@@ -14,6 +14,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     { to: "/admin", label: "◆ Dashboard", exact: true },
     { to: "/admin/clients", label: "▦ Clients" },
     { to: "/admin/ventures", label: "◈ Ventures" },
+    { to: "/admin/agents", label: "◎ Agents" },
     { to: "/admin/tasks", label: "✓ Tasks" },
     { to: "/admin/wiki", label: "❒ Knowledge Base" },
     { to: "/admin/invites", label: "✉ Invites" },
