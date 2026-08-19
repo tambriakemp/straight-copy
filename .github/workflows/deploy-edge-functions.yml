@@ -1,0 +1,121 @@
+name: Deploy edge functions
+
+# Lovable deploys an edge function only when its own agent edits that file.
+# Functions that arrive through a GitHub merge are never deployed, which is why
+# agents-api, funnel-track, stripe-webhook and parse-metrics-image all shipped
+# to main and then 404'd in the browser. This closes that gap.
+#
+# Setup (once): add a repository secret SUPABASE_ACCESS_TOKEN, generated at
+# https://supabase.com/dashboard/account/tokens
+# Without it the workflow skips with a clear message rather than failing.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - '.github/workflows/deploy-edge-functions.yml'
+  workflow_dispatch:
+    inputs:
+      deploy_all:
+        description: 'Deploy every function, not just changed ones'
+        type: boolean
+        default: false
+
+concurrency:
+  # A newer push supersedes an in-flight deploy; never run two at once.
+  group: deploy-edge-functions
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need the previous commit to diff against.
+          fetch-depth: 2
+
+      - name: Check for access token
+        id: guard
+        run: |
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
+            echo "::warning::SUPABASE_ACCESS_TOKEN is not set — skipping deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: supabase/setup-cli@v1
+        if: steps.guard.outputs.ready == 'true'
+        with:
+          version: latest
+
+      - name: Work out which functions to deploy
+        if: steps.guard.outputs.ready == 'true'
+        id: plan
+        run: |
+          set -euo pipefail
+
+          all_functions() {
+            find supabase/functions -mindepth 1 -maxdepth 1 -type d \
+              ! -name '_shared' -printf '%f\n' | sort
+          }
+
+          if [ "${{ github.event.inputs.deploy_all }}" = "true" ]; then
+            targets=$(all_functions)
+            echo "Deploying everything (manual request)."
+          else
+            changed=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} \
+              -- supabase/functions 2>/dev/null || git diff --name-only HEAD~1 HEAD -- supabase/functions)
+
+            # _shared is imported by most functions, so a change there means
+            # they all need redeploying — a stale copy is silently wrong.
+            if echo "$changed" | grep -q '^supabase/functions/_shared/'; then
+              targets=$(all_functions)
+              echo "_shared changed — redeploying every function."
+            else
+              targets=$(echo "$changed" \
+                | grep -oE '^supabase/functions/[^/]+' \
+                | sed 's|supabase/functions/||' \
+                | grep -v '^_shared$' | sort -u)
+            fi
+          fi
+
+          if [ -z "$targets" ]; then
+            echo "No function directories changed."
+          fi
+          {
+            echo 'targets<<EOF'
+            echo "$targets"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Deploy
+        if: steps.guard.outputs.ready == 'true' && steps.plan.outputs.targets != ''
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -uo pipefail
+          # Project ref lives in supabase/config.toml, so it stays correct if
+          # the project is ever moved.
+          REF=$(grep -m1 '^project_id' supabase/config.toml | cut -d'"' -f2)
+          echo "Target project: $REF"
+
+          failed=""
+          while read -r fn; do
+            [ -z "$fn" ] && continue
+            echo "::group::deploy $fn"
+            if supabase functions deploy "$fn" --project-ref "$REF"; then
+              echo "deployed $fn"
+            else
+              echo "::error::failed to deploy $fn"
+              failed="$failed $fn"
+            fi
+            echo "::endgroup::"
+          done <<< "${{ steps.plan.outputs.targets }}"
+
+          if [ -n "$failed" ]; then
+            echo "::error::These functions did not deploy:$failed"
+            exit 1
+          fi
