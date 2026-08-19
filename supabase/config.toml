@@ -136,3 +136,7 @@ verify_jwt = false
 # Called by pg_cron via pg_net with the shared secret in a header.
 [functions.dispatch-agent-runs]
 verify_jwt = false
+
+# Reads venture metrics off dashboard screenshots. Admin session or api_token.
+[functions.parse-metrics-image]
+verify_jwt = false

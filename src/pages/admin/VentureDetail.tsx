@@ -1,6 +1,6 @@
 // Venture detail — tabs modelled on src/components/ProjectTabs.tsx usage in
 // ClientDetail.tsx. Overview / Revenue / Launches / Funnel / Settings.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -10,7 +10,8 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { Empty, RevenueCard, Section, money } from "@/components/admin/DashboardPrimitives";
 import {
   venturesApi, errMsg, METRIC_KEYS, KIND_LABEL,
-  type Venture, type Launch, type RevenueEntry,
+  parseMetricsFromImages, fileToImagePayload,
+  type Venture, type Launch, type RevenueEntry, type MetricDef,
 } from "@/lib/venturesApi";
 
 type Analytics = {
@@ -54,7 +55,7 @@ export default function VentureDetail() {
   useEffect(() => { load(); }, [id]);
 
   const v = data?.venture;
-  const metricDefs = useMemo(
+  const metricDefs: MetricDef[] = useMemo(
     () => METRIC_KEYS[v?.kind ?? "other"] ?? METRIC_KEYS.other,
     [v?.kind],
   );
@@ -97,7 +98,7 @@ export default function VentureDetail() {
 
         {tab === "Overview" && <Overview data={data} metricDefs={metricDefs} />}
         {tab === "Revenue" && (
-          <RevenueTab ventureId={v.id} data={data} entries={entries} metricDefs={metricDefs} onSaved={load} />
+          <RevenueTab ventureId={v.id} ventureKind={v.kind} data={data} entries={entries} metricDefs={metricDefs} onSaved={load} />
         )}
         {tab === "Launches" && <LaunchesTab venture={v} launches={data.launches} onSaved={load} />}
         {tab === "Funnel" && <FunnelTab data={data} />}
@@ -192,16 +193,62 @@ function mergeSeries(
 }
 
 // ---------------------------------------------------------------- Revenue
-function RevenueTab({ ventureId, data, entries, metricDefs, onSaved }: {
+function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved }: {
   ventureId: string;
+  ventureKind: string;
   data: Analytics;
   entries: RevenueEntry[];
-  metricDefs: Array<{ key: string; label: string; money?: boolean }>;
+  metricDefs: MetricDef[];
   onSaved: () => void;
 }) {
   const [capturedOn, setCapturedOn] = useState(todayIso());
   const [values, setValues] = useState<Record<string, string>>({});
   const [savingSnap, setSavingSnap] = useState(false);
+
+  // Screenshot parsing. Results land in `values` — the same state the manual
+  // fields use — so parsing prefills the form rather than replacing it, and
+  // every number still gets seen before it is saved.
+  const [parsing, setParsing] = useState(false);
+  const [parseNote, setParseNote] = useState<string | null>(null);
+  const [parsedKeys, setParsedKeys] = useState<Set<string>>(new Set());
+  const [absentKeys, setAbsentKeys] = useState<string[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const picked = Array.from(files).slice(0, 4);
+    setParsing(true);
+    setParseNote(null);
+    try {
+      const payloads = await Promise.all(picked.map((f) => fileToImagePayload(f)));
+      const result = await parseMetricsFromImages(payloads, ventureKind);
+
+      const known = new Set(metricDefs.map((m) => m.key));
+      const next: Record<string, string> = { ...values };
+      const filled = new Set<string>();
+      for (const [key, raw] of Object.entries(result.metrics)) {
+        if (!known.has(key)) continue;   // ignore anything this venture doesn't track
+        const def = metricDefs.find((m) => m.key === key)!;
+        next[key] = def.money ? String(raw / 100) : String(raw);
+        filled.add(key);
+      }
+      setValues(next);
+      setParsedKeys(filled);
+      setAbsentKeys(result.absent.filter((k) => known.has(k)));
+      setParseNote(result.notes || null);
+
+      if (!filled.size) {
+        toast.error("Nothing readable in those screenshots");
+      } else {
+        toast.success(`Read ${filled.size} value${filled.size === 1 ? "" : "s"} — check them before saving`);
+      }
+    } catch (e) {
+      toast.error(errMsg(e) || "Could not read those screenshots");
+    } finally {
+      setParsing(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
 
   const [entry, setEntry] = useState({ amount: "", description: "", occurred_on: todayIso(), kind: "sale" });
   const [savingEntry, setSavingEntry] = useState(false);
@@ -213,17 +260,32 @@ function RevenueTab({ ventureId, data, entries, metricDefs, onSaved }: {
       if (raw == null || raw === "") continue;
       const n = Number(raw);
       if (!Number.isFinite(n)) return toast.error(`${m.label} must be a number`);
-      // MRR is entered in dollars but stored in cents, like every other amount.
+      // Money is entered in dollars but stored in cents. Percents and counts
+      // are stored exactly as typed.
       metrics[m.key] = m.money ? Math.round(n * 100) : n;
     }
     if (!Object.keys(metrics).length) return toast.error("Enter at least one number");
     setSavingSnap(true);
     try {
+      const readFromImage = metricDefs
+        .filter((m) => parsedKeys.has(m.key) && m.key in metrics)
+        .map((m) => m.label);
       await venturesApi(`/ventures/${ventureId}/snapshots`, {
-        method: "POST", body: { captured_on: capturedOn, metrics },
+        method: "POST",
+        body: {
+          captured_on: capturedOn,
+          metrics,
+          source: readFromImage.length ? "import" : "manual",
+          notes: readFromImage.length
+            ? `Read from screenshot: ${readFromImage.join(", ")}`
+            : null,
+        },
       });
       toast.success("Numbers logged");
       setValues({});
+      setParsedKeys(new Set());
+      setAbsentKeys([]);
+      setParseNote(null);
       onSaved();
     } catch (e) {
       toast.error(errMsg(e) || "Could not save");
@@ -271,6 +333,43 @@ function RevenueTab({ ventureId, data, entries, metricDefs, onSaved }: {
             Substack and Skool bill members themselves, so these are read off their dashboards.
             Saving the same date twice corrects it rather than adding a duplicate.
           </p>
+
+          {/* Screenshot shortcut. Fills the fields below; nothing saves until you say so. */}
+          <div style={{ border: "1px dashed var(--crm-border-dark)", padding: 14, display: "grid", gap: 10 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+              <button className="crm-btn crm-btn--ghost" disabled={parsing}
+                onClick={() => fileRef.current?.click()} style={{ fontSize: 12 }}>
+                {parsing ? "Reading…" : "⇪ Upload screenshots"}
+              </button>
+              <span style={{ fontSize: 11, color: "var(--crm-taupe)" }}>
+                Drop in your dashboard screens — up to 4. The numbers fill in below for you to check.
+              </span>
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              hidden
+              onChange={(e) => handleFiles(e.target.files)}
+            />
+            {parseNote && (
+              <div style={{ fontSize: 11, color: "#dbb172", fontStyle: "italic" }}>
+                {parseNote}
+              </div>
+            )}
+            {!!absentKeys.length && (
+              <div style={{ fontSize: 11, color: "var(--crm-taupe)" }}>
+                Shown as “—” on the dashboard, so left blank rather than zero:{" "}
+                {absentKeys.map((k) => metricDefs.find((m) => m.key === k)?.label ?? k).join(", ")}
+              </div>
+            )}
+            {!!parsedKeys.size && (
+              <div style={{ fontSize: 11, color: "#9db8a6" }}>
+                Highlighted fields came from the screenshots. Correct anything that looks wrong, then save.
+              </div>
+            )}
+          </div>
           <div>
             <label className="crm-label">Date</label>
             <input type="date" className="crm-input" value={capturedOn}
@@ -278,10 +377,13 @@ function RevenueTab({ ventureId, data, entries, metricDefs, onSaved }: {
           </div>
           {metricDefs.map((m) => {
             const prev = lastByMetric[m.key];
+            const fromImage = parsedKeys.has(m.key);
+            const unit = m.money ? " ($)" : m.pct ? " (%)" : "";
             return (
               <div key={m.key}>
                 <label className="crm-label">
-                  {m.label}{m.money ? " ($)" : ""}
+                  {m.label}{unit}
+                  {fromImage && <span style={{ color: "#9db8a6" }}> · read from screenshot</span>}
                   {prev && (
                     <span style={{ color: "var(--crm-taupe)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
                       {"  ·  last: "}{m.money ? money(prev.value) : prev.value} on {prev.date}
@@ -289,8 +391,19 @@ function RevenueTab({ ventureId, data, entries, metricDefs, onSaved }: {
                   )}
                 </label>
                 <input className="crm-input" inputMode="decimal" value={values[m.key] ?? ""}
-                  onChange={(e) => setValues({ ...values, [m.key]: e.target.value })}
-                  placeholder={prev ? String(m.money ? prev.value / 100 : prev.value) : "—"} />
+                  onChange={(e) => {
+                    setValues({ ...values, [m.key]: e.target.value });
+                    // Once you edit it, it is your number, not the parser's.
+                    if (fromImage) {
+                      setParsedKeys((prevKeys) => {
+                        const next = new Set(prevKeys);
+                        next.delete(m.key);
+                        return next;
+                      });
+                    }
+                  }}
+                  placeholder={prev ? String(m.money ? prev.value / 100 : prev.value) : "—"}
+                  style={fromImage ? { borderColor: "#9db8a6" } : undefined} />
               </div>
             );
           })}

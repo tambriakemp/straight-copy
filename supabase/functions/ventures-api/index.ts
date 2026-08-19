@@ -105,6 +105,9 @@ const SnapshotInput = z.object({
   captured_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   metrics: z.record(z.string().min(1).max(60), z.number()),
   notes: z.string().max(1000).nullish(),
+  // 'import' means at least one value was read off a screenshot rather than
+  // typed, so a suspect figure can be traced back later.
+  source: z.enum(["manual", "import"]).default("manual"),
 });
 
 const DAY = 86_400_000;
@@ -349,7 +352,7 @@ Deno.serve(async (req) => {
           captured_on: parsed.data.captured_on,
           metric_key,
           value,
-          source: "manual",
+          source: parsed.data.source,
           notes: parsed.data.notes ?? null,
         }));
         if (!rows.length) return json({ error: "No metrics supplied" }, 400);
