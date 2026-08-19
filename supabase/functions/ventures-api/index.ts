@@ -163,7 +163,13 @@ Deno.serve(async (req) => {
         const ingestKey = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
         const { data, error } = await sb.from("ventures")
           .insert({ ...parsed.data, public_ingest_key: ingestKey }).select().single();
-        if (error) return json({ error: error.message }, 400);
+        if (error) {
+          const dup = error.code === "23505" || /duplicate key/i.test(error.message);
+          return json(
+            { error: dup ? `A venture with the slug "${parsed.data.slug}" already exists. Pick a different name or slug.` : error.message },
+            dup ? 409 : 400,
+          );
+        }
         return json({ venture: data }, 201);
       }
     }
