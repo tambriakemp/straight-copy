@@ -110,3 +110,17 @@ verify_jwt = false
 
 
 
+
+# ventures-api does its own auth (admin session JWT or api_tokens bearer),
+# so the platform JWT gate is off — same as crm-api.
+[functions.ventures-api]
+verify_jwt = false
+
+# Stripe calls this with a signature header, not a Supabase JWT.
+[functions.stripe-webhook]
+verify_jwt = false
+
+# Public funnel ingest from the browser. Authorised by the venture's
+# public_ingest_key in the body, never by a JWT.
+[functions.funnel-track]
+verify_jwt = false

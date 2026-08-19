@@ -1,11 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, CheckSquare, BookOpen, User } from "lucide-react";
+import { LayoutDashboard, Users, CheckSquare, Briefcase, User } from "lucide-react";
 
 const tabs = [
   { to: "/admin", label: "Home", icon: LayoutDashboard, exact: true },
   { to: "/admin/clients", label: "Clients", icon: Users },
   { to: "/admin/tasks", label: "Tasks", icon: CheckSquare },
-  { to: "/admin/wiki", label: "Wiki", icon: BookOpen },
+  { to: "/admin/ventures", label: "Ventures", icon: Briefcase },
   { to: "/admin/profile", label: "Profile", icon: User },
 ];
 

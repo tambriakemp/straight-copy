@@ -4,6 +4,10 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
+import {
+  KpiTile, RevenueCard, Section, Empty, GoalBar, money, relTime, dueLabel,
+} from "@/components/admin/DashboardPrimitives";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 type ActivityEvent = {
   id: string;
@@ -30,6 +34,31 @@ type UpcomingTask = {
   assignee_kind: string;
 };
 
+type StreamRow = {
+  venture_id: string | null;
+  slug: string;
+  name: string;
+  kind: string;
+  brand_color?: string | null;
+  cash_30d_cents: number;
+  mrr_cents: number;
+  members: number | null;
+};
+
+type ActiveLaunch = {
+  id: string;
+  venture_id: string;
+  venture_name: string | null;
+  name: string;
+  status: string;
+  cart_close_at: string | null;
+  starts_at: string | null;
+  goal_revenue_cents: number | null;
+  actual_revenue_cents: number;
+  goal_signups: number | null;
+  actual_signups: number;
+};
+
 type Summary = {
   kpis: {
     active_clients: number;
@@ -41,6 +70,16 @@ type Summary = {
     unpaid_invoices: number;
   };
   revenue: { paid_30d_cents: number; outstanding_cents: number };
+  portfolio?: {
+    cash_30d_cents: number;
+    agency_30d_cents: number;
+    ventures_30d_cents: number;
+    recurring_mrr_cents: number;
+    outstanding_cents: number;
+    by_stream: StreamRow[];
+    trend: Array<{ month: string; agency_cents: number; venture_cents: number }>;
+  };
+  active_launches?: ActiveLaunch[];
   activity: ActivityEvent[];
   upcoming: UpcomingTask[];
   recent_clients: Array<{ id: string; business_name: string | null; contact_name: string | null; updated_at: string }>;
@@ -55,6 +94,11 @@ const ACTIVITY_ICON: Record<string, string> = {
   invoice_paid: "$",
   client_created: "+",
   claude_run_completed: "★",
+  venture_revenue: "$",
+  launch_opened: "◈",
+  launch_completed: "◈",
+  metric_snapshot: "▲",
+  funnel_milestone: "▸",
 };
 
 const ACTIVITY_LABEL: Record<string, string> = {
@@ -64,33 +108,12 @@ const ACTIVITY_LABEL: Record<string, string> = {
   invoice_paid: "Payment",
   client_created: "Client",
   claude_run_completed: "Claude",
+  venture_revenue: "Venture",
+  launch_opened: "Launch",
+  launch_completed: "Launch",
+  metric_snapshot: "Metrics",
+  funnel_milestone: "Funnel",
 };
-
-function relTime(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const d = Math.floor(hr / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
-}
-
-function dueLabel(iso: string | null) {
-  if (!iso) return { text: "no date", overdue: false, soon: false };
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const due = new Date(iso); due.setHours(0, 0, 0, 0);
-  const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
-  if (diff < 0) return { text: `${Math.abs(diff)}d overdue`, overdue: true, soon: false };
-  if (diff === 0) return { text: "today", overdue: false, soon: true };
-  if (diff === 1) return { text: "tomorrow", overdue: false, soon: true };
-  return { text: `in ${diff}d`, overdue: false, soon: diff <= 3 };
-}
-
-const money = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -128,6 +151,7 @@ export default function Dashboard() {
   }, []);
 
   const k = data?.kpis;
+  const p = data?.portfolio;
 
   return (
     <AdminLayout>
@@ -137,9 +161,9 @@ export default function Dashboard() {
         <div className="roster__head">
           <div className="roster__title-block">
             <div className="roster__eyebrow">Command Center</div>
-            <h1 className="roster__title">Agency <em>dashboard</em></h1>
+            <h1 className="roster__title">Portfolio <em>dashboard</em></h1>
             <hr className="roster__rule" />
-            <p className="roster__sub">At-a-glance view of revenue, work in flight, client activity, and what needs attention next.</p>
+            <p className="roster__sub">Every revenue stream in one place — agency clients, live trainings, and communities — plus work in flight and what needs attention next.</p>
           </div>
         </div>
 
@@ -153,11 +177,111 @@ export default function Dashboard() {
           <KpiTile label="Unpaid invoices" value={k?.unpaid_invoices} loading={loading} />
         </div>
 
-        {/* Revenue */}
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 24 }}>
-          <RevenueCard label="Paid (last 30d)" amount={data?.revenue.paid_30d_cents ?? 0} loading={loading} />
+        {/* Revenue.
+            Cash and run-rate are separate tiles on purpose. `recurring_mrr_cents`
+            is a level read from metric_snapshots (Substack/Skool bill their own
+            members); adding it to collected cash would double-count. The note on
+            the MRR card says so out loud. */}
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
+          <RevenueCard
+            label="Cash collected (30d)"
+            amount={p?.cash_30d_cents ?? data?.revenue.paid_30d_cents ?? 0}
+            loading={loading}
+            note={p ? `${money(p.agency_30d_cents)} agency · ${money(p.ventures_30d_cents)} ventures` : undefined}
+          />
+          <RevenueCard label="Ventures (30d)" amount={p?.ventures_30d_cents ?? 0} tone="accent" loading={loading}
+            onClick={() => navigate("/admin/ventures")} />
+          <RevenueCard label="Recurring MRR" amount={p?.recurring_mrr_cents ?? 0} tone="accent" loading={loading}
+            note="run-rate, not cash collected" />
           <RevenueCard label="Outstanding" amount={data?.revenue.outstanding_cents ?? 0} tone="warn" loading={loading} />
         </div>
+
+        {/* Revenue by stream */}
+        {!!p?.by_stream?.length && (
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(170px, 1fr))",
+            gap: 12, marginBottom: 24 }}>
+            {p.by_stream.map((row) => (
+              <button
+                key={row.slug}
+                onClick={() => row.venture_id ? navigate(`/admin/ventures/${row.venture_id}`) : navigate("/admin/clients")}
+                style={{ padding: "14px 16px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
+                  textAlign: "left", cursor: "pointer", color: "var(--crm-warm-white)" }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                  {row.name}
+                </div>
+                <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 26, marginTop: 4 }}>
+                  {money(row.cash_30d_cents)}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 2 }}>
+                  {row.mrr_cents ? `${money(row.mrr_cents)}/mo run-rate` : "30d cash"}
+                  {row.members != null ? ` · ${row.members} members` : ""}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 12-month trend, agency vs ventures */}
+        {!!p?.trend?.length && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase",
+              color: "var(--crm-taupe)", marginBottom: 8 }}>
+              Revenue — trailing 12 months
+            </div>
+            <div style={{ background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", padding: "16px 8px 8px" }}>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={p.trend.map((t) => ({
+                  month: t.month.slice(5),
+                  Agency: t.agency_cents / 100,
+                  Ventures: t.venture_cents / 100,
+                }))}>
+                  <CartesianGrid strokeDasharray="2 4" stroke="var(--crm-border-dark)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false}
+                    tickFormatter={(v) => `$${v >= 1000 ? `${Math.round(v / 1000)}k` : v}`} />
+                  <Tooltip
+                    contentStyle={{ background: "var(--crm-ink)", border: "1px solid var(--crm-border-dark)", fontSize: 12 }}
+                    formatter={(v: number) => [`$${v.toLocaleString()}`, ""]} />
+                  <Bar dataKey="Agency" stackId="rev" fill="#8a8378" />
+                  <Bar dataKey="Ventures" stackId="rev" fill="#9db8a6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Active launches */}
+        {!!data?.active_launches?.length && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase",
+              color: "var(--crm-taupe)", marginBottom: 8 }}>
+              Active launches
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+              {data.active_launches.map((l) => (
+                <button key={l.id} onClick={() => navigate(`/admin/ventures/${l.venture_id}/launches/${l.id}`)}
+                  style={{ padding: "14px 16px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
+                    textAlign: "left", cursor: "pointer", color: "var(--crm-warm-white)" }}>
+                  <div style={{ fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                    {l.venture_name} · {l.status}
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 500, marginTop: 4 }}>{l.name}</div>
+                  <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 4 }}>
+                    {money(l.actual_revenue_cents)}
+                    {l.goal_revenue_cents ? ` of ${money(l.goal_revenue_cents)}` : ""}
+                    {" · "}{l.actual_signups}{l.goal_signups ? `/${l.goal_signups}` : ""} signups
+                  </div>
+                  <GoalBar actual={l.actual_revenue_cents} goal={l.goal_revenue_cents} />
+                  {l.cart_close_at && (
+                    <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 6 }}>
+                      Cart closes {new Date(l.cart_close_at).toLocaleDateString()}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Main two-column: left = upcoming + queues + recent. right = activity */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.6fr) minmax(280px, 1fr)", gap: 24, alignItems: "start" }}>
@@ -270,51 +394,4 @@ export default function Dashboard() {
       </div>
     </AdminLayout>
   );
-}
-
-function KpiTile({ label, value, sub, tone, loading, onClick }: {
-  label: string; value?: number; sub?: string; tone?: "danger"; loading?: boolean; onClick?: () => void;
-}) {
-  const color = tone === "danger" ? "#e07a5f" : "var(--crm-warm-white)";
-  return (
-    <button onClick={onClick} disabled={!onClick}
-      style={{ padding: "16px 18px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
-        textAlign: "left", cursor: onClick ? "pointer" : "default", color: "var(--crm-warm-white)" }}>
-      <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{label}</div>
-      <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 36, lineHeight: 1.1, marginTop: 6, color }}>
-        {loading ? "—" : (value ?? 0)}
-      </div>
-      {sub && <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 2 }}>{sub}</div>}
-    </button>
-  );
-}
-
-function RevenueCard({ label, amount, tone, loading }: { label: string; amount: number; tone?: "warn"; loading?: boolean }) {
-  return (
-    <div style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)" }}>
-      <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{label}</div>
-      <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 44, lineHeight: 1.1, marginTop: 6,
-        color: tone === "warn" ? "#dbb172" : "var(--crm-warm-white)" }}>
-        {loading ? "—" : money(amount)}
-      </div>
-    </div>
-  );
-}
-
-function Section({ title, children, actionLabel, onAction }: {
-  title: string; children: React.ReactNode; actionLabel?: string; onAction?: () => void;
-}) {
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-        <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{title}</div>
-        {actionLabel && <button onClick={onAction} className="crm-btn crm-btn--ghost" style={{ fontSize: 11 }}>{actionLabel}</button>}
-      </div>
-      <div style={{ border: "1px solid var(--crm-border-dark)" }}>{children}</div>
-    </div>
-  );
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return <div style={{ padding: "20px 14px", color: "var(--crm-taupe)", fontSize: 13, textAlign: "center" }}>{children}</div>;
 }

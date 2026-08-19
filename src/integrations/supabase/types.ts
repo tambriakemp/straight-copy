@@ -26,6 +26,8 @@ export type Database = {
           metadata: Json
           occurred_at: string
           title: string
+          venture_id: string | null
+          venture_launch_id: string | null
         }
         Insert: {
           actor?: string | null
@@ -38,6 +40,8 @@ export type Database = {
           metadata?: Json
           occurred_at?: string
           title: string
+          venture_id?: string | null
+          venture_launch_id?: string | null
         }
         Update: {
           actor?: string | null
@@ -50,6 +54,8 @@ export type Database = {
           metadata?: Json
           occurred_at?: string
           title?: string
+          venture_id?: string | null
+          venture_launch_id?: string | null
         }
         Relationships: [
           {
@@ -2616,8 +2622,432 @@ export type Database = {
         Relationships: []
       }
     }
+      funnel_events: {
+        Row: {
+          anon_id: string | null
+          created_at: string
+          email_hash: string | null
+          event_key: string | null
+          id: string
+          launch_id: string | null
+          metadata: Json
+          occurred_at: string
+          source: string
+          stage: string
+          utm: Json
+          venture_id: string
+        }
+        Insert: {
+          anon_id?: string | null
+          created_at?: string
+          email_hash?: string | null
+          event_key?: string | null
+          id?: string
+          launch_id?: string | null
+          metadata?: Json
+          occurred_at?: string
+          source?: string
+          stage: string
+          utm?: Json
+          venture_id: string
+        }
+        Update: {
+          anon_id?: string | null
+          created_at?: string
+          email_hash?: string | null
+          event_key?: string | null
+          id?: string
+          launch_id?: string | null
+          metadata?: Json
+          occurred_at?: string
+          source?: string
+          stage?: string
+          utm?: Json
+          venture_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_events_launch_id_fkey"
+            columns: ["launch_id"]
+            isOneToOne: false
+            referencedRelation: "venture_launches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_events_venture_id_fkey"
+            columns: ["venture_id"]
+            isOneToOne: false
+            referencedRelation: "ventures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      launch_checklist_items: {
+        Row: {
+          checklist: Json
+          completed_at: string | null
+          created_at: string
+          due_date: string | null
+          id: string
+          key: string
+          label: string
+          launch_id: string
+          notes: string | null
+          order_index: number
+          status: string
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          checklist?: Json
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          key: string
+          label: string
+          launch_id: string
+          notes?: string | null
+          order_index?: number
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          checklist?: Json
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          key?: string
+          label?: string
+          launch_id?: string
+          notes?: string | null
+          order_index?: number
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "launch_checklist_items_launch_id_fkey"
+            columns: ["launch_id"]
+            isOneToOne: false
+            referencedRelation: "venture_launches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "launch_checklist_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "launch_checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      launch_checklist_templates: {
+        Row: {
+          checklist: Json
+          created_at: string
+          description: string | null
+          id: string
+          key: string
+          label: string
+          offset_days: number | null
+          order_index: number
+          venture_id: string
+        }
+        Insert: {
+          checklist?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          key: string
+          label: string
+          offset_days?: number | null
+          order_index?: number
+          venture_id: string
+        }
+        Update: {
+          checklist?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          key?: string
+          label?: string
+          offset_days?: number | null
+          order_index?: number
+          venture_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "launch_checklist_templates_venture_id_fkey"
+            columns: ["venture_id"]
+            isOneToOne: false
+            referencedRelation: "ventures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metric_snapshots: {
+        Row: {
+          captured_on: string
+          created_at: string
+          id: string
+          metric_key: string
+          notes: string | null
+          source: string
+          value: number
+          venture_id: string
+        }
+        Insert: {
+          captured_on: string
+          created_at?: string
+          id?: string
+          metric_key: string
+          notes?: string | null
+          source?: string
+          value: number
+          venture_id: string
+        }
+        Update: {
+          captured_on?: string
+          created_at?: string
+          id?: string
+          metric_key?: string
+          notes?: string | null
+          source?: string
+          value?: number
+          venture_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metric_snapshots_venture_id_fkey"
+            columns: ["venture_id"]
+            isOneToOne: false
+            referencedRelation: "ventures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      revenue_entries: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          customer_email: string | null
+          customer_name: string | null
+          description: string | null
+          external_id: string | null
+          id: string
+          kind: string
+          launch_id: string | null
+          metadata: Json
+          occurred_at: string
+          source: string
+          venture_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          kind?: string
+          launch_id?: string | null
+          metadata?: Json
+          occurred_at: string
+          source?: string
+          venture_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          kind?: string
+          launch_id?: string | null
+          metadata?: Json
+          occurred_at?: string
+          source?: string
+          venture_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_entries_launch_id_fkey"
+            columns: ["launch_id"]
+            isOneToOne: false
+            referencedRelation: "venture_launches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenue_entries_venture_id_fkey"
+            columns: ["venture_id"]
+            isOneToOne: false
+            referencedRelation: "ventures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venture_launches: {
+        Row: {
+          cart_close_at: string | null
+          cart_open_at: string | null
+          created_at: string
+          ends_at: string | null
+          goal_revenue_cents: number | null
+          goal_signups: number | null
+          id: string
+          name: string
+          notes: string | null
+          slug: string
+          starts_at: string | null
+          status: string
+          ticket_price_cents: number | null
+          updated_at: string
+          venture_id: string
+        }
+        Insert: {
+          cart_close_at?: string | null
+          cart_open_at?: string | null
+          created_at?: string
+          ends_at?: string | null
+          goal_revenue_cents?: number | null
+          goal_signups?: number | null
+          id?: string
+          name: string
+          notes?: string | null
+          slug: string
+          starts_at?: string | null
+          status?: string
+          ticket_price_cents?: number | null
+          updated_at?: string
+          venture_id: string
+        }
+        Update: {
+          cart_close_at?: string | null
+          cart_open_at?: string | null
+          created_at?: string
+          ends_at?: string | null
+          goal_revenue_cents?: number | null
+          goal_signups?: number | null
+          id?: string
+          name?: string
+          notes?: string | null
+          slug?: string
+          starts_at?: string | null
+          status?: string
+          ticket_price_cents?: number | null
+          updated_at?: string
+          venture_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venture_launches_venture_id_fkey"
+            columns: ["venture_id"]
+            isOneToOne: false
+            referencedRelation: "ventures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ventures: {
+        Row: {
+          brand_color: string | null
+          created_at: string
+          currency: string
+          description: string | null
+          funnel_stages: Json
+          goal_members: number | null
+          goal_mrr_cents: number | null
+          id: string
+          kind: string
+          name: string
+          platform: string | null
+          platform_account_ref: string | null
+          public_ingest_key: string | null
+          slug: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_color?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          funnel_stages?: Json
+          goal_members?: number | null
+          goal_mrr_cents?: number | null
+          id?: string
+          kind?: string
+          name: string
+          platform?: string | null
+          platform_account_ref?: string | null
+          public_ingest_key?: string | null
+          slug: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_color?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          funnel_stages?: Json
+          goal_members?: number | null
+          goal_mrr_cents?: number | null
+          id?: string
+          kind?: string
+          name?: string
+          platform?: string | null
+          platform_account_ref?: string | null
+          public_ingest_key?: string | null
+          slug?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+        ]
+      }
     Views: {
-      [_ in never]: never
+      latest_metric_snapshots_v: {
+        Row: {
+          captured_on: string | null
+          metric_key: string | null
+          source: string | null
+          value: number | null
+          venture_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metric_snapshots_venture_id_fkey"
+            columns: ["venture_id"]
+            isOneToOne: false
+            referencedRelation: "ventures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      revenue_ledger_v: {
+        Row: {
+          amount_cents: number | null
+          client_id: string | null
+          currency: string | null
+          kind: string | null
+          launch_id: string | null
+          occurred_at: string | null
+          stream: string | null
+          venture_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       advance_automation_01_in_progress: {

@@ -1,5 +1,21 @@
 // Admin dashboard data + Claude run webhook
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import {
+  buildRollup, launchActuals,
+  type LedgerRow, type SnapshotRow, type VentureRow,
+} from "../_shared/portfolio.ts";
+
+/** Shape of the venture_launches rows this endpoint surfaces. */
+interface LaunchRow {
+  id: string;
+  venture_id: string;
+  name: string;
+  status: string;
+  cart_close_at: string | null;
+  starts_at: string | null;
+  goal_revenue_cents: number | null;
+  goal_signups: number | null;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -66,10 +82,15 @@ Deno.serve(async (req) => {
       const todayIso = new Date().toISOString().slice(0, 10);
       const in14 = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+      // Portfolio window: 30d for cash KPIs, 12 months for the trend chart.
+      const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const since12mo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
+
       const [
         clientsRes, projectsRes, tasksOpenRes, tasksOverdueRes, approvalsPendRes,
         invoicesUnpaidRes, activityRes, upcomingRes, recentClientsRes,
         invoicesPaidRes, subsActiveRes,
+        venturesRes, ledgerRes, snapshotsRes, launchesRes,
       ] = await Promise.all([
         sb.from("clients").select("id", { count: "exact", head: true }).eq("archived", false),
         sb.from("client_projects").select("id", { count: "exact", head: true }).eq("status", "active"),
@@ -94,6 +115,15 @@ Deno.serve(async (req) => {
           .gte("paid_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
         sb.from("clients").select("id", { count: "exact", head: true })
           .eq("archived", false).eq("subscription_status", "active"),
+        sb.from("ventures").select("id, slug, name, kind, brand_color").neq("status", "archived"),
+        // revenue_ledger_v is the ONLY roll-up path: paid project_invoices
+        // UNION revenue_entries. Snapshots are deliberately not in it.
+        sb.from("revenue_ledger_v").select("stream, venture_id, occurred_at, amount_cents")
+          .gte("occurred_at", since12mo),
+        // One row per (venture, metric) — the whole history is never pulled.
+        sb.from("latest_metric_snapshots_v").select("venture_id, metric_key, value, captured_on"),
+        sb.from("venture_launches").select("*").in("status", ["planned", "open", "running"])
+          .order("starts_at", { ascending: true, nullsFirst: false }).limit(10),
       ]);
 
       // Hydrate upcoming tasks with client/project names
@@ -122,6 +152,35 @@ Deno.serve(async (req) => {
       const mrr_cents = (invoicesPaidRes.data || []).reduce((s: number, r: any) => s + (r.amount_cents || 0), 0);
       const outstanding_cents = (invoicesUnpaidRes.data || []).reduce((s: number, r: any) => s + (r.amount_cents || 0), 0);
 
+      // ===== Portfolio roll-up =====
+      // Math lives in _shared/portfolio.ts so the same code is covered by
+      // src/test/portfolio.test.ts. Its invariant: cash and run-rate never mix.
+      const ledgerRows = (ledgerRes.data || []) as LedgerRow[];
+      const rollup = buildRollup(
+        ledgerRows,
+        (snapshotsRes.data || []) as SnapshotRow[],
+        (venturesRes.data || []) as VentureRow[],
+      );
+
+      const launches = (launchesRes.data || []) as LaunchRow[];
+      const launchCash = launchActuals(ledgerRows);
+      const ventureNames: Record<string, string> = {};
+      for (const v of (venturesRes.data || []) as VentureRow[]) ventureNames[v.id] = v.name;
+
+      const active_launches = launches.map((l) => ({
+        id: l.id,
+        venture_id: l.venture_id,
+        venture_name: ventureNames[l.venture_id] || null,
+        name: l.name,
+        status: l.status,
+        cart_close_at: l.cart_close_at,
+        starts_at: l.starts_at,
+        goal_revenue_cents: l.goal_revenue_cents,
+        actual_revenue_cents: launchCash[l.id]?.cents || 0,
+        goal_signups: l.goal_signups,
+        actual_signups: launchCash[l.id]?.sales || 0,
+      }));
+
       return json({
         kpis: {
           active_clients: clientsRes.count || 0,
@@ -133,6 +192,8 @@ Deno.serve(async (req) => {
           unpaid_invoices: invoicesUnpaidRes.count || 0,
         },
         revenue: { paid_30d_cents: mrr_cents, outstanding_cents },
+        portfolio: { ...rollup, outstanding_cents },
+        active_launches,
         activity: activityRes.data || [],
         upcoming: (upcomingRes.data || []).map((t: any) => ({
           ...t,
