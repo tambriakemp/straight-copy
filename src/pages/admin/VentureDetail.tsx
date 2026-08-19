@@ -212,6 +212,7 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
   const [parseNote, setParseNote] = useState<string | null>(null);
   const [parsedKeys, setParsedKeys] = useState<Set<string>>(new Set());
   const [absentKeys, setAbsentKeys] = useState<string[]>([]);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = async (files: FileList | null) => {
@@ -225,11 +226,15 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
 
       const known = new Set(metricDefs.map((m) => m.key));
       const next: Record<string, string> = { ...values };
+      // Storage units, straight from the parser — no round trip through the
+      // form's display strings, so autosave writes exactly what was read.
+      const storeValues: Record<string, number> = {};
       const filled = new Set<string>();
       for (const [key, raw] of Object.entries(result.metrics)) {
         if (!known.has(key)) continue;   // ignore anything this venture doesn't track
         const def = metricDefs.find((m) => m.key === key)!;
         next[key] = def.money ? String(raw / 100) : String(raw);
+        storeValues[key] = raw;
         filled.add(key);
       }
       setValues(next);
@@ -239,9 +244,19 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
 
       if (!filled.size) {
         toast.error("Nothing readable in those screenshots");
-      } else {
-        toast.success(`Read ${filled.size} value${filled.size === 1 ? "" : "s"} — check them before saving`);
+        return;
       }
+
+      // Save straight away rather than waiting for a button. Re-saving the same
+      // day overwrites, so correcting a misread afterwards is just an edit and
+      // a save — no duplicate, no cleanup.
+      const fromImage = metricDefs.filter((m) => filled.has(m.key)).map((m) => m.label);
+      await persistSnapshot(storeValues, { fromImage, on: capturedOn });
+      setSavedAt(new Date().toISOString());
+      onSaved();
+      toast.success(
+        `Saved ${filled.size} value${filled.size === 1 ? "" : "s"} for ${capturedOn}`,
+      );
     } catch (e) {
       toast.error(errMsg(e) || "Could not read those screenshots");
     } finally {
@@ -253,39 +268,63 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
   const [entry, setEntry] = useState({ amount: "", description: "", occurred_on: todayIso(), kind: "sale" });
   const [savingEntry, setSavingEntry] = useState(false);
 
-  const saveSnapshot = async () => {
+  /**
+   * The single write path for snapshots.
+   *
+   * Safe to call repeatedly for the same day: metric_snapshots is unique on
+   * (venture, metric, captured_on), so a re-save corrects the reading instead
+   * of adding a duplicate. That is what makes autosaving a parsed screenshot
+   * low-risk — a misread is one edit away from being fixed.
+   */
+  const persistSnapshot = async (
+    metrics: Record<string, number>,
+    opts: { fromImage: string[]; on: string },
+  ) => {
+    await venturesApi(`/ventures/${ventureId}/snapshots`, {
+      method: "POST",
+      body: {
+        captured_on: opts.on,
+        metrics,
+        source: opts.fromImage.length ? "import" : "manual",
+        notes: opts.fromImage.length
+          ? `Read from screenshot: ${opts.fromImage.join(", ")}`
+          : null,
+      },
+    });
+  };
+
+  /** Read the form fields into storage units, or report the first bad one. */
+  const metricsFromForm = (): Record<string, number> | string => {
     const metrics: Record<string, number> = {};
     for (const m of metricDefs) {
       const raw = values[m.key];
       if (raw == null || raw === "") continue;
       const n = Number(raw);
-      if (!Number.isFinite(n)) return toast.error(`${m.label} must be a number`);
+      if (!Number.isFinite(n)) return `${m.label} must be a number`;
       // Money is entered in dollars but stored in cents. Percents and counts
       // are stored exactly as typed.
       metrics[m.key] = m.money ? Math.round(n * 100) : n;
     }
-    if (!Object.keys(metrics).length) return toast.error("Enter at least one number");
+    return metrics;
+  };
+
+  const saveSnapshot = async () => {
+    const result = metricsFromForm();
+    if (typeof result === "string") return toast.error(result);
+    if (!Object.keys(result).length) return toast.error("Enter at least one number");
+
     setSavingSnap(true);
     try {
-      const readFromImage = metricDefs
-        .filter((m) => parsedKeys.has(m.key) && m.key in metrics)
+      const fromImage = metricDefs
+        .filter((m) => parsedKeys.has(m.key) && m.key in result)
         .map((m) => m.label);
-      await venturesApi(`/ventures/${ventureId}/snapshots`, {
-        method: "POST",
-        body: {
-          captured_on: capturedOn,
-          metrics,
-          source: readFromImage.length ? "import" : "manual",
-          notes: readFromImage.length
-            ? `Read from screenshot: ${readFromImage.join(", ")}`
-            : null,
-        },
-      });
+      await persistSnapshot(result, { fromImage, on: capturedOn });
       toast.success("Numbers logged");
       setValues({});
       setParsedKeys(new Set());
       setAbsentKeys([]);
       setParseNote(null);
+      setSavedAt(null);
       onSaved();
     } catch (e) {
       toast.error(errMsg(e) || "Could not save");
@@ -331,7 +370,8 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
         <div style={{ padding: 16, display: "grid", gap: 12 }}>
           <p style={{ fontSize: 12, color: "var(--crm-taupe)", margin: 0 }}>
             Substack and Skool bill members themselves, so these are read off their dashboards.
-            Saving the same date twice corrects it rather than adding a duplicate.
+            Saving the same date twice corrects it rather than adding a duplicate — so nothing here
+            is destructive, and a wrong number is always one edit away from right.
           </p>
 
           {/* Screenshot shortcut. Fills the fields below; nothing saves until you say so. */}
@@ -342,7 +382,7 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
                 {parsing ? "Reading…" : "⇪ Upload screenshots"}
               </button>
               <span style={{ fontSize: 11, color: "var(--crm-taupe)" }}>
-                Drop in your dashboard screens — up to 4. The numbers fill in below for you to check.
+                Drop in your dashboard screens — up to 4. The numbers are read and saved for today automatically.
               </span>
             </div>
             <input
@@ -364,9 +404,11 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
                 {absentKeys.map((k) => metricDefs.find((m) => m.key === k)?.label ?? k).join(", ")}
               </div>
             )}
-            {!!parsedKeys.size && (
+            {savedAt && !!parsedKeys.size && (
               <div style={{ fontSize: 11, color: "#9db8a6" }}>
-                Highlighted fields came from the screenshots. Correct anything that looks wrong, then save.
+                ✓ Saved for {capturedOn}. Highlighted fields came from the screenshots — if any look
+                wrong, correct them and save again; re-saving the same day overwrites rather than
+                duplicating.
               </div>
             )}
           </div>
@@ -409,7 +451,7 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
           })}
           <button className="crm-btn crm-btn--bronze" onClick={saveSnapshot} disabled={savingSnap}
             style={{ justifySelf: "start" }}>
-            {savingSnap ? "Saving…" : "Save numbers"}
+            {savingSnap ? "Saving…" : savedAt ? "Save corrections" : "Save numbers"}
           </button>
         </div>
       </Section>
