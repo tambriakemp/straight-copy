@@ -26,6 +26,8 @@ export type Database = {
           metadata: Json
           occurred_at: string
           title: string
+          agent_id: string | null
+          agent_run_id: string | null
           venture_id: string | null
           venture_launch_id: string | null
         }
@@ -40,6 +42,8 @@ export type Database = {
           metadata?: Json
           occurred_at?: string
           title: string
+          agent_id?: string | null
+          agent_run_id?: string | null
           venture_id?: string | null
           venture_launch_id?: string | null
         }
@@ -54,6 +58,8 @@ export type Database = {
           metadata?: Json
           occurred_at?: string
           title?: string
+          agent_id?: string | null
+          agent_run_id?: string | null
           venture_id?: string | null
           venture_launch_id?: string | null
         }
@@ -3029,7 +3035,258 @@ export type Database = {
         Relationships: []
       }
     }
+      agent_actions: {
+        Row: {
+          agent_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          description: string | null
+          error: string | null
+          executed_at: string | null
+          id: string
+          kind: string
+          outward: boolean
+          payload: Json
+          result: Json | null
+          run_id: string
+          status: string
+          title: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          description?: string | null
+          error?: string | null
+          executed_at?: string | null
+          id?: string
+          kind: string
+          outward?: boolean
+          payload?: Json
+          result?: Json | null
+          run_id: string
+          status?: string
+          title: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          description?: string | null
+          error?: string | null
+          executed_at?: string | null
+          id?: string
+          kind?: string
+          outward?: boolean
+          payload?: Json
+          result?: Json | null
+          run_id?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_actions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_actions_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_runs: {
+        Row: {
+          agent_id: string
+          cache_read_tokens: number | null
+          client_id: string | null
+          created_at: string
+          detail: Json
+          error: string | null
+          finished_at: string | null
+          headline: string | null
+          id: string
+          input_tokens: number | null
+          output_tokens: number | null
+          started_at: string
+          status: string
+          summary: string | null
+          trigger: string
+          venture_id: string | null
+          venture_launch_id: string | null
+        }
+        Insert: {
+          agent_id: string
+          cache_read_tokens?: number | null
+          client_id?: string | null
+          created_at?: string
+          detail?: Json
+          error?: string | null
+          finished_at?: string | null
+          headline?: string | null
+          id?: string
+          input_tokens?: number | null
+          output_tokens?: number | null
+          started_at?: string
+          status?: string
+          summary?: string | null
+          trigger?: string
+          venture_id?: string | null
+          venture_launch_id?: string | null
+        }
+        Update: {
+          agent_id?: string
+          cache_read_tokens?: number | null
+          client_id?: string | null
+          created_at?: string
+          detail?: Json
+          error?: string | null
+          finished_at?: string | null
+          headline?: string | null
+          id?: string
+          input_tokens?: number | null
+          output_tokens?: number | null
+          started_at?: string
+          status?: string
+          summary?: string | null
+          trigger?: string
+          venture_id?: string | null
+          venture_launch_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_runs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agents: {
+        Row: {
+          autonomy: string
+          config: Json
+          created_at: string
+          delivery: Json
+          description: string | null
+          effort: string
+          enabled: boolean
+          id: string
+          key: string
+          last_run_at: string | null
+          model: string
+          name: string
+          next_run_at: string | null
+          role: string
+          schedule_cron: string | null
+          system_prompt: string | null
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          autonomy?: string
+          config?: Json
+          created_at?: string
+          delivery?: Json
+          description?: string | null
+          effort?: string
+          enabled?: boolean
+          id?: string
+          key: string
+          last_run_at?: string | null
+          model?: string
+          name: string
+          next_run_at?: string | null
+          role: string
+          schedule_cron?: string | null
+          system_prompt?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          autonomy?: string
+          config?: Json
+          created_at?: string
+          delivery?: Json
+          description?: string | null
+          effort?: string
+          enabled?: boolean
+          id?: string
+          key?: string
+          last_run_at?: string | null
+          model?: string
+          name?: string
+          next_run_at?: string | null
+          role?: string
+          schedule_cron?: string | null
+          system_prompt?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_used_at: string | null
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_used_at?: string | null
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_used_at?: string | null
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+        ]
+      }
     Views: {
+      agent_pending_actions_v: {
+        Row: {
+          agent_id: string | null
+          agent_key: string | null
+          agent_name: string | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          kind: string | null
+          outward: boolean | null
+          payload: Json | null
+          run_id: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
       latest_metric_snapshots_v: {
         Row: {
           captured_on: string | null

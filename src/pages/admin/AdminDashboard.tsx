@@ -59,6 +59,14 @@ type ActiveLaunch = {
   actual_signups: number;
 };
 
+type AgentBrief = {
+  run_id: string;
+  agent_id: string;
+  agent_name: string;
+  headline: string;
+  started_at: string;
+};
+
 type Summary = {
   kpis: {
     active_clients: number;
@@ -99,6 +107,7 @@ const ACTIVITY_ICON: Record<string, string> = {
   launch_completed: "◈",
   metric_snapshot: "▲",
   funnel_milestone: "▸",
+  agent_run_completed: "◎",
 };
 
 const ACTIVITY_LABEL: Record<string, string> = {
@@ -113,6 +122,7 @@ const ACTIVITY_LABEL: Record<string, string> = {
   launch_completed: "Launch",
   metric_snapshot: "Metrics",
   funnel_milestone: "Funnel",
+  agent_run_completed: "Agent",
 };
 
 export default function Dashboard() {
@@ -120,6 +130,8 @@ export default function Dashboard() {
   const isMobile = useIsMobile();
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [brief, setBrief] = useState<AgentBrief | null>(null);
+  const [pendingActions, setPendingActions] = useState(0);
 
   const load = async () => {
     setLoading(true);
@@ -138,6 +150,46 @@ export default function Dashboard() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agents-api/agents`,
+          { headers: { Authorization: `Bearer ${session?.access_token}` } },
+        );
+        if (!res.ok) return;
+        const payload = (await res.json()) as {
+          total_pending?: number;
+          agents?: Array<{
+            id: string;
+            name: string;
+            last_run?: { id: string; headline: string | null; started_at: string } | null;
+          }>;
+        };
+        setPendingActions(payload.total_pending ?? 0);
+        const withRuns = (payload.agents ?? []).filter(
+          (a): a is typeof a & { last_run: { id: string; headline: string; started_at: string } } =>
+            !!a.last_run?.headline,
+        );
+        const latest = withRuns.sort(
+          (a, b) => new Date(b.last_run.started_at).getTime() - new Date(a.last_run.started_at).getTime(),
+        )[0];
+        if (latest) {
+          setBrief({
+            run_id: latest.last_run.id,
+            agent_id: latest.id,
+            agent_name: latest.name,
+            headline: latest.last_run.headline,
+            started_at: latest.last_run.started_at,
+          });
+        }
+      } catch {
+        // Agents not deployed yet — the rest of the dashboard is unaffected.
+      }
+    })();
+  }, []);
 
   // Realtime activity updates
   useEffect(() => {
@@ -248,6 +300,29 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
           </div>
+        )}
+
+        {/* Latest agent brief */}
+        {(brief || pendingActions > 0) && (
+          <button
+            onClick={() => navigate(pendingActions > 0 ? "/admin/agents" : `/admin/agents/runs/${brief!.run_id}`)}
+            style={{ display: "block", width: "100%", textAlign: "left", padding: "16px 18px",
+              background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
+              color: "var(--crm-warm-white)", cursor: "pointer", marginBottom: 24 }}>
+            <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+              {brief ? `${brief.agent_name} · ${relTime(brief.started_at)}` : "Agents"}
+            </div>
+            {brief && (
+              <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 22, marginTop: 6, lineHeight: 1.3 }}>
+                {brief.headline}
+              </div>
+            )}
+            {pendingActions > 0 && (
+              <div style={{ fontSize: 12, color: "#dbb172", marginTop: brief ? 8 : 6 }}>
+                {pendingActions} action{pendingActions === 1 ? "" : "s"} waiting for your approval
+              </div>
+            )}
+          </button>
         )}
 
         {/* Active launches */}
