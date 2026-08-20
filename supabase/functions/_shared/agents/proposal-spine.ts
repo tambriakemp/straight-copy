@@ -66,8 +66,56 @@ export function spineFor(kind: string | undefined | null): ProposalSection[] {
   return SPINES[(kind as ProposalKind)] ?? BUILD_SECTIONS;
 }
 
+/**
+ * Work out which document this is when the agent didn't say.
+ *
+ * A retainer submitted without `kind` was being judged against the build spine
+ * and rejected for missing twelve sections it should never have had. Reading
+ * the shape of what was actually written is more reliable than trusting a field
+ * the model forgets.
+ */
+export function inferKind(content: ProposalContent): ProposalKind {
+  if (content.kind === "retainer" || content.kind === "build") return content.kind;
+  const keys = new Set((content.sections ?? []).map((s) => s.key));
+  const hit = (spine: ProposalSection[]) =>
+    spine.filter((s) => keys.has(s.key)).length / spine.length;
+  if (hit(RETAINER_SECTIONS) > hit(BUILD_SECTIONS)) return "retainer";
+  const text = [
+    content.cover?.price_line ?? "",
+    content.cover?.tagline ?? "",
+    ...(content.sections ?? []).map((s) => s.heading ?? ""),
+  ].join(" ");
+  if (/\/\s*mo\b|per month|monthly|retainer/i.test(text)) return "retainer";
+  return "build";
+}
+
+/**
+ * The sections a draft cannot ship without.
+ *
+ * The full spine is the house style, not a gate. Rejecting a finished proposal
+ * because one of fourteen sections was folded into another sent the agent round
+ * a loop it could not win. Only the sections a client would notice missing —
+ * what this is, what it costs — actually block.
+ */
+export const ESSENTIAL_SECTIONS: Record<ProposalKind, string[]> = {
+  build: ["opportunity", "summary", "investment"],
+  retainer: ["overview", "services", "investment"],
+};
+
+/** Essential sections with no body. Empty means the draft is shippable. */
+export function missingEssentials(content: ProposalContent): string[] {
+  const kind = inferKind(content);
+  const present = new Set(
+    (content.sections ?? [])
+      .filter((s) => (s.body ?? "").trim().length > 0)
+      .map((s) => s.key),
+  );
+  return ESSENTIAL_SECTIONS[kind].filter((k) => !present.has(k));
+}
+
 /** Back-compat alias. Existing callers that predate the retainer spine. */
 export const PROPOSAL_SECTIONS = BUILD_SECTIONS;
+
 
 export const PROJECT_TYPES = [
   "automation_build",
