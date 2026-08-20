@@ -232,10 +232,9 @@ export type Database = {
       }
       agent_messages: {
         Row: {
-          completed_at: string | null
-          status: string
           action_ids: string[]
           cache_read_tokens: number | null
+          completed_at: string | null
           content: string
           conversation_id: string
           created_at: string
@@ -246,12 +245,12 @@ export type Database = {
           questions: Json | null
           role: string
           run_id: string | null
+          status: string
         }
         Insert: {
-          completed_at?: string | null
-          status?: string
           action_ids?: string[]
           cache_read_tokens?: number | null
+          completed_at?: string | null
           content?: string
           conversation_id: string
           created_at?: string
@@ -262,12 +261,12 @@ export type Database = {
           questions?: Json | null
           role: string
           run_id?: string | null
+          status?: string
         }
         Update: {
-          completed_at?: string | null
-          status?: string
           action_ids?: string[]
           cache_read_tokens?: number | null
+          completed_at?: string | null
           content?: string
           conversation_id?: string
           created_at?: string
@@ -278,6 +277,7 @@ export type Database = {
           questions?: Json | null
           role?: string
           run_id?: string | null
+          status?: string
         }
         Relationships: [
           {
