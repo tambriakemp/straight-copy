@@ -283,6 +283,7 @@ export type Database = {
           conversation_id: string
           created_at: string
           duration_ms: number | null
+          stopped_by: string | null
           error: string | null
           id: string
           input_tokens: number | null
@@ -302,6 +303,7 @@ export type Database = {
           conversation_id: string
           created_at?: string
           duration_ms?: number | null
+          stopped_by?: string | null
           error?: string | null
           id?: string
           input_tokens?: number | null
@@ -321,6 +323,7 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           duration_ms?: number | null
+          stopped_by?: string | null
           error?: string | null
           id?: string
           input_tokens?: number | null

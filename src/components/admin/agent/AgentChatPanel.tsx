@@ -218,6 +218,18 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
                       Try again
                     </button>
                   </div>
+                ) : m.role === "assistant" && !m.content?.trim()
+                    && !m.questions?.length && !m.action_ids?.length ? (
+                  // Belt and braces for rows written before the turn resolver
+                  // existed. A completed message with nothing in it renders as
+                  // a bubble that neither moves nor explains itself, which is
+                  // exactly how a finished turn came to look like a hang.
+                  <div className="ws__msg-bubble ws__msg-failed">
+                    <p>This turn finished without saying anything. Send it again.</p>
+                    <button className="ws__msg-retry" onClick={() => void retry(m)}>
+                      Try again
+                    </button>
+                  </div>
                 ) : (
                 <div className="ws__msg-bubble">
                   {m.role === "assistant"

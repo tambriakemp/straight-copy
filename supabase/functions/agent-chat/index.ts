@@ -18,6 +18,7 @@ import { pairedStepWriter } from "../_shared/agents/steps.ts";
 import { executeReadTool, readToolDefinitions } from "../_shared/agents/read-tools.ts";
 import { stepLabel } from "../_shared/agents/tool-labels.ts";
 import { actionToolDefinition, executeActionTool, type ActionToolContext } from "../_shared/agents/action-tool.ts";
+import { resolveTurnOutcome, turnColumns } from "../_shared/agents/turn-outcome.ts";
 import { canAutoExecute, type AgentRow } from "../_shared/agents/types.ts";
 
 const corsHeaders = {
@@ -291,10 +292,13 @@ async function runTurn(args: {
 }): Promise<void> {
   const { sb, agent, def, apiKey, conversationId, pendingId } = args;
 
-  const fail = async (message: string) => {
+  // `stoppedBy` is recorded so the next blank turn is diagnosable from the row
+  // rather than re-investigated from scratch.
+  const fail = async (message: string, stoppedBy: string | null = null) => {
     await sb.from("agent_messages").update({
       status: "failed",
       error: message,
+      stopped_by: stoppedBy,
       completed_at: new Date().toISOString(),
     }).eq("id", pendingId);
   };
@@ -422,23 +426,26 @@ async function runTurn(args: {
       if (result.stoppedBy === "refusal") {
         await sb.from("agent_messages").update({
           content: "I can't help with that one.", status: "complete",
-          error: "refusal", completed_at: new Date().toISOString(),
+          error: "refusal", stopped_by: "refusal",
+          completed_at: new Date().toISOString(),
         }).eq("id", pendingId);
         return;
       }
-      if (!result.text.trim()) {
-        await fail(
-          result.error ??
-            (result.stoppedBy === "max_tokens"
-              ? "That answer ran past the length limit. Ask for it in smaller pieces."
-              : "The reply came back empty. Send the message again."),
-        );
-        return;
-      }
+
+      // One resolver decides status and content together, so a blank reply
+      // cannot be written as a completed turn. See turn-outcome.ts.
+      const outcome = resolveTurnOutcome({
+        text: result.text,
+        actionCount: actionCtx.actionIds.length,
+        stoppedBy: result.stoppedBy,
+        error: result.error ?? null,
+        // What it managed to look at, so an exhausted loop says so rather than
+        // returning nothing.
+        toolLabels: result.calls.map((c) => stepLabel(c.name, c.input)),
+      });
 
       await sb.from("agent_messages").update({
-        content: result.text,
-        status: "complete",
+        ...turnColumns(outcome),
         run_id: actionCtx.runId,
         action_ids: actionCtx.actionIds,
         input_tokens: result.usage.input,
@@ -447,16 +454,17 @@ async function runTurn(args: {
         tool_calls: result.calls.length,
         iterations: result.iterations,
         duration_ms: Date.now() - startedAt,
-        completed_at: new Date().toISOString(),
       }).eq("id", pendingId);
+
+      if (outcome.status === "failed") return;
 
       // Close the run off so it stops showing as still going in the activity
       // panel. It was opened lazily by the first action.
       if (actionCtx.runId) {
         await sb.from("agent_runs").update({
           finished_at: new Date().toISOString(),
-          headline: result.text.split("\n")[0].slice(0, 120),
-          summary: result.text,
+          headline: outcome.content.split("\n")[0].slice(0, 120),
+          summary: outcome.content,
           input_tokens: result.usage.input,
           output_tokens: result.usage.output,
           cache_read_tokens: result.usage.cacheRead,
@@ -497,6 +505,7 @@ async function runTurn(args: {
         content: "I can't help with that one.",
         status: "complete",
         error: "refusal",
+        stopped_by: "refusal",
         completed_at: new Date().toISOString(),
       }).eq("id", pendingId);
       return;
@@ -508,6 +517,7 @@ async function runTurn(args: {
       await fail(
         "That answer ran past the length limit before it finished. Ask for it in " +
           "smaller pieces — one section at a time — or narrow the request.",
+        "max_tokens",
       );
       return;
     }
@@ -516,7 +526,7 @@ async function runTurn(args: {
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === "reply",
     );
     if (!block) {
-      await fail("The model returned nothing usable. Send the message again.");
+      await fail("The model returned nothing usable. Send the message again.", "no_reply_block");
       return;
     }
 
@@ -587,30 +597,36 @@ async function runTurn(args: {
       }
     }
 
-    // A reply with no text and nothing proposed is a failed turn wearing a
-    // success costume — the exact thing that produced the blank bubble.
-    if (!reply.trim() && !questions.length && !actionIds.length) {
-      await fail("The reply came back empty. Send the message again.");
-      return;
-    }
+    // This guard used to read `!reply.trim() && !questions.length &&
+    // !actionIds.length`, which lets a blank reply through as soon as it
+    // carries questions or actions — a completed turn with an empty bubble
+    // above the choice list. The resolver closes that: status and content are
+    // decided together and complete always has something to read.
+    const outcome = resolveTurnOutcome({
+      text: reply,
+      questionCount: questions.length,
+      actionCount: actionIds.length,
+      stopReason: response.stop_reason,
+    });
 
     await sb.from("agent_messages").update({
-      content: reply,
-      status: "complete",
+      ...turnColumns(outcome),
       run_id: runId,
       action_ids: actionIds,
       questions: questions.length ? questions : null,
+      duration_ms: Date.now() - startedAt,
       input_tokens: response.usage.input_tokens ?? 0,
       output_tokens: response.usage.output_tokens ?? 0,
       cache_read_tokens: response.usage.cache_read_input_tokens ?? 0,
-      completed_at: new Date().toISOString(),
     }).eq("id", pendingId);
+
+    if (outcome.status === "failed") return;
 
     // Keep the conversation at the top of the list.
     await sb.from("agent_conversations")
       .update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
   } catch (e) {
     console.error("agent-chat turn failed", e);
-    await fail(String((e as Error).message || e));
+    await fail(String((e as Error).message || e), "exception");
   }
 }
