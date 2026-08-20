@@ -33,7 +33,7 @@ const Ventures = lazy(() => import("./pages/admin/Ventures.tsx"));
 const VentureDetail = lazy(() => import("./pages/admin/VentureDetail.tsx"));
 const LaunchDetail = lazy(() => import("./pages/admin/LaunchDetail.tsx"));
 const Agents = lazy(() => import("./pages/admin/Agents.tsx"));
-const AgentDetail = lazy(() => import("./pages/admin/AgentDetail.tsx"));
+const AgentWorkspace = lazy(() => import("./pages/admin/AgentWorkspace.tsx"));
 const AgentRunDetail = lazy(() => import("./pages/admin/AgentRunDetail.tsx"));
 const Tokens = lazy(() => import("./pages/admin/Tokens.tsx"));
 const Invites = lazy(() => import("./pages/admin/Invites.tsx"));
@@ -92,7 +92,7 @@ const App = () => (
             <Route path="/admin/portfolio" element={<RequireAdmin><Portfolio /></RequireAdmin>} />
             <Route path="/admin/agents" element={<RequireAdmin><Agents /></RequireAdmin>} />
             <Route path="/admin/agents/runs/:runId" element={<RequireAdmin><AgentRunDetail /></RequireAdmin>} />
-            <Route path="/admin/agents/:id" element={<RequireAdmin><AgentDetail /></RequireAdmin>} />
+            <Route path="/admin/agents/:id" element={<RequireAdmin><AgentWorkspace /></RequireAdmin>} />
             <Route path="/admin/tokens" element={<RequireAdmin><Tokens /></RequireAdmin>} />
             <Route path="/admin/invites" element={<RequireAdmin><Invites /></RequireAdmin>} />
             <Route path="/admin/previews" element={<RequireAdmin><Previews /></RequireAdmin>} />

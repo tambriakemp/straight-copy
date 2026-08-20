@@ -140,3 +140,7 @@ verify_jwt = false
 # Reads venture metrics off dashboard screenshots. Admin session or api_token.
 [functions.parse-metrics-image]
 verify_jwt = false
+
+# Direct chat with an agent. Admin session JWT only.
+[functions.agent-chat]
+verify_jwt = false

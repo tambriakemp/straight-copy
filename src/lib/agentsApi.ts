@@ -274,3 +274,58 @@ export function cadenceOf(cron: string | null): string | null {
   if (/^\d$/.test(dow)) return "weekly";
   return null;
 }
+
+// ---------------------------------------------------------------- chat
+
+export interface AgentMessage {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant";
+  content: string;
+  run_id: string | null;
+  action_ids: string[];
+  error: string | null;
+  created_at: string;
+}
+
+export interface AgentConversation {
+  id: string;
+  agent_id: string;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatReply {
+  conversation_id: string;
+  message: string;
+  actions: AgentAction[];
+  run_id: string | null;
+}
+
+/** Send a message to an agent. Returns its reply and anything it proposed. */
+export async function sendAgentMessage(args: {
+  agentId: string;
+  conversationId?: string | null;
+  message: string;
+}): Promise<ChatReply> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-chat`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session?.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        agent_id: args.agentId,
+        conversation_id: args.conversationId ?? undefined,
+        message: args.message,
+      }),
+    },
+  );
+  const payload = (await res.json().catch(() => ({}))) as ChatReply & { error?: string };
+  if (!res.ok) throw new Error(payload?.error || `HTTP ${res.status}`);
+  return payload;
+}
