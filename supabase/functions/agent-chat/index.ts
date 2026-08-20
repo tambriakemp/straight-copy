@@ -391,7 +391,6 @@ async function runTurn(args: {
     // Gated per agent so a misbehaving one can be dropped back to the old
     // single-shot path from settings without a deploy.
     if ((agent.config as Record<string, unknown> | null)?.tool_loop === true) {
-      const startedAt = Date.now();
       const spent = { bytes: 0 };
       const onStep = pairedStepWriter(sb, pendingId);
 
@@ -418,35 +417,76 @@ async function runTurn(args: {
         ...(webSearch ? [{ type: "web_search_20260209", name: "web_search", max_uses: 5 }] : []),
       ];
 
-      const result = await runToolLoop({
-        client,
-        model: agent.model,
-        effort: agent.effort,
-        maxTokens: 32_000,
-        // Under the 6 minutes after which the chat marks a message stale, so a
-        // healthy long turn never renders as one that never came back.
-        budgetMs: 240_000,
-        maxIterations: 14,
-        system: [{
-          type: "text",
-          text: systemPromptFor(agent as AgentRow, def) + CHAT_ADDENDUM + TOOL_DOCTRINE,
-          cache_control: { type: "ephemeral" },
-        }],
-        tools: tools as never,
-        messages: seedMessages,
-        onStep,
-        labelFor: stepLabel,
-        dispatch: async (name, input) => {
-          if (name === "propose_action") {
-            return await executeActionTool(actionCtx, input, async (row) => {
-              const result = await executeAndRecord(sb, row as ActionRow, agent.name);
-              return { ok: result.ok, result: result.result, error: result.error };
-            });
-          }
-          const outcome = await executeReadTool({ sb: sb as never, spent }, name, input);
-          return { ok: outcome.ok, content: outcome.content };
-        },
-      });
+      const loop = (messages: typeof seedMessages, maxIterations: number, budgetMs: number) =>
+        runToolLoop({
+          client,
+          model: agent.model,
+          effort: agent.effort,
+          maxTokens: 32_000,
+          budgetMs,
+          maxIterations,
+          system: [{
+            type: "text",
+            text: systemPromptFor(agent as AgentRow, def) + CHAT_ADDENDUM + TOOL_DOCTRINE,
+            cache_control: { type: "ephemeral" },
+          }],
+          tools: tools as never,
+          messages: messages as never,
+          onStep,
+          labelFor: stepLabel,
+          dispatch: async (name, input) => {
+            if (name === "propose_action") {
+              return await executeActionTool(actionCtx, input, async (row) => {
+                const result = await executeAndRecord(sb, row as ActionRow, agent.name);
+                return { ok: result.ok, result: result.result, error: result.error };
+              });
+            }
+            const outcome = await executeReadTool({ sb: sb as never, spent }, name, input);
+            return { ok: outcome.ok, content: outcome.content };
+          },
+        });
+
+      // Under the 6 minutes after which the chat marks a message stale, so a
+      // healthy long turn never renders as one that never came back.
+      let result = await loop(seedMessages, 14, 240_000);
+
+      // A turn that says it drafted something, having recorded no action, is
+      // the failure the owner kept hitting: the reply reads like a document
+      // exists and nothing was ever written. Hand it back once, with the
+      // discrepancy named, and let it either do the work or retract.
+      if (
+        result.stoppedBy === "end_turn" &&
+        actionCtx.actionIds.length === 0 &&
+        claimsUnperformedWork(result.text)
+      ) {
+        const elapsed = Date.now() - startedAt;
+        const remaining = 240_000 - elapsed;
+        if (remaining > 20_000) {
+          await onStep({
+            seq: -1, kind: "note", status: "ok",
+            label: "Checking that the work described was actually done",
+          });
+          const corrected = await loop(
+            [
+              ...result.messages,
+              { role: "user", content: [{ type: "text", text: CLAIM_CORRECTION }] },
+            ] as never,
+            5,
+            remaining,
+          );
+          result = {
+            ...corrected,
+            calls: [...result.calls, ...corrected.calls],
+            iterations: result.iterations + corrected.iterations,
+            text: corrected.text || result.text,
+            usage: {
+              input: result.usage.input + corrected.usage.input,
+              output: result.usage.output + corrected.usage.output,
+              cacheRead: result.usage.cacheRead + corrected.usage.cacheRead,
+            },
+          };
+        }
+      }
 
       if (result.stoppedBy === "refusal") {
         await sb.from("agent_messages").update({
@@ -460,7 +500,11 @@ async function runTurn(args: {
       // One resolver decides status and content together, so a blank reply
       // cannot be written as a completed turn. See turn-outcome.ts.
       const outcome = resolveTurnOutcome({
-        text: result.text,
+        text: actionCtx.actionIds.length === 0 && claimsUnperformedWork(result.text)
+          // Still claiming after being told. Better a contradicted reply than
+          // one the owner acts on and finds nothing behind.
+          ? `${result.text}${CLAIM_DISCLAIMER}`
+          : result.text,
         actionCount: actionCtx.actionIds.length,
         stoppedBy: result.stoppedBy,
         error: result.error ?? null,
@@ -468,6 +512,7 @@ async function runTurn(args: {
         // returning nothing.
         toolLabels: result.calls.map((c) => stepLabel(c.name, c.input)),
       });
+
 
       await sb.from("agent_messages").update({
         ...turnColumns(outcome),
