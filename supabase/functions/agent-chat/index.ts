@@ -11,7 +11,8 @@ import { definitionFor, systemPromptFor } from "../_shared/agents/registry.ts";
 import { executeAndRecord, type ActionRow } from "../_shared/agents/actions.ts";
 import { isDestructive, isOutward, kindDocFor, kindEnumFor } from "../_shared/agents/action-kinds.ts";
 import { loadRules, renderRules, type RulesClient } from "../_shared/agents/rules.ts";
-import { clientDirectory, renderDirectory } from "../_shared/agents/clients.ts";
+import { clientDirectory, renderClientIndex } from "../_shared/agents/clients.ts";
+import { describeTurnOutcome, normalizeTurns } from "../_shared/agents/history.ts";
 import { canAutoExecute, type AgentRow } from "../_shared/agents/types.ts";
 
 const corsHeaders = {
@@ -249,14 +250,21 @@ async function runTurn(args: {
   try {
     // --- history + live context ---
     const { data: history } = await sb.from("agent_messages")
-      .select("role, content")
+      .select("role, content, action_ids, questions")
       .eq("conversation_id", conversationId)
       .eq("status", "complete")
       .order("created_at", { ascending: false })
       .limit(HISTORY_TURNS);
-    // Empty turns would be rejected by the API, and a failed turn is not
-    // something the agent should try to reason about.
-    const turns = (history ?? []).reverse().filter((m) => (m.content ?? "").trim());
+    // normalizeTurns does the work that filtering alone got wrong: dropping a
+    // failed turn left two consecutive user messages, which the API rejects —
+    // permanently, for that conversation. It also carries forward what each
+    // turn produced, so the agent knows what it already proposed.
+    const turns = normalizeTurns(
+      (history ?? []).reverse().map((m) => {
+        const note = m.role === "assistant" ? describeTurnOutcome(m) : "";
+        return { role: m.role, content: note ? `${m.content}\n\n${note}` : m.content };
+      }),
+    );
 
     const [context, rules, directory] = await Promise.all([
       def.gather(sb, agent.config ?? {}),
@@ -264,7 +272,7 @@ async function runTurn(args: {
       clientDirectory(sb as unknown as RulesClient),
     ]);
     const rulesBlock = renderRules(rules);
-    const directoryBlock = renderDirectory(directory);
+    const directoryBlock = renderClientIndex(directory);
 
     const client = new Anthropic({ apiKey });
     // Streamed, because a drafted proposal is long: 8000 tokens truncated the
@@ -291,18 +299,29 @@ async function runTurn(args: {
         {
           role: "user",
           content: [
-            rulesBlock,
-            directoryBlock,
-            `Current state of what you are responsible for, as of ${
-              new Date().toISOString().slice(0, 10)
-            }:\n\n${JSON.stringify(context, null, 2)}`,
-          ].filter(Boolean).join("\n\n"),
+            // Rules and the client index barely change, so they carry the
+            // breakpoint. Everything volatile sits after it.
+            ...(rulesBlock || directoryBlock
+              ? [{
+                type: "text" as const,
+                text: [rulesBlock, directoryBlock].filter(Boolean).join("\n\n"),
+                cache_control: { type: "ephemeral" as const },
+              }]
+              : []),
+            {
+              type: "text" as const,
+              // Compact. Pretty-printing a large blob buys whitespace nobody
+              // reads at 15-25% more input tokens.
+              text: `Current state of what you are responsible for, as of ${
+                new Date().toISOString().slice(0, 10)
+              }:\n\n${JSON.stringify(context)}`,
+            },
+          ],
         },
-        { role: "assistant", content: "Understood — I have the current picture." },
-        ...turns.map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
+        // No synthetic "Understood — I have the current picture." turn. It was
+        // a pseudo-prefill, and when the history window happened to open on an
+        // assistant row it produced assistant-after-assistant — a 400.
+        ...turns,
       ],
     });
     const response = await stream.finalMessage();

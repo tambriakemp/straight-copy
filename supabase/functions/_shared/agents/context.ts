@@ -303,9 +303,13 @@ export async function developerContext(sb: SupabaseClient, cfg: Record<string, u
       id: t.id,
       name: t.name,
       // Truncated: enough to judge specification quality without blowing context.
-      description: (t.description ?? "").slice(0, 1500),
+      // The description itself is not here. Forty tasks at 1500 characters is
+      // up to 60KB of prose on every run, and judging whether a task is
+      // specified well enough is a job you do one task at a time — so the
+      // shape is summarised here and the text is fetched when it is read.
+      description_chars: (t.description ?? "").length,
+      description_preview: (t.description ?? "").slice(0, 200),
       description_length: (t.description ?? "").length,
-      acceptance_criteria: t.acceptance_criteria ?? [],
       acceptance_criteria_count: Array.isArray(t.acceptance_criteria) ? t.acceptance_criteria.length : 0,
       has_design: !!t.design_url,
       has_url: !!t.url,
@@ -322,7 +326,8 @@ export async function developerContext(sb: SupabaseClient, cfg: Record<string, u
     awaiting_review: (inReview.data ?? []).map((t) => ({
       id: t.id,
       name: t.name,
-      description: (t.description ?? "").slice(0, 800),
+      description_chars: (t.description ?? "").length,
+      description_preview: (t.description ?? "").slice(0, 200),
       days_waiting: ageDays(t.updated_at),
       priority: t.priority,
       ...label(t.client_project_id),
@@ -356,18 +361,22 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
   const maxFollowups = Number(cfg.max_followups ?? 3);
   const staleAfter = Number(cfg.stale_after_days ?? 21);
 
-  const [clients, proposals, projects, events] = await Promise.all([
+  const [clients, proposals, projects, withContent, events] = await Promise.all([
     sb.from("clients")
       .select("id, business_name, contact_name, contact_email, pipeline_stage, surecontact_contact_uuid, created_at")
       .eq("archived", false).order("created_at", { ascending: false }).limit(120),
     sb.from("client_proposals")
       .select(
+        // Deliberately NOT selecting `content`: the whole proposal body was
+        // being pulled over the wire for 40 proposals only to compute a
+        // boolean. `has_content` is derived from a separate id-only query.
         "id, title, client_id, client_project_id, status, created_at, sent_at, sent_to, " +
           "first_opened_at, first_viewed_at, last_activity_at, next_followup_at, followup_count, " +
-          "client_signed_at, source_pdf_path, content",
+          "client_signed_at, source_pdf_path",
       )
       .neq("status", "voided").order("created_at", { ascending: false }).limit(40),
     sb.from("client_projects").select("id, client_id, name, type, status").limit(200),
+    sb.from("client_proposals").select("id").not("content", "is", null),
     sb.from("proposal_events")
       .select("proposal_id, event_type, actor, occurred_at, detail")
       .gte("occurred_at", iso(90 * DAY))
@@ -382,10 +391,8 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
   }
 
   const projById: Record<string, { name: string | null; type: string | null }> = {};
-  const projByClient: Record<string, Array<{ id: string; name: string | null; type: string | null; status: string | null }>> = {};
   for (const p of projects.data ?? []) {
     projById[p.id] = { name: p.name, type: p.type };
-    (projByClient[p.client_id] ??= []).push({ id: p.id, name: p.name, type: p.type, status: p.status });
   }
 
   const evByProposal: Record<string, Array<{ event_type: string; occurred_at: string; detail: unknown }>> = {};
@@ -396,6 +403,10 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
       detail: e.detail,
     });
   }
+
+  const hasContent = new Set(
+    ((withContent.data ?? []) as Array<{ id: string }>).map((r) => r.id),
+  );
 
   const daysSince = (d: string | null) =>
     d ? Math.round((Date.now() - new Date(d).getTime()) / DAY) : null;
@@ -432,7 +443,7 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
       project: p.client_project_id ? projById[p.client_project_id]?.name ?? null : null,
       project_type: p.client_project_id ? projById[p.client_project_id]?.type ?? null : null,
       client_project_id: p.client_project_id,
-      has_content: !!p.content,
+      has_content: hasContent.has(p.id),
       has_pdf: !!p.source_pdf_path,
       days_since_created: daysSince(p.created_at),
       days_since_sent: daysSince(p.sent_at),
@@ -445,29 +456,35 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
       next_followup_at: p.next_followup_at,
       client_engagement_events: engaged,
       event_counts: counts,
-      recent_events: evs.slice(0, 8),
+      recent_events: evs.slice(0, 4),
     };
   });
 
   const sent = inFlight.filter((p) => p.status === "sent");
+  const ids = (list: typeof inFlight) => list.map((p) => p.id);
 
   return {
     clients_missing_from_surecontact: unsynced,
     proposals: inFlight,
-    // Pre-sliced so the agent spends its reasoning on what to say, not on
-    // rederiving which bucket each proposal is in.
-    needs_followup: sent.filter(
-      (p) =>
-        p.followups_sent < maxFollowups &&
-        (p.followup_due || (p.days_since_sent ?? 0) >= followupAfter) &&
-        (p.days_since_activity ?? 0) >= followupAfter,
-    ),
-    sent_never_opened: sent.filter((p) => !p.opened && (p.days_since_sent ?? 0) >= followupAfter),
-    read_but_unsigned: sent.filter((p) => (p.opened || p.viewed_in_portal) && !p.signed_at),
-    exhausted_followups: sent.filter((p) => p.followups_sent >= maxFollowups),
-    stale: inFlight.filter((p) => (p.days_since_activity ?? 0) >= staleAfter && !p.signed_at),
-    drafts_not_sent: inFlight.filter((p) => p.status === "draft"),
-    projects_by_client: projByClient,
+    // Buckets are ID LISTS, not copies.
+    //
+    // These used to hold whole proposal objects, and JSON.stringify has no
+    // reference sharing — so one sent-and-opened-but-unsigned proposal was
+    // serialized four times over. Ids point back into `proposals` above and
+    // cost a few bytes each.
+    buckets: {
+      needs_followup: ids(sent.filter(
+        (p) =>
+          p.followups_sent < maxFollowups &&
+          (p.followup_due || (p.days_since_sent ?? 0) >= followupAfter) &&
+          (p.days_since_activity ?? 0) >= followupAfter,
+      )),
+      sent_never_opened: ids(sent.filter((p) => !p.opened && (p.days_since_sent ?? 0) >= followupAfter)),
+      read_but_unsigned: ids(sent.filter((p) => (p.opened || p.viewed_in_portal) && !p.signed_at)),
+      exhausted_followups: ids(sent.filter((p) => p.followups_sent >= maxFollowups)),
+      stale: ids(inFlight.filter((p) => (p.days_since_activity ?? 0) >= staleAfter && !p.signed_at)),
+      drafts_not_sent: ids(inFlight.filter((p) => p.status === "draft")),
+    },
     project_types: ["automation_build", "site_preview", "app_development", "web_development", "marketing"],
     thresholds: {
       followup_after_days: followupAfter,

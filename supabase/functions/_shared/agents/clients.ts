@@ -103,3 +103,38 @@ If a name matches more than one client, ask which, as a choice between them.
 
 ${JSON.stringify(clients, null, 2)}`;
 }
+
+/**
+ * The roster as an index rather than a data dump.
+ *
+ * `renderDirectory` pretty-prints every field of every client on every single
+ * call — 40 to 80KB, after the only cache breakpoint, re-billed at full rate
+ * every turn for every agent. It was the largest fixed cost in the system.
+ *
+ * An index is enough for the job that actually matters: resolving a name
+ * someone typed ("Menovia") to an id, without a round trip. Everything else —
+ * email, phone, projects, stage history — is one lookup away, and only paid for
+ * when it is wanted.
+ */
+export function renderClientIndex(clients: DirectoryClient[]): string {
+  if (!clients.length) return "";
+  const lines = clients.map((c) => {
+    const bits = [
+      c.company || c.contact_name || "Untitled",
+      c.contact_name && c.company ? c.contact_name : null,
+      c.pipeline_stage,
+      c.projects.length ? `${c.projects.length} project${c.projects.length === 1 ? "" : "s"}` : null,
+    ].filter(Boolean);
+    return `${c.id}  ${bits.join(" · ")}`;
+  });
+
+  return `## Clients
+
+Every client, as id and name. When a client or company is named to you, match it
+here — by company name or contact name — and use that id to look up whatever
+else you need. Do not ask the owner for a detail you can fetch.
+
+If a name matches more than one row, ask which, as a choice between them.
+
+${lines.join("\n")}`;
+}

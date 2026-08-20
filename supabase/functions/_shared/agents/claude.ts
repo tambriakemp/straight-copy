@@ -93,7 +93,7 @@ export async function runAgentModel(args: {
   contextJson: unknown;
   /** Standing rules, rendered. Goes after the cached prefix so edits land at once. */
   rulesBlock?: string;
-  /** The client roster, rendered. Every agent gets it; see clients.ts. */
+  /** The client index, rendered. Every agent gets it; see clients.ts. */
   directoryBlock?: string;
   model: string;
   effort: string;
@@ -123,13 +123,25 @@ export async function runAgentModel(args: {
       {
         role: "user",
         content: [
-          args.rulesBlock,
-          args.directoryBlock,
-          `Here is the current state of the business. Today is ${
-            new Date().toISOString().slice(0, 10)
-          }.\n\n${JSON.stringify(args.contextJson, null, 2)}`,
-          "Do your run and call the report tool.",
-        ].filter(Boolean).join("\n\n"),
+          // Rules and the client index change rarely, so they get their own
+          // block and a cache breakpoint. The state below them changes every
+          // run and sits after it, where it belongs.
+          ...(args.rulesBlock || args.directoryBlock
+            ? [{
+              type: "text" as const,
+              text: [args.rulesBlock, args.directoryBlock].filter(Boolean).join("\n\n"),
+              cache_control: { type: "ephemeral" as const },
+            }]
+            : []),
+          {
+            type: "text" as const,
+            // Compact, not pretty-printed. Indenting a 60KB blob costs 15-25%
+            // more input tokens to produce whitespace no one reads.
+            text: `Here is the current state of the business. Today is ${
+              new Date().toISOString().slice(0, 10)
+            }.\n\n${JSON.stringify(args.contextJson)}\n\nDo your run and call the report tool.`,
+          },
+        ],
       },
     ],
   });
@@ -140,6 +152,15 @@ export async function runAgentModel(args: {
       `Model declined the request${
         response.stop_details ? ` (${JSON.stringify(response.stop_details)})` : ""
       }`,
+    );
+  }
+
+  // A truncated run used to surface as "Model returned no report block", which
+  // is the same swallowed-truncation bug already fixed in chat. Say what it is.
+  if (response.stop_reason === "max_tokens") {
+    throw new Error(
+      "The run ran past the length limit before it finished. Narrow the agent's " +
+        "scope or lower its lookback window.",
     );
   }
 

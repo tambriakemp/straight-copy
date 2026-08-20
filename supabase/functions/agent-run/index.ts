@@ -14,7 +14,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { definitionFor, systemPromptFor } from "../_shared/agents/registry.ts";
 import { runAgentModel } from "../_shared/agents/claude.ts";
 import { loadRules, renderRules, type RulesClient } from "../_shared/agents/rules.ts";
-import { clientDirectory, renderDirectory } from "../_shared/agents/clients.ts";
+import { clientDirectory, renderClientIndex } from "../_shared/agents/clients.ts";
 import { executeAndRecord, type ActionRow } from "../_shared/agents/actions.ts";
 import { deliverRun } from "../_shared/agents/delivery.ts";
 import { isDestructive } from "../_shared/agents/action-kinds.ts";
@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
       systemPrompt: systemPromptFor(agent as AgentRow, def),
       contextJson: context,
       rulesBlock: renderRules(rules),
-      directoryBlock: renderDirectory(directory),
+      directoryBlock: renderClientIndex(directory),
       model: agent.model,
       effort: agent.effort,
       allowedActions: def.allowedActions,

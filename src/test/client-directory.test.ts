@@ -3,6 +3,7 @@
 // data being present, and the instruction telling it not to ask.
 import { describe, it, expect } from "vitest";
 import {
+  renderClientIndex,
   renderDirectory,
   type DirectoryClient,
 } from "../../supabase/functions/_shared/agents/clients";
@@ -57,5 +58,39 @@ describe("renderDirectory", () => {
     const parsed = JSON.parse(json) as DirectoryClient[];
     expect(parsed).toHaveLength(1);
     expect(parsed[0].projects).toHaveLength(2);
+  });
+});
+
+describe("renderClientIndex", () => {
+  it("is an index, not a dump — no email, no phone, no nested projects", () => {
+    // The full directory was 40-80KB after the only cache breakpoint, re-billed
+    // every turn for every agent. The index carries what resolves a name.
+    const out = renderClientIndex([menovia]);
+    expect(out).toContain("Menovia AI");
+    expect(out).toContain("c1");
+    expect(out).not.toContain("kkahin@mihealths.com");
+    expect(out).not.toContain("Menovia Social Media");
+  });
+
+  it("is dramatically smaller than the full directory", () => {
+    const many = Array.from({ length: 150 }, (_, i) => ({ ...menovia, id: `c${i}` }));
+    expect(renderClientIndex(many).length).toBeLessThan(
+      renderDirectory(many).length / 5,
+    );
+  });
+
+  it("still says to look things up rather than ask", () => {
+    const out = renderClientIndex([menovia]).replace(/\s+/g, " ");
+    expect(out).toContain("Do not ask the owner for a detail you can fetch");
+    expect(out.toLowerCase()).toContain("more than one row");
+  });
+
+  it("produces nothing for an empty roster", () => {
+    expect(renderClientIndex([])).toBe("");
+  });
+
+  it("names a client with no company by their contact", () => {
+    const out = renderClientIndex([{ ...menovia, company: null }]);
+    expect(out).toContain("Dr. Khadra Kahin");
   });
 });
