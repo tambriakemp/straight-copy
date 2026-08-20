@@ -21,6 +21,9 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 export default function AgentDeliverable({ action }: { action: AgentAction }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
+  // The written document, rendered in place. Asking for a proposal and getting
+  // a filename is the thing that made the agent feel like it had done nothing.
+  const [reading, setReading] = useState<{ title: string; html: string } | null>(null);
   const result = deliverableOf(action);
   if (!result) return null;
 
@@ -53,30 +56,69 @@ export default function AgentDeliverable({ action }: { action: AgentAction }) {
     }
   };
 
+  const read = async () => {
+    if (!result.proposal_id) return;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.from("client_proposals")
+        .select("title, content").eq("id", result.proposal_id).maybeSingle();
+      if (error) throw error;
+      if (!data?.content) throw new Error("Nothing was written into this draft");
+      setReading({
+        title: data.title,
+        html: renderProposalHtml(data.title, data.content as ProposalContent),
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not open that");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (result.proposal_id) {
     return (
-      <div className="ws__deliverable">
-        <FileText size={16} className="ws__deliverable-icon" />
-        <div className="ws__deliverable-body">
-          <div className="ws__deliverable-title">{action.title}</div>
-          <div className="ws__deliverable-sub">
-            Draft proposal · filed against the project · not visible to the client
+      <>
+        <div className="ws__deliverable">
+          <FileText size={16} className="ws__deliverable-icon" />
+          <div className="ws__deliverable-body">
+            <div className="ws__deliverable-title">{action.title}</div>
+            <div className="ws__deliverable-sub">
+              Draft proposal · filed against the project · not visible to the client
+            </div>
+          </div>
+          <div className="ws__deliverable-actions">
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" disabled={busy} onClick={() => void read()}>
+              <BookOpen size={12} /> Read
+            </button>
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" disabled={busy} onClick={() => void openPdf()}>
+              <Download size={12} /> {busy ? "…" : "PDF"}
+            </button>
+            {result.client_id && result.client_project_id && (
+              <button className="crm-btn crm-btn--ghost crm-btn--sm"
+                onClick={() => navigate(`/admin/clients/${result.client_id}/projects/${result.client_project_id}`)}>
+                <ExternalLink size={12} /> Open
+              </button>
+            )}
           </div>
         </div>
-        <div className="ws__deliverable-actions">
-          <button className="crm-btn crm-btn--ghost crm-btn--sm" disabled={busy} onClick={() => void openPdf()}>
-            <Download size={12} /> {busy ? "…" : "PDF"}
-          </button>
-          {result.client_id && result.client_project_id && (
-            <button className="crm-btn crm-btn--ghost crm-btn--sm"
-              onClick={() => navigate(`/admin/clients/${result.client_id}/projects/${result.client_project_id}`)}>
-              <ExternalLink size={12} /> Open
-            </button>
-          )}
-        </div>
-      </div>
+        {reading && (
+          <div className="ws__reader" role="dialog" aria-label={reading.title}
+            onClick={() => setReading(null)}>
+            <div className="ws__reader-panel" onClick={(e) => e.stopPropagation()}>
+              <header className="ws__reader-bar">
+                <span>{reading.title}</span>
+                <button className="ws__reader-close" aria-label="Close"
+                  onClick={() => setReading(null)}><X size={16} /></button>
+              </header>
+              <div className="ws__reader-body"
+                dangerouslySetInnerHTML={{ __html: reading.html }} />
+            </div>
+          </div>
+        )}
+      </>
     );
   }
+
 
   const label = result.task_id ? "Task added to the board" : "Project created";
   return (
