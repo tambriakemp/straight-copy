@@ -331,24 +331,41 @@ function mdToHtml(md: string): string {
  */
 export function renderProposalHtml(title: string, content: ProposalContent): string {
   const cover = content.cover ?? {};
-  const spine = spineFor(content.kind);
+  const kind = inferKind(content);
+  const spine = spineFor(kind);
   const byKey = new Map(
     (content.sections ?? []).map((s) => [s.key ?? "", s]),
   );
 
-  const toc = spine.map(
+  // Spine order first, then anything the agent wrote that the spine has no slot
+  // for. A section it invented for good reason is worth more than the house
+  // order, so it renders at the end rather than being silently dropped.
+  const spineKeys = new Set(spine.map((s) => s.key));
+  const extras = (content.sections ?? []).filter(
+    (s) => !spineKeys.has(s.key ?? "") && (s.body ?? "").trim().length > 0,
+  );
+  const ordered: Array<{ heading: string; purpose?: string; body: string }> = [
+    ...spine.map((s) => ({
+      heading: byKey.get(s.key)?.heading || s.heading,
+      purpose: s.purpose,
+      body: (byKey.get(s.key)?.body ?? "").trim(),
+      essential: ESSENTIAL_SECTIONS[kind].includes(s.key),
+      written: (byKey.get(s.key)?.body ?? "").trim().length > 0,
+    })).filter((s) => s.written || s.essential),
+    ...extras.map((s) => ({ heading: s.heading || "", body: (s.body ?? "").trim() })),
+  ];
+
+  const toc = ordered.map(
     (s, i) =>
-      `<li><span class="num">${String(i + 1).padStart(2, "0")}</span><span class="h">${esc(s.heading)}</span><span class="p">${esc(s.purpose)}</span></li>`,
+      `<li><span class="num">${String(i + 1).padStart(2, "0")}</span><span class="h">${esc(s.heading)}</span><span class="p">${esc(s.purpose ?? "")}</span></li>`,
   ).join("");
 
-  const body = spine.map((s, i) => {
-    const found = byKey.get(s.key);
-    const text = (found?.body ?? "").trim();
+  const body = ordered.map((s, i) => {
     return `<section class="sec">
       <p class="eyebrow">${String(i + 1).padStart(2, "0")} — ${esc(s.heading).toUpperCase()}</p>
-      <h2>${esc(found?.heading || s.heading)}</h2>
+      <h2>${esc(s.heading)}</h2>
       <hr />
-      ${text ? mdToHtml(text) : `<p class="gap">This section has not been written yet.</p>`}
+      ${s.body ? mdToHtml(s.body) : `<p class="gap">This section has not been written yet.</p>`}
     </section>`;
   }).join("");
 
