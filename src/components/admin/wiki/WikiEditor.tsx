@@ -16,7 +16,7 @@ const btn: React.CSSProperties = {
   border: `1px solid ${BORDER}`,
   color: CREAM,
   padding: "6px 10px",
-  fontSize: 13,
+  fontSize: 15,
   letterSpacing: "0.15em",
   textTransform: "uppercase",
   cursor: "pointer",

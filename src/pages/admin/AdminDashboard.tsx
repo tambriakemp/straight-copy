@@ -286,7 +286,7 @@ export default function AdminDashboard() {
               {(data?.agents ?? []).map((a) => (
                 <div key={a.id} className="agent-card" style={{ opacity: a.enabled ? 1 : 0.55 }}>
                   <button className="agent-card__head" onClick={() => navigate(`/admin/agents/${a.id}`)}>
-                    <AgentAvatar name={a.name} url={a.avatar_url} accent={a.accent_color} size={64} />
+                    <AgentAvatar name={a.name} url={a.avatar_url} accent={a.accent_color} size={104} />
                     <span className="agent-card__id">
                       <span className="agent-card__name">
                         {a.name}
@@ -395,7 +395,7 @@ export default function AdminDashboard() {
               {push !== "unsupported" && push !== "denied" && (
                 <button onClick={togglePush}
                   style={{ background: "transparent", border: "none", cursor: "pointer",
-                    fontSize: 9.5, letterSpacing: "0.18em", textTransform: "uppercase",
+                    fontSize: 11.5, letterSpacing: "0.18em", textTransform: "uppercase",
                     color: push === "subscribed" ? "#9db8a6" : "var(--crm-taupe)" }}>
                   {push === "subscribed" ? "◉ Alerts on" : "○ Alerts off"}
                 </button>

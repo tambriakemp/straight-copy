@@ -35,8 +35,8 @@ function fmt(iso: string | null) {
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 16, padding: "12px 0", borderBottom: "1px solid hsl(40 20% 97% / 0.06)" }}>
-      <div style={{ fontSize: 13, letterSpacing: "0.25em", textTransform: "uppercase", opacity: 0.55 }}>{label}</div>
-      <div style={{ fontSize: 16, color: "hsl(40 20% 97%)", wordBreak: "break-all" }}>{value ?? "—"}</div>
+      <div style={{ fontSize: 15, letterSpacing: "0.25em", textTransform: "uppercase", opacity: 0.55 }}>{label}</div>
+      <div style={{ fontSize: 18, color: "hsl(40 20% 97%)", wordBreak: "break-all" }}>{value ?? "—"}</div>
     </div>
   );
 }
@@ -49,8 +49,8 @@ export default function AutomationSubscriptionPanel({ client }: { client: Subscr
   if (!client.surecart_subscription_id) {
     return (
       <div style={{ padding: "32px 24px", color: "hsl(30 8% 62%)" }}>
-        <div style={{ fontSize: 18, color: "hsl(40 20% 97%)", marginBottom: 8 }}>No SureCart subscription on file</div>
-        <p style={{ fontSize: 15, lineHeight: 1.6, maxWidth: 560 }}>
+        <div style={{ fontSize: 20, color: "hsl(40 20% 97%)", marginBottom: 8 }}>No SureCart subscription on file</div>
+        <p style={{ fontSize: 17, lineHeight: 1.6, maxWidth: 560 }}>
           This client hasn't been linked to a SureCart subscription yet. Once they purchase or are linked, the subscription details and status will show here.
         </p>
       </div>
@@ -60,12 +60,12 @@ export default function AutomationSubscriptionPanel({ client }: { client: Subscr
   return (
     <div style={{ padding: "24px 24px 48px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 16, marginBottom: 24 }}>
-        <h2 style={{ fontFamily: "Cormorant Garamond, serif", fontStyle: "italic", fontSize: 32, color: "hsl(40 20% 97%)", margin: 0 }}>
+        <h2 style={{ fontFamily: "Cormorant Garamond, serif", fontStyle: "italic", fontSize: 34, color: "hsl(40 20% 97%)", margin: 0 }}>
           {tierLabel} Subscription
         </h2>
         <span
           style={{
-            fontSize: 12,
+            fontSize: 14,
             letterSpacing: "0.25em",
             textTransform: "uppercase",
             padding: "4px 10px",
@@ -84,9 +84,9 @@ export default function AutomationSubscriptionPanel({ client }: { client: Subscr
         <Row label="Current period ends" value={fmt(client.subscription_current_period_end)} />
         <Row label="Cancels at period end" value={client.subscription_cancel_at_period_end ? "Yes" : "No"} />
         {client.subscription_canceled_at && <Row label="Cancelled at" value={fmt(client.subscription_canceled_at)} />}
-        <Row label="Subscription ID" value={<code style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 13 }}>{client.surecart_subscription_id}</code>} />
-        <Row label="Customer ID" value={client.surecart_customer_id ? <code style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 13 }}>{client.surecart_customer_id}</code> : "—"} />
-        <Row label="Order ID" value={client.surecart_order_id ? <code style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 13 }}>{client.surecart_order_id}</code> : "—"} />
+        <Row label="Subscription ID" value={<code style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 15 }}>{client.surecart_subscription_id}</code>} />
+        <Row label="Customer ID" value={client.surecart_customer_id ? <code style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 15 }}>{client.surecart_customer_id}</code> : "—"} />
+        <Row label="Order ID" value={client.surecart_order_id ? <code style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 15 }}>{client.surecart_order_id}</code> : "—"} />
       </div>
     </div>
   );

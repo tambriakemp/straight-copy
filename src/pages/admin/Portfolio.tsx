@@ -209,13 +209,13 @@ export default function Portfolio() {
                 onClick={() => row.venture_id ? navigate(`/admin/ventures/${row.venture_id}`) : navigate("/admin/clients")}
                 style={{ padding: "14px 16px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
                   textAlign: "left", cursor: "pointer", color: "var(--crm-warm-white)" }}>
-                <div style={{ fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                <div style={{ fontSize: 12, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
                   {row.name}
                 </div>
-                <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 26, marginTop: 4 }}>
+                <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 28, marginTop: 4 }}>
                   {money(row.cash_30d_cents)}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 2 }}>
+                <div style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 2 }}>
                   {row.mrr_cents ? `${money(row.mrr_cents)}/mo run-rate` : "30d cash"}
                   {row.members != null ? ` · ${row.members} members` : ""}
                 </div>
@@ -227,7 +227,7 @@ export default function Portfolio() {
         {/* 12-month trend, agency vs ventures */}
         {!!p?.trend?.length && (
           <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase",
+            <div style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase",
               color: "var(--crm-taupe)", marginBottom: 8 }}>
               Revenue — trailing 12 months
             </div>
@@ -239,11 +239,11 @@ export default function Portfolio() {
                   Ventures: t.venture_cents / 100,
                 }))}>
                   <CartesianGrid strokeDasharray="2 4" stroke="var(--crm-border-dark)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false}
+                  <XAxis dataKey="month" tick={{ fill: "var(--crm-taupe)", fontSize: 13 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: "var(--crm-taupe)", fontSize: 13 }} axisLine={false} tickLine={false}
                     tickFormatter={(v) => `$${v >= 1000 ? `${Math.round(v / 1000)}k` : v}`} />
                   <Tooltip
-                    contentStyle={{ background: "var(--crm-ink)", border: "1px solid var(--crm-border-dark)", fontSize: 12 }}
+                    contentStyle={{ background: "var(--crm-ink)", border: "1px solid var(--crm-border-dark)", fontSize: 14 }}
                     formatter={(v: number) => [`$${v.toLocaleString()}`, ""]} />
                   <Bar dataKey="Agency" stackId="rev" fill="#8a8378" />
                   <Bar dataKey="Ventures" stackId="rev" fill="#9db8a6" />
@@ -256,7 +256,7 @@ export default function Portfolio() {
         {/* Active launches */}
         {!!data?.active_launches?.length && (
           <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase",
+            <div style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase",
               color: "var(--crm-taupe)", marginBottom: 8 }}>
               Active launches
             </div>
@@ -265,18 +265,18 @@ export default function Portfolio() {
                 <button key={l.id} onClick={() => navigate(`/admin/ventures/${l.venture_id}/launches/${l.id}`)}
                   style={{ padding: "14px 16px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
                     textAlign: "left", cursor: "pointer", color: "var(--crm-warm-white)" }}>
-                  <div style={{ fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                  <div style={{ fontSize: 12, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
                     {l.venture_name} · {l.status}
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 500, marginTop: 4 }}>{l.name}</div>
-                  <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 4 }}>
+                  <div style={{ fontSize: 16, fontWeight: 500, marginTop: 4 }}>{l.name}</div>
+                  <div style={{ fontSize: 14, color: "var(--crm-taupe)", marginTop: 4 }}>
                     {money(l.actual_revenue_cents)}
                     {l.goal_revenue_cents ? ` of ${money(l.goal_revenue_cents)}` : ""}
                     {" · "}{l.actual_signups}{l.goal_signups ? `/${l.goal_signups}` : ""} signups
                   </div>
                   <GoalBar actual={l.actual_revenue_cents} goal={l.goal_revenue_cents} />
                   {l.cart_close_at && (
-                    <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 6 }}>
+                    <div style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 6 }}>
                       Cart closes {new Date(l.cart_close_at).toLocaleDateString()}
                     </div>
                   )}
@@ -299,12 +299,12 @@ export default function Portfolio() {
                         style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, padding: "12px 14px", textAlign: "left",
                           background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", cursor: "pointer" }}>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
-                          <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 2 }}>
+                          <div style={{ fontSize: 16, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
+                          <div style={{ fontSize: 14, color: "var(--crm-taupe)", marginTop: 2 }}>
                             {t.client_name || "—"}{t.project_name ? ` · ${t.project_name}` : ""}
                           </div>
                         </div>
-                        <div style={{ fontSize: 12, color: d.overdue ? "#e07a5f" : d.soon ? "#dbb172" : "var(--crm-taupe)", textTransform: "uppercase", letterSpacing: "0.15em", alignSelf: "center" }}>
+                        <div style={{ fontSize: 14, color: d.overdue ? "#e07a5f" : d.soon ? "#dbb172" : "var(--crm-taupe)", textTransform: "uppercase", letterSpacing: "0.15em", alignSelf: "center" }}>
                           {d.text}
                         </div>
                       </button>
@@ -320,9 +320,9 @@ export default function Portfolio() {
                   <div>
                     {data.pending_proposals.map((p) => (
                       <Link key={p.id} to={`/admin/clients/${p.client_id}`}
-                        style={{ display: "block", padding: "10px 14px", background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", fontSize: 13 }}>
+                        style={{ display: "block", padding: "10px 14px", background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", fontSize: 15 }}>
                         <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
-                        <div style={{ fontSize: 11, color: "var(--crm-taupe)" }}>{p.client_name}</div>
+                        <div style={{ fontSize: 13, color: "var(--crm-taupe)" }}>{p.client_name}</div>
                       </Link>
                     ))}
                   </div>
@@ -334,12 +334,12 @@ export default function Portfolio() {
                   <div>
                     {data.pending_invoices.map((i) => (
                       <Link key={i.id} to={`/admin/clients/${i.client_id}`}
-                        style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, padding: "10px 14px", background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", fontSize: 13 }}>
+                        style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, padding: "10px 14px", background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", fontSize: 15 }}>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{i.label}</div>
-                          <div style={{ fontSize: 11, color: "var(--crm-taupe)" }}>{i.client_name}{i.due_date ? ` · due ${new Date(i.due_date).toLocaleDateString()}` : ""}</div>
+                          <div style={{ fontSize: 13, color: "var(--crm-taupe)" }}>{i.client_name}{i.due_date ? ` · due ${new Date(i.due_date).toLocaleDateString()}` : ""}</div>
                         </div>
-                        <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 16 }}>{money(i.amount_cents)}</div>
+                        <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 18 }}>{money(i.amount_cents)}</div>
                       </Link>
                     ))}
                   </div>
@@ -353,8 +353,8 @@ export default function Portfolio() {
                   {data.recent_clients.map((c) => (
                     <Link key={c.id} to={`/admin/clients/${c.id}`}
                       style={{ padding: "12px 14px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", textDecoration: "none" }}>
-                      <div style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.business_name || c.contact_name || "Untitled"}</div>
-                      <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 2 }}>updated {relTime(c.updated_at)}</div>
+                      <div style={{ fontSize: 16, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.business_name || c.contact_name || "Untitled"}</div>
+                      <div style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 2 }}>updated {relTime(c.updated_at)}</div>
                     </Link>
                   ))}
                 </div>
@@ -371,20 +371,20 @@ export default function Portfolio() {
                     <div key={e.id} style={{ display: "grid", gridTemplateColumns: "28px 1fr", gap: 10, padding: "12px 14px",
                       background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)" }}>
                       <div style={{ width: 24, height: 24, borderRadius: "50%", background: "hsl(36 5% 22%)",
-                        display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "var(--crm-warm-white)" }}>
+                        display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "var(--crm-warm-white)" }}>
                         {ACTIVITY_ICON[e.kind] || "•"}
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                        <div style={{ fontSize: 12, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
                           {ACTIVITY_LABEL[e.kind] || e.kind} · {relTime(e.occurred_at)}
                         </div>
-                        <div style={{ fontSize: 13, color: "var(--crm-warm-white)", marginTop: 2 }}>
+                        <div style={{ fontSize: 15, color: "var(--crm-warm-white)", marginTop: 2 }}>
                           {e.client_id ? (
                             <Link to={`/admin/clients/${e.client_id}`} style={{ color: "inherit" }}>{e.title}</Link>
                           ) : e.title}
                         </div>
                         {e.description && (
-                          <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 2 }}>{e.description}</div>
+                          <div style={{ fontSize: 14, color: "var(--crm-taupe)", marginTop: 2 }}>{e.description}</div>
                         )}
                       </div>
                     </div>

@@ -287,7 +287,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
           <SelectContent className={taskSelectContentClass}>
             <SelectItem value="all">All tags</SelectItem>
             {allTags.length === 0 ? (
-              <div style={{ padding: "8px 10px", fontSize: 13, color: "hsl(var(--warm-white) / 0.5)" }}>No tags yet</div>
+              <div style={{ padding: "8px 10px", fontSize: 15, color: "hsl(var(--warm-white) / 0.5)" }}>No tags yet</div>
             ) : (
               allTags.map((tag) => <SelectItem key={tag} value={tag}>{tag}</SelectItem>)
             )}
@@ -399,7 +399,7 @@ function tabBtnStyle(active: boolean): React.CSSProperties {
     color: active ? "hsl(var(--accent-foreground))" : "hsl(var(--warm-white))",
     border: "none",
     padding: "6px 12px",
-    fontSize: 14,
+    fontSize: 16,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
     cursor: "pointer",
@@ -431,10 +431,10 @@ function KanbanColumn({
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 4px 8px", flexShrink: 0 }}>
         <span style={{ width: 8, height: 8, borderRadius: 999, background: STATUS_COLORS[status] }} />
-        <span style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "hsl(var(--warm-white))" }}>
+        <span style={{ fontSize: 15, letterSpacing: "0.12em", textTransform: "uppercase", color: "hsl(var(--warm-white))" }}>
           {STATUS_LABELS[status]}
         </span>
-        <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.7)", fontSize: 14 }}>{tasks.length}</span>
+        <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.7)", fontSize: 16 }}>{tasks.length}</span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
@@ -478,7 +478,7 @@ function TaskEmailSection({ task, onChanged }: { task: Task; onChanged: () => Pr
           {isAuto ? "Auto-fires from server event" : "Agency triggered"}
         </Badge>
         {tpl.sent_at && (
-          <span className="!text-warm-white/70" style={{ fontSize: 12 }}>
+          <span className="!text-warm-white/70" style={{ fontSize: 14 }}>
             Last sent: {new Date(tpl.sent_at).toLocaleString()}
           </span>
         )}
@@ -490,7 +490,7 @@ function TaskEmailSection({ task, onChanged }: { task: Task; onChanged: () => Pr
         )}
       </div>
       {tpl.last_send_error && (
-        <div style={{ marginTop: 8, fontSize: 12, color: "hsl(0 70% 65%)" }}>
+        <div style={{ marginTop: 8, fontSize: 14, color: "hsl(0 70% 65%)" }}>
           Last error: {tpl.last_send_error}
         </div>
       )}
@@ -538,41 +538,41 @@ function TaskCard({ task, epics, subtaskCount, dragging, projectsById }: {
       boxShadow: dragging ? "0 8px 24px rgba(0,0,0,0.4)" : "none",
     }}>
       {proj && (
-        <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase",
+        <div style={{ fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase",
           color: "hsl(var(--warm-white) / 0.6)", marginBottom: 6 }}>
           {proj.client_name ?? "—"} · {proj.name}
         </div>
       )}
       {epic && (
-        <div style={{ fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase",
+        <div style={{ fontSize: 14, letterSpacing: "0.1em", textTransform: "uppercase",
           color: epic.color ?? "hsl(var(--warm-white))", marginBottom: 6 }}>
           {epic.name}
         </div>
       )}
-      <div style={{ color: "hsl(var(--warm-white))", fontSize: 15, lineHeight: 1.4, marginBottom: 8 }}>
+      <div style={{ color: "hsl(var(--warm-white))", fontSize: 17, lineHeight: 1.4, marginBottom: 8 }}>
         {task.name}
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: PRIORITY_COLORS[task.priority] }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 15, color: PRIORITY_COLORS[task.priority] }}>
           <Flag size={11} /> {task.priority}
         </span>
         {task.assignee_kind !== "unassigned" && (
-          <span style={{ fontSize: 13, color: "hsl(var(--warm-white) / 0.7)" }}>
+          <span style={{ fontSize: 15, color: "hsl(var(--warm-white) / 0.7)" }}>
             {ASSIGNEE_LABEL[task.assignee_kind]}
           </span>
         )}
         {task.due_date && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: "hsl(var(--warm-white) / 0.7)" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 15, color: "hsl(var(--warm-white) / 0.7)" }}>
             <Calendar size={11} /> {task.due_date}
           </span>
         )}
         {subtaskCount > 0 && (
-          <span style={{ fontSize: 13, color: "hsl(var(--warm-white) / 0.7)" }}>{subtaskCount} subtask{subtaskCount > 1 ? "s" : ""}</span>
+          <span style={{ fontSize: 15, color: "hsl(var(--warm-white) / 0.7)" }}>{subtaskCount} subtask{subtaskCount > 1 ? "s" : ""}</span>
         )}
         {task.url && <ExternalLink size={11} style={{ color: "hsl(var(--warm-white) / 0.7)" }} />}
         {(task.attachments?.length ?? 0) > 0 && <Paperclip size={11} style={{ color: "hsl(var(--warm-white) / 0.7)" }} />}
         {task.tags?.map((tag) => (
-          <Badge key={tag} variant="outline" className="text-[11px] py-0 px-1.5 border-warm-white/15 !text-warm-white/70">
+          <Badge key={tag} variant="outline" className="text-[13px] py-0 px-1.5 border-warm-white/15 !text-warm-white/70">
             {tag}
           </Badge>
         ))}
@@ -654,7 +654,7 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged, projectsB
         <div style={{
           display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", marginBottom: 10,
           border: "1px solid hsl(var(--warm-white) / 0.18)", borderRadius: 8,
-          background: "rgba(255,255,255,0.04)", color: "hsl(var(--warm-white))", fontSize: 14,
+          background: "rgba(255,255,255,0.04)", color: "hsl(var(--warm-white))", fontSize: 16,
         }}>
           <span style={{ letterSpacing: "0.06em" }}>{selected.size} selected</span>
           <div style={{ flex: 1 }} />
@@ -664,7 +664,7 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged, projectsB
             style={{
               background: "hsl(40 8% 10%)", color: "hsl(var(--warm-white))",
               border: "1px solid hsl(var(--warm-white) / 0.18)", padding: "6px 10px",
-              fontSize: 13, borderRadius: 4,
+              fontSize: 15, borderRadius: 4,
             }}
           >
             <option value="">Change status…</option>
@@ -703,23 +703,23 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged, projectsB
                   borderBottom: isCollapsed ? "none" : "1px solid hsl(var(--warm-white) / 0.12)",
                 }}
               >
-                <span style={{ color: "hsl(var(--warm-white) / 0.7)", fontSize: 11, width: 12, display: "inline-block" }}>
+                <span style={{ color: "hsl(var(--warm-white) / 0.7)", fontSize: 13, width: 12, display: "inline-block" }}>
                   {isCollapsed ? "▸" : "▾"}
                 </span>
                 <span style={{
                   display: "inline-flex", alignItems: "center", gap: 8,
                   padding: "3px 10px", borderRadius: 4,
                   background: STATUS_COLORS[status], color: "hsl(40 8% 10%)",
-                  fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600,
+                  fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600,
                 }}>
                   {STATUS_LABELS[status]}
                 </span>
-                <span style={{ color: "hsl(var(--warm-white) / 0.6)", fontSize: 13 }}>{items.length}</span>
+                <span style={{ color: "hsl(var(--warm-white) / 0.6)", fontSize: 15 }}>{items.length}</span>
               </div>
               {!isCollapsed && (
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 17 }}>
                   <thead>
-                    <tr style={{ background: "rgba(255,255,255,0.02)", color: "hsl(var(--warm-white) / 0.7)", textAlign: "left", fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                    <tr style={{ background: "rgba(255,255,255,0.02)", color: "hsl(var(--warm-white) / 0.7)", textAlign: "left", fontSize: 15, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                       <th style={{ ...th, width: 36 }}>
                         <input
                           type="checkbox"
@@ -764,7 +764,7 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged, projectsB
                           </td>
                           <td style={td}>{t.name}</td>
                           {projectsById && (
-                            <td style={{ ...td, color: "hsl(var(--warm-white) / 0.7)", fontSize: 13 }}>
+                            <td style={{ ...td, color: "hsl(var(--warm-white) / 0.7)", fontSize: 15 }}>
                               {projectsById.get(t.client_project_id)?.client_name ?? "—"}
                             </td>
                           )}
@@ -838,16 +838,16 @@ function CalendarView({ tasks, onOpen, projectsById }: {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
         <button onClick={goPrev} style={calNavBtn}><ChevronLeft size={14} /></button>
         <button onClick={goNext} style={calNavBtn}><ChevronRight size={14} /></button>
-        <button onClick={goToday} style={{ ...calNavBtn, padding: "4px 10px", fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase" }}>Today</button>
-        <span style={{ fontSize: 16, color: "hsl(var(--warm-white))", letterSpacing: "0.06em" }}>{monthName}</span>
-        <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.6)", fontSize: 13 }}>
+        <button onClick={goToday} style={{ ...calNavBtn, padding: "4px 10px", fontSize: 14, letterSpacing: "0.1em", textTransform: "uppercase" }}>Today</button>
+        <span style={{ fontSize: 18, color: "hsl(var(--warm-white))", letterSpacing: "0.06em" }}>{monthName}</span>
+        <span style={{ marginLeft: "auto", color: "hsl(var(--warm-white) / 0.6)", fontSize: 15 }}>
           {tasks.filter((t) => t.due_date).length} dated · {undated.length} undated
         </span>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, background: "hsl(var(--warm-white) / 0.08)", border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 8, overflow: "hidden" }}>
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-          <div key={d} style={{ background: "rgba(255,255,255,0.04)", padding: "8px 10px", fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "hsl(var(--warm-white) / 0.6)" }}>
+          <div key={d} style={{ background: "rgba(255,255,255,0.04)", padding: "8px 10px", fontSize: 13, letterSpacing: "0.16em", textTransform: "uppercase", color: "hsl(var(--warm-white) / 0.6)" }}>
             {d}
           </div>
         ))}
@@ -863,7 +863,7 @@ function CalendarView({ tasks, onOpen, projectsById }: {
               outline: isToday ? "1px solid hsl(var(--accent))" : undefined,
             }}>
               {cell.date && (
-                <div style={{ fontSize: 12, color: isToday ? "hsl(var(--accent))" : "hsl(var(--warm-white) / 0.7)", marginBottom: 4 }}>
+                <div style={{ fontSize: 14, color: isToday ? "hsl(var(--accent))" : "hsl(var(--warm-white) / 0.7)", marginBottom: 4 }}>
                   {cell.date.getDate()}
                 </div>
               )}
@@ -878,7 +878,7 @@ function CalendarView({ tasks, onOpen, projectsById }: {
                         border: `1px solid ${STATUS_COLORS[t.status]}`,
                         borderLeftWidth: 3,
                         padding: "3px 6px",
-                        fontSize: 12,
+                        fontSize: 14,
                         color: "hsl(var(--warm-white))",
                         borderRadius: 3,
                         cursor: "pointer",
@@ -888,13 +888,13 @@ function CalendarView({ tasks, onOpen, projectsById }: {
                       }}
                       title={`${proj ? `[${proj.client_name ?? "?"}] ` : ""}${t.name}`}
                     >
-                      {proj && <span style={{ opacity: 0.6, fontSize: 10 }}>{proj.client_name ?? "?"} · </span>}
+                      {proj && <span style={{ opacity: 0.6, fontSize: 12 }}>{proj.client_name ?? "?"} · </span>}
                       {t.name}
                     </button>
                   );
                 })}
                 {dayTasks.length > 4 && (
-                  <span style={{ fontSize: 11, color: "hsl(var(--warm-white) / 0.6)" }}>+{dayTasks.length - 4} more</span>
+                  <span style={{ fontSize: 13, color: "hsl(var(--warm-white) / 0.6)" }}>+{dayTasks.length - 4} more</span>
                 )}
               </div>
             </div>
@@ -904,7 +904,7 @@ function CalendarView({ tasks, onOpen, projectsById }: {
 
       {undated.length > 0 && (
         <div style={{ marginTop: 14, padding: 12, border: "1px dashed hsl(var(--warm-white) / 0.18)", borderRadius: 8 }}>
-          <div style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(var(--warm-white) / 0.6)", marginBottom: 8 }}>
+          <div style={{ fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(var(--warm-white) / 0.6)", marginBottom: 8 }}>
             No due date ({undated.length})
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -915,7 +915,7 @@ function CalendarView({ tasks, onOpen, projectsById }: {
                   background: "rgba(255,255,255,0.04)",
                   border: `1px solid ${STATUS_COLORS[t.status]}`,
                   borderLeftWidth: 3,
-                  padding: "4px 8px", fontSize: 12, color: "hsl(var(--warm-white))",
+                  padding: "4px 8px", fontSize: 14, color: "hsl(var(--warm-white))",
                   borderRadius: 3, cursor: "pointer",
                 }}>
                   {proj && <span style={{ opacity: 0.6 }}>{proj.client_name ?? "?"} · </span>}
@@ -944,7 +944,7 @@ const calNavBtn: React.CSSProperties = {
 const th: React.CSSProperties = { padding: "10px 12px" };
 const td: React.CSSProperties = { padding: "10px 12px" };
 const subLabel: React.CSSProperties = {
-  fontSize: 13,
+  fontSize: 15,
   letterSpacing: "0.1em",
   textTransform: "uppercase",
   color: "hsl(var(--warm-white))",
@@ -1563,7 +1563,7 @@ function TaskDetailSheet({
                       onBlur={() => { if (tagDraft.trim()) { addTagValue(tagDraft); setTagDraft(""); } }}
                       placeholder={tags.length === 0 ? "Type and press Enter…" : "Add tag…"}
                       className="tp-input"
-                      style={{ flex: 1, minWidth: 140, padding: "6px 10px", fontSize: 13 }}
+                      style={{ flex: 1, minWidth: 140, padding: "6px 10px", fontSize: 15 }}
                     />
                   </div>
                 </div>

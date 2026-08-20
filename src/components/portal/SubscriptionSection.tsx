@@ -137,7 +137,7 @@ export default function SubscriptionSection({
         <div>
           <div
             style={{
-              fontSize: 13,
+              fontSize: 15,
               letterSpacing: "0.25em",
               textTransform: "uppercase",
               opacity: 0.6,
@@ -146,13 +146,13 @@ export default function SubscriptionSection({
           >
             Status
           </div>
-          <div style={{ fontSize: 20 }}>{statusLabel}</div>
+          <div style={{ fontSize: 22 }}>{statusLabel}</div>
         </div>
         {sub.canceled_at && (
           <div>
             <div
               style={{
-                fontSize: 13,
+                fontSize: 15,
                 letterSpacing: "0.25em",
                 textTransform: "uppercase",
                 opacity: 0.6,
@@ -161,7 +161,7 @@ export default function SubscriptionSection({
             >
               Cancelled
             </div>
-            <div style={{ fontSize: 20 }}>{formatDate(sub.canceled_at)}</div>
+            <div style={{ fontSize: 22 }}>{formatDate(sub.canceled_at)}</div>
           </div>
         )}
       </div>
@@ -191,7 +191,7 @@ export default function SubscriptionSection({
               width: "100%",
             }}
           >
-            <p style={{ margin: 0, marginBottom: 12, fontSize: 16 }}>
+            <p style={{ margin: 0, marginBottom: 12, fontSize: 18 }}>
               Are you sure? Your access will end immediately and any in-progress
               builds will pause. You can resume anytime.
             </p>

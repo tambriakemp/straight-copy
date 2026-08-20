@@ -178,7 +178,7 @@ export default function ImagesPanel({ clientProjectId }: { clientProjectId: stri
           padding: 24,
           textAlign: "center",
           color: "var(--crm-taupe)",
-          fontSize: 13,
+          fontSize: 15,
           background: dragOver ? "rgba(255,255,255,0.03)" : "transparent",
         }}
       >
@@ -210,7 +210,7 @@ export default function ImagesPanel({ clientProjectId }: { clientProjectId: stri
           padding: "8px 12px",
           border: "1px solid var(--crm-border-dark)", borderRadius: 8,
         }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--crm-taupe)", fontSize: 12 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--crm-taupe)", fontSize: 14 }}>
             <span>{selected.size} of {images.length} selected</span>
             <Button size="sm" variant="ghost" onClick={selectAll}
               className="text-warm-white hover:bg-warm-white/10 h-7 px-2 text-xs">Select all</Button>
@@ -240,7 +240,7 @@ export default function ImagesPanel({ clientProjectId }: { clientProjectId: stri
       {loading ? (
         <div style={{ color: "var(--crm-taupe)", padding: 16 }}>Loading…</div>
       ) : images.length === 0 ? (
-        <div style={{ color: "var(--crm-taupe)", padding: 16, fontSize: 13 }}>
+        <div style={{ color: "var(--crm-taupe)", padding: 16, fontSize: 15 }}>
           No images yet. Upload some to generate captions.
         </div>
       ) : (

@@ -77,13 +77,13 @@ export default function AgentRunDetail() {
         <div className="roster__head">
           <div className="roster__title-block">
             <button onClick={() => navigate(agent ? `/admin/agents/${agent.id}` : "/admin")}
-              className="crm-btn crm-btn--ghost" style={{ fontSize: 11, marginBottom: 10 }}>
+              className="crm-btn crm-btn--ghost" style={{ fontSize: 13, marginBottom: 10 }}>
               ← {agent?.name ?? "Agents"}
             </button>
             <div className="roster__eyebrow">
               {agent?.role} · {run.trigger} run · {relTime(run.started_at)}
             </div>
-            <h1 className="roster__title" style={{ fontSize: "clamp(22px, 2.2vw, 28px)" }}>
+            <h1 className="roster__title" style={{ fontSize: "clamp(24px, 2.2vw, 30px)" }}>
               {run.headline ?? (run.status === "failed" ? "Run failed" : "Run")}
             </h1>
             <hr className="roster__rule" />
@@ -92,7 +92,7 @@ export default function AgentRunDetail() {
 
         {run.status === "failed" && (
           <div style={{ padding: "14px 16px", background: "var(--crm-charcoal)",
-            border: "1px solid #e07a5f", color: "#e07a5f", fontSize: 13, marginBottom: 24 }}>
+            border: "1px solid #e07a5f", color: "#e07a5f", fontSize: 15, marginBottom: 24 }}>
             {run.error ?? "The run failed with no error recorded."}
           </div>
         )}
@@ -102,7 +102,7 @@ export default function AgentRunDetail() {
             <Section title="The brief">
               <div className="prose prose-invert prose-sm"
                 style={{ padding: 18, background: "var(--crm-charcoal)", color: "var(--crm-warm-white)",
-                  fontSize: 14, lineHeight: 1.7, maxWidth: "none" }}>
+                  fontSize: 16, lineHeight: 1.7, maxWidth: "none" }}>
                 <ReactMarkdown>{run.summary}</ReactMarkdown>
               </div>
             </Section>
@@ -113,19 +113,19 @@ export default function AgentRunDetail() {
               {pending.map((a) => (
                 <div key={a.id} style={{ padding: "14px 16px", background: "var(--crm-charcoal)",
                   borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)" }}>
-                  <div style={{ fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                  <div style={{ fontSize: 12, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
                     {ACTION_LABEL[a.kind] ?? a.kind}
                     {a.outward && <span style={{ color: "#dbb172" }}> · reaches a person</span>}
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 500, marginTop: 5 }}>{a.title}</div>
+                  <div style={{ fontSize: 16, fontWeight: 500, marginTop: 5 }}>{a.title}</div>
                   {a.description && (
-                    <p style={{ fontSize: 13, color: "var(--crm-taupe)", margin: "6px 0 0" }}>{a.description}</p>
+                    <p style={{ fontSize: 15, color: "var(--crm-taupe)", margin: "6px 0 0" }}>{a.description}</p>
                   )}
 
                   {/* Show a draft in full — approving it sends it. */}
                   {a.kind === "draft_email" && (
                     <div style={{ marginTop: 10, padding: 12, background: "var(--crm-ink)",
-                      border: "1px solid var(--crm-border-dark)", fontSize: 12 }}>
+                      border: "1px solid var(--crm-border-dark)", fontSize: 14 }}>
                       <div style={{ color: "var(--crm-taupe)" }}>
                         To: {String(a.payload.to ?? "—")}
                       </div>
@@ -139,11 +139,11 @@ export default function AgentRunDetail() {
                   )}
 
                   <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <button className="crm-btn crm-btn--bronze" style={{ fontSize: 11 }}
+                    <button className="crm-btn crm-btn--bronze" style={{ fontSize: 13 }}
                       disabled={busy === a.id} onClick={() => decide(a, "approve")}>
                       {busy === a.id ? "Working…" : a.outward ? "Approve & send" : "Approve"}
                     </button>
-                    <button className="crm-btn crm-btn--ghost" style={{ fontSize: 11 }}
+                    <button className="crm-btn crm-btn--ghost" style={{ fontSize: 13 }}
                       disabled={busy === a.id} onClick={() => decide(a, "reject")}>
                       Decline
                     </button>
@@ -158,16 +158,16 @@ export default function AgentRunDetail() {
               {settled.map((a) => (
                 <div key={a.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12,
                   padding: "11px 14px", background: "var(--crm-charcoal)",
-                  borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", fontSize: 13 }}>
+                  borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", fontSize: 15 }}>
                   <span style={{ color: STATUS_TONE[a.status], alignSelf: "center" }}>●</span>
                   <span style={{ minWidth: 0 }}>
                     <span style={{ display: "block" }}>{a.title}</span>
-                    <span style={{ display: "block", fontSize: 11, color: "var(--crm-taupe)", marginTop: 2 }}>
+                    <span style={{ display: "block", fontSize: 13, color: "var(--crm-taupe)", marginTop: 2 }}>
                       {ACTION_LABEL[a.kind] ?? a.kind}
                       {a.error && <span style={{ color: "#e07a5f" }}> · {a.error}</span>}
                     </span>
                   </span>
-                  <span style={{ alignSelf: "center", fontSize: 11, color: STATUS_TONE[a.status] }}>
+                  <span style={{ alignSelf: "center", fontSize: 13, color: STATUS_TONE[a.status] }}>
                     {STATUS_LABEL[a.status] ?? a.status}
                   </span>
                 </div>
@@ -182,7 +182,7 @@ export default function AgentRunDetail() {
           )}
 
           {(run.input_tokens || run.cache_read_tokens) && (
-            <div style={{ fontSize: 11, color: "var(--crm-taupe)", fontStyle: "italic" }}>
+            <div style={{ fontSize: 13, color: "var(--crm-taupe)", fontStyle: "italic" }}>
               {run.input_tokens?.toLocaleString()} in · {run.output_tokens?.toLocaleString()} out
               {run.cache_read_tokens
                 ? ` · ${run.cache_read_tokens.toLocaleString()} read from cache`

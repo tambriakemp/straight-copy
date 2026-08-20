@@ -239,11 +239,11 @@ export default function ProjectInvoicesCard({
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <div style={{ fontSize: 16, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 6 }}>
             <DollarSign size={12} /> Payment Schedule
           </div>
-          <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 24, color: "var(--crm-warm-white)", margin: 0 }}>
-            Invoices {invoices.length > 0 && <span style={{ color: "var(--crm-taupe)", fontSize: 18 }}>· {fmtUSD(paid)} of {fmtUSD(total)} paid</span>}
+          <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 26, color: "var(--crm-warm-white)", margin: 0 }}>
+            Invoices {invoices.length > 0 && <span style={{ color: "var(--crm-taupe)", fontSize: 20 }}>· {fmtUSD(paid)} of {fmtUSD(total)} paid</span>}
           </h3>
         </div>
         {!editing && (
@@ -256,7 +256,7 @@ export default function ProjectInvoicesCard({
       {loading && <div style={{ color: "var(--crm-taupe)" }}>Loading…</div>}
 
       {!loading && !editing && invoices.length === 0 && (
-        <div style={{ color: "var(--crm-taupe)", fontSize: 16, padding: "16px 0" }}>
+        <div style={{ color: "var(--crm-taupe)", fontSize: 18, padding: "16px 0" }}>
           No payment schedule yet. Set up milestones to invoice the client through SureCart.
         </div>
       )}
@@ -267,22 +267,22 @@ export default function ProjectInvoicesCard({
             const sc = statusColor(inv.status);
             return (
               <div key={inv.id} className="crm-invoice-row">
-                <div className="crm-invoice-row__seq" style={{ fontFamily: "var(--crm-font-serif)", fontSize: 20, color: "var(--crm-taupe)", width: 28, textAlign: "center" }}>
+                <div className="crm-invoice-row__seq" style={{ fontFamily: "var(--crm-font-serif)", fontSize: 22, color: "var(--crm-taupe)", width: 28, textAlign: "center" }}>
                   {inv.sequence}
                 </div>
                 <div className="crm-invoice-row__label">
-                  <div style={{ color: "var(--crm-warm-white)", fontSize: 17 }}>{inv.label}</div>
-                  <div className="crm-invoice-row__meta" style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
+                  <div style={{ color: "var(--crm-warm-white)", fontSize: 19 }}>{inv.label}</div>
+                  <div className="crm-invoice-row__meta" style={{ fontSize: 16, color: "var(--crm-taupe)" }}>
                     {inv.due_date ? `Due ${new Date(inv.due_date).toLocaleDateString()}` : "No due date"}
                     {inv.paid_at && ` · Paid ${new Date(inv.paid_at).toLocaleDateString()}`}
                     {inv.sent_at && !inv.paid_at && ` · Sent ${new Date(inv.sent_at).toLocaleDateString()}`}
                   </div>
                 </div>
-                <div className="crm-invoice-row__amount" style={{ color: "var(--crm-warm-white)", fontSize: 18, fontVariantNumeric: "tabular-nums" }}>
+                <div className="crm-invoice-row__amount" style={{ color: "var(--crm-warm-white)", fontSize: 20, fontVariantNumeric: "tabular-nums" }}>
                   {fmtUSD(inv.amount_cents)}
                 </div>
                 <span className="crm-invoice-row__status" style={{
-                  fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase",
+                  fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase",
                   padding: "3px 9px", borderRadius: 999, background: sc.bg, color: sc.fg,
                 }}>{inv.status}</span>
                 <div className="crm-invoice-row__actions">
@@ -367,11 +367,11 @@ export default function ProjectInvoicesCard({
 
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
+              <div style={{ fontSize: 14, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
                 Client contacts
               </div>
               {contacts.length === 0 ? (
-                <div style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
+                <div style={{ fontSize: 16, color: "var(--crm-taupe)" }}>
                   No contacts with email on file. Add contacts on the client page, or use additional emails below.
                 </div>
               ) : (
@@ -395,11 +395,11 @@ export default function ProjectInvoicesCard({
                           })}
                         />
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ color: "var(--crm-warm-white)", fontSize: 14 }}>
+                          <div style={{ color: "var(--crm-warm-white)", fontSize: 16 }}>
                             {c.name || c.email}
                           </div>
                           {c.name && (
-                            <div style={{ fontSize: 12, color: "var(--crm-taupe)" }}>{c.email}</div>
+                            <div style={{ fontSize: 14, color: "var(--crm-taupe)" }}>{c.email}</div>
                           )}
                         </div>
                       </label>
@@ -410,7 +410,7 @@ export default function ProjectInvoicesCard({
             </div>
 
             <div>
-              <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
+              <div style={{ fontSize: 14, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
                 Additional emails
               </div>
               <input
@@ -420,7 +420,7 @@ export default function ProjectInvoicesCard({
                 value={emailDialog?.extra ?? ""}
                 onChange={(e) => setEmailDialog(d => d ? { ...d, extra: e.target.value } : d)}
               />
-              <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 6 }}>
+              <div style={{ fontSize: 14, color: "var(--crm-taupe)", marginTop: 6 }}>
                 Comma or space separated.
               </div>
             </div>

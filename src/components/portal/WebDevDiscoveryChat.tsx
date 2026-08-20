@@ -179,7 +179,7 @@ export default function WebDevDiscoveryChat({
         <div role="status" aria-live="polite" style={completeBannerStyle}>
           Your questionnaire is complete. Bree has been notified and will be in touch within 48 hours.
           {submittedAt && (
-            <span style={{ display: "block", marginTop: 4, opacity: 0.7, fontSize: 11, letterSpacing: "0.06em" }}>
+            <span style={{ display: "block", marginTop: 4, opacity: 0.7, fontSize: 13, letterSpacing: "0.06em" }}>
               Submitted {new Date(submittedAt).toLocaleString()}
             </span>
           )}
@@ -256,7 +256,7 @@ function Avatar() {
         fontWeight: 600,
         fontStyle: "italic",
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 14,
+        fontSize: 16,
         flexShrink: 0,
         boxShadow: "0 0 0 1px hsl(35 30% 30% / 0.4)",
       }}
@@ -300,7 +300,7 @@ const cardStyle: React.CSSProperties = {
 };
 
 const eyebrowStyle: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: 13,
   letterSpacing: "0.3em",
   textTransform: "uppercase",
   color: "hsl(35 40% 55%)",
@@ -308,7 +308,7 @@ const eyebrowStyle: React.CSSProperties = {
 };
 
 const subStyle: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: 16,
   lineHeight: 1.7,
   color: "hsl(30 8% 62%)",
   margin: "8px 0 20px",
@@ -331,7 +331,7 @@ const scrollStyle: React.CSSProperties = {
 
 const loadingStyle: React.CSSProperties = {
   color: "hsl(30 8% 50%)",
-  fontSize: 13,
+  fontSize: 15,
   letterSpacing: "0.04em",
   fontFamily: "'Karla', sans-serif",
   textAlign: "center",
@@ -342,7 +342,7 @@ const bubbleBase: React.CSSProperties = {
   maxWidth: "75%",
   padding: "12px 16px",
   borderRadius: 10,
-  fontSize: 14,
+  fontSize: 16,
   lineHeight: 1.6,
   fontFamily: "'Karla', sans-serif",
   whiteSpace: "pre-wrap",
@@ -377,7 +377,7 @@ const textareaStyle: React.CSSProperties = {
   borderRadius: 6,
   color: "hsl(40 20% 92%)",
   padding: "12px 14px",
-  fontSize: 14,
+  fontSize: 16,
   fontFamily: "'Karla', sans-serif",
   lineHeight: 1.5,
   outline: "none",
@@ -392,7 +392,7 @@ const completeBannerStyle: React.CSSProperties = {
   border: "1px solid hsl(35 40% 30%)",
   borderRadius: 6,
   color: "hsl(35 60% 80%)",
-  fontSize: 13,
+  fontSize: 15,
   letterSpacing: "0.02em",
   lineHeight: 1.6,
   fontFamily: "'Karla', sans-serif",

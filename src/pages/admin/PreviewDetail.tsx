@@ -380,7 +380,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
       {/* Header */}
       {!embedded && (
         <div style={{ marginBottom: 14 }}>
-          <Link to={backTo ?? "/admin"} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 16, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+          <Link to={backTo ?? "/admin"} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 18, letterSpacing: "0.06em", textTransform: "uppercase" }}>
             <ArrowLeft size={14} /> Back
           </Link>
         </div>
@@ -391,7 +391,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           <div style={{ minWidth: 0, flex: 1 }}>
             {!embedded && (
               <>
-                <div style={{ fontSize: 15, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
+                <div style={{ fontSize: 17, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
                   Preview Project
                 </div>
                 <EditableTitle
@@ -408,7 +408,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
               </>
             )}
             {(project.client_label || project.archived) && (
-              <div style={{ marginTop: embedded ? 0 : 10, color: "var(--crm-stone)", fontSize: 17, display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <div style={{ marginTop: embedded ? 0 : 10, color: "var(--crm-stone)", fontSize: 19, display: "flex", gap: 16, flexWrap: "wrap" }}>
                 {project.client_label && <span>{project.client_label}</span>}
                 {project.archived && <span style={{ color: "hsl(0 60% 60%)" }}>· Archived</span>}
               </div>
@@ -457,26 +457,26 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
 
       <Tabs defaultValue="pages" className="w-full">
         <TabsList style={{ background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 8, marginBottom: 18 }}>
-          <TabsTrigger value="pages" style={{ fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+          <TabsTrigger value="pages" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>
             Pages{pages.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-taupe)" }}>({pages.length})</span>}
           </TabsTrigger>
-          <TabsTrigger value="feedback" style={{ fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+          <TabsTrigger value="feedback" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>
             Feedback Board{openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>({openCount})</span>}
           </TabsTrigger>
           {isExternal && (
-            <TabsTrigger value="comments" style={{ fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+            <TabsTrigger value="comments" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>
               Comments{pageComments.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>({pageComments.length})</span>}
             </TabsTrigger>
           )}
-          <TabsTrigger value="files" style={{ fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+          <TabsTrigger value="files" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>
             Files{assets.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-taupe)" }}>({assets.length})</span>}
           </TabsTrigger>
-          <TabsTrigger value="activity" style={{ fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase" }}>Activity</TabsTrigger>
+          <TabsTrigger value="activity" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>Activity</TabsTrigger>
           {!embedded && project.client_id && project.client_project_id && (
             <>
-              <TabsTrigger value="proposals" style={{ fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase" }}>Proposals</TabsTrigger>
-              <TabsTrigger value="schedule" style={{ fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase" }}>Payment Schedule</TabsTrigger>
-              <TabsTrigger value="tasks" style={{ fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase" }}>Tasks</TabsTrigger>
+              <TabsTrigger value="proposals" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>Proposals</TabsTrigger>
+              <TabsTrigger value="schedule" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>Payment Schedule</TabsTrigger>
+              <TabsTrigger value="tasks" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>Tasks</TabsTrigger>
             </>
           )}
         </TabsList>
@@ -498,10 +498,10 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
       )}
       <section style={{ marginBottom: 28, marginTop: isExternal ? 22 : 0 }}>
         {isExternal && (
-          <h2 style={{ fontSize: 15, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: "0 0 12px" }}>Uploaded Pages</h2>
+          <h2 style={{ fontSize: 17, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: "0 0 12px" }}>Uploaded Pages</h2>
         )}
         {pages.length === 0 && !isExternal && (
-          <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 16, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
+          <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 18, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
             No pages yet. Upload HTML files from the <strong style={{ color: "var(--crm-warm-white)" }}>Files</strong> tab, or link an external site there.
           </div>
         )}
@@ -533,9 +533,9 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                       <InlineRename
                         path={f.path}
                         onRename={(next) => renameFile(f.path, next)}
-                        textStyle={{ color: "var(--crm-warm-white)", fontSize: 17, fontWeight: 500 }}
+                        textStyle={{ color: "var(--crm-warm-white)", fontSize: 19, fontWeight: 500 }}
                       />
-                      <div style={{ color: "var(--crm-taupe)", fontSize: 15, marginTop: 2 }}>
+                      <div style={{ color: "var(--crm-taupe)", fontSize: 17, marginTop: 2 }}>
                         {isEntry ? "Entry page · " : ""}{Math.ceil((f.size_bytes ?? 0) / 1024)} KB
                       </div>
                     </div>
@@ -548,7 +548,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                           background: "hsl(140 30% 20% / 0.5)",
                           border: "1px solid hsl(140 30% 35%)",
                           color: "hsl(140 40% 75%)",
-                          fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
+                          fontSize: 15, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
                         }}
                       >
                         <Check size={12} /> Approved{approval.approver_name ? ` · ${approval.approver_name}` : ""}
@@ -593,7 +593,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
       {(
       <section style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
-          <h2 style={{ fontSize: 15, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Upload Files</h2>
+          <h2 style={{ fontSize: 17, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>Upload Files</h2>
           <div style={{ display: "flex", gap: 8 }}>
             <input ref={fileInput} type="file" multiple
               // @ts-expect-error nonstandard
@@ -630,7 +630,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
             padding: "18px 16px",
             textAlign: "center",
             color: "var(--crm-taupe)",
-            fontSize: 16,
+            fontSize: 18,
             marginBottom: 22,
             transition: "border-color 200ms",
             cursor: "pointer",
@@ -640,7 +640,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         </div>
 
 
-        <h2 style={{ fontSize: 15, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: "0 0 14px" }}>Assets & Missing References</h2>
+        <h2 style={{ fontSize: 17, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: "0 0 14px" }}>Assets & Missing References</h2>
 
         {/* Assets (collapsible) */}
         {assets.length > 0 && (
@@ -655,8 +655,8 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
             >
               {assetsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <Box size={14} style={{ color: "var(--crm-taupe)" }} />
-              <span style={{ fontSize: 17 }}>Assets ({assets.length})</span>
-              <span style={{ marginLeft: "auto", color: "var(--crm-taupe)", fontSize: 15 }}>
+              <span style={{ fontSize: 19 }}>Assets ({assets.length})</span>
+              <span style={{ marginLeft: "auto", color: "var(--crm-taupe)", fontSize: 17 }}>
                 {Object.entries(assetCounts).map(([k, n]) => `${n} ${k}${n > 1 ? "s" : ""}`).join(" · ")}
               </span>
             </button>
@@ -666,7 +666,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                   const cls = classify(f.path);
                   const Icon = cls === "image" ? ImageIcon : cls === "script" || cls === "style" ? Code2 : Box;
                   return (
-                    <li key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", fontSize: 16, color: "var(--crm-stone)", borderRadius: 6 }}>
+                    <li key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 12px", fontSize: 18, color: "var(--crm-stone)", borderRadius: 6 }}>
                       <Icon size={12} style={{ color: "var(--crm-taupe)", flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <InlineRename
@@ -690,17 +690,17 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         {/* Missing assets warning */}
         {missing.length > 0 && (
           <div style={{ marginTop: 14, padding: "12px 14px", background: "hsl(30 60% 50% / 0.08)", border: "1px solid hsl(30 60% 50% / 0.3)", borderRadius: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "hsl(30 80% 70%)", fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "hsl(30 80% 70%)", fontSize: 18, fontWeight: 600, marginBottom: 8 }}>
               <AlertTriangle size={14} /> {missing.length} missing asset reference{missing.length > 1 ? "s" : ""}
             </div>
-            <div style={{ fontSize: 15, color: "var(--crm-stone)", marginBottom: 8 }}>
+            <div style={{ fontSize: 17, color: "var(--crm-stone)", marginBottom: 8 }}>
               These files are referenced in your HTML but missing. Map each one to an uploaded file to rename it so the page resolves.
             </div>
             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6, maxHeight: 280, overflowY: "auto" }}>
               {missing.slice(0, 50).map((m, i) => {
                 const expected = m.ref.replace(/[?#].*$/, "").replace(/^\/+/, "");
                 return (
-                  <li key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontFamily: "monospace", color: "var(--crm-stone)", flexWrap: "wrap" }}>
+                  <li key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 17, fontFamily: "monospace", color: "var(--crm-stone)", flexWrap: "wrap" }}>
                     <span style={{ color: "hsl(30 80% 70%)" }}>{m.ref}</span>
                     <span style={{ color: "var(--crm-taupe)" }}>· in {m.in_page}</span>
                     <select
@@ -718,7 +718,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                         await load();
                         await loadMissing();
                       }}
-                      style={{ fontSize: 15, padding: "4px 6px", marginLeft: "auto", maxWidth: 280 }}
+                      style={{ fontSize: 17, padding: "4px 6px", marginLeft: "auto", maxWidth: 280 }}
                     >
                       <option value="">Map to uploaded file…</option>
                       {files.map((f: any) => (
@@ -728,7 +728,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                   </li>
                 );
               })}
-              {missing.length > 50 && <li style={{ fontSize: 15, color: "var(--crm-taupe)" }}>+{missing.length - 50} more…</li>}
+              {missing.length > 50 && <li style={{ fontSize: 17, color: "var(--crm-taupe)" }}>+{missing.length - 50} more…</li>}
             </ul>
           </div>
         )}
@@ -740,7 +740,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
       {/* Feedback Kanban */}
       <section>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
-          <h2 style={{ fontSize: 15, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>
+          <h2 style={{ fontSize: 17, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>
             Feedback Board
           </h2>
           {distinctPages.length > 1 && (
@@ -748,7 +748,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
               className="crm-input"
               value={pageFilter}
               onChange={(e) => setPageFilter(e.target.value)}
-              style={{ width: 240, fontSize: 16, padding: "6px 10px" }}
+              style={{ width: 240, fontSize: 18, padding: "6px 10px" }}
             >
               <option value="__all__">All pages ({comments.length})</option>
               {distinctPages.map((p) => (
@@ -759,7 +759,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         </div>
 
         {comments.length === 0 ? (
-          <div style={{ padding: 32, textAlign: "center", color: "var(--crm-taupe)", border: "1px dashed var(--crm-border-dark)", borderRadius: 10, fontSize: 17 }}>
+          <div style={{ padding: 32, textAlign: "center", color: "var(--crm-taupe)", border: "1px dashed var(--crm-border-dark)", borderRadius: 10, fontSize: 19 }}>
             No feedback yet. Share the link above so your client can leave pin comments.
           </div>
         ) : (
@@ -785,8 +785,8 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <span style={{ fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-warm-white)" }}>{col.title}</span>
-                  <span style={{ fontSize: 15, color: "var(--crm-taupe)" }}>{cardsByStatus[col.key].length}</span>
+                  <span style={{ fontSize: 16, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-warm-white)" }}>{col.title}</span>
+                  <span style={{ fontSize: 17, color: "var(--crm-taupe)" }}>{cardsByStatus[col.key].length}</span>
                 </div>
                 <div style={{ display: "grid", gap: 8 }}>
                   {cardsByStatus[col.key].map((c) => {
@@ -807,13 +807,13 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                         }}
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                          <span style={{ fontSize: 14, color: "var(--crm-accent)", fontWeight: 600, letterSpacing: "0.05em" }}>#{c.pin_number}</span>
-                          <span style={{ fontSize: 14, color: "var(--crm-taupe)" }}>{timeAgo(c.created_at)}</span>
+                          <span style={{ fontSize: 16, color: "var(--crm-accent)", fontWeight: 600, letterSpacing: "0.05em" }}>#{c.pin_number}</span>
+                          <span style={{ fontSize: 16, color: "var(--crm-taupe)" }}>{timeAgo(c.created_at)}</span>
                         </div>
-                        <div style={{ fontSize: 16, color: "var(--crm-warm-white)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        <div style={{ fontSize: 18, color: "var(--crm-warm-white)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                           {c.body}
                         </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, fontSize: 14, color: "var(--crm-taupe)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, fontSize: 16, color: "var(--crm-taupe)" }}>
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "60%" }}>
                             {c.author_name || "Guest"} · {c.page_path}
                           </span>
@@ -823,7 +823,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                     );
                   })}
                   {cardsByStatus[col.key].length === 0 && (
-                    <div style={{ fontSize: 15, color: "var(--crm-taupe)", textAlign: "center", padding: "20px 0" }}>—</div>
+                    <div style={{ fontSize: 17, color: "var(--crm-taupe)", textAlign: "center", padding: "20px 0" }}>—</div>
                   )}
                 </div>
               </div>
@@ -879,10 +879,10 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)" }}>
+                <div style={{ fontSize: 16, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)" }}>
                   Pin #{activeComment.pin_number}
                 </div>
-                <div style={{ fontSize: 15, color: "var(--crm-taupe)", marginTop: 2 }}>
+                <div style={{ fontSize: 17, color: "var(--crm-taupe)", marginTop: 2 }}>
                   {activeComment.author_name || "Guest"} · {activeComment.page_path} · {new Date(activeComment.created_at).toLocaleString()}
                 </div>
               </div>
@@ -907,18 +907,18 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
               </button>
             </div>
 
-            <div style={{ background: "hsl(40 20% 97% / 0.04)", borderRadius: 8, padding: 14, fontSize: 18, color: "var(--crm-warm-white)", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+            <div style={{ background: "hsl(40 20% 97% / 0.04)", borderRadius: 8, padding: 14, fontSize: 20, color: "var(--crm-warm-white)", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
               {activeComment.body}
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {(repliesByComment[activeComment.id] || []).map((r) => (
                 <div key={r.id} style={{
-                  padding: "10px 12px", borderRadius: 8, fontSize: 17,
+                  padding: "10px 12px", borderRadius: 8, fontSize: 19,
                   background: r.is_admin ? "var(--crm-accent)" : "hsl(40 20% 97% / 0.06)",
                   color: r.is_admin ? "var(--crm-warm-white)" : "var(--crm-stone)",
                 }}>
-                  <div style={{ fontSize: 14, opacity: 0.75, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  <div style={{ fontSize: 16, opacity: 0.75, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     {r.author_name || (r.is_admin ? "Admin" : "Guest")}
                   </div>
                   <div style={{ whiteSpace: "pre-wrap" }}>{r.body}</div>
@@ -956,13 +956,13 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
             <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Send Review Email</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2">
-            <p style={{ fontSize: 13, color: "var(--crm-taupe)", margin: 0 }}>
+            <p style={{ fontSize: 15, color: "var(--crm-taupe)", margin: 0 }}>
               Pick which client contact should receive the site preview review email. The email is sent through SureContact so it appears in that contact's activity history.
             </p>
             {pickerLoading ? (
-              <div style={{ fontSize: 14, padding: "12px 0" }}>Loading contacts…</div>
+              <div style={{ fontSize: 16, padding: "12px 0" }}>Loading contacts…</div>
             ) : pickerContacts.length === 0 ? (
-              <div style={{ fontSize: 14, color: "var(--crm-taupe)", fontStyle: "italic", padding: "12px 0" }}>
+              <div style={{ fontSize: 16, color: "var(--crm-taupe)", fontStyle: "italic", padding: "12px 0" }}>
                 No contacts with an email on this client. Add one from the client page first.
               </div>
             ) : (
@@ -989,18 +989,18 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                       style={{ marginTop: 3 }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 17 }}>
                         <span>{c.name || <em style={{ color: "var(--crm-taupe)" }}>(no name)</em>}</span>
                         {c.is_primary && (
-                          <span style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(40 30% 70%)" }}>
+                          <span style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(40 30% 70%)" }}>
                             Primary
                           </span>
                         )}
                         {c.role && (
-                          <span style={{ fontSize: 11, color: "var(--crm-taupe)" }}>· {c.role}</span>
+                          <span style={{ fontSize: 13, color: "var(--crm-taupe)" }}>· {c.role}</span>
                         )}
                       </div>
-                      <div style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 2 }}>{c.email}</div>
+                      <div style={{ fontSize: 15, color: "var(--crm-taupe)", marginTop: 2 }}>{c.email}</div>
                     </div>
                   </label>
                 ))}
@@ -1047,7 +1047,7 @@ function EditableTitle({ value, onSave }: { value: string; onSave: (next: string
           disabled={saving}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setEditing(false); setDraft(value); } }}
-          style={{ flex: 1, fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 34, lineHeight: 1.1, color: "var(--crm-warm-white)", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 6, padding: "4px 10px" }}
+          style={{ flex: 1, fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 36, lineHeight: 1.1, color: "var(--crm-warm-white)", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 6, padding: "4px 10px" }}
         />
         <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={commit} disabled={saving} title="Save"><Check size={14} /></button>
         <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => { setEditing(false); setDraft(value); }} disabled={saving} title="Cancel"><X size={14} /></button>
@@ -1056,7 +1056,7 @@ function EditableTitle({ value, onSave }: { value: string; onSave: (next: string
   }
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <h1 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 40, lineHeight: 1.1, color: "var(--crm-warm-white)", margin: 0 }}>
+      <h1 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 42, lineHeight: 1.1, color: "var(--crm-warm-white)", margin: 0 }}>
         {value}
       </h1>
       <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setEditing(true)} title="Rename" style={{ padding: 6 }}>
@@ -1099,7 +1099,7 @@ function InlineRename({
           disabled={saving}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setEditing(false); setDraft(baseName); } }}
-          style={{ flex: 1, minWidth: 0, fontSize: 16, color: "var(--crm-warm-white)", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 4, padding: "2px 6px" }}
+          style={{ flex: 1, minWidth: 0, fontSize: 18, color: "var(--crm-warm-white)", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 4, padding: "2px 6px" }}
         />
         <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={commit} disabled={saving} title="Save" style={{ padding: 4 }}><Check size={12} /></button>
         <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => { setEditing(false); setDraft(baseName); }} disabled={saving} title="Cancel" style={{ padding: 4 }}><X size={12} /></button>
@@ -1146,7 +1146,7 @@ function ApprovalActivity({ projectId }: { projectId: string }) {
   if (loading) return <div style={{ padding: 24, color: "var(--crm-taupe)" }}>Loading activity…</div>;
   if (events.length === 0) {
     return (
-      <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 16, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
+      <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 18, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
         No approval activity yet. When clients approve or unapprove pages and assets, they'll show up here.
       </div>
     );
@@ -1176,7 +1176,7 @@ function ApprovalActivity({ projectId }: { projectId: string }) {
           >
             <div
               style={{
-                fontSize: 13,
+                fontSize: 15,
                 letterSpacing: "0.18em",
                 textTransform: "uppercase",
                 padding: "4px 8px",
@@ -1190,15 +1190,15 @@ function ApprovalActivity({ projectId }: { projectId: string }) {
               {isApprove ? "Approved" : "Unapproved"}
             </div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 16, color: "var(--crm-warm-white)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                <span style={{ color: "var(--crm-taupe)", marginRight: 8, fontSize: 13, letterSpacing: "0.14em", textTransform: "uppercase" }}>{e.kind}</span>
+              <div style={{ fontSize: 18, color: "var(--crm-warm-white)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ color: "var(--crm-taupe)", marginRight: 8, fontSize: 15, letterSpacing: "0.14em", textTransform: "uppercase" }}>{e.kind}</span>
                 {e.path}
               </div>
-              <div style={{ fontSize: 14, color: "var(--crm-stone)", marginTop: 3 }}>
+              <div style={{ fontSize: 16, color: "var(--crm-stone)", marginTop: 3 }}>
                 {e.approver_name ? `by ${e.approver_name}` : "by anonymous client"}
               </div>
             </div>
-            <div style={{ fontSize: 14, color: "var(--crm-taupe)", whiteSpace: "nowrap" }}>{fmt(e.created_at)}</div>
+            <div style={{ fontSize: 16, color: "var(--crm-taupe)", whiteSpace: "nowrap" }}>{fmt(e.created_at)}</div>
           </div>
         );
       })}
@@ -1228,7 +1228,7 @@ function ExternalPagesPanel({
   return (
     <section style={{ marginBottom: 28 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, fontSize: 15, color: "var(--crm-taupe)" }}>
+        <div style={{ flex: 1, fontSize: 17, color: "var(--crm-taupe)" }}>
           {baseUrl ? <>External site · <a href={baseUrl} target="_blank" rel="noreferrer" style={{ color: "var(--crm-accent)" }}>{baseUrl}</a></> : "No URL set"}
           {lastCrawledAt && <span> · last crawled {new Date(lastCrawledAt).toLocaleString()}</span>}
         </div>
@@ -1238,7 +1238,7 @@ function ExternalPagesPanel({
       </div>
 
       {rows.length === 0 ? (
-        <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 16, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
+        <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 18, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
           No pages yet. Click <strong style={{ color: "var(--crm-warm-white)" }}>Crawl pages</strong> to auto-discover them, or add one manually.
         </div>
       ) : (
@@ -1261,7 +1261,7 @@ function ExternalPagesPanel({
                     background: "hsl(140 30% 20% / 0.5)",
                     border: "1px solid hsl(140 30% 35%)",
                     color: "hsl(140 40% 75%)",
-                    fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
+                    fontSize: 15, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
                   }}
                 >
                   <Check size={12} /> {approval.approver_name || "Approved"}
@@ -1301,7 +1301,7 @@ function ExternalCommentsPanel({
 }) {
   if (comments.length === 0) {
     return (
-      <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 16, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
+      <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 18, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
         No client comments yet. Comments will appear here as your client reviews each page.
       </div>
     );
@@ -1315,8 +1315,8 @@ function ExternalCommentsPanel({
         <div key={p} style={{ border: "1px solid var(--crm-border-dark)", borderRadius: 10, padding: 14, background: "hsl(40 20% 97% / 0.03)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <div>
-              <div style={{ fontSize: 15, color: "var(--crm-warm-white)", fontWeight: 600 }}>{labelFor(p)}</div>
-              <div style={{ fontSize: 14, color: "var(--crm-taupe)", fontFamily: "monospace" }}>{p}</div>
+              <div style={{ fontSize: 17, color: "var(--crm-warm-white)", fontWeight: 600 }}>{labelFor(p)}</div>
+              <div style={{ fontSize: 16, color: "var(--crm-taupe)", fontFamily: "monospace" }}>{p}</div>
             </div>
             {baseUrl && (
               <a className="crm-btn crm-btn--ghost crm-btn--sm" href={baseUrl + p} target="_blank" rel="noreferrer"><ExternalLink size={12} /> View</a>
@@ -1326,10 +1326,10 @@ function ExternalCommentsPanel({
             {list.map((c) => (
               <div key={c.id} style={{ padding: "10px 12px", borderRadius: 8, background: "hsl(40 20% 97% / 0.04)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 14, color: "var(--crm-stone)" }}>{c.author_name || "Guest"} · {new Date(c.created_at).toLocaleString()}</span>
+                  <span style={{ fontSize: 16, color: "var(--crm-stone)" }}>{c.author_name || "Guest"} · {new Date(c.created_at).toLocaleString()}</span>
                   <button onClick={() => onDelete(c.id)} title="Delete" style={{ background: "transparent", border: 0, color: "var(--crm-taupe)", cursor: "pointer" }}><Trash2 size={12} /></button>
                 </div>
-                <div style={{ fontSize: 16, color: "var(--crm-warm-white)", whiteSpace: "pre-wrap" }}>{c.body}</div>
+                <div style={{ fontSize: 18, color: "var(--crm-warm-white)", whiteSpace: "pre-wrap" }}>{c.body}</div>
               </div>
             ))}
           </div>
@@ -1380,10 +1380,10 @@ function ExternalLinkPanel({
   return (
     <section style={{ marginBottom: 22, padding: "16px 18px", border: "1px solid var(--crm-border-dark)", borderRadius: 10, background: "hsl(40 20% 97% / 0.03)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
-        <h2 style={{ fontSize: 15, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>
+        <h2 style={{ fontSize: 17, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", margin: 0 }}>
           External Link
         </h2>
-        <span style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
+        <span style={{ fontSize: 16, color: "var(--crm-taupe)" }}>
           {hasLink ? "Linked — coexists with uploaded files" : "Optional — link a live URL in addition to or instead of uploads"}
         </span>
       </div>
@@ -1394,7 +1394,7 @@ function ExternalLinkPanel({
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://your-site.lovable.app"
           disabled={saving}
-          style={{ flex: "1 1 320px", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 6, padding: "8px 12px", color: "var(--crm-warm-white)", fontSize: 16 }}
+          style={{ flex: "1 1 320px", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 6, padding: "8px 12px", color: "var(--crm-warm-white)", fontSize: 18 }}
         />
         <button className="crm-btn crm-btn--primary crm-btn--sm" onClick={save} disabled={saving || !url.trim() || url.trim() === (externalBaseUrl ?? "")}>
           {saving ? "Saving…" : hasLink ? "Update link" : "Link site"}

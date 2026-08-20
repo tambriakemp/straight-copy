@@ -71,7 +71,7 @@ export default function ProjectPreviewCard({ clientId, clientProjectId, projectN
     if (!preview) {
       return (
         <div style={{ padding: "40px 0", textAlign: "center" }}>
-          <div style={{ color: "var(--crm-taupe)", fontSize: 16, marginBottom: 14 }}>
+          <div style={{ color: "var(--crm-taupe)", fontSize: 18, marginBottom: 14 }}>
             No preview attached to this project yet.
           </div>
           <button className="crm-btn crm-btn--primary" onClick={create} disabled={creating}>
@@ -107,7 +107,7 @@ export default function ProjectPreviewCard({ clientId, clientProjectId, projectN
       >
         {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         <MonitorSmartphone size={14} style={{ color: "var(--crm-accent)" }} />
-        <span style={{ fontSize: 15, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+        <span style={{ fontSize: 17, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
           Preview
         </span>
         {preview && (
@@ -123,7 +123,7 @@ export default function ProjectPreviewCard({ clientId, clientProjectId, projectN
                 toast.success("Renamed");
               }}
             />
-            <code style={{ fontSize: 14, color: "var(--crm-taupe)", fontFamily: "monospace" }}>
+            <code style={{ fontSize: 16, color: "var(--crm-taupe)", fontFamily: "monospace" }}>
               /p/{preview.slug.slice(0, 12)}…
             </code>
             <span
@@ -154,7 +154,7 @@ export default function ProjectPreviewCard({ clientId, clientProjectId, projectN
             <div style={{ padding: 24, color: "var(--crm-taupe)" }}>Loading…</div>
           ) : !preview ? (
             <div style={{ padding: "32px 0", textAlign: "center" }}>
-              <div style={{ color: "var(--crm-taupe)", fontSize: 16, marginBottom: 14 }}>
+              <div style={{ color: "var(--crm-taupe)", fontSize: 18, marginBottom: 14 }}>
                 No preview attached to this project yet.
               </div>
               <button className="crm-btn crm-btn--primary" onClick={create} disabled={creating}>
@@ -197,7 +197,7 @@ function PreviewNameInline({ name, onSave }: { name: string; onSave: (next: stri
           disabled={saving}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") commit(e); if (e.key === "Escape") { setEditing(false); setDraft(name); } }}
-          style={{ fontSize: 15, color: "var(--crm-warm-white)", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 4, padding: "2px 6px", minWidth: 160 }}
+          style={{ fontSize: 17, color: "var(--crm-warm-white)", background: "transparent", border: "1px solid var(--crm-border-dark)", borderRadius: 4, padding: "2px 6px", minWidth: 160 }}
         />
         <span role="button" className="crm-btn crm-btn--ghost crm-btn--sm" onClick={commit} title="Save"><Check size={12} /></span>
         <span role="button" className="crm-btn crm-btn--ghost crm-btn--sm" onClick={(e) => { e.stopPropagation(); setEditing(false); setDraft(name); }} title="Cancel"><X size={12} /></span>
@@ -206,7 +206,7 @@ function PreviewNameInline({ name, onSave }: { name: string; onSave: (next: stri
   }
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-      <span style={{ fontSize: 15, color: "var(--crm-warm-white)" }}>{name}</span>
+      <span style={{ fontSize: 17, color: "var(--crm-warm-white)" }}>{name}</span>
       <span role="button" className="crm-btn crm-btn--ghost crm-btn--sm" onClick={(e) => { e.stopPropagation(); setEditing(true); }} title="Rename" style={{ padding: 4 }}>
         <Pencil size={10} />
       </span>

@@ -327,7 +327,7 @@ export default function AutomationBuildView() {
           to={`/admin/clients/${client.id}`}
           style={{
             display: "inline-flex", alignItems: "center", gap: 6,
-            color: "var(--crm-taupe)", fontSize: 15, letterSpacing: "0.06em",
+            color: "var(--crm-taupe)", fontSize: 17, letterSpacing: "0.06em",
             textTransform: "uppercase", marginBottom: 18,
           }}
         >
@@ -370,9 +370,9 @@ export default function AutomationBuildView() {
                 background: "hsl(40 20% 97% / 0.025)",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", color: "var(--crm-warm-white)", fontSize: 15 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", color: "var(--crm-warm-white)", fontSize: 17 }}>
                 <span style={{
-                  textTransform: "uppercase", letterSpacing: "0.25em", fontSize: 12,
+                  textTransform: "uppercase", letterSpacing: "0.25em", fontSize: 14,
                   color: "var(--crm-accent)",
                 }}>
                   {client.tier === "growth" ? "Growth" : "Launch"} Tier
@@ -397,8 +397,8 @@ export default function AutomationBuildView() {
 
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Journey</div>
-                  <div style={{ fontFamily: "var(--crm-font-serif)", fontSize: 22, color: "var(--crm-warm-white)", lineHeight: 1 }}>
+                  <div style={{ fontSize: 13, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Journey</div>
+                  <div style={{ fontFamily: "var(--crm-font-serif)", fontSize: 24, color: "var(--crm-warm-white)", lineHeight: 1 }}>
                     {String(completedCount).padStart(2, "0")}
                     <span style={{ color: "var(--crm-taupe)", margin: "0 4px" }}>/</span>
                     <span style={{ color: "var(--crm-taupe)" }}>{String(total).padStart(2, "0")}</span>
@@ -449,7 +449,7 @@ export default function AutomationBuildView() {
                 <CoPostSettingsCard clientProjectId={projectId} />
               </div>
             ) : (
-              <div style={{ fontSize: 15, color: "hsl(30 8% 60%)", padding: 16 }}>
+              <div style={{ fontSize: 17, color: "hsl(30 8% 60%)", padding: 16 }}>
                 Project not loaded.
               </div>
             )}
@@ -828,7 +828,7 @@ function BrandVoicePanel({
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
         <span className={`crm-pill ${statusPill.cls}`}>● {statusPill.label}</span>
         {generatedAt && (
-          <span style={{ fontSize: 15, color: "hsl(30 8% 62%)", letterSpacing: "0.04em" }}>
+          <span style={{ fontSize: 17, color: "hsl(30 8% 62%)", letterSpacing: "0.04em" }}>
             Generated {format(new Date(generatedAt), "MMM d, yyyy · h:mm a")}
           </span>
         )}
@@ -837,7 +837,7 @@ function BrandVoicePanel({
       {client.brand_voice_error && status === "failed" && (
         <div
           style={{
-            fontSize: 15,
+            fontSize: 17,
             color: "hsl(10 60% 70%)",
             background: "hsl(10 30% 20% / 0.4)",
             border: "1px solid hsl(10 30% 35% / 0.5)",
@@ -896,7 +896,7 @@ function BrandVoicePanel({
                 maxHeight: 360,
                 overflowY: "auto",
                 fontFamily: "var(--crm-font-serif), serif",
-                fontSize: 17,
+                fontSize: 19,
                 lineHeight: 1.7,
                 color: "hsl(40 20% 97%)",
                 whiteSpace: "pre-wrap",
@@ -932,7 +932,7 @@ function BrandKitPanel({ client }: { client: Client }) {
       <div className="crm-modal__section-head">
         <div className="crm-modal__section-title">Brand Kit Intake</div>
         {submitted && (
-          <span className="crm-pill crm-pill--complete" style={{ fontSize: 14 }}>
+          <span className="crm-pill crm-pill--complete" style={{ fontSize: 16 }}>
             ● Submitted {format(new Date(client.brand_kit_intake_submitted_at!), "MMM d")}
           </span>
         )}
@@ -953,7 +953,7 @@ function BrandKitPanel({ client }: { client: Client }) {
         <span
           style={{
             fontFamily: "var(--crm-font-sans), sans-serif",
-            fontSize: 14,
+            fontSize: 16,
             letterSpacing: "0.35em",
             textTransform: "uppercase",
             color: "hsl(30 8% 62%)",
@@ -964,7 +964,7 @@ function BrandKitPanel({ client }: { client: Client }) {
         <span
           style={{
             fontFamily: "var(--crm-font-sans), monospace",
-            fontSize: 15,
+            fontSize: 17,
             color: "hsl(40 20% 97%)",
             wordBreak: "break-all",
           }}
@@ -972,7 +972,7 @@ function BrandKitPanel({ client }: { client: Client }) {
           {portalUrl}
         </span>
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          <button className="crm-btn crm-btn--ghost" onClick={copyPortal} style={{ fontSize: 15 }}>
+          <button className="crm-btn crm-btn--ghost" onClick={copyPortal} style={{ fontSize: 17 }}>
             Copy link
           </button>
           <a
@@ -980,7 +980,7 @@ function BrandKitPanel({ client }: { client: Client }) {
             href={`${portalUrl}?as=admin`}
             target="_blank"
             rel="noreferrer"
-            style={{ fontSize: 15, textDecoration: "none" }}
+            style={{ fontSize: 17, textDecoration: "none" }}
             title="Open as an admin preview (your admin session is unchanged)"
           >
             Open as client ↗
@@ -993,7 +993,7 @@ function BrandKitPanel({ client }: { client: Client }) {
           <summary
             style={{
               fontFamily: "var(--crm-font-sans), sans-serif",
-              fontSize: 14,
+              fontSize: 16,
               letterSpacing: "0.35em",
               textTransform: "uppercase",
               color: "hsl(30 8% 62%)",
@@ -1012,7 +1012,7 @@ function BrandKitPanel({ client }: { client: Client }) {
               borderRadius: 6,
               maxHeight: 280,
               overflow: "auto",
-              fontSize: 15,
+              fontSize: 17,
               lineHeight: 1.5,
               color: "hsl(40 20% 92%)",
               whiteSpace: "pre-wrap",
@@ -1042,7 +1042,7 @@ function NodeChecklist({
         <div className="crm-modal__section-head">
           <div className="crm-modal__section-title">Checklist</div>
         </div>
-        <div style={{ fontSize: 16, color: "hsl(30 8% 62%)", fontStyle: "italic", fontFamily: "var(--crm-font-serif), serif" }}>
+        <div style={{ fontSize: 18, color: "hsl(30 8% 62%)", fontStyle: "italic", fontFamily: "var(--crm-font-serif), serif" }}>
           No checklist items defined for this stage yet.
         </div>
       </section>
@@ -1256,7 +1256,7 @@ function EmailTrackingPanel({ client, onReload }: { client: Client; onReload: ()
         </div>
       </div>
 
-      <p style={{ fontSize: 16, color: "hsl(30 8% 62%)", margin: "0 0 10px" }}>
+      <p style={{ fontSize: 18, color: "hsl(30 8% 62%)", margin: "0 0 10px" }}>
         {completeAt
           ? `All five emails confirmed sent + opened on ${format(new Date(completeAt), "MMM d, yyyy")} — polling stopped.`
           : paused
@@ -1276,8 +1276,8 @@ function EmailTrackingPanel({ client, onReload }: { client: Client; onReload: ()
           gap: 12,
         }}
       >
-        <div style={{ fontSize: 16, color: "hsl(40 20% 90%)" }}>
-          <div style={{ letterSpacing: "0.2em", textTransform: "uppercase", fontSize: 14, color: "hsl(30 8% 62%)", marginBottom: 4 }}>
+        <div style={{ fontSize: 18, color: "hsl(40 20% 90%)" }}>
+          <div style={{ letterSpacing: "0.2em", textTransform: "uppercase", fontSize: 16, color: "hsl(30 8% 62%)", marginBottom: 4 }}>
             Kickoff webhook
           </div>
           {client.kickoff_webhook_confirmed_at
@@ -1311,20 +1311,20 @@ function EmailTrackingPanel({ client, onReload }: { client: Client; onReload: ()
               padding: "8px 10px",
               border: "1px solid hsl(30 8% 22%)",
               borderRadius: 4,
-              fontSize: 16,
+              fontSize: 18,
             }}
           >
             <span style={{ color: "hsl(40 20% 90%)" }}>{EMAIL_LABELS[r.key]}</span>
-            <span style={{ color: r.sent ? "hsl(140 40% 65%)" : "hsl(30 8% 50%)", letterSpacing: "0.15em", textTransform: "uppercase", fontSize: 14 }}>
+            <span style={{ color: r.sent ? "hsl(140 40% 65%)" : "hsl(30 8% 50%)", letterSpacing: "0.15em", textTransform: "uppercase", fontSize: 16 }}>
               {r.sent ? `Sent ${format(new Date(r.sent), "MMM d")}` : "Not sent"}
             </span>
-            <span style={{ color: r.opened ? "hsl(40 60% 70%)" : "hsl(30 8% 40%)", letterSpacing: "0.15em", textTransform: "uppercase", fontSize: 14 }}>
+            <span style={{ color: r.opened ? "hsl(40 60% 70%)" : "hsl(30 8% 40%)", letterSpacing: "0.15em", textTransform: "uppercase", fontSize: 16 }}>
               {r.opened ? "Opened" : "—"}
             </span>
           </div>
         ))}
         {loading && !tracking && (
-          <div style={{ fontSize: 15, color: "hsl(30 8% 50%)" }}>Loading cached status…</div>
+          <div style={{ fontSize: 17, color: "hsl(30 8% 50%)" }}>Loading cached status…</div>
         )}
       </div>
     </section>
@@ -1363,15 +1363,15 @@ function BuildSchedulePanel({ client, onReload }: { client: Client; onReload: ()
       <div className="crm-modal__section-head">
         <div className="crm-modal__section-title">Build &amp; Delivery</div>
       </div>
-      <p style={{ fontSize: 16, color: "hsl(30 8% 62%)", margin: "0 0 12px" }}>
+      <p style={{ fontSize: 18, color: "hsl(30 8% 62%)", margin: "0 0 12px" }}>
         Auto-set the day after intake completes (next-day EST), with delivery 8 days later. Adjust if needed.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
           Build start
           <input type="date" className="crm-input" value={buildStart} onChange={(e) => setBuildStart(e.target.value)} />
         </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
           Delivery
           <input type="date" className="crm-input" value={delivery} onChange={(e) => setDelivery(e.target.value)} />
         </label>
@@ -1422,9 +1422,9 @@ function ClientFieldEditor({
         <div className="crm-modal__section-title">{title}</div>
       </div>
       {helpText && (
-        <p style={{ fontSize: 16, color: "hsl(30 8% 62%)", margin: "0 0 10px" }}>{helpText}</p>
+        <p style={{ fontSize: 18, color: "hsl(30 8% 62%)", margin: "0 0 10px" }}>{helpText}</p>
       )}
-      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
+      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
         {label}
         {multiline ? (
           <textarea
@@ -1548,7 +1548,7 @@ function OnboardingChatLinkPanel({ client }: { client: Client }) {
       <div className="crm-modal__section-head">
         <div className="crm-modal__section-title">Brand Voice Intake Chat</div>
         {!loading && token && (
-          <span className={`crm-pill ${pill.cls}`} style={{ fontSize: 14 }}>● {pill.label}</span>
+          <span className={`crm-pill ${pill.cls}`} style={{ fontSize: 16 }}>● {pill.label}</span>
         )}
       </div>
 
@@ -1562,14 +1562,14 @@ function OnboardingChatLinkPanel({ client }: { client: Client }) {
           borderRadius: 6,
         }}
       >
-        <div style={{ fontSize: 16, color: "hsl(30 8% 70%)", lineHeight: 1.55 }}>
+        <div style={{ fontSize: 18, color: "hsl(30 8% 70%)", lineHeight: 1.55 }}>
           A unique link to the client's onboarding chat. Send this so they can complete the intake
           that powers the Brand Voice doc. Marks <em>Onboarding chat completed</em> automatically
           on submit.
         </div>
 
         {loading ? (
-          <div style={{ fontSize: 16, color: "hsl(30 8% 60%)" }}>Loading…</div>
+          <div style={{ fontSize: 18, color: "hsl(30 8% 60%)" }}>Loading…</div>
         ) : (
           <>
             {token && (
@@ -1578,7 +1578,7 @@ function OnboardingChatLinkPanel({ client }: { client: Client }) {
                 value={url}
                 onFocus={(e) => e.currentTarget.select()}
                 className="crm-input"
-                style={{ fontSize: 16, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
+                style={{ fontSize: 18, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
               />
             )}
             <div style={{ display: "flex", gap: 8 }}>
@@ -1732,8 +1732,8 @@ function JourneyKanbanCard({
       }`}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="text-[10px] uppercase tracking-[0.35em] text-taupe">Stage {stageNum}</div>
-        {locked && <span className="text-[10px] text-[hsl(10_40%_65%)]">⛔ Locked</span>}
+        <div className="text-[12px] uppercase tracking-[0.35em] text-taupe">Stage {stageNum}</div>
+        {locked && <span className="text-[12px] text-[hsl(10_40%_65%)]">⛔ Locked</span>}
       </div>
       <div className="mt-1.5 font-serif text-lg leading-tight text-warm-white">{node.label}</div>
 
@@ -1743,7 +1743,7 @@ function JourneyKanbanCard({
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="mt-2 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-taupe">
+      <div className="mt-2 flex items-center justify-between text-[13px] uppercase tracking-[0.2em] text-taupe">
         <span>{doneCount} / {items.length} tasks</span>
         <span>{pct}%</span>
       </div>
@@ -1753,7 +1753,7 @@ function JourneyKanbanCard({
           {owners.map((o) => (
             <span
               key={o}
-              className={`rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-[0.2em] ${OWNER_META[o].chipClass}`}
+              className={`rounded border px-1.5 py-0.5 text-[12px] uppercase tracking-[0.2em] ${OWNER_META[o].chipClass}`}
             >
               {OWNER_META[o].icon} {OWNER_META[o].label}
             </span>
@@ -1960,7 +1960,7 @@ function JourneyTaskList({
                     <span className={`flex-1 text-sm ${it.done ? "line-through text-taupe" : "text-warm-white"}`}>
                       {it.label}
                     </span>
-                    <span className={`shrink-0 rounded border px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] ${OWNER_META[it.owner].chipClass}`}>
+                    <span className={`shrink-0 rounded border px-2 py-0.5 text-[12px] uppercase tracking-[0.2em] ${OWNER_META[it.owner].chipClass}`}>
                       {OWNER_META[it.owner].label}
                     </span>
                   </div>

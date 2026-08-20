@@ -65,7 +65,7 @@ export default function PostCard({
         ) : (
           <div style={{
             position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--crm-taupe)", fontSize: 13, padding: 16, textAlign: "center",
+            color: "var(--crm-taupe)", fontSize: 15, padding: 16, textAlign: "center",
           }}>
             {slide?.error ? `Render failed: ${slide.error}` : "No image"}
           </div>
@@ -81,7 +81,7 @@ export default function PostCard({
               style={navBtn(false)}><ChevronRight size={16} /></button>
             <div style={{
               position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)",
-              color: "var(--crm-warm-white)", fontSize: 11, background: "hsl(0 0% 0% / 0.55)",
+              color: "var(--crm-warm-white)", fontSize: 13, background: "hsl(0 0% 0% / 0.55)",
               padding: "3px 8px", borderRadius: 999,
             }}>{slideIdx + 1} / {total}</div>
           </>
@@ -91,28 +91,28 @@ export default function PostCard({
       <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{
-            fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase",
+            fontSize: 12, letterSpacing: "0.25em", textTransform: "uppercase",
             color: "var(--crm-taupe)",
           }}>
             {post.format} · #{post.order_index + 1}
           </span>
-          <span style={{ fontSize: 10, color: statusColor, textTransform: "uppercase", letterSpacing: "0.2em" }}>
+          <span style={{ fontSize: 12, color: statusColor, textTransform: "uppercase", letterSpacing: "0.2em" }}>
             {post.status}
           </span>
         </div>
 
         {post.caption && (
-          <div style={{ fontSize: 13, color: "var(--crm-warm-white)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+          <div style={{ fontSize: 15, color: "var(--crm-warm-white)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
             {post.caption}
           </div>
         )}
         {post.hashtags?.length ? (
-          <div style={{ fontSize: 12, color: "hsl(200 50% 70%)" }}>
+          <div style={{ fontSize: 14, color: "hsl(200 50% 70%)" }}>
             {post.hashtags.map((h) => `#${h}`).join(" ")}
           </div>
         ) : null}
         {post.error && (
-          <div style={{ fontSize: 12, color: "hsl(0 70% 75%)" }}>{post.error}</div>
+          <div style={{ fontSize: 14, color: "hsl(0 70% 75%)" }}>{post.error}</div>
         )}
 
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
@@ -132,7 +132,7 @@ export default function PostCard({
 
 function btn(primary: boolean): React.CSSProperties {
   return {
-    fontSize: 11, padding: "5px 10px", borderRadius: 6,
+    fontSize: 13, padding: "5px 10px", borderRadius: 6,
     border: "1px solid var(--crm-border-dark)",
     background: primary ? "var(--crm-warm-white)" : "transparent",
     color: primary ? "var(--crm-ink)" : "var(--crm-warm-white)",

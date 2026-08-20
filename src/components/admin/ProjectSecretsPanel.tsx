@@ -88,10 +88,10 @@ export default function ProjectSecretsPanel({ clientProjectId }: { clientProject
   return (
     <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 24 }}>
       <div>
-        <h3 style={{ fontSize: 18, fontWeight: 500, color: "hsl(30 12% 20%)", marginBottom: 4 }}>
+        <h3 style={{ fontSize: 20, fontWeight: 500, color: "hsl(30 12% 20%)", marginBottom: 4 }}>
           SureContact credentials
         </h3>
-        <p style={{ fontSize: 14, color: "hsl(30 8% 50%)" }}>
+        <p style={{ fontSize: 16, color: "hsl(30 8% 50%)" }}>
           Per-project secrets, encrypted at rest. The automation orchestrator uses these to build the
           client's lists, tags, nurture sequence, and landing-page assets in their SureContact account.
         </p>
@@ -105,16 +105,16 @@ export default function ProjectSecretsPanel({ clientProjectId }: { clientProject
             display: "flex", flexDirection: "column", gap: 10, background: "hsl(30 20% 99%)",
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-              <Label htmlFor={`secret-${f.key}`} style={{ fontSize: 14, fontWeight: 500 }}>
+              <Label htmlFor={`secret-${f.key}`} style={{ fontSize: 16, fontWeight: 500 }}>
                 {f.label}
               </Label>
-              <span style={{ fontSize: 12, color: existing ? "hsl(140 40% 35%)" : "hsl(30 8% 55%)" }}>
+              <span style={{ fontSize: 14, color: existing ? "hsl(140 40% 35%)" : "hsl(30 8% 55%)" }}>
                 {loading ? "…" : existing
                   ? `Saved · updated ${new Date(existing.updated_at).toLocaleDateString()}`
                   : "Not set"}
               </span>
             </div>
-            <p style={{ fontSize: 13, color: "hsl(30 8% 50%)", margin: 0 }}>{f.description}</p>
+            <p style={{ fontSize: 15, color: "hsl(30 8% 50%)", margin: 0 }}>{f.description}</p>
             <div style={{ display: "flex", gap: 8 }}>
               <Input
                 id={`secret-${f.key}`}
@@ -134,7 +134,7 @@ export default function ProjectSecretsPanel({ clientProjectId }: { clientProject
                   background: "hsl(30 12% 20%)", color: "hsl(30 20% 96%)",
                   cursor: saving === f.key ? "default" : "pointer",
                   opacity: saving === f.key || !(values[f.key] ?? "").trim() ? 0.5 : 1,
-                  fontSize: 13,
+                  fontSize: 15,
                 }}
               >
                 {saving === f.key ? "Saving…" : existing ? "Replace" : "Save"}

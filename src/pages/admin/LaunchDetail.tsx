@@ -83,7 +83,7 @@ export default function LaunchDetail() {
         <div className="roster__head">
           <div className="roster__title-block">
             <button onClick={() => navigate(`/admin/ventures/${id}`)} className="crm-btn crm-btn--ghost"
-              style={{ fontSize: 11, marginBottom: 10 }}>← Back to venture</button>
+              style={{ fontSize: 13, marginBottom: 10 }}>← Back to venture</button>
             <div className="roster__eyebrow">{launch.status}</div>
             <h1 className="roster__title">{launch.name}</h1>
             <hr className="roster__rule" />
@@ -97,23 +97,23 @@ export default function LaunchDetail() {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
           <div style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10 }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Revenue</div>
-            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 40, lineHeight: 1.1, marginTop: 6 }}>
+            <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Revenue</div>
+            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 42, lineHeight: 1.1, marginTop: 6 }}>
               {money(actual_revenue_cents)}
             </div>
             <GoalBar actual={actual_revenue_cents} goal={launch.goal_revenue_cents} />
           </div>
           <div style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10 }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Signups</div>
-            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 40, lineHeight: 1.1, marginTop: 6 }}>
+            <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Signups</div>
+            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 42, lineHeight: 1.1, marginTop: 6 }}>
               {actual_signups}
             </div>
             <GoalBar actual={actual_signups} goal={launch.goal_signups} tone="#dbb172" />
           </div>
           <div style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10 }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Checklist</div>
-            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 40, lineHeight: 1.1, marginTop: 6 }}>
-              {done}<span style={{ fontSize: 22, color: "var(--crm-taupe)" }}>/{checklist.length}</span>
+            <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Checklist</div>
+            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 42, lineHeight: 1.1, marginTop: 6 }}>
+              {done}<span style={{ fontSize: 24, color: "var(--crm-taupe)" }}>/{checklist.length}</span>
             </div>
             <GoalBar actual={done} goal={checklist.length || null} />
           </div>
@@ -134,11 +134,11 @@ export default function LaunchDetail() {
                       <span style={{ color: isDone ? "#9db8a6" : "var(--crm-taupe)", alignSelf: "center" }}>
                         {STATUS_GLYPH[c.status]}
                       </span>
-                      <span style={{ fontSize: 14, opacity: isDone ? 0.55 : 1,
+                      <span style={{ fontSize: 16, opacity: isDone ? 0.55 : 1,
                         textDecoration: isDone ? "line-through" : "none" }}>
                         {c.label}
                       </span>
-                      <span style={{ fontSize: 11, alignSelf: "center", textTransform: "uppercase", letterSpacing: "0.15em",
+                      <span style={{ fontSize: 13, alignSelf: "center", textTransform: "uppercase", letterSpacing: "0.15em",
                         color: isDone ? "var(--crm-taupe)" : d.overdue ? "#e07a5f" : d.soon ? "#dbb172" : "var(--crm-taupe)" }}>
                         {isDone ? "done" : d.text}
                       </span>
@@ -155,7 +155,7 @@ export default function LaunchDetail() {
                 <div style={{ padding: 14 }}>
                   {Object.entries(funnel).map(([stage, count]) => (
                     <div key={stage} style={{ display: "flex", justifyContent: "space-between",
-                      fontSize: 13, padding: "4px 0", color: "var(--crm-warm-white)" }}>
+                      fontSize: 15, padding: "4px 0", color: "var(--crm-warm-white)" }}>
                       <span style={{ color: "var(--crm-taupe)" }}>{stage}</span>
                       <span>{count}</span>
                     </div>
@@ -170,10 +170,10 @@ export default function LaunchDetail() {
                   {revenue.slice(0, 20).map((r) => (
                     <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8,
                       padding: "10px 14px", background: "var(--crm-charcoal)",
-                      borderBottom: "1px solid var(--crm-border-dark)", fontSize: 12 }}>
+                      borderBottom: "1px solid var(--crm-border-dark)", fontSize: 14 }}>
                       <div style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {r.customer_email || r.description || r.kind}
-                        <div style={{ fontSize: 11, color: "var(--crm-taupe)" }}>
+                        <div style={{ fontSize: 13, color: "var(--crm-taupe)" }}>
                           {new Date(r.occurred_at).toLocaleDateString()}
                         </div>
                       </div>

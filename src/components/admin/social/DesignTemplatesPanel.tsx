@@ -87,10 +87,10 @@ export default function DesignTemplatesPanel({ clientProjectId }: { clientProjec
   return (
     <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
-        <h3 style={{ fontSize: 18, fontWeight: 500, color: "var(--crm-warm-white)", marginBottom: 4 }}>
+        <h3 style={{ fontSize: 20, fontWeight: 500, color: "var(--crm-warm-white)", marginBottom: 4 }}>
           Design templates
         </h3>
-        <p style={{ fontSize: 13, color: "var(--crm-taupe)" }}>
+        <p style={{ fontSize: 15, color: "var(--crm-taupe)" }}>
           Upload HTML files that define the visual style of this client's posts and carousels.
           The generator uses your template as the design skeleton and fills in fresh copy on each slide.
           Use <code>{`{{heading}}`}</code>, <code>{`{{body}}`}</code>, <code>{`{{cta}}`}</code> placeholders
@@ -121,7 +121,7 @@ export default function DesignTemplatesPanel({ clientProjectId }: { clientProjec
         </div>
         <div>
           <Label>HTML file</Label>
-          <input ref={fileRef} type="file" accept=".html,text/html" style={{ fontSize: 12, color: "var(--crm-warm-white)" }} />
+          <input ref={fileRef} type="file" accept=".html,text/html" style={{ fontSize: 14, color: "var(--crm-warm-white)" }} />
         </div>
         <Button onClick={upload} disabled={uploading}
           className="bg-warm-white text-ink hover:bg-warm-white/90">
@@ -130,9 +130,9 @@ export default function DesignTemplatesPanel({ clientProjectId }: { clientProjec
       </div>
 
       {loading ? (
-        <div style={{ color: "var(--crm-taupe)", fontSize: 13 }}>Loading…</div>
+        <div style={{ color: "var(--crm-taupe)", fontSize: 15 }}>Loading…</div>
       ) : templates.length === 0 ? (
-        <div style={{ color: "var(--crm-taupe)", fontSize: 13 }}>No templates yet.</div>
+        <div style={{ color: "var(--crm-taupe)", fontSize: 15 }}>No templates yet.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {templates.map((t) => (
@@ -140,14 +140,14 @@ export default function DesignTemplatesPanel({ clientProjectId }: { clientProjec
               display: "grid", gridTemplateColumns: "1fr 110px 100px 90px 36px", gap: 12, alignItems: "center",
               padding: "8px 12px", border: "1px solid var(--crm-border-dark)", borderRadius: 6,
             }}>
-              <div style={{ color: "var(--crm-warm-white)", fontSize: 13 }}>{t.name}</div>
-              <div style={{ color: "var(--crm-taupe)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.15em" }}>
+              <div style={{ color: "var(--crm-warm-white)", fontSize: 15 }}>{t.name}</div>
+              <div style={{ color: "var(--crm-taupe)", fontSize: 13, textTransform: "uppercase", letterSpacing: "0.15em" }}>
                 {t.format_support}
               </div>
-              <div style={{ color: "var(--crm-taupe)", fontSize: 11 }}>{t.slide_count} slide{t.slide_count === 1 ? "" : "s"}</div>
+              <div style={{ color: "var(--crm-taupe)", fontSize: 13 }}>{t.slide_count} slide{t.slide_count === 1 ? "" : "s"}</div>
               <button onClick={() => toggleActive(t.id, !t.active)}
                 style={{
-                  fontSize: 11, padding: "4px 8px", borderRadius: 4,
+                  fontSize: 13, padding: "4px 8px", borderRadius: 4,
                   border: "1px solid var(--crm-border-dark)", cursor: "pointer",
                   background: t.active ? "hsl(120 30% 25%)" : "transparent",
                   color: "var(--crm-warm-white)", letterSpacing: "0.15em", textTransform: "uppercase",

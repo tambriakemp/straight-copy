@@ -361,7 +361,7 @@ const Onboarding = () => {
           <div
             style={{
               fontFamily: "'Cormorant Garamond', serif",
-              fontSize: 16, fontWeight: 300, letterSpacing: "0.25em",
+              fontSize: 18, fontWeight: 300, letterSpacing: "0.25em",
               textTransform: "uppercase", marginBottom: 48,
             }}
           >
@@ -371,20 +371,20 @@ const Onboarding = () => {
           <h2
             style={{
               fontFamily: "'Cormorant Garamond', serif",
-              fontSize: 28, fontWeight: 300, lineHeight: 1.2, marginBottom: 12,
+              fontSize: 30, fontWeight: 300, lineHeight: 1.2, marginBottom: 12,
             }}
           >
             Your AI <em style={{ color: "#C8C0B4" }}>OS</em>
             <br />Begins<br />Here.
           </h2>
-          <p style={{ fontSize: 12, color: "#A89F94", lineHeight: 1.8, marginBottom: 48 }}>
+          <p style={{ fontSize: 14, color: "#A89F94", lineHeight: 1.8, marginBottom: 48 }}>
             A guided conversation that builds the foundation of your entire AI operating system.
           </p>
 
           <div style={{ flex: 1 }}>
             <div
               style={{
-                fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase",
+                fontSize: 12, letterSpacing: "0.25em", textTransform: "uppercase",
                 color: "#A89F94", marginBottom: 20,
               }}
             >
@@ -419,7 +419,7 @@ const Onboarding = () => {
                     <div style={{ flex: 1 }}>
                       <div
                         style={{
-                          fontSize: 12, letterSpacing: "0.05em",
+                          fontSize: 14, letterSpacing: "0.05em",
                           color: isActive ? "#F5F2EE" : isDone ? "rgba(200,192,180,0.4)" : "#A89F94",
                           transition: "color 0.3s",
                         }}
@@ -428,7 +428,7 @@ const Onboarding = () => {
                       </div>
                       <div
                         style={{
-                          fontSize: 11, fontWeight: 300, marginTop: 2,
+                          fontSize: 13, fontWeight: 300, marginTop: 2,
                           color: isActive ? "#A89F94" : "rgba(168,159,148,0.5)",
                         }}
                       >
@@ -445,7 +445,7 @@ const Onboarding = () => {
             style={{
               marginTop: 40, paddingTop: 24,
               borderTop: "1px solid rgba(255,255,255,0.05)",
-              fontSize: 11, color: "#A89F94", lineHeight: 1.7,
+              fontSize: 13, color: "#A89F94", lineHeight: 1.7,
             }}
           >
             Your answers are used only to build your AI system. Everything stays private.
@@ -459,7 +459,7 @@ const Onboarding = () => {
               <p
                 className="ob-fade"
                 style={{
-                  fontSize: 10, letterSpacing: "0.35em", textTransform: "uppercase",
+                  fontSize: 12, letterSpacing: "0.35em", textTransform: "uppercase",
                   color: "#8B7355", marginBottom: 24,
                 }}
               >
@@ -469,7 +469,7 @@ const Onboarding = () => {
                 className="ob-fade"
                 style={{
                   fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: "clamp(40px, 5vw, 68px)", fontWeight: 300,
+                  fontSize: "clamp(42px, 5vw, 70px)", fontWeight: 300,
                   lineHeight: 1.05, marginBottom: 24,
                   animationDelay: "0.15s", opacity: 0,
                 }}
@@ -489,7 +489,7 @@ const Onboarding = () => {
               <p
                 className="ob-fade"
                 style={{
-                  fontSize: 15, fontWeight: 300, lineHeight: 1.9,
+                  fontSize: 17, fontWeight: 300, lineHeight: 1.9,
                   color: "#A89F94", maxWidth: 480, marginBottom: 48,
                   animationDelay: "0.3s", opacity: 0,
                 }}
@@ -503,7 +503,7 @@ const Onboarding = () => {
                 className="ob-fade"
                 style={{
                   fontFamily: "'Karla', sans-serif",
-                  fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase",
+                  fontSize: 14, letterSpacing: "0.2em", textTransform: "uppercase",
                   color: "#F5F2EE", background: "#8B7355",
                   border: "none", padding: "18px 52px", cursor: "pointer",
                   transition: "background 0.3s, transform 0.3s",
@@ -523,7 +523,7 @@ const Onboarding = () => {
               <p
                 className="ob-fade"
                 style={{
-                  marginTop: 20, fontSize: 11, color: "#A89F94",
+                  marginTop: 20, fontSize: 13, color: "#A89F94",
                   animationDelay: "0.6s", opacity: 0,
                 }}
               >
@@ -546,18 +546,18 @@ const Onboarding = () => {
                       background: "linear-gradient(135deg, #8B7355, #2A2825)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontFamily: "'Cormorant Garamond', serif",
-                      fontSize: 14, fontStyle: "italic", color: "#F5F2EE",
+                      fontSize: 16, fontStyle: "italic", color: "#F5F2EE",
                     }}
                   >
                     CV
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: "#F5F2EE" }}>
+                    <div style={{ fontSize: 15, fontWeight: 500, color: "#F5F2EE" }}>
                       Cre8 Visions AI
                     </div>
                     <div
                       style={{
-                        fontSize: 11, color: "#A89F94",
+                        fontSize: 13, color: "#A89F94",
                         display: "flex", alignItems: "center", gap: 6,
                       }}
                     >
@@ -575,7 +575,7 @@ const Onboarding = () => {
                 <div style={{ flex: 1, maxWidth: 200, margin: "0 24px" }}>
                   <div
                     style={{
-                      fontSize: 10, color: "#A89F94", letterSpacing: "0.15em",
+                      fontSize: 12, color: "#A89F94", letterSpacing: "0.15em",
                       textTransform: "uppercase", marginBottom: 6, textAlign: "right",
                     }}
                   >
@@ -609,11 +609,11 @@ const Onboarding = () => {
                               background: "linear-gradient(135deg, #8B7355, #2A2825)",
                               color: "#F5F2EE",
                               fontFamily: "'Cormorant Garamond', serif",
-                              fontStyle: "italic", fontSize: 13,
+                              fontStyle: "italic", fontSize: 15,
                             }
                           : {
                               background: "rgba(255,255,255,0.08)", color: "#C8C0B4",
-                              fontSize: 11, fontWeight: 500, letterSpacing: "0.05em",
+                              fontSize: 13, fontWeight: 500, letterSpacing: "0.05em",
                             }),
                       }}
                     >
@@ -627,7 +627,7 @@ const Onboarding = () => {
                     >
                       <div
                         style={{
-                          padding: "16px 20px", fontSize: 14, fontWeight: 300,
+                          padding: "16px 20px", fontSize: 16, fontWeight: 300,
                           lineHeight: 1.75, borderRadius: 2, whiteSpace: "pre-wrap",
                           ...(m.role === "assistant"
                             ? {
@@ -668,7 +668,7 @@ const Onboarding = () => {
                 {savingFinal && (
                   <div
                     style={{
-                      fontSize: 11, color: "#8B7355", marginBottom: 12,
+                      fontSize: 13, color: "#8B7355", marginBottom: 12,
                       letterSpacing: "0.2em", textTransform: "uppercase",
                     }}
                   >
@@ -697,7 +697,7 @@ const Onboarding = () => {
                     rows={1}
                     style={{
                       flex: 1, background: "none", border: "none", outline: "none",
-                      fontFamily: "'Karla', sans-serif", fontSize: 14, fontWeight: 300,
+                      fontFamily: "'Karla', sans-serif", fontSize: 16, fontWeight: 300,
                       color: "#F5F2EE", resize: "none", maxHeight: 120, lineHeight: 1.6,
                     }}
                   />
@@ -716,7 +716,7 @@ const Onboarding = () => {
                     <Send size={14} color="#F5F2EE" />
                   </button>
                 </div>
-                <p style={{ fontSize: 11, color: "#A89F94", marginTop: 10 }}>
+                <p style={{ fontSize: 13, color: "#A89F94", marginTop: 10 }}>
                   Press Enter to send · Shift+Enter for new line
                 </p>
 
@@ -728,7 +728,7 @@ const Onboarding = () => {
                       background: "rgba(180, 70, 70, 0.08)",
                       border: "1px solid rgba(180, 70, 70, 0.3)",
                       borderLeft: "2px solid #b44646",
-                      fontSize: 12,
+                      fontSize: 14,
                       color: "#E8C8C8",
                       lineHeight: 1.6,
                       display: "flex",
@@ -745,7 +745,7 @@ const Onboarding = () => {
                         background: "transparent",
                         border: "1px solid rgba(232,200,200,0.4)",
                         color: "#F5F2EE",
-                        fontSize: 11,
+                        fontSize: 13,
                         letterSpacing: "0.2em",
                         textTransform: "uppercase",
                         padding: "8px 14px",
@@ -768,7 +768,7 @@ const Onboarding = () => {
                         background: "transparent",
                         border: "1px solid rgba(139,115,85,0.5)",
                         color: "#C8C0B4",
-                        fontSize: 11,
+                        fontSize: 13,
                         letterSpacing: "0.25em",
                         textTransform: "uppercase",
                         padding: "10px 18px",
@@ -799,7 +799,7 @@ const Onboarding = () => {
             <div className="ob-scroll overflow-y-auto h-full px-8 md:px-20 py-16">
               <p
                 style={{
-                  fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase",
+                  fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase",
                   color: "#8B7355", marginBottom: 16,
                 }}
               >
@@ -808,7 +808,7 @@ const Onboarding = () => {
               <h1
                 style={{
                   fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: 48, fontWeight: 300, lineHeight: 1, marginBottom: 8,
+                  fontSize: 50, fontWeight: 300, lineHeight: 1, marginBottom: 8,
                 }}
               >
                 Your AI Foundation<br />
@@ -816,7 +816,7 @@ const Onboarding = () => {
               </h1>
               <p
                 style={{
-                  fontSize: 14, color: "#A89F94", lineHeight: 1.8,
+                  fontSize: 16, color: "#A89F94", lineHeight: 1.8,
                   marginBottom: 48, marginTop: 16,
                 }}
               >
@@ -870,13 +870,13 @@ const Onboarding = () => {
                 >
                   <div
                     style={{
-                      fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase",
+                      fontSize: 12, letterSpacing: "0.25em", textTransform: "uppercase",
                       color: "#8B7355", marginBottom: 10,
                     }}
                   >
                     {label}
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 300, color: "#F5F2EE", lineHeight: 1.8 }}>
+                  <div style={{ fontSize: 16, fontWeight: 300, color: "#F5F2EE", lineHeight: 1.8 }}>
                     {(value as string) || "Not specified"}
                   </div>
                 </div>
@@ -892,14 +892,14 @@ const Onboarding = () => {
                 <h3
                   style={{
                     fontFamily: "'Cormorant Garamond', serif",
-                    fontSize: 24, fontWeight: 300, marginBottom: 12,
+                    fontSize: 26, fontWeight: 300, marginBottom: 12,
                   }}
                 >
                   What happens next
                 </h3>
                 <p
                   style={{
-                    fontSize: 13, color: "#A89F94", lineHeight: 1.8, marginBottom: 24,
+                    fontSize: 15, color: "#A89F94", lineHeight: 1.8, marginBottom: 24,
                   }}
                 >
                   Your AI OS build begins within 5–7 business days. You'll receive your brand voice

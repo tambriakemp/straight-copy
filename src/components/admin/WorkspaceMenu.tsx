@@ -57,17 +57,17 @@ export default function WorkspaceMenu() {
         <span style={{
           width: 22, height: 22, display: "grid", placeItems: "center",
           background: "var(--crm-warm-white)", color: "var(--crm-ink)",
-          fontFamily: "Cormorant Garamond, serif", fontSize: 14, borderRadius: 2,
+          fontFamily: "Cormorant Garamond, serif", fontSize: 16, borderRadius: 2,
         }}>C</span>
-        <span style={{ fontSize: 13, letterSpacing: "0.02em" }}>Cre8 Visions</span>
-        <span style={{ fontSize: 9, color: "var(--crm-taupe)", transform: open ? "rotate(180deg)" : "none" }}>▾</span>
+        <span style={{ fontSize: 15, letterSpacing: "0.02em" }}>Cre8 Visions</span>
+        <span style={{ fontSize: 11, color: "var(--crm-taupe)", transform: open ? "rotate(180deg)" : "none" }}>▾</span>
       </button>
 
       {/* Where you are now, so the bar still orients you with the links hidden. */}
       {current && current.to !== "/admin" && (
         <>
-          <span style={{ color: "var(--crm-border-dark)", fontSize: 12 }}>/</span>
-          <span style={{ fontSize: 12, color: "var(--crm-taupe)", letterSpacing: "0.14em", textTransform: "uppercase" }}>
+          <span style={{ color: "var(--crm-border-dark)", fontSize: 14 }}>/</span>
+          <span style={{ fontSize: 14, color: "var(--crm-taupe)", letterSpacing: "0.14em", textTransform: "uppercase" }}>
             {current.label}
           </span>
         </>
@@ -86,14 +86,14 @@ export default function WorkspaceMenu() {
             return (
               <div key={group}>
                 <div style={{
-                  fontSize: 9, letterSpacing: "0.3em", textTransform: "uppercase",
+                  fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase",
                   color: "var(--crm-taupe)", padding: "9px 14px 5px",
                 }}>{group}</div>
                 {items.map((n) => (
                   <Link key={n.to} to={n.to} role="menuitem"
                     style={{
                       display: "grid", gridTemplateColumns: "16px 1fr", gap: 10,
-                      alignItems: "center", padding: "7px 14px", fontSize: 13,
+                      alignItems: "center", padding: "7px 14px", fontSize: 15,
                       color: isActive(n) ? "var(--crm-warm-white)" : "var(--crm-taupe)",
                       background: isActive(n) ? "var(--crm-charcoal)" : "transparent",
                     }}>
@@ -110,7 +110,7 @@ export default function WorkspaceMenu() {
               onClick={() => { setOpen(false); signOut(); navigate("/admin/login"); }}
               style={{
                 display: "grid", gridTemplateColumns: "16px 1fr", gap: 10, alignItems: "center",
-                width: "100%", padding: "8px 14px", fontSize: 13, textAlign: "left",
+                width: "100%", padding: "8px 14px", fontSize: 15, textAlign: "left",
                 background: "transparent", border: "none", cursor: "pointer", color: "var(--crm-taupe)",
               }}>
               <span style={{ opacity: 0.8 }}>⎋</span>

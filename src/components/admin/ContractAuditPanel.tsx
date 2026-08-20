@@ -181,7 +181,7 @@ export default function ContractAuditPanel({
                 activity.map((a) => {
                   const num = (a.metadata as { num?: string } | null)?.num ?? "";
                   return (
-                    <span key={a.id} style={{ fontSize: 14 }}>
+                    <span key={a.id} style={{ fontSize: 16 }}>
                       <span style={{ color: "var(--crm-accent)" }}>✓</span>{" "}
                       <strong>{num}</strong> {a.task?.name?.replace(/^\d+\.\d+\s*—\s*/, "") ?? a.task_id}
                       {" "}

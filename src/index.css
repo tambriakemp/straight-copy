@@ -65,7 +65,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Karla', sans-serif;
-    font-size: 19px;
+    font-size: 21px;
     overflow-x: hidden;
   }
 
@@ -214,7 +214,7 @@
   background: var(--crm-ink);
   color: var(--crm-warm-white);
   font-family: var(--crm-font-sans);
-  font-size: 17px;
+  font-size: 19px;
   line-height: 1.6;
   font-weight: 300;
   display: flex;
@@ -242,12 +242,12 @@
 .crm-shell .topnav__wordmark {
   font-family: var(--crm-font-serif); font-weight: 300;
   letter-spacing: 0.25em; text-transform: uppercase;
-  color: var(--crm-warm-white); font-size: 17px;
+  color: var(--crm-warm-white); font-size: 19px;
 }
 .crm-shell .topnav__wordmark .dot { color: var(--crm-accent); margin: 0 6px; font-style: normal; }
 .crm-shell .topnav__nav { display: flex; gap: 36px; }
 .crm-shell .topnav__item {
-  font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase;
+  font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase;
   color: var(--crm-stone);
   background: transparent; border: 0; padding: 6px 0;
   cursor: pointer; position: relative;
@@ -265,16 +265,16 @@
 }
 .crm-shell .topnav__right {
   display: flex; align-items: center; gap: 32px;
-  font-size: 13px; letter-spacing: 0.15em; color: var(--crm-stone);
+  font-size: 15px; letter-spacing: 0.15em; color: var(--crm-stone);
 }
 .crm-shell .topnav__email {
   font-family: var(--crm-font-serif); font-style: italic;
-  letter-spacing: 0.02em; font-size: 15px;
+  letter-spacing: 0.02em; font-size: 17px;
 }
 .crm-shell .topnav__signout {
   display: inline-flex; align-items: center; gap: 8px;
   background: transparent; border: 0; color: var(--crm-stone);
-  font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase;
+  font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase;
   cursor: pointer; transition: color var(--crm-dur-base);
   font-family: var(--crm-font-sans);
 }
@@ -289,7 +289,7 @@
 /* ---------- Buttons ---------- */
 .crm-shell .crm-btn {
   display: inline-flex; align-items: center; gap: 10px;
-  font-family: var(--crm-font-sans); font-size: 15px;
+  font-family: var(--crm-font-sans); font-size: 17px;
   letter-spacing: 0.2em; text-transform: uppercase;
   padding: 14px 28px; cursor: pointer; border: 0;
   color: var(--crm-warm-white); background: transparent;
@@ -305,17 +305,17 @@
 .crm-shell .crm-btn--primary:hover { background: var(--crm-accent); color: var(--crm-warm-white); transform: translateY(-2px); }
 .crm-shell .crm-btn--bronze { background: var(--crm-accent); color: var(--crm-warm-white); }
 .crm-shell .crm-btn--bronze:hover { background: var(--crm-accent-hover); transform: translateY(-2px); }
-.crm-shell .crm-btn--sm { padding: 10px 18px; font-size: 14px; }
+.crm-shell .crm-btn--sm { padding: 10px 18px; font-size: 16px; }
 
 /* ---------- Roster ---------- */
 .crm-shell .roster { flex: 1; min-height: 0; overflow-y: auto; padding: 32px 52px 80px; position: relative; }
 .crm-shell .roster__head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; gap: 24px; flex-wrap: wrap; }
 .crm-shell .roster__title-block { max-width: 700px; }
-.crm-shell .roster__eyebrow { font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--crm-stone); margin-bottom: 8px; }
-.crm-shell .roster__title { font-family: var(--crm-font-serif); font-weight: 300; font-size: clamp(26px, 2.6vw, 34px); line-height: 1.05; color: var(--crm-warm-white); margin: 0 0 8px 0; letter-spacing: -0.01em; }
+.crm-shell .roster__eyebrow { font-size: 13px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--crm-stone); margin-bottom: 8px; }
+.crm-shell .roster__title { font-family: var(--crm-font-serif); font-weight: 300; font-size: clamp(28px, 2.6vw, 36px); line-height: 1.05; color: var(--crm-warm-white); margin: 0 0 8px 0; letter-spacing: -0.01em; }
 .crm-shell .roster__title em { font-style: italic; color: var(--crm-accent); }
 .crm-shell .roster__rule { width: 32px; height: 1px; background: var(--crm-accent); margin-bottom: 10px; border: 0; }
-.crm-shell .roster__sub { color: var(--crm-taupe); max-width: 560px; font-size: 13px; line-height: 1.55; margin: 0; }
+.crm-shell .roster__sub { color: var(--crm-taupe); max-width: 560px; font-size: 15px; line-height: 1.55; margin: 0; }
 
 .crm-shell .roster__toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; flex-wrap: wrap; }
 .crm-shell .roster__search-wrap { position: relative; flex: 1; min-width: 260px; max-width: 420px; }
@@ -336,18 +336,18 @@
   width: 100%; background: transparent;
   border: 0; border-bottom: 1px solid var(--crm-border-dark);
   color: var(--crm-warm-white);
-  font-family: var(--crm-font-sans); font-size: 17px;
+  font-family: var(--crm-font-sans); font-size: 19px;
   padding: 14px 4px 14px 28px;
   letter-spacing: 0.02em; outline: none;
 }
-.crm-shell .roster__search::placeholder { color: var(--crm-taupe); font-style: italic; font-family: var(--crm-font-serif); font-size: 18px; letter-spacing: 0.02em; }
+.crm-shell .roster__search::placeholder { color: var(--crm-taupe); font-style: italic; font-family: var(--crm-font-serif); font-size: 20px; letter-spacing: 0.02em; }
 .crm-shell .roster__search:focus { border-bottom-color: var(--crm-accent); }
 
 .crm-shell .roster__select {
   background: transparent;
   border: 0; border-bottom: 1px solid var(--crm-border-dark);
   color: var(--crm-warm-white);
-  font-family: var(--crm-font-sans); font-size: 15px; letter-spacing: 0.2em;
+  font-family: var(--crm-font-sans); font-size: 17px; letter-spacing: 0.2em;
   text-transform: uppercase;
   padding: 14px 28px 14px 4px;
   outline: none; cursor: pointer; appearance: none;
@@ -376,7 +376,7 @@
   border-bottom: 1px solid var(--crm-border-dark);
 }
 .crm-shell .roster__col-h {
-  font-size: 14px; letter-spacing: 0.28em; text-transform: uppercase;
+  font-size: 16px; letter-spacing: 0.28em; text-transform: uppercase;
   color: var(--crm-taupe);
   display: inline-flex; align-items: center; gap: 8px;
   cursor: pointer; background: transparent; border: 0;
@@ -391,28 +391,28 @@
 .crm-shell .roster__client { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .crm-shell .roster__name {
   font-family: var(--crm-font-serif); font-style: italic; font-weight: 400;
-  font-size: 24px; color: var(--crm-warm-white);
+  font-size: 26px; color: var(--crm-warm-white);
   transition: color var(--crm-dur-base);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.crm-shell .roster__email { font-size: 16px; color: var(--crm-taupe); letter-spacing: 0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-shell .roster__email { font-size: 18px; color: var(--crm-taupe); letter-spacing: 0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .crm-shell .roster__tier {
-  font-size: 14px; letter-spacing: 0.25em; text-transform: uppercase;
+  font-size: 16px; letter-spacing: 0.25em; text-transform: uppercase;
   color: var(--crm-stone);
 }
 .crm-shell .roster__tier--growth { color: var(--crm-accent); }
 .crm-shell .roster__tier--elite { color: var(--crm-warm-white); }
 
-.crm-shell .roster__stage { font-family: var(--crm-font-serif); font-style: italic; font-size: 20px; color: var(--crm-warm-white); }
-.crm-shell .roster__stage-hint { display: block; font-family: var(--crm-font-sans); font-style: normal; font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--crm-taupe); margin-top: 4px; }
+.crm-shell .roster__stage { font-family: var(--crm-font-serif); font-style: italic; font-size: 22px; color: var(--crm-warm-white); }
+.crm-shell .roster__stage-hint { display: block; font-family: var(--crm-font-sans); font-style: normal; font-size: 16px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--crm-taupe); margin-top: 4px; }
 
-.crm-shell .roster__days { font-family: var(--crm-font-serif); font-weight: 300; font-size: 34px; color: var(--crm-warm-white); line-height: 1; }
-.crm-shell .roster__days-date { display: block; font-family: var(--crm-font-sans); font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--crm-taupe); margin-top: 4px; }
+.crm-shell .roster__days { font-family: var(--crm-font-serif); font-weight: 300; font-size: 36px; color: var(--crm-warm-white); line-height: 1; }
+.crm-shell .roster__days-date { display: block; font-family: var(--crm-font-sans); font-size: 16px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--crm-taupe); margin-top: 4px; }
 
-.crm-shell .roster__next { font-family: var(--crm-font-serif); font-style: italic; color: var(--crm-stone); font-size: 18px; }
+.crm-shell .roster__next { font-family: var(--crm-font-serif); font-style: italic; color: var(--crm-stone); font-size: 20px; }
 
-.crm-shell .roster__status { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--crm-stone); }
+.crm-shell .roster__status { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--crm-stone); }
 .crm-shell .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .crm-shell .status-dot--new      { background: var(--crm-stone); }
 .crm-shell .status-dot--progress { background: var(--crm-accent); box-shadow: 0 0 0 4px hsl(30 25% 44% / 0.15); }
@@ -420,20 +420,20 @@
 .crm-shell .status-dot--complete { background: hsl(150 30% 55%); }
 
 .crm-shell .roster__chevron {
-  font-family: var(--crm-font-serif); font-size: 28px;
+  font-family: var(--crm-font-serif); font-size: 30px;
   color: var(--crm-accent); opacity: 0.2;
   transform: translateX(-6px);
   transition: all var(--crm-dur-base) var(--crm-ease-soft);
   text-align: right;
 }
 
-.crm-shell .roster__legend { display: flex; gap: 32px; margin-top: 28px; flex-wrap: wrap; font-size: 14px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--crm-taupe); }
+.crm-shell .roster__legend { display: flex; gap: 32px; margin-top: 28px; flex-wrap: wrap; font-size: 16px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--crm-taupe); }
 .crm-shell .roster__legend-item { display: inline-flex; align-items: center; gap: 10px; }
 
 .crm-shell .roster__ghost {
   position: absolute; right: -6vw; bottom: -4vw;
   font-family: var(--crm-font-serif); font-weight: 300;
-  font-size: clamp(220px, 32vw, 420px); line-height: 0.85;
+  font-size: clamp(222px, 32vw, 422px); line-height: 0.85;
   color: hsl(40 20% 97% / 0.025);
   pointer-events: none; user-select: none;
   letter-spacing: -0.04em;
@@ -450,11 +450,11 @@
   border: 1px solid var(--crm-border-dark);
   display: grid; place-items: center;
   color: var(--crm-stone);
-  font-family: var(--crm-font-serif); font-size: 38px; font-weight: 300;
+  font-family: var(--crm-font-serif); font-size: 40px; font-weight: 300;
 }
-.crm-shell .crm-empty__title { font-family: var(--crm-font-serif); font-weight: 300; font-style: italic; font-size: 38px; color: var(--crm-warm-white); }
+.crm-shell .crm-empty__title { font-family: var(--crm-font-serif); font-weight: 300; font-style: italic; font-size: 40px; color: var(--crm-warm-white); }
 .crm-shell .crm-empty__title em { color: var(--crm-accent); }
-.crm-shell .crm-empty__sub { color: var(--crm-taupe); max-width: 440px; font-size: 17px; }
+.crm-shell .crm-empty__sub { color: var(--crm-taupe); max-width: 440px; font-size: 19px; }
 
 /* ---------- Detail / Journey ---------- */
 .crm-shell .detail { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; overflow: hidden; }
@@ -478,7 +478,7 @@
 .crm-shell .detail__back {
   display: inline-flex; align-items: center; gap: 10px;
   background: transparent; border: 0; color: var(--crm-stone);
-  font-size: 14px; letter-spacing: 0.25em; text-transform: uppercase;
+  font-size: 16px; letter-spacing: 0.25em; text-transform: uppercase;
   cursor: pointer; padding-right: 18px;
   border-right: 1px solid var(--crm-border-dark);
   font-family: var(--crm-font-sans);
@@ -487,11 +487,11 @@
   flex-shrink: 0;
 }
 .crm-shell .detail__back:hover { color: var(--crm-accent); }
-.crm-shell .detail__back::before { content: '←'; font-size: 18px; }
+.crm-shell .detail__back::before { content: '←'; font-size: 20px; }
 
 .crm-shell .detail__client { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.crm-shell .detail__client-name { font-family: var(--crm-font-serif); font-weight: 400; font-style: italic; font-size: 28px; color: var(--crm-warm-white); line-height: 1.1; letter-spacing: -0.005em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.crm-shell .detail__client-meta { display: flex; align-items: center; gap: 14px; font-size: 14px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--crm-taupe); flex-wrap: wrap; }
+.crm-shell .detail__client-name { font-family: var(--crm-font-serif); font-weight: 400; font-style: italic; font-size: 30px; color: var(--crm-warm-white); line-height: 1.1; letter-spacing: -0.005em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-shell .detail__client-meta { display: flex; align-items: center; gap: 14px; font-size: 16px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--crm-taupe); flex-wrap: wrap; }
 .crm-shell .detail__client-meta .sep { color: hsl(40 20% 97% / 0.12); }
 .crm-shell .detail__client-meta .tier { color: var(--crm-accent); }
 
@@ -506,7 +506,7 @@
   border: 1px solid hsl(30 25% 44% / 0.45);
   color: var(--crm-accent);
   font-family: var(--crm-font-sans);
-  font-size: 14px; letter-spacing: 0.22em; text-transform: uppercase;
+  font-size: 16px; letter-spacing: 0.22em; text-transform: uppercase;
   text-decoration: none; cursor: pointer;
   transition: background var(--crm-dur-base), color var(--crm-dur-base), border-color var(--crm-dur-base);
   white-space: nowrap;
@@ -532,7 +532,7 @@
   border: 1px solid hsl(30 25% 44% / 0.4);
   color: var(--crm-accent);
   font-family: var(--crm-font-sans);
-  font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase;
+  font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase;
   text-decoration: none;
   transition: background var(--crm-dur-base), color var(--crm-dur-base);
   white-space: nowrap;
@@ -555,8 +555,8 @@
   flex-shrink: 0;
 }
 .crm-shell .detail__progress-text { display: flex; flex-direction: column; gap: 2px; }
-.crm-shell .detail__progress-eyebrow { font-size: 13px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--crm-taupe); }
-.crm-shell .detail__progress-fraction { font-family: var(--crm-font-serif); font-weight: 300; font-size: 36px; color: var(--crm-warm-white); line-height: 1; letter-spacing: -0.01em; }
+.crm-shell .detail__progress-eyebrow { font-size: 15px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--crm-taupe); }
+.crm-shell .detail__progress-fraction { font-family: var(--crm-font-serif); font-weight: 300; font-size: 38px; color: var(--crm-warm-white); line-height: 1; letter-spacing: -0.01em; }
 .crm-shell .detail__progress-fraction .slash { color: var(--crm-accent); font-style: italic; margin: 0 2px; }
 .crm-shell .detail__progress-fraction .total { color: var(--crm-taupe); }
 .crm-shell .detail__progress-ring { width: 72px; height: 72px; flex-shrink: 0; }
@@ -580,7 +580,7 @@
   position: absolute; left: 50%; top: 50%;
   transform: translate(-50%, -50%);
   font-family: var(--crm-font-serif); font-weight: 300;
-  font-size: clamp(320px, 42vw, 600px); line-height: 0.8;
+  font-size: clamp(322px, 42vw, 602px); line-height: 0.8;
   color: hsl(40 20% 97% / 0.022);
   letter-spacing: -0.04em;
   user-select: none; pointer-events: none; white-space: nowrap;
@@ -599,8 +599,8 @@
 
 .crm-shell .node { cursor: pointer; transform-box: fill-box; transform-origin: center; }
 .crm-shell .node__frame { fill: var(--crm-ink); stroke: hsl(40 20% 97% / 0.25); stroke-width: 1; transition: all var(--crm-dur-base) var(--crm-ease-soft); }
-.crm-shell .node__num { font-family: var(--crm-font-serif); font-style: italic; font-weight: 400; font-size: 18px; fill: var(--crm-stone); text-anchor: middle; dominant-baseline: middle; transition: fill var(--crm-dur-base); }
-.crm-shell .node__label { font-family: var(--crm-font-sans); font-size: 14px; letter-spacing: 0.25em; text-transform: uppercase; fill: var(--crm-stone); text-anchor: middle; transition: fill var(--crm-dur-base); }
+.crm-shell .node__num { font-family: var(--crm-font-serif); font-style: italic; font-weight: 400; font-size: 20px; fill: var(--crm-stone); text-anchor: middle; dominant-baseline: middle; transition: fill var(--crm-dur-base); }
+.crm-shell .node__label { font-family: var(--crm-font-sans); font-size: 16px; letter-spacing: 0.25em; text-transform: uppercase; fill: var(--crm-stone); text-anchor: middle; transition: fill var(--crm-dur-base); }
 
 .crm-shell .node--complete .node__frame { fill: var(--crm-warm-white); stroke: var(--crm-warm-white); }
 .crm-shell .node--complete .node__num { fill: var(--crm-ink); }
@@ -632,7 +632,7 @@
   background: hsl(36 5% 16% / 0.7);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--crm-border-dark);
-  font-size: 14px; letter-spacing: 0.25em; text-transform: uppercase;
+  font-size: 16px; letter-spacing: 0.25em; text-transform: uppercase;
   color: var(--crm-stone);
 }
 .crm-shell .canvas__legend-item { display: inline-flex; align-items: center; gap: 10px; }
@@ -643,7 +643,7 @@
 .crm-shell .canvas__hint {
   position: absolute; right: 52px; bottom: 28px; z-index: 10;
   font-family: var(--crm-font-serif); font-style: italic;
-  color: var(--crm-taupe); font-size: 17px; letter-spacing: 0.01em;
+  color: var(--crm-taupe); font-size: 19px; letter-spacing: 0.01em;
 }
 
 /* ---------- Stage modal ---------- */
@@ -681,7 +681,7 @@
   display: grid; place-items: center;
   transition: all var(--crm-dur-base);
   z-index: 5;
-  font-family: var(--crm-font-sans); font-size: 18px;
+  font-family: var(--crm-font-sans); font-size: 20px;
 }
 .crm-shell .crm-modal__close:hover { color: var(--crm-warm-white); border-color: var(--crm-accent); }
 
@@ -698,24 +698,24 @@
   width: 1px;
   background: linear-gradient(to bottom, var(--crm-accent), transparent);
 }
-.crm-shell .crm-modal__stage-num { font-family: var(--crm-font-serif); font-weight: 300; font-size: 18px; letter-spacing: 0.3em; color: var(--crm-taupe); margin-bottom: 24px; }
+.crm-shell .crm-modal__stage-num { font-family: var(--crm-font-serif); font-weight: 300; font-size: 20px; letter-spacing: 0.3em; color: var(--crm-taupe); margin-bottom: 24px; }
 .crm-shell .crm-modal__stage-num em { color: var(--crm-accent); font-style: italic; }
-.crm-shell .crm-modal__eyebrow { font-size: 14px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--crm-stone); margin-bottom: 20px; }
-.crm-shell .crm-modal__title { font-family: var(--crm-font-serif); font-weight: 300; font-size: clamp(48px, 4.5vw, 72px); line-height: 0.95; color: var(--crm-warm-white); margin: 0 0 24px 0; letter-spacing: -0.01em; }
+.crm-shell .crm-modal__eyebrow { font-size: 16px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--crm-stone); margin-bottom: 20px; }
+.crm-shell .crm-modal__title { font-family: var(--crm-font-serif); font-weight: 300; font-size: clamp(50px, 4.5vw, 74px); line-height: 0.95; color: var(--crm-warm-white); margin: 0 0 24px 0; letter-spacing: -0.01em; }
 .crm-shell .crm-modal__title em { font-style: italic; color: var(--crm-accent); }
 .crm-shell .crm-modal__rule { width: 48px; height: 1px; background: var(--crm-accent); margin: 0 0 32px 0; border: 0; }
-.crm-shell .crm-modal__desc { font-size: 18px; line-height: 1.8; color: var(--crm-taupe); max-width: 440px; margin: 0 0 40px 0; }
+.crm-shell .crm-modal__desc { font-size: 20px; line-height: 1.8; color: var(--crm-taupe); max-width: 440px; margin: 0 0 40px 0; }
 
 .crm-shell .crm-modal__meta { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 8px; }
-.crm-shell .crm-modal__meta-item .lbl { display: block; font-size: 14px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--crm-taupe); margin-bottom: 10px; }
-.crm-shell .crm-modal__meta-item .val { font-family: var(--crm-font-serif); font-style: italic; font-size: 22px; color: var(--crm-warm-white); }
-.crm-shell .crm-modal__meta-item .val--sm { font-size: 19px; }
+.crm-shell .crm-modal__meta-item .lbl { display: block; font-size: 16px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--crm-taupe); margin-bottom: 10px; }
+.crm-shell .crm-modal__meta-item .val { font-family: var(--crm-font-serif); font-style: italic; font-size: 24px; color: var(--crm-warm-white); }
+.crm-shell .crm-modal__meta-item .val--sm { font-size: 21px; }
 .crm-shell .crm-modal__owner { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
-.crm-shell .crm-owner-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--crm-accent); display: grid; place-items: center; font-family: var(--crm-font-serif); font-style: italic; font-size: 18px; color: var(--crm-warm-white); }
+.crm-shell .crm-owner-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--crm-accent); display: grid; place-items: center; font-family: var(--crm-font-serif); font-style: italic; font-size: 20px; color: var(--crm-warm-white); }
 
 .crm-shell .crm-modal__right { padding: 72px 60px; background: var(--crm-charcoal); overflow-y: auto; display: flex; flex-direction: column; gap: 40px; min-height: 0; min-width: 0; }
 .crm-shell .crm-modal__section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.crm-shell .crm-modal__section-title { font-size: 14px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--crm-stone); }
+.crm-shell .crm-modal__section-title { font-size: 16px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--crm-stone); }
 
 .crm-shell .crm-status-seg {
   display: grid; grid-template-columns: repeat(4, 1fr);
@@ -725,7 +725,7 @@
   background: transparent; border: 0;
   padding: 14px 8px;
   font-family: var(--crm-font-sans);
-  font-size: 14px; letter-spacing: 0.22em; text-transform: uppercase;
+  font-size: 16px; letter-spacing: 0.22em; text-transform: uppercase;
   color: var(--crm-taupe); cursor: pointer;
   transition: all var(--crm-dur-base);
   display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -742,13 +742,13 @@
 .crm-shell .crm-checklist-group__head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 4px 2px 8px;
-  font-size: 14px; letter-spacing: 0.32em; text-transform: uppercase;
+  font-size: 16px; letter-spacing: 0.32em; text-transform: uppercase;
   color: var(--crm-stone);
 }
-.crm-shell .crm-checklist-group__head .icon { font-size: 16px; margin-right: 8px; }
+.crm-shell .crm-checklist-group__head .icon { font-size: 18px; margin-right: 8px; }
 .crm-shell .crm-checklist-group__count {
   font-family: var(--crm-font-serif); font-style: italic;
-  font-size: 16px; letter-spacing: 0.06em; color: var(--crm-taupe);
+  font-size: 18px; letter-spacing: 0.06em; color: var(--crm-taupe);
   text-transform: none;
 }
 
@@ -773,20 +773,20 @@
   flex-shrink: 0; transition: all var(--crm-dur-base);
 }
 .crm-shell .crm-checkitem--done .crm-checkitem__box { background: var(--crm-accent); border-color: var(--crm-accent); }
-.crm-shell .crm-checkitem--done .crm-checkitem__box::after { content: '✓'; font-size: 15px; color: var(--crm-warm-white); }
-.crm-shell .crm-checkitem__label { font-size: 17px; color: var(--crm-warm-white); flex: 1; line-height: 1.45; }
+.crm-shell .crm-checkitem--done .crm-checkitem__box::after { content: '✓'; font-size: 17px; color: var(--crm-warm-white); }
+.crm-shell .crm-checkitem__label { font-size: 19px; color: var(--crm-warm-white); flex: 1; line-height: 1.45; }
 .crm-shell .crm-checkitem--done .crm-checkitem__label { color: var(--crm-taupe); text-decoration: line-through; text-decoration-color: hsl(40 20% 97% / 0.2); }
-.crm-shell .crm-checkitem__owner { font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--crm-taupe); }
-.crm-shell .crm-checkitem__auto-tag { font-size: 13px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--crm-taupe); font-style: italic; font-family: var(--crm-font-serif); }
+.crm-shell .crm-checkitem__owner { font-size: 16px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--crm-taupe); }
+.crm-shell .crm-checkitem__auto-tag { font-size: 15px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--crm-taupe); font-style: italic; font-family: var(--crm-font-serif); }
 
 .crm-shell .crm-attach-list { display: flex; flex-direction: column; gap: 2px; }
 .crm-shell .crm-attach { display: flex; align-items: center; gap: 16px; padding: 14px 16px; background: var(--crm-ink); transition: background var(--crm-dur-base); text-decoration: none; }
 .crm-shell .crm-attach:hover { background: hsl(36 5% 20%); }
-.crm-shell .crm-attach__icon { width: 32px; height: 32px; border: 1px solid var(--crm-border-dark); display: grid; place-items: center; font-family: var(--crm-font-serif); font-style: italic; font-size: 14px; color: var(--crm-stone); letter-spacing: 0.1em; }
+.crm-shell .crm-attach__icon { width: 32px; height: 32px; border: 1px solid var(--crm-border-dark); display: grid; place-items: center; font-family: var(--crm-font-serif); font-style: italic; font-size: 16px; color: var(--crm-stone); letter-spacing: 0.1em; }
 .crm-shell .crm-attach__info { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.crm-shell .crm-attach__name { font-size: 17px; color: var(--crm-warm-white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.crm-shell .crm-attach__meta { font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--crm-taupe); }
-.crm-shell .crm-attach__action { font-size: 14px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--crm-stone); transition: color var(--crm-dur-base); }
+.crm-shell .crm-attach__name { font-size: 19px; color: var(--crm-warm-white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-shell .crm-attach__meta { font-size: 16px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--crm-taupe); }
+.crm-shell .crm-attach__action { font-size: 16px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--crm-stone); transition: color var(--crm-dur-base); }
 .crm-shell .crm-attach:hover .crm-attach__action { color: var(--crm-accent); }
 
 .crm-shell .crm-notes-area {
@@ -795,18 +795,18 @@
   border: 1px solid var(--crm-border-dark);
   color: var(--crm-warm-white);
   font-family: var(--crm-font-sans);
-  font-size: 17px; line-height: 1.7;
+  font-size: 19px; line-height: 1.7;
   padding: 18px 20px;
   outline: none; resize: vertical;
   transition: border-color var(--crm-dur-base);
 }
 .crm-shell .crm-notes-area:focus { border-color: var(--crm-accent); }
-.crm-shell .crm-notes-area::placeholder { color: var(--crm-taupe); font-style: italic; font-family: var(--crm-font-serif); font-size: 18px; }
+.crm-shell .crm-notes-area::placeholder { color: var(--crm-taupe); font-style: italic; font-family: var(--crm-font-serif); font-size: 20px; }
 
 .crm-shell .crm-pill {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 6px 12px;
-  font-size: 14px; letter-spacing: 0.25em; text-transform: uppercase;
+  font-size: 16px; letter-spacing: 0.25em; text-transform: uppercase;
   color: var(--crm-stone);
   border: 1px solid var(--crm-border-dark);
 }
@@ -820,14 +820,14 @@
   border: 1px solid var(--crm-border-dark);
   color: var(--crm-warm-white);
   font-family: var(--crm-font-sans);
-  font-size: 17px;
+  font-size: 19px;
   padding: 12px 14px;
   outline: none; width: 100%;
   transition: border-color var(--crm-dur-base);
 }
 .crm-shell .crm-input:focus { border-color: var(--crm-accent); }
 .crm-shell .crm-input::placeholder { color: var(--crm-taupe); }
-.crm-shell .crm-label { display: block; font-size: 14px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--crm-taupe); margin-bottom: 8px; }
+.crm-shell .crm-label { display: block; font-size: 16px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--crm-taupe); margin-bottom: 8px; }
 
 @media (max-width: 980px) {
   .crm-shell .crm-modal {
@@ -856,7 +856,7 @@
   .crm-shell .roster__row > *:nth-child(5),
   .crm-shell .roster__row > *:nth-child(7) { display: none; }
   .crm-shell .detail__bar { left: 16px; right: 16px; top: 16px; padding: 12px 16px; gap: 14px; }
-  .crm-shell .detail__progress-fraction { font-size: 32px; }
+  .crm-shell .detail__progress-fraction { font-size: 34px; }
   .crm-shell .detail__progress-ring { width: 60px; height: 60px; }
   .crm-shell .canvas__legend { left: 16px; bottom: 20px; }
   .crm-shell .canvas__hint { display: none; }
@@ -878,15 +878,15 @@
     padding: 12px 18px;
   }
   .crm-shell .detail__client { flex: 1 1 240px; min-width: 0; }
-  .crm-shell .detail__client-name { font-size: 23px; }
+  .crm-shell .detail__client-name { font-size: 25px; }
   .crm-shell .detail__client-meta { gap: 10px; }
   .crm-shell .detail__bar-spacer { display: none; }
   .crm-shell .detail__bar-divider { display: none; }
   .crm-shell .detail__portal-actions { order: 3; }
   .crm-shell .detail__progress { order: 4; margin-left: auto; gap: 12px; }
-  .crm-shell .detail__progress-fraction { font-size: 30px; }
+  .crm-shell .detail__progress-fraction { font-size: 32px; }
   .crm-shell .detail__progress-ring { width: 64px; height: 64px; }
-  .crm-shell .detail__portal-btn { font-size: 13px; padding: 6px 10px; letter-spacing: 0.18em; }
+  .crm-shell .detail__portal-btn { font-size: 15px; padding: 6px 10px; letter-spacing: 0.18em; }
 
   .crm-shell .canvas {
     flex: none;
@@ -916,21 +916,21 @@
   }
   .crm-shell .topnav__left { gap: 16px; flex-wrap: wrap; }
   .crm-shell .topnav__nav { gap: 18px; flex-wrap: wrap; }
-  .crm-shell .topnav__item { font-size: 12px; letter-spacing: 0.18em; padding: 6px 0; }
-  .crm-shell .topnav__right { justify-content: space-between; gap: 12px; font-size: 12px; }
+  .crm-shell .topnav__item { font-size: 14px; letter-spacing: 0.18em; padding: 6px 0; }
+  .crm-shell .topnav__right { justify-content: space-between; gap: 12px; font-size: 14px; }
   .crm-shell .topnav__email { max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* Roster page */
   .crm-shell .roster { padding: 24px 18px 60px; }
   .crm-shell .roster__head { margin-bottom: 16px; gap: 14px; }
-  .crm-shell .roster__title { font-size: 26px; }
-  .crm-shell .roster__sub { font-size: 13px; }
+  .crm-shell .roster__title { font-size: 28px; }
+  .crm-shell .roster__sub { font-size: 15px; }
   .crm-shell .roster__toolbar { gap: 10px; margin-bottom: 22px; }
   .crm-shell .roster__search-wrap { min-width: 0; max-width: none; width: 100%; flex-basis: 100%; }
   .crm-shell .roster__select { width: 100%; }
   .crm-shell .roster__actions { margin-left: 0; width: 100%; flex-wrap: wrap; }
   .crm-shell .roster__actions .crm-btn { flex: 1; min-width: 120px; }
-  .crm-shell .roster__legend { gap: 16px; font-size: 13px; letter-spacing: 0.2em; }
+  .crm-shell .roster__legend { gap: 16px; font-size: 15px; letter-spacing: 0.2em; }
   .crm-shell .roster__ghost { display: none; }
 
   /* Hide table headers, render rows as stacked cards */
@@ -942,11 +942,11 @@
   }
   .crm-shell .roster__row > * { display: block; }
   .crm-shell .roster__row > .roster__chevron { display: none; }
-  .crm-shell .roster__name { font-size: 22px; white-space: normal; }
-  .crm-shell .roster__email { font-size: 16px; white-space: normal; }
-  .crm-shell .roster__days { font-size: 28px; display: inline-block; }
+  .crm-shell .roster__name { font-size: 24px; white-space: normal; }
+  .crm-shell .roster__email { font-size: 18px; white-space: normal; }
+  .crm-shell .roster__days { font-size: 30px; display: inline-block; }
   .crm-shell .roster__days-date { display: inline-block; margin-top: 0; margin-left: 10px; }
-  .crm-shell .roster__stage { font-size: 18px; display: inline-block; }
+  .crm-shell .roster__stage { font-size: 20px; display: inline-block; }
   .crm-shell .roster__stage-hint { display: inline-block; margin-top: 0; margin-left: 10px; }
 
   /* Detail / canvas page — make scrollable on mobile */
@@ -961,15 +961,15 @@
   }
   .crm-shell .detail__bar-spacer { display: none; }
   .crm-shell .detail__bar-divider { display: none; }
-  .crm-shell .detail__back { padding-right: 12px; font-size: 14px; letter-spacing: 0.22em; }
+  .crm-shell .detail__back { padding-right: 12px; font-size: 16px; letter-spacing: 0.22em; }
   .crm-shell .detail__client { flex: 1 1 100%; }
-  .crm-shell .detail__client-name { font-size: 28px; white-space: normal; }
-  .crm-shell .detail__client-meta { font-size: 14px; letter-spacing: 0.18em; gap: 10px; flex-wrap: wrap; }
+  .crm-shell .detail__client-name { font-size: 30px; white-space: normal; }
+  .crm-shell .detail__client-meta { font-size: 16px; letter-spacing: 0.18em; gap: 10px; flex-wrap: wrap; }
   .crm-shell .detail__edit { width: 36px; height: 36px; }
   .crm-shell .detail__portal-actions { flex-basis: 100%; justify-content: flex-start; }
   .crm-shell .detail__progress { flex-basis: 100%; justify-content: space-between; gap: 16px; }
-  .crm-shell .detail__progress-eyebrow { font-size: 14px; }
-  .crm-shell .detail__progress-fraction { font-size: 34px; }
+  .crm-shell .detail__progress-eyebrow { font-size: 16px; }
+  .crm-shell .detail__progress-fraction { font-size: 36px; }
   .crm-shell .detail__progress-ring { width: 64px; height: 64px; }
 
   /* Give the canvas a tall, fixed height so the SVG nodes are readable
@@ -981,14 +981,14 @@
     margin: 0 14px 14px;
     border: 1px solid var(--crm-border-dark);
   }
-  .crm-shell .canvas__ghost { font-size: clamp(160px, 60vw, 280px); }
+  .crm-shell .canvas__ghost { font-size: clamp(162px, 60vw, 282px); }
   /* Scale up node typography on mobile so labels are legible */
-  .crm-shell .canvas .node__num { font-size: 22px; }
-  .crm-shell .canvas .node__label { font-size: 17px; letter-spacing: 0.18em; }
+  .crm-shell .canvas .node__num { font-size: 24px; }
+  .crm-shell .canvas .node__label { font-size: 19px; letter-spacing: 0.18em; }
   .crm-shell .canvas__legend {
     position: relative; left: auto; right: auto; bottom: auto;
     margin: 0 14px 24px;
-    gap: 16px; padding: 12px 16px; font-size: 14px; letter-spacing: 0.22em;
+    gap: 16px; padding: 12px 16px; font-size: 16px; letter-spacing: 0.22em;
     flex-wrap: wrap; justify-content: center;
   }
   .crm-shell .canvas__legend-swatch { width: 12px; height: 12px; }
@@ -1003,31 +1003,31 @@
     padding: 56px 20px 28px;
   }
   .crm-shell .crm-modal__right { padding-top: 28px; gap: 28px; }
-  .crm-shell .crm-modal__title { font-size: 42px; }
-  .crm-shell .crm-modal__desc { font-size: 17px; }
+  .crm-shell .crm-modal__title { font-size: 44px; }
+  .crm-shell .crm-modal__desc { font-size: 19px; }
   .crm-shell .crm-modal__meta { grid-template-columns: 1fr; gap: 18px; }
   .crm-shell .crm-status-seg { grid-template-columns: repeat(2, 1fr); }
-  .crm-shell .crm-status-seg__btn { padding: 12px 6px; font-size: 13px; letter-spacing: 0.18em; }
+  .crm-shell .crm-status-seg__btn { padding: 12px 6px; font-size: 15px; letter-spacing: 0.18em; }
   .crm-shell .crm-checkitem { padding: 12px 14px; gap: 12px; }
-  .crm-shell .crm-checkitem__label { font-size: 17px; }
+  .crm-shell .crm-checkitem__label { font-size: 19px; }
   .crm-shell .crm-checkitem__owner { display: none; }
   .crm-shell .crm-attach { padding: 12px 14px; gap: 12px; }
   .crm-shell .crm-attach__action { display: none; }
 
   /* Portal */
   .crm-shell .portal-header { flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px 20px; }
-  .crm-shell .portal-chip { font-size: 13px; letter-spacing: 0.22em; padding: 6px 12px; }
+  .crm-shell .portal-chip { font-size: 15px; letter-spacing: 0.22em; padding: 6px 12px; }
   .crm-shell .portal-main { padding: 32px 20px 64px; }
   .crm-shell .portal-hero { margin-bottom: 36px; }
-  .crm-shell .portal-hero__title { font-size: 40px; }
+  .crm-shell .portal-hero__title { font-size: 42px; }
   .crm-shell .portal-node-card, .crm-shell .portal-confirm { padding: 28px 20px; }
-  .crm-shell .portal-node-card__title { font-size: 38px; }
+  .crm-shell .portal-node-card__title { font-size: 40px; }
   .crm-shell .portal-stage-indicator { flex-direction: column; align-items: flex-start; gap: 6px; }
   .crm-shell .portal-chat { padding: 18px; min-height: 280px; max-height: 60vh; }
-  .crm-shell .portal-bubble { max-width: 92%; font-size: 17px; padding: 12px 14px; }
+  .crm-shell .portal-bubble { max-width: 92%; font-size: 19px; padding: 12px 14px; }
   .crm-shell .portal-composer__actions { flex-direction: column; }
   .crm-shell .portal-composer__actions .crm-btn { width: 100%; }
-  .crm-shell .portal-confirm__title { font-size: 40px; }
+  .crm-shell .portal-confirm__title { font-size: 42px; }
 
   /* Empty state */
   .crm-shell .crm-empty { padding: 56px 20px; }
@@ -1045,17 +1045,17 @@
   padding: 10px 52px;
 }
 .crm-shell .portal-admin-banner__badge {
-  font-size: 14px; letter-spacing: 0.32em; text-transform: uppercase;
+  font-size: 16px; letter-spacing: 0.32em; text-transform: uppercase;
   background: var(--crm-accent); color: hsl(40 8% 10%);
   padding: 4px 10px; border-radius: 2px; font-weight: 500;
 }
 .crm-shell .portal-admin-banner__text {
-  font-size: 16px; color: hsl(40 20% 90%); flex: 1; min-width: 200px;
+  font-size: 18px; color: hsl(40 20% 90%); flex: 1; min-width: 200px;
 }
 .crm-shell .portal-admin-banner__actions { display: flex; gap: 8px; }
 .crm-shell .portal-admin-banner__btn {
   display: inline-flex; align-items: center;
-  font-size: 14px; letter-spacing: 0.22em; text-transform: uppercase;
+  font-size: 16px; letter-spacing: 0.22em; text-transform: uppercase;
   padding: 6px 12px;
   background: hsl(40 8% 10% / 0.6);
   border: 1px solid hsl(30 25% 44% / 0.55);
@@ -1071,7 +1071,7 @@
 .crm-shell .portal-admin-banner__btn--ghost { background: transparent; }
 @media (max-width: 640px) {
   .crm-shell .portal-admin-banner__inner { padding: 10px 20px; gap: 10px; }
-  .crm-shell .portal-admin-banner__text { font-size: 15px; min-width: 0; flex-basis: 100%; }
+  .crm-shell .portal-admin-banner__text { font-size: 17px; min-width: 0; flex-basis: 100%; }
 }
 
 /* ---------- Client Portal (scoped under .crm-shell) ---------- */
@@ -1086,41 +1086,41 @@
   background: hsl(40 8% 10% / 0.92);
 }
 .crm-shell .portal-header__wordmark {
-  font-family: var(--crm-font-serif); font-size: 22px; font-weight: 300;
+  font-family: var(--crm-font-serif); font-size: 24px; font-weight: 300;
   color: var(--crm-warm-white); letter-spacing: 0.02em;
 }
 .crm-shell .portal-header__wordmark .dot { color: var(--crm-accent); margin: 0 6px; }
 .crm-shell .portal-chip {
-  font-size: 14px; letter-spacing: 0.3em; text-transform: uppercase;
+  font-size: 16px; letter-spacing: 0.3em; text-transform: uppercase;
   color: var(--crm-stone); padding: 8px 14px; border: 1px solid var(--crm-border-dark);
   border-radius: 999px;
 }
 .crm-shell .portal-main { padding: 64px 52px 120px; max-width: 1080px; margin: 0 auto; width: 100%; }
 .crm-shell .portal-hero { margin-bottom: 56px; }
 .crm-shell .portal-hero__eyebrow {
-  font-size: 15px; letter-spacing: 0.35em; text-transform: uppercase;
+  font-size: 17px; letter-spacing: 0.35em; text-transform: uppercase;
   color: var(--crm-accent); margin-bottom: 18px;
 }
 .crm-shell .portal-hero__title {
   font-family: var(--crm-font-serif); font-weight: 300;
-  font-size: clamp(44px, 5vw, 72px); line-height: 1; color: var(--crm-warm-white);
+  font-size: clamp(46px, 5vw, 74px); line-height: 1; color: var(--crm-warm-white);
   margin: 0 0 20px; letter-spacing: -0.01em;
 }
 .crm-shell .portal-hero__title em { font-style: italic; color: var(--crm-accent); }
 .crm-shell .portal-hero__rule { width: 48px; height: 1px; background: var(--crm-accent); margin: 0 0 24px; border: 0; }
-.crm-shell .portal-hero__sub { color: var(--crm-taupe); font-size: 18px; line-height: 1.7; max-width: 540px; margin: 0; }
+.crm-shell .portal-hero__sub { color: var(--crm-taupe); font-size: 20px; line-height: 1.7; max-width: 540px; margin: 0; }
 
 .crm-shell .portal-empty { padding: 120px 52px; max-width: 540px; margin: 0 auto; text-align: center; }
 .crm-shell .portal-empty__eyebrow {
-  font-size: 15px; letter-spacing: 0.35em; text-transform: uppercase;
+  font-size: 17px; letter-spacing: 0.35em; text-transform: uppercase;
   color: var(--crm-accent); margin-bottom: 18px;
 }
 .crm-shell .portal-empty__title {
-  font-family: var(--crm-font-serif); font-weight: 300; font-size: 58px;
+  font-family: var(--crm-font-serif); font-weight: 300; font-size: 60px;
   color: var(--crm-warm-white); margin: 0 0 20px;
 }
 .crm-shell .portal-empty__title em { font-style: italic; color: var(--crm-accent); }
-.crm-shell .portal-empty__sub { color: var(--crm-taupe); font-size: 18px; line-height: 1.7; }
+.crm-shell .portal-empty__sub { color: var(--crm-taupe); font-size: 20px; line-height: 1.7; }
 
 .crm-shell .portal-node-card {
   background: hsl(36 5% 14%); border: 1px solid var(--crm-border-dark);
@@ -1128,25 +1128,25 @@
 }
 .crm-shell .portal-node-card__head { margin-bottom: 32px; }
 .crm-shell .portal-node-card__num {
-  font-family: var(--crm-font-serif); font-size: 18px; color: var(--crm-stone);
+  font-family: var(--crm-font-serif); font-size: 20px; color: var(--crm-stone);
   letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 14px;
 }
-.crm-shell .portal-node-card__num em { font-style: italic; color: var(--crm-accent); font-size: 22px; }
+.crm-shell .portal-node-card__num em { font-style: italic; color: var(--crm-accent); font-size: 24px; }
 .crm-shell .portal-node-card__title {
   font-family: var(--crm-font-serif); font-weight: 300;
-  font-size: clamp(36px, 4vw, 56px); color: var(--crm-warm-white);
+  font-size: clamp(38px, 4vw, 58px); color: var(--crm-warm-white);
   margin: 0 0 16px; line-height: 1;
 }
 .crm-shell .portal-node-card__title em { font-style: italic; color: var(--crm-accent); }
-.crm-shell .portal-node-card__desc { color: var(--crm-taupe); font-size: 18px; line-height: 1.7; max-width: 560px; margin: 0; }
+.crm-shell .portal-node-card__desc { color: var(--crm-taupe); font-size: 20px; line-height: 1.7; max-width: 560px; margin: 0; }
 .crm-shell .portal-stage-indicator {
   display: flex; justify-content: space-between; align-items: center;
   margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--crm-border-dark);
 }
 .crm-shell .portal-stage-indicator__lbl {
-  font-size: 15px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--crm-accent);
+  font-size: 17px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--crm-accent);
 }
-.crm-shell .portal-stage-indicator__count { font-size: 15px; color: var(--crm-taupe); letter-spacing: 0.1em; }
+.crm-shell .portal-stage-indicator__count { font-size: 17px; color: var(--crm-taupe); letter-spacing: 0.1em; }
 
 .crm-shell .portal-chat {
   display: flex; flex-direction: column; gap: 14px;
@@ -1155,7 +1155,7 @@
   overflow-y: auto; margin-bottom: 18px;
 }
 .crm-shell .portal-bubble {
-  font-size: 18px; line-height: 1.7; padding: 14px 18px; border-radius: 4px; max-width: 78%;
+  font-size: 20px; line-height: 1.7; padding: 14px 18px; border-radius: 4px; max-width: 78%;
   white-space: pre-wrap; word-wrap: break-word;
 }
 .crm-shell .portal-bubble--user {
@@ -1164,13 +1164,13 @@
 }
 .crm-shell .portal-bubble--assistant {
   background: hsl(36 5% 18%); color: var(--crm-warm-white); align-self: flex-start;
-  font-family: var(--crm-font-serif); font-size: 19px;
+  font-family: var(--crm-font-serif); font-size: 21px;
 }
 .crm-shell .portal-composer { display: flex; flex-direction: column; gap: 10px; }
 .crm-shell .portal-composer__input {
   width: 100%; background: hsl(40 8% 10% / 0.6); border: 1px solid var(--crm-border-dark);
   color: var(--crm-warm-white); border-radius: 4px; padding: 14px 18px;
-  font-family: var(--crm-font-sans); font-size: 18px; line-height: 1.6; resize: vertical;
+  font-family: var(--crm-font-sans); font-size: 20px; line-height: 1.6; resize: vertical;
 }
 .crm-shell .portal-composer__input:focus { outline: none; border-color: var(--crm-accent); }
 .crm-shell .portal-composer__input::placeholder { color: var(--crm-taupe); font-style: italic; font-family: var(--crm-font-serif); }
@@ -1181,18 +1181,18 @@
   border-radius: 4px; padding: 64px 48px; text-align: center;
 }
 .crm-shell .portal-confirm__eyebrow {
-  font-size: 15px; letter-spacing: 0.35em; text-transform: uppercase;
+  font-size: 17px; letter-spacing: 0.35em; text-transform: uppercase;
   color: var(--crm-accent); margin-bottom: 20px;
 }
 .crm-shell .portal-confirm__title {
   font-family: var(--crm-font-serif); font-weight: 300;
-  font-size: clamp(44px, 5vw, 64px); color: var(--crm-warm-white);
+  font-size: clamp(46px, 5vw, 66px); color: var(--crm-warm-white);
   margin: 0 0 20px; line-height: 1;
 }
 .crm-shell .portal-confirm__title em { font-style: italic; color: var(--crm-accent); }
 .crm-shell .portal-confirm__rule { width: 48px; height: 1px; background: var(--crm-accent); margin: 0 auto 24px; border: 0; }
-.crm-shell .portal-confirm__sub { color: var(--crm-taupe); font-size: 18px; line-height: 1.7; max-width: 480px; margin: 0 auto 18px; }
-.crm-shell .portal-confirm__meta { font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--crm-stone); }
+.crm-shell .portal-confirm__sub { color: var(--crm-taupe); font-size: 20px; line-height: 1.7; max-width: 480px; margin: 0 auto 18px; }
+.crm-shell .portal-confirm__meta { font-size: 17px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--crm-stone); }
 
 @media (max-width: 720px) {
   .crm-shell .portal-header { padding: 18px 24px; }
@@ -1232,7 +1232,7 @@
 .crm-shell .portal-access__toggle:hover { background: hsl(40 20% 97% / 0.03); }
 
 .crm-shell .portal-access__eyebrow {
-  font-size: 14px;
+  font-size: 16px;
   letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--crm-stone);
@@ -1241,7 +1241,7 @@
 }
 .crm-shell .portal-access__title {
   font-family: var(--crm-font-serif);
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 400;
   margin: 0;
   color: var(--crm-warm-white);
@@ -1256,7 +1256,7 @@
   flex-shrink: 0;
 }
 .crm-shell .portal-access__status {
-  font-size: 14px;
+  font-size: 16px;
   letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--crm-taupe);
@@ -1270,7 +1270,7 @@
   background: hsl(28 45% 50% / 0.15);
 }
 .crm-shell .portal-access__chev {
-  font-size: 30px;
+  font-size: 32px;
   color: var(--crm-stone);
   transition: transform var(--crm-dur-base) var(--crm-ease-soft);
   display: inline-block;
@@ -1283,7 +1283,7 @@
 }
 .crm-shell .portal-access__intro {
   color: var(--crm-taupe);
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1.7;
   margin: 18px 0 22px;
 }
@@ -1341,18 +1341,18 @@
   align-items: center;
   justify-content: center;
   color: var(--crm-warm-white);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
 }
 .crm-shell .portal-access__copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .crm-shell .portal-access__lbl {
   font-family: var(--crm-font-serif);
-  font-size: 21px;
+  font-size: 23px;
   color: var(--crm-warm-white);
   line-height: 1.3;
 }
 .crm-shell .portal-access__desc {
-  font-size: 17px;
+  font-size: 19px;
   color: var(--crm-taupe);
   line-height: 1.55;
 }
@@ -1369,7 +1369,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 17px;
+  font-size: 19px;
   color: var(--crm-stone);
   cursor: pointer;
   font-family: var(--crm-font-sans);
@@ -1395,7 +1395,7 @@
   align-items: center;
   justify-content: center;
   color: var(--crm-warm-white);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .crm-shell .portal-access__divider {
@@ -1406,7 +1406,7 @@
 
 .crm-shell .portal-access__sub-title {
   font-family: var(--crm-font-serif);
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 400;
   color: var(--crm-warm-white);
   margin: 0 0 8px;
@@ -1415,7 +1415,7 @@
 
 .crm-shell .portal-access__field-label {
   display: block;
-  font-size: 14px;
+  font-size: 16px;
   letter-spacing: 0.3em;
   text-transform: uppercase;
   color: var(--crm-stone);
@@ -1428,7 +1428,7 @@
   border: 1px solid hsl(40 20% 97% / 0.18);
   color: var(--crm-warm-white);
   font-family: var(--crm-font-sans);
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1.6;
   padding: 12px 14px;
   border-radius: 3px;
@@ -1453,7 +1453,7 @@
 }
 .crm-shell .portal-access__file {
   color: var(--crm-warm-white);
-  font-size: 17px;
+  font-size: 19px;
   font-family: var(--crm-font-sans);
 }
 .crm-shell .portal-access__file::file-selector-button {
@@ -1463,14 +1463,14 @@
   padding: 8px 14px;
   border-radius: 3px;
   font-family: var(--crm-font-sans);
-  font-size: 15px;
+  font-size: 17px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   cursor: pointer;
   margin-right: 12px;
 }
 .crm-shell .portal-access__file::file-selector-button:hover { border-color: var(--crm-accent); }
-.crm-shell .portal-access__upload-hint { font-size: 16px; color: var(--crm-stone); font-style: italic; font-family: var(--crm-font-serif); }
+.crm-shell .portal-access__upload-hint { font-size: 18px; color: var(--crm-stone); font-style: italic; font-family: var(--crm-font-serif); }
 
 .crm-shell .portal-access__files {
   list-style: none;
@@ -1489,7 +1489,7 @@
   background: hsl(40 20% 97% / 0.04);
   border: 1px solid hsl(40 20% 97% / 0.1);
   border-radius: 3px;
-  font-size: 17px;
+  font-size: 19px;
   color: var(--crm-warm-white);
 }
 .crm-shell .portal-access__file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1497,7 +1497,7 @@
   background: transparent;
   border: 0;
   color: var(--crm-stone);
-  font-size: 15px;
+  font-size: 17px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   cursor: pointer;
@@ -1516,13 +1516,13 @@
   flex-wrap: wrap;
 }
 .crm-shell .portal-access__save {
-  font-size: 15px;
+  font-size: 17px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--crm-stone);
 }
 .crm-shell .portal-access__badge {
-  font-size: 15px;
+  font-size: 17px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--crm-warm-white);
@@ -1534,12 +1534,12 @@
 
 @media (max-width: 720px) {
   .crm-shell .portal-access__toggle { padding: 18px 20px; }
-  .crm-shell .portal-access__title { font-size: 28px; }
+  .crm-shell .portal-access__title { font-size: 30px; }
   .crm-shell .portal-access__body { padding: 4px 20px 22px; }
-  .crm-shell .portal-access__lbl { font-size: 19px; }
-  .crm-shell .portal-access__desc { font-size: 12.5px; }
+  .crm-shell .portal-access__lbl { font-size: 21px; }
+  .crm-shell .portal-access__desc { font-size: 14.5px; }
   .crm-shell .portal-access__subs { margin-left: 28px; }
-  .crm-shell .portal-access__status { font-size: 13px; padding: 5px 10px; }
+  .crm-shell .portal-access__status { font-size: 15px; padding: 5px 10px; }
 }
 
 /* ===== Contract section ===== */
@@ -1557,12 +1557,12 @@
 }
 .crm-shell .portal-contract__doc-title {
   font-family: var(--crm-font-serif);
-  font-size: 26px;
+  font-size: 28px;
   color: var(--crm-warm-white);
 }
 .crm-shell .portal-contract__doc-meta {
   margin-top: 6px;
-  font-size: 16px;
+  font-size: 18px;
   color: var(--crm-stone);
   font-style: italic;
   font-family: var(--crm-font-serif);
@@ -1579,7 +1579,7 @@
   background: hsl(28 12% 10% / 0.5);
 }
 .crm-shell .portal-contract__party-label {
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--crm-bronze, hsl(28 40% 46%));
@@ -1587,13 +1587,13 @@
 }
 .crm-shell .portal-contract__party-name {
   font-family: var(--crm-font-serif);
-  font-size: 18px;
+  font-size: 20px;
   color: var(--crm-warm-white);
   margin-bottom: 4px;
 }
 .crm-shell .portal-contract__party-meta {
   font-family: var(--crm-font-serif);
-  font-size: 14px;
+  font-size: 16px;
   color: hsl(40 8% 75%);
   line-height: 1.5;
 }
@@ -1609,11 +1609,11 @@
 }
 .crm-shell .portal-contract__identity-title {
   font-family: var(--crm-font-serif);
-  font-size: 15px;
+  font-size: 17px;
   color: var(--crm-warm-white);
 }
 .crm-shell .portal-contract__identity-hint {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--crm-stone);
   margin-top: 2px;
   margin-bottom: 10px;
@@ -1633,13 +1633,13 @@
 .crm-shell .portal-contract__section-heading {
   font-family: var(--crm-font-serif);
   font-weight: 600;
-  font-size: 19px;
+  font-size: 21px;
   color: var(--crm-warm-white);
   margin-bottom: 6px;
   letter-spacing: 0.02em;
 }
 .crm-shell .portal-contract__section-body {
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.7;
   color: hsl(40 8% 75%);
   font-family: var(--crm-font-serif);
@@ -1663,7 +1663,7 @@
 }
 .crm-shell .portal-contract__tab {
   padding: 7px 18px;
-  font-size: 15px;
+  font-size: 17px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--crm-stone);
@@ -1685,7 +1685,7 @@
   border: 1px solid hsl(40 20% 97% / 0.18);
   border-radius: 4px;
   color: var(--crm-warm-white);
-  font-size: 19px;
+  font-size: 21px;
   font-family: var(--crm-font-serif);
 }
 .crm-shell .portal-contract__input:focus {
@@ -1693,7 +1693,7 @@
   border-color: var(--crm-accent);
 }
 .crm-shell .portal-contract__sig-script {
-  font-size: 44px;
+  font-size: 46px;
   color: var(--crm-warm-white);
   line-height: 1.1;
   padding: 4px 0;
@@ -1727,7 +1727,7 @@
   border: 1px solid hsl(40 20% 97% / 0.12);
   border-radius: 4px;
   background: hsl(28 12% 8% / 0.4);
-  font-size: 17px;
+  font-size: 19px;
   line-height: 1.5;
   color: var(--crm-stone);
   cursor: pointer;
@@ -1736,7 +1736,7 @@
 .crm-shell .portal-contract__agree input { margin-top: 3px; cursor: pointer; }
 .crm-shell .portal-contract__btn {
   padding: 10px 20px;
-  font-size: 15px;
+  font-size: 17px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   background: transparent;
@@ -1760,7 +1760,7 @@
   background: hsl(28 45% 45%);
   color: var(--crm-warm-white);
 }
-.crm-shell .portal-contract__btn--ghost { font-size: 14px; padding: 8px 14px; }
+.crm-shell .portal-contract__btn--ghost { font-size: 16px; padding: 8px 14px; }
 
 .crm-shell .portal-contract__signed { padding-top: 4px; }
 .crm-shell .portal-contract__download-banner {
@@ -1777,7 +1777,7 @@
   box-shadow: 0 1px 0 hsl(40 20% 97% / 0.04) inset;
 }
 .crm-shell .portal-contract__download-eyebrow {
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--crm-accent);
@@ -1785,12 +1785,12 @@
 }
 .crm-shell .portal-contract__download-title {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1.2;
   color: var(--crm-ink);
 }
 .crm-shell .portal-contract__download-meta {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--crm-taupe);
   margin-top: 4px;
 }
@@ -1809,20 +1809,20 @@
   background: hsl(28 12% 8% / 0.5);
 }
 .crm-shell .portal-contract__sig-label {
-  font-size: 14px;
+  font-size: 16px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--crm-accent);
   margin-bottom: 4px;
 }
 .crm-shell .portal-contract__sig-card .portal-contract__sig-script {
-  font-size: 40px;
+  font-size: 42px;
   border-bottom: 1px solid hsl(40 20% 97% / 0.25);
   padding-bottom: 6px;
   margin-bottom: 8px;
 }
 .crm-shell .portal-contract__sig-meta {
-  font-size: 16px;
+  font-size: 18px;
   color: var(--crm-stone);
   font-family: var(--crm-font-serif);
   line-height: 1.5;
@@ -1831,8 +1831,8 @@
 @media (max-width: 720px) {
   .crm-shell .portal-contract__sig-grid { grid-template-columns: 1fr; gap: 14px; }
   .crm-shell .portal-contract__doc { max-height: 340px; }
-  .crm-shell .portal-contract__sig-script { font-size: 38px; }
-  .crm-shell .portal-contract__sig-card .portal-contract__sig-script { font-size: 34px; }
+  .crm-shell .portal-contract__sig-script { font-size: 40px; }
+  .crm-shell .portal-contract__sig-card .portal-contract__sig-script { font-size: 36px; }
 }
 
 /* ===== Admin contract panel ===== */
@@ -1845,23 +1845,23 @@
 }
 .admin-contract__head { margin-bottom: 16px; }
 .admin-contract__eyebrow {
-  font-size: 14px; letter-spacing: 0.22em; text-transform: uppercase;
+  font-size: 16px; letter-spacing: 0.22em; text-transform: uppercase;
   color: hsl(28 45% 55%); margin-bottom: 6px;
 }
 .admin-contract__title {
-  font-family: var(--crm-font-serif); font-size: 22px; color: var(--crm-warm-white);
+  font-family: var(--crm-font-serif); font-size: 24px; color: var(--crm-warm-white);
 }
 .admin-contract__body { display: flex; flex-direction: column; gap: 8px; }
-.admin-contract__row { display: flex; gap: 12px; font-size: 17px; }
+.admin-contract__row { display: flex; gap: 12px; font-size: 19px; }
 .admin-contract__row .lbl {
   min-width: 140px; color: var(--crm-stone); font-style: italic;
   font-family: var(--crm-font-serif);
 }
 .admin-contract__row .val { color: var(--crm-warm-white); }
-.admin-contract__row .val--mono { font-family: ui-monospace, monospace; font-size: 16px; }
+.admin-contract__row .val--mono { font-family: ui-monospace, monospace; font-size: 18px; }
 .admin-contract__actions { margin-top: 14px; }
 .admin-contract__empty {
-  font-size: 17px; color: var(--crm-stone); font-style: italic;
+  font-size: 19px; color: var(--crm-stone); font-style: italic;
   font-family: var(--crm-font-serif);
 }
 
@@ -1906,7 +1906,7 @@
 }
 .crm-shell .journey-card__head-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
 .crm-shell .journey-card__eyebrow {
-  font-size: 13px;
+  font-size: 15px;
   letter-spacing: 0.35em;
   text-transform: uppercase;
   color: var(--crm-stone);
@@ -1915,7 +1915,7 @@
 .crm-shell .journey-card__title {
   font-family: var(--crm-font-serif);
   font-weight: 300;
-  font-size: 28px;
+  font-size: 30px;
   line-height: 1.1;
   color: var(--crm-warm-white);
   margin: 0;
@@ -1923,7 +1923,7 @@
 }
 .crm-shell .journey-card__title em { font-style: italic; color: var(--crm-accent); }
 .crm-shell .journey-card__sub {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--crm-taupe);
   display: flex;
   gap: 8px;
@@ -1940,7 +1940,7 @@
   display: inline-block;
   color: var(--crm-taupe);
   transition: transform 0.2s ease;
-  font-size: 16px;
+  font-size: 18px;
 }
 .crm-shell .journey-card__chevron.is-open { transform: rotate(180deg); }
 
@@ -1956,7 +1956,7 @@
 @media (max-width: 768px) {
   .crm-shell .journey-cards { padding: 96px 16px 24px; }
   .crm-shell .journey-card__header { padding: 18px 18px; gap: 12px; }
-  .crm-shell .journey-card__title { font-size: 24px; }
+  .crm-shell .journey-card__title { font-size: 26px; }
   .crm-shell .journey-card__body { padding: 8px 18px 24px; gap: 24px; }
   .crm-shell .journey-card__head-aside { flex-direction: column-reverse; align-items: flex-end; gap: 8px; }
 }
@@ -2051,7 +2051,7 @@ html { -webkit-text-size-adjust: 100%; }
   /* Roster (client list) — larger tap targets */
   .roster { padding: 0 !important; }
   .roster__ghost { display: none !important; }
-  .roster__title { font-size: 42px !important; line-height: 1.05 !important; }
+  .roster__title { font-size: 44px !important; line-height: 1.05 !important; }
   .roster__head { padding-top: 12px !important; }
   .roster__toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
   .roster__actions { justify-content: flex-start; flex-wrap: wrap; }
@@ -2090,7 +2090,7 @@ html { -webkit-text-size-adjust: 100%; }
 .m-topbar__title {
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
   margin: 0;
   flex: 1;
@@ -2102,7 +2102,7 @@ html { -webkit-text-size-adjust: 100%; }
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent; border: 0;
   color: var(--crm-warm-white, hsl(40 20% 97%));
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   border-radius: 8px;
 }
@@ -2124,7 +2124,7 @@ html { -webkit-text-size-adjust: 100%; }
   gap: 4px;
   color: var(--crm-taupe, hsl(30 8% 62%));
   font-family: 'Karla', sans-serif;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   text-decoration: none;
@@ -2182,25 +2182,25 @@ html { -webkit-text-size-adjust: 100%; }
   background: var(--crm-charcoal);
   border: 1px solid var(--crm-border-dark);
   color: var(--crm-warm-white);
-  min-height: 208px;
+  min-height: 248px;
 }
 .crm-shell .agent-card__head {
-  display: flex; align-items: center; gap: 14px;
-  padding: 16px 16px 12px;
+  display: flex; align-items: center; gap: 18px;
+  padding: 18px 18px 14px;
   background: transparent; border: none; cursor: pointer;
   text-align: left; color: inherit; width: 100%;
 }
 .crm-shell .agent-card__id { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .crm-shell .agent-card__name {
-  font-family: var(--crm-font-serif); font-size: 22px; font-weight: 300;
+  font-family: var(--crm-font-serif); font-size: 24px; font-weight: 300;
   line-height: 1.1; display: flex; align-items: center; gap: 6px;
 }
-.crm-shell .agent-card__chev { font-size: 15px; color: var(--crm-taupe); }
+.crm-shell .agent-card__chev { font-size: 17px; color: var(--crm-taupe); }
 .crm-shell .agent-card__role {
-  font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--crm-taupe);
+  font-size: 12px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--crm-taupe);
 }
 .crm-shell .agent-card__paused {
-  font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase;
+  font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase;
   color: var(--crm-taupe); border: 1px solid var(--crm-border-dark);
   padding: 1px 6px; width: fit-content; margin-top: 2px;
 }
@@ -2213,29 +2213,29 @@ html { -webkit-text-size-adjust: 100%; }
 .crm-shell .agent-card__line {
   display: grid; grid-template-columns: 40px 12px 1fr; gap: 8px; align-items: baseline;
   padding: 7px 16px; background: transparent; border: none; cursor: pointer;
-  text-align: left; color: inherit; font-size: 12.5px; width: 100%;
+  text-align: left; color: inherit; font-size: 14.5px; width: 100%;
 }
 .crm-shell .agent-card__line:hover { background: var(--crm-ink); }
-.crm-shell .agent-card__ago { font-size: 10.5px; color: var(--crm-taupe); }
-.crm-shell .agent-card__dot { font-size: 8px; }
+.crm-shell .agent-card__ago { font-size: 12.5px; color: var(--crm-taupe); }
+.crm-shell .agent-card__dot { font-size: 10px; }
 .crm-shell .agent-card__what {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--crm-warm-white);
 }
 .crm-shell .agent-card__empty {
-  padding: 14px 16px; font-size: 12px; color: var(--crm-taupe); font-style: italic;
+  padding: 14px 16px; font-size: 14px; color: var(--crm-taupe); font-style: italic;
 }
 
 .crm-shell .agent-card__foot {
   display: flex; align-items: center; gap: 10px;
   padding: 9px 16px; border-top: 1px solid var(--crm-border-dark);
-  font-size: 10.5px; color: var(--crm-taupe);
+  font-size: 12.5px; color: var(--crm-taupe);
 }
 .crm-shell .agent-card__sched { flex: 1; }
 .crm-shell .agent-card__pending { color: #dbb172; }
 .crm-shell .agent-card__run {
   border-radius: var(--crm-r-sm);
   background: transparent; border: 1px solid var(--crm-border-dark);
-  color: var(--crm-warm-white); font-size: 10.5px; letter-spacing: 0.12em;
+  color: var(--crm-warm-white); font-size: 12.5px; letter-spacing: 0.12em;
   text-transform: uppercase; padding: 4px 9px; cursor: pointer;
 }
 .crm-shell .agent-card__run:hover:not(:disabled) { background: var(--crm-ink); }
@@ -2249,7 +2249,7 @@ html { -webkit-text-size-adjust: 100%; }
 }
 .crm-shell .agent-card--new:hover { background: var(--crm-ink); }
 .crm-shell .agent-card--new__pill {
-  font-size: 9.5px; letter-spacing: 0.3em; text-transform: uppercase;
+  font-size: 11.5px; letter-spacing: 0.3em; text-transform: uppercase;
   color: var(--crm-taupe); border: 1px solid var(--crm-border-dark);
   border-radius: 999px; padding: 4px 12px;
 }
@@ -2258,10 +2258,10 @@ html { -webkit-text-size-adjust: 100%; }
   border-radius: var(--crm-r-sm);
   width: 34px; height: 46px; display: grid; place-items: center;
   background: var(--crm-ink); border: 1px solid var(--crm-border-dark);
-  color: var(--crm-taupe); font-size: 15px;
+  color: var(--crm-taupe); font-size: 17px;
 }
 .crm-shell .agent-card--new__copy {
-  font-size: 12px; color: var(--crm-taupe); max-width: 260px; line-height: 1.5;
+  font-size: 14px; color: var(--crm-taupe); max-width: 260px; line-height: 1.5;
 }
 
 /* ---------- side rail ---------- */
@@ -2276,10 +2276,10 @@ html { -webkit-text-size-adjust: 100%; }
 }
 .crm-shell .stat:hover { background: var(--crm-ink); }
 .crm-shell .stat__label {
-  font-size: 9.5px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--crm-taupe);
+  font-size: 11.5px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--crm-taupe);
 }
 .crm-shell .stat__value {
-  font-family: var(--crm-font-serif); font-size: 32px; line-height: 1; font-weight: 300;
+  font-family: var(--crm-font-serif); font-size: 34px; line-height: 1; font-weight: 300;
 }
 
 .crm-shell .dash__upnext {
@@ -2287,11 +2287,11 @@ html { -webkit-text-size-adjust: 100%; }
   border-radius: var(--crm-r); overflow: hidden;
 }
 .crm-shell .dash__upnext-head {
-  font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+  font-size: 12px; letter-spacing: 0.3em; text-transform: uppercase;
   color: var(--crm-taupe); padding: 14px 16px 10px;
 }
 .crm-shell .upnext__day {
-  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
   color: var(--crm-taupe); padding: 10px 16px 5px;
   border-top: 1px solid var(--crm-border-dark);
 }
@@ -2302,18 +2302,18 @@ html { -webkit-text-size-adjust: 100%; }
 }
 .crm-shell .upnext__row:hover { background: var(--crm-ink); }
 .crm-shell .upnext__time {
-  font-size: 11px; color: var(--crm-taupe); font-variant-numeric: tabular-nums;
+  font-size: 13px; color: var(--crm-taupe); font-variant-numeric: tabular-nums;
 }
 .crm-shell .upnext__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .crm-shell .upnext__title {
-  font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .crm-shell .upnext__sub {
-  font-size: 10.5px; color: var(--crm-taupe);
+  font-size: 12.5px; color: var(--crm-taupe);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .crm-shell .upnext__badge {
-  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
   border: 1px solid; border-radius: 999px; padding: 2px 7px;
 }
 
@@ -2369,19 +2369,19 @@ html { -webkit-text-size-adjust: 100%; }
 }
 .crm-shell .ws__portrait-name {
   position: absolute; left: 11px; bottom: 10px;
-  font-size: 13px; color: var(--crm-warm-white);
+  font-size: 15px; color: var(--crm-warm-white);
   text-shadow: 0 1px 6px rgba(0,0,0,.8);
 }
 .crm-shell .ws__rail-actions { display: grid; margin-bottom: 8px; }
 .crm-shell .ws__rail-run {
-  padding: 7px 10px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 7px 10px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase;
   background: var(--crm-ink); border: 1px solid var(--crm-border-dark);
   border-radius: var(--crm-r-sm); color: var(--crm-warm-white); cursor: pointer;
 }
 .crm-shell .ws__rail-run:hover:not(:disabled) { background: var(--crm-charcoal); }
 .crm-shell .ws__rail-run:disabled { opacity: .5; cursor: default; }
 .crm-shell .ws__rail-role {
-  font-size: 9.5px; letter-spacing: 0.24em; text-transform: uppercase;
+  font-size: 11.5px; letter-spacing: 0.24em; text-transform: uppercase;
   color: var(--crm-taupe); padding: 4px 4px 10px;
 }
 /* Three things this agent does, under its role. Capped at three in code —
@@ -2392,7 +2392,7 @@ html { -webkit-text-size-adjust: 100%; }
 }
 .crm-shell .ws__rail-caps li {
   position: relative; padding-left: 12px;
-  font-size: 11.5px; line-height: 1.45; color: var(--crm-taupe);
+  font-size: 13.5px; line-height: 1.45; color: var(--crm-taupe);
 }
 .crm-shell .ws__rail-caps li::before {
   content: ""; position: absolute; left: 0; top: 7px;
@@ -2402,7 +2402,7 @@ html { -webkit-text-size-adjust: 100%; }
 .crm-shell .ws__rail-group { display: flex; flex-direction: column; gap: 2px; }
 .crm-shell .ws__rail-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; font-size: 13px; text-align: left;
+  padding: 8px 10px; font-size: 15px; text-align: left;
   background: transparent; border: none; border-radius: var(--crm-r-sm);
   color: var(--crm-taupe); cursor: pointer; width: 100%;
 }
@@ -2410,13 +2410,13 @@ html { -webkit-text-size-adjust: 100%; }
 .crm-shell .ws__rail-item--on { background: var(--crm-ink); color: var(--crm-warm-white); }
 .crm-shell .ws__rail-item--soon { opacity: .38; cursor: default; }
 .crm-shell .ws__rail-item--soon:hover { background: transparent; }
-.crm-shell .ws__rail-glyph { font-size: 12px; width: 14px; }
+.crm-shell .ws__rail-glyph { font-size: 14px; width: 14px; }
 .crm-shell .ws__rail-label {
-  font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
+  font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
   color: var(--crm-taupe); padding: 14px 10px 5px;
 }
 .crm-shell .ws__rail-back {
-  margin-top: auto; padding: 8px 10px; font-size: 11px; text-align: left;
+  margin-top: auto; padding: 8px 10px; font-size: 13px; text-align: left;
   background: transparent; border: none; color: var(--crm-taupe); cursor: pointer;
 }
 .crm-shell .ws__rail-back:hover { color: var(--crm-warm-white); }
@@ -2430,15 +2430,15 @@ html { -webkit-text-size-adjust: 100%; }
 .crm-shell .ws__chat-empty {
   margin: auto; text-align: center; display: grid; gap: 10px; justify-items: center; max-width: 380px;
 }
-.crm-shell .ws__chat-empty-title { font-size: 14px; color: var(--crm-warm-white); margin: 0; }
-.crm-shell .ws__chat-empty-sub { font-size: 12px; color: var(--crm-taupe); margin: 0; line-height: 1.6; }
+.crm-shell .ws__chat-empty-title { font-size: 16px; color: var(--crm-warm-white); margin: 0; }
+.crm-shell .ws__chat-empty-sub { font-size: 14px; color: var(--crm-taupe); margin: 0; line-height: 1.6; }
 
 .crm-shell .ws__msg { display: flex; gap: 10px; align-items: flex-start; }
 .crm-shell .ws__msg--user { justify-content: flex-end; }
 .crm-shell .ws__msg-body { display: flex; flex-direction: column; gap: 6px; max-width: 76%; min-width: 0; }
 .crm-shell .ws__msg-bubble {
   padding: 11px 14px; border-radius: var(--crm-r);
-  font-size: 13.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word;
+  font-size: 15.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word;
   background: var(--crm-charcoal); border: 1px solid var(--crm-border-dark);
   color: var(--crm-warm-white);
 }
@@ -2450,10 +2450,10 @@ html { -webkit-text-size-adjust: 100%; }
 .crm-shell .ws__msg-bubble p:last-child { margin-bottom: 0; }
 .crm-shell .ws__msg-bubble ul, .crm-shell .ws__msg-bubble ol { margin: 6px 0; padding-left: 18px; }
 .crm-shell .ws__msg-bubble code {
-  background: var(--crm-ink); padding: 1px 4px; border-radius: 3px; font-size: 12px;
+  background: var(--crm-ink); padding: 1px 4px; border-radius: 3px; font-size: 14px;
 }
 .crm-shell .ws__msg-actions {
-  align-self: flex-start; font-size: 11px; color: #dbb172;
+  align-self: flex-start; font-size: 13px; color: #dbb172;
   background: transparent; border: 1px solid #dbb17255; border-radius: 999px;
   padding: 3px 10px; cursor: pointer;
 }
@@ -2463,7 +2463,7 @@ html { -webkit-text-size-adjust: 100%; }
   padding: 14px 26px 18px; border-top: 1px solid var(--crm-border-dark);
 }
 .crm-shell .ws__composer-input {
-  flex: 1; resize: none; padding: 11px 14px; font: inherit; font-size: 13.5px;
+  flex: 1; resize: none; padding: 11px 14px; font: inherit; font-size: 15.5px;
   line-height: 1.5; background: var(--crm-charcoal);
   border: 1px solid var(--crm-border-dark); border-radius: 20px;
   color: var(--crm-warm-white); outline: none; max-height: 160px;
@@ -2472,7 +2472,7 @@ html { -webkit-text-size-adjust: 100%; }
 .crm-shell .ws__composer-send {
   width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
   background: var(--crm-warm-white); color: var(--crm-ink);
-  border: none; cursor: pointer; font-size: 15px;
+  border: none; cursor: pointer; font-size: 17px;
 }
 .crm-shell .ws__composer-send:disabled { opacity: .3; cursor: default; }
 
@@ -2482,7 +2482,7 @@ html { -webkit-text-size-adjust: 100%; }
   padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 26px; max-width: 780px;
 }
 .crm-shell .ws__sec-title {
-  font-family: var(--crm-font-serif); font-weight: 300; font-size: 19px;
+  font-family: var(--crm-font-serif); font-weight: 300; font-size: 21px;
   color: var(--crm-warm-white); margin: 0 0 10px;
 }
 .crm-shell .ws__panel {
@@ -2497,7 +2497,7 @@ html { -webkit-text-size-adjust: 100%; }
 }
 .crm-shell .ws__opt--on { background: var(--crm-ink); border-color: var(--crm-warm-white); }
 .crm-shell .ws__pill {
-  padding: 6px 11px; font-size: 12px; cursor: pointer; color: var(--crm-warm-white);
+  padding: 6px 11px; font-size: 14px; cursor: pointer; color: var(--crm-warm-white);
   background: transparent; border: 1px solid var(--crm-border-dark);
   border-radius: 999px;
 }
@@ -2509,17 +2509,17 @@ html { -webkit-text-size-adjust: 100%; }
   border-left: 1px solid var(--crm-border-dark); background: var(--crm-charcoal);
 }
 .crm-shell .ws__activity-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--crm-border-dark); }
-.crm-shell .ws__activity-title { font-size: 12.5px; color: var(--crm-warm-white); }
+.crm-shell .ws__activity-title { font-size: 14.5px; color: var(--crm-warm-white); }
 .crm-shell .ws__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .crm-shell .ws__chip {
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: 10px; color: var(--crm-taupe);
+  font-size: 12px; color: var(--crm-taupe);
   border: 1px solid var(--crm-border-dark); border-radius: 999px; padding: 3px 8px;
 }
 .crm-shell .ws__chip i { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
 .crm-shell .ws__activity-body { flex: 1; overflow-y: auto; }
 .crm-shell .ws__activity-day {
-  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
   color: var(--crm-taupe); padding: 12px 16px 5px;
 }
 .crm-shell .ws__activity-row {
@@ -2528,19 +2528,19 @@ html { -webkit-text-size-adjust: 100%; }
   cursor: pointer; text-align: left; color: var(--crm-warm-white);
 }
 .crm-shell .ws__activity-row:hover { background: var(--crm-ink); }
-.crm-shell .ws__activity-dot { font-size: 7px; }
+.crm-shell .ws__activity-dot { font-size: 9px; }
 .crm-shell .ws__activity-what {
-  font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.crm-shell .ws__activity-time { font-size: 11px; color: var(--crm-taupe); font-variant-numeric: tabular-nums; }
-.crm-shell .ws__empty { padding: 20px 16px; font-size: 12px; color: var(--crm-taupe); font-style: italic; }
+.crm-shell .ws__activity-time { font-size: 13px; color: var(--crm-taupe); font-variant-numeric: tabular-nums; }
+.crm-shell .ws__empty { padding: 20px 16px; font-size: 14px; color: var(--crm-taupe); font-style: italic; }
 
 /* Proposal engagement timeline. Client-caused events carry the accent because
    they are the only ones that tell you anything you did not already know. */
 .crm-shell .prop-log { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 2px; }
 .crm-shell .prop-log__row {
   display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 8px;
-  padding: 6px 8px; border-radius: var(--crm-r-sm); font-size: 12.5px;
+  padding: 6px 8px; border-radius: var(--crm-r-sm); font-size: 14.5px;
   color: var(--crm-taupe);
 }
 .crm-shell .prop-log__row:hover { background: var(--crm-ink); }
@@ -2550,4 +2550,4 @@ html { -webkit-text-size-adjust: 100%; }
 .crm-shell .prop-log__row--client { color: var(--crm-warm-white); }
 .crm-shell .prop-log__row--client .prop-log__dot { background: var(--crm-bronze, #8B7355); }
 .crm-shell .prop-log__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.crm-shell .prop-log__when { font-size: 11px; color: var(--crm-soft-gray, #9A938A); }
+.crm-shell .prop-log__when { font-size: 13px; color: var(--crm-soft-gray, #9A938A); }

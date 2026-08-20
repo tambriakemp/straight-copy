@@ -314,20 +314,20 @@ const HowItWorks = () => {
 
         {/* HERO */}
         <section className="relative overflow-hidden bg-ink min-h-[72vh] grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20 items-end px-7 md:px-[52px] pt-[180px] pb-[100px] before:content-[''] before:absolute before:top-0 before:left-0 before:right-0 before:h-[2px] before:bg-gradient-to-r before:from-accent before:to-transparent">
-          <div className="absolute -bottom-[60px] -right-5 font-serif font-light text-warm-white/[0.03] pointer-events-none leading-none whitespace-nowrap text-[140px] md:text-[220px]">
+          <div className="absolute -bottom-[60px] -right-5 font-serif font-light text-warm-white/[0.03] pointer-events-none leading-none whitespace-nowrap text-[142px] md:text-[222px]">
             PROCESS
           </div>
           <div>
-            <p className="text-[10px] tracking-[0.4em] uppercase text-accent mb-6 animate-fade-up">The Process</p>
-            <h1 className="font-serif font-light leading-[0.92] text-warm-white animate-fade-up animate-fade-up-delay-1" style={{ fontSize: "clamp(52px, 6.5vw, 96px)" }}>
+            <p className="text-[12px] tracking-[0.4em] uppercase text-accent mb-6 animate-fade-up">The Process</p>
+            <h1 className="font-serif font-light leading-[0.92] text-warm-white animate-fade-up animate-fade-up-delay-1" style={{ fontSize: "clamp(54px, 6.5vw, 98px)" }}>
               Exactly what<br />happens when<br />you work with<br /><em className="italic text-stone">us.</em>
             </h1>
           </div>
           <div className="animate-fade-up animate-fade-up-delay-2 relative">
-            <p className="text-[15px] font-light leading-[1.9] text-taupe mb-9">
+            <p className="text-[17px] font-light leading-[1.9] text-taupe mb-9">
               No mystery. No tech overwhelm. No wondering what you signed up for. This page walks you through every step — from the first conversation to what your business looks like six months in. By the end you'll know exactly what to expect and why it works.
             </p>
-            <div className="font-serif text-[20px] font-light italic text-stone pt-7 border-t border-warm-white/[0.08]">
+            <div className="font-serif text-[22px] font-light italic text-stone pt-7 border-t border-warm-white/[0.08]">
               Zero technical knowledge required from you. At any point.
             </div>
           </div>
@@ -336,8 +336,8 @@ const HowItWorks = () => {
         {/* JOURNEY OVERVIEW */}
         <section className="bg-cream px-7 md:px-[52px] py-[120px] relative overflow-hidden">
           <div className="mb-20 reveal">
-            <p className="text-[10px] tracking-[0.35em] uppercase text-accent mb-4">The Full Arc</p>
-            <h2 className="font-serif font-light text-ink leading-[0.95]" style={{ fontSize: "clamp(40px, 5vw, 64px)" }}>
+            <p className="text-[12px] tracking-[0.35em] uppercase text-accent mb-4">The Full Arc</p>
+            <h2 className="font-serif font-light text-ink leading-[0.95]" style={{ fontSize: "clamp(42px, 5vw, 66px)" }}>
               Your journey at<br /><em className="italic">a glance</em>
             </h2>
           </div>
@@ -349,12 +349,12 @@ const HowItWorks = () => {
                 key={t.num}
                 className={`flex flex-col items-center text-center px-2 md:px-4 relative z-10 group reveal ${i > 0 ? `reveal-delay-${i}` : ""}`}
               >
-                <div className="w-14 h-14 rounded-full bg-ink border-2 border-accent flex items-center justify-center mb-6 flex-shrink-0 font-serif text-[18px] font-light text-accent transition-colors duration-300 group-hover:bg-accent group-hover:text-warm-white">
+                <div className="w-14 h-14 rounded-full bg-ink border-2 border-accent flex items-center justify-center mb-6 flex-shrink-0 font-serif text-[20px] font-light text-accent transition-colors duration-300 group-hover:bg-accent group-hover:text-warm-white">
                   {t.num}
                 </div>
-                <div className="text-[9px] tracking-[0.3em] uppercase text-accent mb-2">{t.phase}</div>
-                <div className="font-serif text-[18px] font-light text-ink mb-2 leading-[1.2]">{t.title}</div>
-                <div className="text-[11px] text-taupe font-light">{t.time}</div>
+                <div className="text-[11px] tracking-[0.3em] uppercase text-accent mb-2">{t.phase}</div>
+                <div className="font-serif text-[20px] font-light text-ink mb-2 leading-[1.2]">{t.title}</div>
+                <div className="text-[13px] text-taupe font-light">{t.time}</div>
               </div>
             ))}
           </div>
@@ -364,12 +364,12 @@ const HowItWorks = () => {
         <section className="bg-warm-white px-7 md:px-[52px] py-[140px]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20 items-end mb-[100px]">
             <div className="reveal">
-              <p className="text-[10px] tracking-[0.35em] uppercase text-accent mb-4">Step by Step</p>
-              <h2 className="font-serif font-light text-ink leading-[0.95]" style={{ fontSize: "clamp(40px, 5vw, 64px)" }}>
+              <p className="text-[12px] tracking-[0.35em] uppercase text-accent mb-4">Step by Step</p>
+              <h2 className="font-serif font-light text-ink leading-[0.95]" style={{ fontSize: "clamp(42px, 5vw, 66px)" }}>
                 The Full<br /><em className="italic">Walkthrough</em>
               </h2>
             </div>
-            <p className="text-[15px] font-light text-taupe leading-[1.9] reveal self-end">
+            <p className="text-[17px] font-light text-taupe leading-[1.9] reveal self-end">
               Here's everything that happens — in order, in plain language. What you do, what we do, and what your business looks like at each stage.
             </p>
           </div>
@@ -382,32 +382,32 @@ const HowItWorks = () => {
               }`}
             >
               <div className="md:pr-[60px] mb-8 md:mb-0">
-                <div className="font-serif text-[80px] md:text-[100px] font-light text-mist-custom leading-[0.9] mb-5">{s.num}</div>
-                <div className="text-[9px] tracking-[0.3em] uppercase text-accent mb-2">{s.phase}</div>
-                <div className="text-[12px] font-light text-taupe leading-[1.6]">
+                <div className="font-serif text-[82px] md:text-[102px] font-light text-mist-custom leading-[0.9] mb-5">{s.num}</div>
+                <div className="text-[11px] tracking-[0.3em] uppercase text-accent mb-2">{s.phase}</div>
+                <div className="text-[14px] font-light text-taupe leading-[1.6]">
                   {s.timing.map((line, idx) => (
                     <div key={idx}>{line}</div>
                   ))}
                 </div>
               </div>
               <div>
-                <h3 className="font-serif font-light text-ink mb-6 leading-[1.05]" style={{ fontSize: "clamp(32px, 4vw, 52px)" }}>
+                <h3 className="font-serif font-light text-ink mb-6 leading-[1.05]" style={{ fontSize: "clamp(34px, 4vw, 54px)" }}>
                   {s.titleA}<br /><em className="italic">{s.titleB}</em>
                 </h3>
                 {s.body.map((p, idx) => (
-                  <p key={idx} className="text-[15px] font-light leading-[1.9] text-charcoal mb-4">{p}</p>
+                  <p key={idx} className="text-[17px] font-light leading-[1.9] text-charcoal mb-4">{p}</p>
                 ))}
                 <div className="mt-9 grid grid-cols-1 md:grid-cols-2 gap-[2px]">
                   {s.details.map((d) => (
                     <div key={d.label} className="bg-cream p-6 md:p-[24px_28px]">
-                      <div className="text-[10px] tracking-[0.25em] uppercase text-accent mb-2.5">{d.label}</div>
+                      <div className="text-[12px] tracking-[0.25em] uppercase text-accent mb-2.5">{d.label}</div>
                       <ul className="list-none">
                         {d.items.map((item, idx) => (
                           <li
                             key={item}
-                            className={`text-[13px] font-light text-charcoal py-1.5 flex gap-2.5 ${idx === 0 ? "" : "border-t border-mist-custom"}`}
+                            className={`text-[15px] font-light text-charcoal py-1.5 flex gap-2.5 ${idx === 0 ? "" : "border-t border-mist-custom"}`}
                           >
-                            <span className="text-accent text-[10px] flex-shrink-0 mt-0.5">→</span>
+                            <span className="text-accent text-[12px] flex-shrink-0 mt-0.5">→</span>
                             <span>{item}</span>
                           </li>
                         ))}
@@ -417,7 +417,7 @@ const HowItWorks = () => {
                 </div>
                 {s.callout && (
                   <div className="mt-7 bg-ink p-6 md:p-[24px_28px] border-l-[3px] border-accent">
-                    <p className="text-[14px] font-light text-stone leading-[1.8] italic">{s.callout}</p>
+                    <p className="text-[16px] font-light text-stone leading-[1.8] italic">{s.callout}</p>
                   </div>
                 )}
               </div>
@@ -427,17 +427,17 @@ const HowItWorks = () => {
 
         {/* WHAT CHANGES */}
         <section className="bg-ink px-7 md:px-[52px] py-[140px] relative overflow-hidden">
-          <div className="absolute top-10 -left-5 font-serif font-light text-warm-white/[0.02] pointer-events-none leading-none text-[120px] md:text-[200px]">
+          <div className="absolute top-10 -left-5 font-serif font-light text-warm-white/[0.02] pointer-events-none leading-none text-[122px] md:text-[202px]">
             BEFORE
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20 items-end mb-20 relative">
             <div className="reveal">
-              <p className="text-[10px] tracking-[0.35em] uppercase text-accent mb-4">The Transformation</p>
-              <h2 className="font-serif font-light text-warm-white leading-[0.95]" style={{ fontSize: "clamp(40px, 5vw, 64px)" }}>
+              <p className="text-[12px] tracking-[0.35em] uppercase text-accent mb-4">The Transformation</p>
+              <h2 className="font-serif font-light text-warm-white leading-[0.95]" style={{ fontSize: "clamp(42px, 5vw, 66px)" }}>
                 What your business<br />looks like <em className="italic text-stone">over time</em>
               </h2>
             </div>
-            <p className="text-[15px] font-light text-taupe leading-[1.9] reveal">
+            <p className="text-[17px] font-light text-taupe leading-[1.9] reveal">
               This is what the compounding actually looks like — month by month, in plain terms. Not projections. What our clients consistently experience.
             </p>
           </div>
@@ -448,15 +448,15 @@ const HowItWorks = () => {
                 key={t.when}
                 className={`bg-warm-white/[0.03] border border-warm-white/[0.05] p-10 md:p-[40px_32px] relative transition-colors duration-300 hover:bg-accent/[0.08] group reveal ${i > 0 ? `reveal-delay-${i}` : ""} before:content-[''] before:absolute before:top-0 before:left-0 before:right-0 before:h-[2px] before:bg-accent before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-300`}
               >
-                <div className="text-[10px] tracking-[0.3em] uppercase text-accent mb-5">{t.when}</div>
-                <div className="font-serif text-[22px] font-light text-warm-white mb-5 leading-[1.2]">{t.headline}</div>
+                <div className="text-[12px] tracking-[0.3em] uppercase text-accent mb-5">{t.when}</div>
+                <div className="font-serif text-[24px] font-light text-warm-white mb-5 leading-[1.2]">{t.headline}</div>
                 <ul className="list-none">
                   {t.items.map((item) => (
                     <li
                       key={item}
-                      className="text-[13px] font-light text-taupe py-2 border-t border-warm-white/[0.05] flex gap-2.5 leading-[1.6]"
+                      className="text-[15px] font-light text-taupe py-2 border-t border-warm-white/[0.05] flex gap-2.5 leading-[1.6]"
                     >
-                      <span className="text-accent text-[10px] flex-shrink-0 mt-1">→</span>
+                      <span className="text-accent text-[12px] flex-shrink-0 mt-1">→</span>
                       <span>{item}</span>
                     </li>
                   ))}
@@ -469,11 +469,11 @@ const HowItWorks = () => {
         {/* FAQ */}
         <section className="bg-cream px-7 md:px-[52px] py-[140px] grid grid-cols-1 md:grid-cols-[320px_1fr] gap-16 md:gap-[100px] items-start">
           <div className="md:sticky md:top-[120px] reveal">
-            <p className="text-[10px] tracking-[0.35em] uppercase text-accent mb-6">Real Questions</p>
-            <h2 className="font-serif font-light text-ink leading-[1.05] mb-6" style={{ fontSize: "clamp(36px, 4vw, 52px)" }}>
+            <p className="text-[12px] tracking-[0.35em] uppercase text-accent mb-6">Real Questions</p>
+            <h2 className="font-serif font-light text-ink leading-[1.05] mb-6" style={{ fontSize: "clamp(38px, 4vw, 54px)" }}>
               Things people<br />actually <em className="italic">ask.</em>
             </h2>
-            <p className="text-[14px] font-light text-taupe leading-[1.8]">
+            <p className="text-[16px] font-light text-taupe leading-[1.8]">
               No fluff. No corporate FAQ copy. These are the real questions we get — answered directly.
             </p>
           </div>
@@ -486,9 +486,9 @@ const HowItWorks = () => {
                     onClick={() => setOpenFaq(isOpen ? null : i)}
                     className="w-full bg-transparent border-none py-8 flex justify-between items-start gap-6 text-left"
                   >
-                    <span className="font-serif text-[20px] md:text-[22px] font-light text-ink leading-[1.2]">{f.q}</span>
+                    <span className="font-serif text-[22px] md:text-[24px] font-light text-ink leading-[1.2]">{f.q}</span>
                     <span
-                      className={`text-[20px] text-accent flex-shrink-0 transition-transform duration-300 mt-0.5 font-light ${
+                      className={`text-[22px] text-accent flex-shrink-0 transition-transform duration-300 mt-0.5 font-light ${
                         isOpen ? "rotate-45" : ""
                       }`}
                     >
@@ -500,7 +500,7 @@ const HowItWorks = () => {
                       isOpen ? "max-h-[500px] pb-8" : "max-h-0"
                     }`}
                   >
-                    <p className="text-[15px] font-light leading-[1.9] text-charcoal">{f.a}</p>
+                    <p className="text-[17px] font-light leading-[1.9] text-charcoal">{f.a}</p>
                   </div>
                 </div>
               );
@@ -510,15 +510,15 @@ const HowItWorks = () => {
 
         {/* START CTA */}
         <section className="bg-ink px-7 md:px-[52px] py-[160px] grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-[120px] items-center relative overflow-hidden">
-          <div className="absolute -bottom-[60px] -right-5 font-serif font-light text-warm-white/[0.02] pointer-events-none leading-none whitespace-nowrap text-[160px] md:text-[260px]">
+          <div className="absolute -bottom-[60px] -right-5 font-serif font-light text-warm-white/[0.02] pointer-events-none leading-none whitespace-nowrap text-[162px] md:text-[262px]">
             START
           </div>
           <div className="reveal relative">
-            <p className="text-[10px] tracking-[0.35em] uppercase text-accent mb-6">Ready to Start</p>
-            <h2 className="font-serif font-light text-warm-white leading-[0.95] mb-8" style={{ fontSize: "clamp(44px, 5.5vw, 80px)" }}>
+            <p className="text-[12px] tracking-[0.35em] uppercase text-accent mb-6">Ready to Start</p>
+            <h2 className="font-serif font-light text-warm-white leading-[0.95] mb-8" style={{ fontSize: "clamp(46px, 5.5vw, 82px)" }}>
               The conversation<br />takes <em className="italic text-stone">15 minutes.</em><br />The results run<br />for months.
             </h2>
-            <p className="text-[15px] font-light text-taupe leading-[1.9]">
+            <p className="text-[17px] font-light text-taupe leading-[1.9]">
               Begin with the discovery conversation. Answer naturally. The system does the rest. Your AI OS build starts within 24 hours of completion.
             </p>
           </div>
@@ -529,8 +529,8 @@ const HowItWorks = () => {
                   key={s.num}
                   className="bg-warm-white/[0.03] border border-warm-white/[0.06] p-5 md:p-[20px_24px] flex gap-4 items-center"
                 >
-                  <div className="font-serif text-[20px] font-light text-accent flex-shrink-0">{s.num}</div>
-                  <div className="text-[13px] font-light text-stone leading-[1.6]">
+                  <div className="font-serif text-[22px] font-light text-accent flex-shrink-0">{s.num}</div>
+                  <div className="text-[15px] font-light text-stone leading-[1.6]">
                     <strong className="text-warm-white font-normal">{s.strong}</strong> — {s.text}
                   </div>
                 </div>
@@ -539,13 +539,13 @@ const HowItWorks = () => {
             <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center">
               <Link
                 to="/onboarding"
-                className="font-sans text-[11px] tracking-[0.2em] uppercase text-warm-white bg-accent px-10 py-4 no-underline inline-block hover:bg-accent/90 hover:-translate-y-0.5 transition-all duration-300"
+                className="font-sans text-[13px] tracking-[0.2em] uppercase text-warm-white bg-accent px-10 py-4 no-underline inline-block hover:bg-accent/90 hover:-translate-y-0.5 transition-all duration-300"
               >
                 Begin the Conversation
               </Link>
               <Link
                 to="/services"
-                className="font-sans text-[11px] tracking-[0.2em] uppercase text-stone no-underline flex items-center gap-2.5 hover:gap-4 hover:text-warm-white transition-all duration-300 after:content-['→']"
+                className="font-sans text-[13px] tracking-[0.2em] uppercase text-stone no-underline flex items-center gap-2.5 hover:gap-4 hover:text-warm-white transition-all duration-300 after:content-['→']"
               >
                 Review services
               </Link>

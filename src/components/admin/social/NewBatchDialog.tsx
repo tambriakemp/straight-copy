@@ -127,7 +127,7 @@ export default function NewBatchDialog({
               </SelectContent>
             </Select>
             {templates.length === 0 && (
-              <p style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 4 }}>
+              <p style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 4 }}>
                 No templates uploaded yet — falls back to AI-designed slides.
               </p>
             )}

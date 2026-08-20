@@ -459,7 +459,7 @@ export default function PortalProject() {
             <div style={{ marginBottom: 16 }}>
               <Link
                 to={`/portal/${clientId}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "hsl(30 8% 62%)", fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase" }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "hsl(30 8% 62%)", fontSize: 15, letterSpacing: "0.06em", textTransform: "uppercase" }}
               >
                 <ArrowLeft size={14} /> All projects
               </Link>
@@ -488,7 +488,7 @@ export default function PortalProject() {
                   flexWrap: "wrap",
                   gap: 24,
                   marginTop: 18,
-                  fontSize: 13,
+                  fontSize: 15,
                   letterSpacing: "0.04em",
                   color: "hsl(30 8% 62%)",
                 }}
@@ -1007,7 +1007,7 @@ function BrandKitFastSubmit({
 
   const fieldLabelStyle: React.CSSProperties = {
     display: "block",
-    fontSize: 12,
+    fontSize: 14,
     letterSpacing: "0.18em",
     textTransform: "uppercase",
     marginBottom: 8,
@@ -1018,7 +1018,7 @@ function BrandKitFastSubmit({
     padding: "10px 12px",
     border: "1px solid var(--portal-border, rgba(0,0,0,0.12))",
     borderRadius: 6,
-    fontSize: 15,
+    fontSize: 17,
     background: "transparent",
     color: "inherit",
   };
@@ -1054,7 +1054,7 @@ function BrandKitFastSubmit({
             disabled={submitting}
             style={{ display: "block", marginBottom: 12 }}
           />
-          <div style={{ fontSize: 13, color: "var(--portal-text-muted, #6b6358)", marginBottom: 8 }}>
+          <div style={{ fontSize: 15, color: "var(--portal-text-muted, #6b6358)", marginBottom: 8 }}>
             …or paste a link to a site we can pull your logo from:
           </div>
           <input
@@ -1071,7 +1071,7 @@ function BrandKitFastSubmit({
 
         <hr style={{ border: 0, borderTop: "1px solid var(--portal-border, rgba(0,0,0,0.12))", margin: 0 }} />
 
-        <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--portal-text-muted, #6b6358)" }}>
+        <div style={{ fontSize: 14, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--portal-text-muted, #6b6358)" }}>
           Optional — add if you have them
         </div>
 

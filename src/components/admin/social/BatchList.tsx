@@ -51,24 +51,24 @@ export default function BatchList({
             }}
           >
             <div>
-              <div style={{ fontSize: 15, color: "var(--crm-warm-white)", marginBottom: 4 }}>
+              <div style={{ fontSize: 17, color: "var(--crm-warm-white)", marginBottom: 4 }}>
                 {b.brief?.slice(0, 80) || `${b.single_count + b.carousel_count} posts`}
                 {b.brief && b.brief.length > 80 ? "…" : ""}
               </div>
-              <div style={{ fontSize: 12, color: "var(--crm-taupe)", display: "flex", gap: 12 }}>
+              <div style={{ fontSize: 14, color: "var(--crm-taupe)", display: "flex", gap: 12 }}>
                 <span>{b.single_count} single · {b.carousel_count} carousel</span>
                 {b.platform && <span>· {b.platform}</span>}
                 <span>· {formatDistanceToNow(new Date(b.created_at), { addSuffix: true })}</span>
               </div>
             </div>
             <span style={{
-              fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+              fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase",
               padding: "4px 10px", borderRadius: 999,
               background: s.bg, color: s.color,
             }}>
               {s.label}
             </span>
-            <span style={{ color: "var(--crm-taupe)", fontSize: 18 }}>→</span>
+            <span style={{ color: "var(--crm-taupe)", fontSize: 20 }}>→</span>
           </button>
         );
       })}

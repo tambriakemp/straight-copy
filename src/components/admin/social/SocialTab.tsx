@@ -68,10 +68,10 @@ export default function SocialTab({ clientProjectId }: { clientProjectId: string
     <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 24 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
-          <h3 style={{ fontSize: 18, fontWeight: 500, color: "var(--crm-warm-white)", marginBottom: 4 }}>
+          <h3 style={{ fontSize: 20, fontWeight: 500, color: "var(--crm-warm-white)", marginBottom: 4 }}>
             Social posts & carousels
           </h3>
-          <p style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
+          <p style={{ fontSize: 16, color: "var(--crm-taupe)" }}>
             Generate batches of on-brand posts and carousels using the client's intake, brand kit, and brand voice.
           </p>
         </div>

@@ -66,14 +66,14 @@ export default function AdminLogin() {
             padding: "48px 40px",
           }}
         >
-          <div style={{ fontSize: 15, letterSpacing: "0.35em", textTransform: "uppercase", color: "hsl(30 10% 78%)", marginBottom: 16 }}>
+          <div style={{ fontSize: 17, letterSpacing: "0.35em", textTransform: "uppercase", color: "hsl(30 10% 78%)", marginBottom: 16 }}>
             Cre8 · CRM
           </div>
           <h1
             style={{
               fontFamily: "Cormorant Garamond, serif",
               fontWeight: 300,
-              fontSize: 42,
+              fontSize: 44,
               lineHeight: 1,
               color: "hsl(40 20% 97%)",
               margin: "0 0 12px 0",
@@ -83,7 +83,7 @@ export default function AdminLogin() {
             {title}
           </h1>
           <hr style={{ width: 48, height: 1, background: "hsl(30 25% 44%)", border: 0, margin: "0 0 24px 0" }} />
-          <p style={{ color: "hsl(30 8% 62%)", fontSize: 17, marginBottom: 28 }}>{subtitle}</p>
+          <p style={{ color: "hsl(30 8% 62%)", fontSize: 19, marginBottom: 28 }}>{subtitle}</p>
 
           <form onSubmit={handle} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
@@ -116,7 +116,7 @@ export default function AdminLogin() {
                   alignSelf: "flex-start",
                   background: "transparent", border: 0, padding: 0,
                   color: "hsl(30 10% 78%)",
-                  fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase",
+                  fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase",
                   cursor: "pointer",
                   fontFamily: "Karla, sans-serif",
                   marginTop: -4,
@@ -143,7 +143,7 @@ export default function AdminLogin() {
                 marginTop: 20,
                 background: "transparent", border: 0,
                 color: "hsl(30 10% 78%)",
-                fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase",
+                fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase",
                 cursor: "pointer",
                 fontFamily: "Karla, sans-serif",
               }}

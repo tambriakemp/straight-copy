@@ -136,36 +136,36 @@ export default function Ventures() {
                   style={{ padding: "18px 20px", background: "var(--crm-charcoal)",
                     border: "1px solid var(--crm-border-dark)", textAlign: "left",
                     cursor: "pointer", color: "var(--crm-warm-white)" }}>
-                  <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                  <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
                     {KIND_LABEL[v.kind] ?? v.kind}
                   </div>
-                  <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 26, marginTop: 6 }}>{v.name}</div>
+                  <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 28, marginTop: 6 }}>{v.name}</div>
                   <div style={{ display: "flex", gap: 18, marginTop: 12 }}>
                     <div>
-                      <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                      <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
                         Cash 30d
                       </div>
-                      <div style={{ fontSize: 18, marginTop: 2 }}>{money(v.cash_30d_cents ?? 0)}</div>
+                      <div style={{ fontSize: 20, marginTop: 2 }}>{money(v.cash_30d_cents ?? 0)}</div>
                     </div>
                     {!!mrr && (
                       <div>
-                        <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                        <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
                           Run-rate
                         </div>
-                        <div style={{ fontSize: 18, marginTop: 2, color: "#9db8a6" }}>{money(mrr)}/mo</div>
+                        <div style={{ fontSize: 20, marginTop: 2, color: "#9db8a6" }}>{money(mrr)}/mo</div>
                       </div>
                     )}
                     {members != null && (
                       <div>
-                        <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                        <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
                           Members
                         </div>
-                        <div style={{ fontSize: 18, marginTop: 2 }}>{members}</div>
+                        <div style={{ fontSize: 20, marginTop: 2 }}>{members}</div>
                       </div>
                     )}
                   </div>
                   {v.platform && v.platform !== "stripe" && (
-                    <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 10, fontStyle: "italic" }}>
+                    <div style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 10, fontStyle: "italic" }}>
                       {v.platform} bills directly — numbers entered manually
                     </div>
                   )}
