@@ -81,6 +81,13 @@ export default function AgentWorkspace() {
       if (res.run_id) {
         const { data: run } = await supabase.from("agent_runs")
           .select("id, headline, summary").eq("id", res.run_id).maybeSingle();
+        // The actions are the half of a brief you can act on. Attaching them to
+        // the chat message is what makes the run readable there rather than a
+        // headline with a link to where the real thing lives.
+        const { data: acts } = await supabase.from("agent_actions")
+          .select("id").eq("run_id", res.run_id);
+        const actionIds = (acts ?? []).map((a) => a.id);
+
         if (run) {
           let convId: string | null = null;
           const { data: conv } = await supabase.from("agent_conversations")
@@ -100,6 +107,8 @@ export default function AgentWorkspace() {
               role: "assistant",
               content: `${headline}${run.summary ?? ""}`.trim() || "Run finished with nothing to report.",
               run_id: run.id,
+              action_ids: actionIds,
+              status: "complete",
             });
             setChatNonce((n) => n + 1);
             setView("chat");

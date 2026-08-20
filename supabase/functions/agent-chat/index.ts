@@ -9,7 +9,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import Anthropic from "npm:@anthropic-ai/sdk@0.71.0";
 import { definitionFor, systemPromptFor } from "../_shared/agents/registry.ts";
 import { executeAndRecord, type ActionRow } from "../_shared/agents/actions.ts";
-import { isOutward, kindDocFor, kindEnumFor } from "../_shared/agents/action-kinds.ts";
+import { isDestructive, isOutward, kindDocFor, kindEnumFor } from "../_shared/agents/action-kinds.ts";
 import { loadRules, renderRules, type RulesClient } from "../_shared/agents/rules.ts";
 import { clientDirectory, renderDirectory } from "../_shared/agents/clients.ts";
 import { canAutoExecute, type AgentRow } from "../_shared/agents/types.ts";
@@ -382,7 +382,9 @@ async function runTurn(args: {
             title: a.title,
             description: a.description ?? null,
             payload: a.payload ?? {},
-            status: canAutoExecute(agent.autonomy, outward) ? "approved" : "proposed",
+            status: canAutoExecute(agent.autonomy, outward, isDestructive(a.kind))
+              ? "approved"
+              : "proposed",
           };
         });
         const { data: inserted } = await sb.from("agent_actions").insert(rows).select("*");

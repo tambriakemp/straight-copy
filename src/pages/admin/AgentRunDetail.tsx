@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Empty, Section, relTime } from "@/components/admin/DashboardPrimitives";
-import { agentsApi, errMsg, ACTION_LABEL, type AgentAction, type AgentRun } from "@/lib/agentsApi";
+import AgentActionCards from "@/components/admin/agent/AgentActionCards";
+import { agentsApi, errMsg, type AgentRun, type AgentAction } from "@/lib/agentsApi";
 
 type Payload = {
   run: AgentRun;
@@ -13,22 +14,11 @@ type Payload = {
   actions: AgentAction[];
 };
 
-const STATUS_TONE: Record<string, string> = {
-  executed: "#9db8a6", rejected: "var(--crm-taupe)", failed: "#e07a5f",
-  proposed: "#dbb172", approved: "#dbb172",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  executed: "Done", rejected: "Declined", failed: "Failed",
-  proposed: "Awaiting you", approved: "Approved",
-};
-
 export default function AgentRunDetail() {
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
     if (!runId) return;
@@ -44,19 +34,6 @@ export default function AgentRunDetail() {
 
   useEffect(() => { load(); }, [runId]);
 
-  const decide = async (action: AgentAction, verb: "approve" | "reject") => {
-    setBusy(action.id);
-    try {
-      await agentsApi(`/actions/${action.id}/${verb}`, { method: "POST" });
-      toast.success(verb === "approve" ? "Done" : "Declined");
-      load();
-    } catch (e) {
-      toast.error(errMsg(e) || "Could not update");
-      load();
-    } finally {
-      setBusy(null);
-    }
-  };
 
   if (loading) {
     return <AdminLayout><div className="roster"><p className="text-[hsl(30_8%_62%)] text-sm">Loading…</p></div></AdminLayout>;
@@ -108,70 +85,12 @@ export default function AgentRunDetail() {
             </Section>
           )}
 
-          {!!pending.length && (
-            <Section title={`Waiting for you — ${pending.length}`}>
-              {pending.map((a) => (
-                <div key={a.id} style={{ padding: "14px 16px", background: "var(--crm-charcoal)",
-                  borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)" }}>
-                  <div style={{ fontSize: 12, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
-                    {ACTION_LABEL[a.kind] ?? a.kind}
-                    {a.outward && <span style={{ color: "#dbb172" }}> · reaches a person</span>}
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 500, marginTop: 5 }}>{a.title}</div>
-                  {a.description && (
-                    <p style={{ fontSize: 15, color: "var(--crm-taupe)", margin: "6px 0 0" }}>{a.description}</p>
-                  )}
-
-                  {/* Show a draft in full — approving it sends it. */}
-                  {a.kind === "draft_email" && (
-                    <div style={{ marginTop: 10, padding: 12, background: "var(--crm-ink)",
-                      border: "1px solid var(--crm-border-dark)", fontSize: 14 }}>
-                      <div style={{ color: "var(--crm-taupe)" }}>
-                        To: {String(a.payload.to ?? "—")}
-                      </div>
-                      <div style={{ color: "var(--crm-taupe)", marginBottom: 8 }}>
-                        Subject: {String(a.payload.subject ?? "—")}
-                      </div>
-                      <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-                        {String(a.payload.body ?? "")}
-                      </div>
-                    </div>
-                  )}
-
-                  <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <button className="crm-btn crm-btn--bronze" style={{ fontSize: 13 }}
-                      disabled={busy === a.id} onClick={() => decide(a, "approve")}>
-                      {busy === a.id ? "Working…" : a.outward ? "Approve & send" : "Approve"}
-                    </button>
-                    <button className="crm-btn crm-btn--ghost" style={{ fontSize: 13 }}
-                      disabled={busy === a.id} onClick={() => decide(a, "reject")}>
-                      Decline
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </Section>
-          )}
-
-          {!!settled.length && (
-            <Section title="Actions taken">
-              {settled.map((a) => (
-                <div key={a.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12,
-                  padding: "11px 14px", background: "var(--crm-charcoal)",
-                  borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", fontSize: 15 }}>
-                  <span style={{ color: STATUS_TONE[a.status], alignSelf: "center" }}>●</span>
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ display: "block" }}>{a.title}</span>
-                    <span style={{ display: "block", fontSize: 13, color: "var(--crm-taupe)", marginTop: 2 }}>
-                      {ACTION_LABEL[a.kind] ?? a.kind}
-                      {a.error && <span style={{ color: "#e07a5f" }}> · {a.error}</span>}
-                    </span>
-                  </span>
-                  <span style={{ alignSelf: "center", fontSize: 13, color: STATUS_TONE[a.status] }}>
-                    {STATUS_LABEL[a.status] ?? a.status}
-                  </span>
-                </div>
-              ))}
+          {/* Same block the chat renders — one place decides how an action looks. */}
+          {!!actions.length && (
+            <Section title={pending.length ? `Waiting for you — ${pending.length}` : "Actions"}>
+              <div style={{ padding: 14 }}>
+                <AgentActionCards actions={actions} onSettled={load} />
+              </div>
             </Section>
           )}
 

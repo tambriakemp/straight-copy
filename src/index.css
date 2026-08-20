@@ -2706,3 +2706,39 @@ html { -webkit-text-size-adjust: 100%; }
 .crm-shell .prop-log__row--client .prop-log__dot { background: var(--crm-bronze, #8B7355); }
 .crm-shell .prop-log__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .crm-shell .prop-log__when { font-size: 13px; color: var(--crm-soft-gray, #9A938A); }
+
+/* ---------- agent action cards ----------
+   The same block the run page shows, so a proposal can be settled in the
+   conversation where it was made instead of behind a link. */
+.crm-shell .ws__acts { display: grid; gap: 10px; margin-top: 4px; }
+.crm-shell .ws__act {
+  padding: 14px 16px; border-radius: var(--crm-r);
+  background: var(--crm-charcoal); border: 1px solid var(--crm-border-dark);
+  color: var(--crm-warm-white);
+}
+.crm-shell .ws__act--danger { border-color: #a8563f66; }
+.crm-shell .ws__act-kind {
+  font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase;
+  color: var(--crm-taupe);
+}
+.crm-shell .ws__act-flag { color: #dbb172; }
+.crm-shell .ws__act--danger .ws__act-flag { color: #e07a5f; }
+.crm-shell .ws__act-title { font-size: 16px; font-weight: 500; margin-top: 5px; }
+.crm-shell .ws__act-desc { font-size: 15px; color: var(--crm-taupe); margin: 6px 0 0; }
+.crm-shell .ws__act-preview {
+  margin-top: 10px; padding: 12px; font-size: 14px;
+  background: var(--crm-ink); border: 1px solid var(--crm-border-dark);
+  border-radius: var(--crm-r-sm);
+}
+.crm-shell .ws__act-warn {
+  color: #e07a5f; font-size: 12px; letter-spacing: 0.14em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.crm-shell .ws__act-dim { color: var(--crm-taupe); }
+.crm-shell .ws__act-buttons { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.crm-shell .ws__act-done {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+  padding: 11px 14px; border-radius: var(--crm-r); font-size: 15px;
+  background: var(--crm-charcoal); border: 1px solid var(--crm-border-dark);
+  color: var(--crm-warm-white);
+}

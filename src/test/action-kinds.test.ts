@@ -3,8 +3,11 @@
 // outward, and an unknown kind must fail closed.
 import { describe, it, expect } from "vitest";
 import {
-  ACTION_KINDS, isOutward, kindEnumFor, kindDocFor,
+  ACTION_KINDS, isDestructive, isOutward, kindEnumFor, kindDocFor,
 } from "../../supabase/functions/_shared/agents/action-kinds";
+import {
+  ALLOWED_ACTIONS, allowedFor,
+} from "../../supabase/functions/_shared/agents/allowlists";
 import { canAutoExecute } from "../../supabase/functions/_shared/agents/types";
 
 describe("outward classification", () => {
@@ -58,6 +61,84 @@ describe("tool schema generation", () => {
       expect(a.kind, key).toBe(key);
       expect(a.purpose.length, key).toBeGreaterThan(10);
       expect(a.payload.length, key).toBeGreaterThan(2);
+    }
+  });
+});
+
+describe("destructive actions", () => {
+  it("never auto-executes, at any autonomy level", () => {
+    // The whole point of the flag. An autonomous agent can send an email you
+    // would not have sent and you can apologise; it cannot un-delete an invoice.
+    for (const level of ["propose", "act_in_app", "autonomous"] as const) {
+      expect(canAutoExecute(level, isOutward("delete_record"), isDestructive("delete_record")), level)
+        .toBe(false);
+    }
+  });
+
+  it("treats an unrecognised kind as destructive", () => {
+    expect(isDestructive("drop_the_database")).toBe(true);
+  });
+
+  it("leaves non-destructive kinds alone", () => {
+    expect(isDestructive("create_task")).toBe(false);
+    expect(canAutoExecute("act_in_app", isOutward("create_task"), isDestructive("create_task")))
+      .toBe(true);
+  });
+});
+
+describe("agent allowlists", () => {
+  it("gives every agent a non-empty list", () => {
+    // An agent whose allowlist went missing used to make def.allowedActions
+    // undefined, which took down every turn for that agent.
+    for (const [key, kinds] of Object.entries(ALLOWED_ACTIONS)) {
+      expect(Array.isArray(kinds), key).toBe(true);
+      expect(kinds.length, key).toBeGreaterThan(0);
+    }
+  });
+
+  it("only names kinds that have an executor", () => {
+    for (const [key, kinds] of Object.entries(ALLOWED_ACTIONS)) {
+      for (const kind of kinds) {
+        expect(ACTION_KINDS[kind], `${key} → ${kind}`).toBeDefined();
+      }
+    }
+  });
+
+  it("lets every agent propose a deletion, since the gate is the confirmation", () => {
+    for (const key of Object.keys(ALLOWED_ACTIONS)) {
+      expect(allowedFor(key), key).toContain("delete_record");
+    }
+  });
+
+  it("returns an empty list for an unknown agent rather than undefined", () => {
+    expect(allowedFor("nobody")).toEqual([]);
+  });
+});
+
+describe("task priority mapping", () => {
+  // project_tasks.priority is an enum: low | normal | high | urgent. There is
+  // no "medium" — which is the word a model reaches for first, and it failed
+  // the insert with a raw Postgres enum error.
+  const PRIORITIES = new Set(["low", "normal", "high", "urgent"]);
+  const map = (raw: unknown): string => {
+    const v = String(raw ?? "").toLowerCase();
+    if (PRIORITIES.has(v)) return v;
+    if (v === "medium" || v === "med" || v === "moderate") return "normal";
+    if (v === "critical" || v === "highest" || v === "p0") return "urgent";
+    return "normal";
+  };
+
+  it("maps medium onto normal instead of failing the insert", () => {
+    expect(map("medium")).toBe("normal");
+  });
+
+  it("passes real enum values through", () => {
+    for (const p of ["low", "normal", "high", "urgent"]) expect(map(p)).toBe(p);
+  });
+
+  it("never returns a value outside the enum", () => {
+    for (const raw of [undefined, null, "", "MEDIUM", "critical", "nonsense", 7]) {
+      expect(PRIORITIES.has(map(raw)), String(raw)).toBe(true);
     }
   });
 });

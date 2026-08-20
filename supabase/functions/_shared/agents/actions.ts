@@ -18,6 +18,39 @@ const SENDER_DOMAIN = "notify.cre8visions.com";
 /** Same bucket proposal-sign reads from, so uploads and signing agree. */
 const PROPOSAL_BUCKET = "client-assets";
 
+/**
+ * project_tasks.priority is an enum: low | normal | high | urgent.
+ *
+ * There is no "medium" — which is the word any model reaches for first, and it
+ * failed the insert with a raw Postgres enum error rather than doing the
+ * obvious thing.
+ */
+const TASK_PRIORITIES = new Set(["low", "normal", "high", "urgent"]);
+function taskPriority(raw: unknown): string {
+  const v = String(raw ?? "").toLowerCase();
+  if (TASK_PRIORITIES.has(v)) return v;
+  if (v === "medium" || v === "med" || v === "moderate") return "normal";
+  if (v === "critical" || v === "highest" || v === "p0") return "urgent";
+  return "normal";
+}
+
+/**
+ * Rows an agent may delete, and how to describe one that is gone.
+ *
+ * An allowlist rather than a check for "is this a table": deleting a client or
+ * a project cascades through invoices, tasks, proposals and journey nodes, and
+ * no amount of confirmation makes that a thing an agent should be able to do
+ * from a chat message.
+ */
+const DELETABLE: Record<string, string> = {
+  project_invoices: "invoice",
+  project_tasks: "task",
+  client_proposals: "proposal",
+  project_links: "link",
+  project_notes: "note",
+  agent_runs: "run",
+};
+
 const PORTAL_BASE_URL =
   (Deno.env.get("PORTAL_BASE_URL") || "https://cre8visions.com").replace(/\/$/, "");
 
@@ -135,21 +168,37 @@ export async function executeAction(
     switch (action.kind) {
       case "create_task": {
         const p = action.payload as {
-          name?: string; client_project_id?: string; due_date?: string; priority?: string;
+          name?: string; client_project_id?: string; client_id?: string;
+          due_date?: string; priority?: string;
         };
-        if (!p.client_project_id) {
-          // project_tasks.client_project_id is NOT NULL, so a task with no
-          // project has nowhere to live. Surface it rather than guessing.
-          return { ok: false, error: "No client_project_id supplied; cannot place the task" };
+        let projectId = p.client_project_id ?? null;
+
+        // project_tasks.client_project_id is NOT NULL. Rather than refuse a
+        // task because the agent named the client instead of the project —
+        // which is how a whole run's worth of work used to get thrown away —
+        // resolve it from the client when there is exactly one sensible answer.
+        if (!projectId && p.client_id) {
+          const { data: projs } = await sb.from("client_projects")
+            .select("id, status")
+            .eq("client_id", p.client_id)
+            .order("created_at", { ascending: false });
+          const open = (projs ?? []).filter((x) => x.status !== "complete");
+          projectId = (open[0] ?? projs?.[0])?.id ?? null;
+        }
+        if (!projectId) {
+          return {
+            ok: false,
+            error: "No client_project_id or client_id supplied; a task has to hang off a project",
+          };
         }
         const { data, error } = await sb.from("project_tasks").insert({
-          client_project_id: p.client_project_id,
+          client_project_id: projectId,
           name: p.name ?? action.title,
           description: action.description
             ? `${action.description}\n\n> Opened by ${agentName}.`
             : `> Opened by ${agentName}.`,
           due_date: p.due_date ?? null,
-          priority: (p.priority as string) ?? "medium",
+          priority: taskPriority(p.priority),
           assignee_kind: "agency",
           status: "todo",
         }).select("id").single();
@@ -439,6 +488,39 @@ export async function executeAction(
         });
 
         return { ok: true, result: { proposal_id: proposal.id, due_date: due, task_id: taskId } };
+      }
+
+      case "delete_record": {
+        const p = action.payload as { table?: string; id?: string; label?: string };
+        const noun = p.table ? DELETABLE[p.table] : undefined;
+        if (!p.table || !noun) {
+          return {
+            ok: false,
+            error: `Cannot delete from "${p.table ?? "nothing"}". Deletable: ${Object.keys(DELETABLE).join(", ")}`,
+          };
+        }
+        if (!p.id) return { ok: false, error: "No id supplied" };
+
+        // Read it back first so the record of the deletion says what was
+        // deleted. Once the row is gone the action row is the only trace.
+        const { data: before } = await sb.from(p.table).select("*").eq("id", p.id).maybeSingle();
+        if (!before) {
+          // Already gone is the outcome that was wanted, so this is not a failure.
+          return { ok: true, result: { table: p.table, id: p.id, already_absent: true } };
+        }
+
+        const { error } = await sb.from(p.table).delete().eq("id", p.id);
+        if (error) return { ok: false, error: error.message };
+
+        return {
+          ok: true,
+          result: {
+            table: p.table,
+            id: p.id,
+            deleted: `${noun}${p.label ? ` — ${p.label}` : ""}`,
+            snapshot: before,
+          },
+        };
       }
 
       case "flag_risk":

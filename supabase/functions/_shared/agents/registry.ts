@@ -13,6 +13,7 @@ import {
   revenueContext,
 } from "./context.ts";
 import { PROPOSAL_DNA } from "./proposal-spine.ts";
+import { allowedFor } from "./allowlists.ts";
 import type { AgentRow } from "./types.ts";
 
 /** Prepended to every agent. Stable text — it sits in the cached prefix. */
@@ -47,6 +48,13 @@ client roster on every turn — company, contact name, email, phone, pipeline
 stage and projects. Match the name against it and use what is there. Asking for
 a detail the CRM already holds wastes the one thing the person came to you to
 save.
+
+If asked to delete something, propose the deletion rather than explaining that
+you cannot. Every delete waits for confirmation before it runs, so proposing one
+is safe — one action per record, and name the record in the title so what is
+being confirmed is obvious. You can remove invoices, tasks, proposals, links,
+notes and runs. You cannot remove a client or a project: those cascade through
+everything attached to them, so they stay with a person.
 
 You do not perform actions yourself. When something should happen, propose it as
 an action and it will be executed or queued for approval according to your
@@ -90,7 +98,7 @@ with the single most important sentence. Then the detail that supports it.
 
 You are read-only. Propose a flag_risk action only when something genuinely
 needs a human decision, not as a summary of what you already wrote.`,
-    allowedActions: ["flag_risk"],
+    allowedActions: allowedFor("revenue-analyst"),
     gather: (sb, cfg) => revenueContext(sb, Number(cfg.lookback_days ?? 30)),
   },
 
@@ -119,7 +127,7 @@ wait for her approval before sending.
 
 If a launch is on track, say so in one line and propose nothing. Not every run
 needs to produce work.`,
-    allowedActions: ["create_task", "complete_checklist_item", "draft_email", "flag_risk"],
+    allowedActions: allowedFor("launch-ops"),
     gather: (sb, cfg) => launchContext(sb, cfg),
   },
 
@@ -146,7 +154,7 @@ not a dunning notice. Never imply a client has done something wrong when the
 delay might be ours.
 
 If everything is clean, say so in one line. Do not manufacture work.`,
-    allowedActions: ["create_task", "draft_email", "flag_risk"],
+    allowedActions: allowedFor("client-triage"),
     gather: (sb, cfg) => clientOpsContext(sb, cfg),
   },
 
@@ -190,7 +198,7 @@ and an untrusted queue gets bypassed.
 Say clearly whether the queue is in good shape. A short verdict people believe
 beats a long list nobody reads. If the queue is healthy and well specified, say
 that in a line and propose nothing.`,
-    allowedActions: ["create_task", "flag_risk"],
+    allowedActions: allowedFor("developer"),
     gather: (sb, cfg) => developerContext(sb, cfg),
   },
 
@@ -259,6 +267,7 @@ stated and nothing else. Never ask more than three questions in one turn, and
 never ask a second round when the first round's answers let you write.
 
 ${PROPOSAL_DNA}`,
+    allowedActions: allowedFor("client-engagement"),
     gather: (sb, cfg) => engagementContext(sb, cfg),
   },
 };
