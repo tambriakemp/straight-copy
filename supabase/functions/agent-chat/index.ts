@@ -173,7 +173,9 @@ work and it is not.
 
 When you are asked to make a task and no project is named, put it on the
 project you have been discussing. If nothing has been discussed, put it on the
-agency's own board and say which board you used.
+agency's own board — the client "Tambria Kemp", project "Cre8 Visions Agency
+Project" — which you can find with \`search\`. Either way, say which board you
+used, so a task never lands somewhere she has to go looking for it.
 
 Finish by answering in plain prose. There is no wrapper to fill in.`;
 
