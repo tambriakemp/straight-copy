@@ -303,6 +303,8 @@ async function runTurn(args: {
     }).eq("id", pendingId);
   };
 
+  const startedAt = Date.now();
+
   try {
     // --- history + live context ---
     const { data: history } = await sb.from("agent_messages")
@@ -311,16 +313,39 @@ async function runTurn(args: {
       .eq("status", "complete")
       .order("created_at", { ascending: false })
       .limit(HISTORY_TURNS);
+    const ordered = (history ?? []).reverse();
+
+    // What those turns actually produced. A count told the model something
+    // happened; it did not tell it which proposal now exists, so "send me the
+    // draft" invented a new one instead of finding the one on file.
+    const pastIds = [...new Set(
+      ordered.flatMap((m) => (m.action_ids ?? []) as string[]).filter(Boolean),
+    )];
+    const actionsById = new Map<string, Record<string, unknown>>();
+    if (pastIds.length) {
+      const { data: pastActions } = await sb.from("agent_actions")
+        .select("id, kind, status, title, result").in("id", pastIds);
+      for (const a of pastActions ?? []) actionsById.set(a.id as string, a);
+    }
+
     // normalizeTurns does the work that filtering alone got wrong: dropping a
     // failed turn left two consecutive user messages, which the API rejects —
     // permanently, for that conversation. It also carries forward what each
     // turn produced, so the agent knows what it already proposed.
     const turns = normalizeTurns(
-      (history ?? []).reverse().map((m) => {
-        const note = m.role === "assistant" ? describeTurnOutcome(m) : "";
-        return { role: m.role, content: note ? `${m.content}\n\n${note}` : m.content };
+      ordered.map((m) => {
+        const note = m.role === "assistant"
+          ? describeTurnOutcome({
+            ...m,
+            actions: ((m.action_ids ?? []) as string[])
+              .map((id) => actionsById.get(id))
+              .filter(Boolean) as never,
+          })
+          : "";
+        return { role: m.role, content: note ? `${m.content ?? ""}\n\n${note}` : m.content };
       }),
     );
+
 
     const [context, rules, directory] = await Promise.all([
       def.gather(sb, agent.config ?? {}),
