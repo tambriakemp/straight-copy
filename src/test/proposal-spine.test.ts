@@ -1,0 +1,96 @@
+// The structure is the product. These tests exist so a proposal can never
+// silently lose a section or gain one, and so a draft with holes is caught
+// before it reaches a client rather than after.
+import { describe, it, expect } from "vitest";
+import {
+  PROPOSAL_SECTIONS,
+  missingSections,
+  renderProposalHtml,
+  type ProposalContent,
+} from "../../supabase/functions/_shared/agents/proposal-spine";
+
+const full = (): ProposalContent => ({
+  cover: { project_name: "Menovia", prepared_for: "Dr. Khadra Kahin" },
+  sections: PROPOSAL_SECTIONS.map((s) => ({ key: s.key, heading: s.heading, body: `Body for ${s.key}.` })),
+});
+
+describe("the locked spine", () => {
+  it("is exactly fourteen sections", () => {
+    expect(PROPOSAL_SECTIONS).toHaveLength(14);
+  });
+
+  it("has no duplicate keys", () => {
+    const keys = PROPOSAL_SECTIONS.map((s) => s.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("opens on the opportunity and closes on acceptance", () => {
+    expect(PROPOSAL_SECTIONS[0].key).toBe("opportunity");
+    expect(PROPOSAL_SECTIONS[PROPOSAL_SECTIONS.length - 1].key).toBe("acceptance");
+  });
+});
+
+describe("missingSections", () => {
+  it("passes a complete draft", () => {
+    expect(missingSections(full())).toEqual([]);
+  });
+
+  it("names what was skipped", () => {
+    const c = full();
+    c.sections = c.sections!.filter((s) => s.key !== "approach" && s.key !== "investment");
+    expect(missingSections(c).sort()).toEqual(["approach", "investment"]);
+  });
+
+  it("treats an empty body as missing, not present", () => {
+    // A section that exists but says nothing renders as a hole, which is the
+    // failure this guard is for.
+    const c = full();
+    c.sections!.find((s) => s.key === "approach")!.body = "   ";
+    expect(missingSections(c)).toEqual(["approach"]);
+  });
+
+  it("reports every section missing for an empty draft", () => {
+    expect(missingSections({})).toHaveLength(14);
+  });
+});
+
+describe("renderProposalHtml", () => {
+  it("renders all fourteen headings in spine order", () => {
+    const html = renderProposalHtml("Menovia", full());
+    // Headings are escaped on the way out ("Terms & Conditions"), so match the
+    // escaped form rather than the source string.
+    const esc = (t: string) => t.replace(/&/g, "&amp;");
+    const positions = PROPOSAL_SECTIONS.map((s) => html.indexOf(`>${esc(s.heading)}<`));
+    expect(positions.every((p) => p > -1)).toBe(true);
+    // Order is part of the contract, not just presence.
+    const sorted = [...positions].sort((a, b) => a - b);
+    expect(positions).toEqual(sorted);
+  });
+
+  it("marks an unwritten section rather than dropping it", () => {
+    const c = full();
+    c.sections = c.sections!.filter((s) => s.key !== "ai");
+    const html = renderProposalHtml("Menovia", c);
+    expect(html).toContain("AI in Development");
+    expect(html).toContain("has not been written yet");
+  });
+
+  it("escapes markup in client-supplied text", () => {
+    const c = full();
+    c.cover = { project_name: "<script>alert(1)</script>" };
+    const html = renderProposalHtml("x", c);
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("renders the four markdown constructs the brief allows", () => {
+    const c = full();
+    c.sections!.find((s) => s.key === "approach")!.body =
+      "## Why this\nA lead line.\n- **Focus** — one thing\n> The bottom line.";
+    const html = renderProposalHtml("x", c);
+    expect(html).toContain("<h3>Why this</h3>");
+    expect(html).toContain("<p>A lead line.</p>");
+    expect(html).toContain("<strong>Focus</strong>");
+    expect(html).toContain("<blockquote>The bottom line.</blockquote>");
+  });
+});

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, Download, Trash2, FileSignature, ExternalLink } from "lucide-react";
+import { Upload, Download, Trash2, FileSignature, ExternalLink, Activity } from "lucide-react";
+import ProposalActivityLog from "@/components/admin/ProposalActivityLog";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -40,6 +41,9 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Timelines are collapsed by default — on a project with several proposals,
+  // every log expanded at once buries the proposals themselves.
+  const [openLog, setOpenLog] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const callFn = async (body: Record<string, unknown>) => {
@@ -207,7 +211,13 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
                       <Trash2 size={12} /> Delete
                     </button>
                   )}
+                  <button className="crm-btn crm-btn--ghost crm-btn--sm"
+                    onClick={() => setOpenLog(openLog === p.id ? null : p.id)}>
+                    <Activity size={12} /> {openLog === p.id ? "Hide activity" : "Activity"}
+                  </button>
                 </div>
+
+                {openLog === p.id && <ProposalActivityLog proposalId={p.id} />}
               </div>
             );
           })}

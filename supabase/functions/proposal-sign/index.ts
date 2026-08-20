@@ -5,6 +5,7 @@
 // verify_jwt = false (public). Admin-only actions verify the caller's JWT against admin_users.
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { logProposalEvent } from "../_shared/proposal-events.ts";
 import { PDFDocument, PDFFont, PDFPage, rgb, type PDFImage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 
@@ -305,14 +306,23 @@ const DeleteSchema = z.object({
   proposalId: z.string().uuid(),
 });
 
+const ActivitySchema = z.object({
+  action: z.literal("activity"),
+  clientId: z.string().uuid(),
+  proposalId: z.string().uuid(),
+});
+
 const ActionSchema = z.discriminatedUnion("action", [
-  ListSchema, UploadUrlSchema, CreateSchema, GetSchema, SignSchema, DownloadSchema, VoidSchema, DeleteSchema,
+  ListSchema, UploadUrlSchema, CreateSchema, GetSchema, SignSchema, DownloadSchema, VoidSchema,
+  DeleteSchema, ActivitySchema,
 ]);
 
-const ADMIN_ONLY = new Set(["upload-url", "create", "void", "delete"]);
+const ADMIN_ONLY = new Set(["upload-url", "create", "void", "delete", "activity"]);
 
 const PROPOSAL_COLS =
   "id, client_id, client_project_id, title, description, status, source_pdf_path, " +
+  "content, sent_at, sent_to, first_opened_at, first_viewed_at, last_activity_at, " +
+  "next_followup_at, followup_count, " +
   "client_signature_name, client_signature_type, client_signed_at, " +
   "agency_signer_name, agency_countersigned_at, signed_pdf_path, pdf_generated_at, " +
   "created_at, updated_at";
@@ -389,6 +399,13 @@ Deno.serve(async (req) => {
         status: "sent",
       }).select(PROPOSAL_COLS).single();
       if (error) throw error;
+      await logProposalEvent(supabase, {
+        proposal_id: data.id,
+        client_id: input.clientId,
+        event_type: "pdf_uploaded",
+        actor: "admin",
+        detail: { title: input.title, path: input.sourcePdfPath },
+      });
       return respond({ proposal: data });
     }
 
@@ -400,10 +417,32 @@ Deno.serve(async (req) => {
       if (!row) return respond({ error: "Proposal not found" }, 404);
       const sourceUrl = await signedUrl(row.source_pdf_path);
       const signedPdfUrl = await signedUrl(row.signed_pdf_path);
+      // Reading a proposal in the portal is the strongest engagement signal
+      // there is — stronger than an open, stronger than a click — so it belongs
+      // on the timeline even though nothing was emailed.
+      if (row.status === "sent") {
+        await logProposalEvent(supabase, {
+          proposal_id: row.id,
+          client_id: input.clientId,
+          event_type: "viewed_in_portal",
+          actor: "client",
+          detail: { user_agent: req.headers.get("user-agent") },
+        });
+      }
       return respond({
         proposal: { ...row, source_url: sourceUrl, signed_pdf_url: signedPdfUrl },
         client: { id: client.id, business_name: client.business_name, contact_name: client.contact_name },
       });
+    }
+
+    if (input.action === "activity") {
+      const { data, error } = await supabase.from("proposal_events")
+        .select("id, event_type, actor, occurred_at, detail")
+        .eq("proposal_id", input.proposalId)
+        .order("occurred_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return respond({ events: data ?? [] });
     }
 
     if (input.action === "download") {
@@ -499,6 +538,23 @@ Deno.serve(async (req) => {
         pdf_generated_at: now.toISOString(),
       }).eq("id", row.id);
       if (updErr) throw updErr;
+
+      await logProposalEvent(supabase, {
+        proposal_id: row.id,
+        client_id: input.clientId,
+        event_type: "signed",
+        actor: "client",
+        occurred_at: now.toISOString(),
+        detail: { name: input.signatureName, type: input.signatureType, ip },
+      });
+      await logProposalEvent(supabase, {
+        proposal_id: row.id,
+        client_id: input.clientId,
+        event_type: "countersigned",
+        actor: "admin",
+        occurred_at: now.toISOString(),
+        detail: { name: row.agency_signer_name || "Tambria Kemp" },
+      });
 
       const signedPdfUrl = await signedUrl(signedPath);
       return respond({ success: true, proposalId: row.id, signedPdfUrl });

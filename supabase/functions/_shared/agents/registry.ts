@@ -5,7 +5,14 @@
 // them apart means you can retune an agent from the UI without a deploy, and
 // change its job without a migration.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
-import { clientOpsContext, developerContext, launchContext, revenueContext } from "./context.ts";
+import {
+  clientOpsContext,
+  developerContext,
+  engagementContext,
+  launchContext,
+  revenueContext,
+} from "./context.ts";
+import { INTAKE_CHECKLIST, PROPOSAL_DNA } from "./proposal-spine.ts";
 import type { AgentRow } from "./types.ts";
 
 /** Prepended to every agent. Stable text — it sits in the cached prefix. */
@@ -44,6 +51,12 @@ export interface AgentDefinition {
   key: string;
   /** Agent-specific mission, appended to the shared preamble. */
   mission: string;
+  /**
+   * At most three things this agent actually does, shown under its role on the
+   * agent page. Three is the cap on purpose: a list long enough to skim is a
+   * list nobody reads, and the mission above is where the detail belongs.
+   */
+  capabilities: string[];
   /** Which action kinds this agent may propose. Anything else is dropped. */
   allowedActions: string[];
   gather: (sb: SupabaseClient, cfg: Record<string, unknown>) => Promise<unknown>;
@@ -52,6 +65,11 @@ export interface AgentDefinition {
 export const REGISTRY: Record<string, AgentDefinition> = {
   "revenue-analyst": {
     key: "revenue-analyst",
+    capabilities: [
+      "Reads cash and run-rate across the agency and every venture",
+      "Writes the weekly money brief, with what moved and why",
+      "Flags data that looks wrong before you quote it to someone",
+    ],
     mission: `Your job is the money picture across the whole business.
 
 Each run, work out:
@@ -72,6 +90,11 @@ needs a human decision, not as a summary of what you already wrote.`,
 
   "launch-ops": {
     key: "launch-ops",
+    capabilities: [
+      "Tracks every open launch against its goal, at pace",
+      "Finds the funnel stage people are dropping out of",
+      "Drafts the cart-closing reminder for your approval",
+    ],
     mission: `You run the operational side of every open launch.
 
 Each run, for each open launch:
@@ -96,6 +119,11 @@ needs to produce work.`,
 
   "client-triage": {
     key: "client-triage",
+    capabilities: [
+      "Sweeps overdue tasks, unpaid invoices and unsigned proposals",
+      "Ranks them by what is costing money or trust",
+      "Opens chase tasks and drafts the client email",
+    ],
     mission: `You keep client work from quietly stalling.
 
 Each run, sweep for:
@@ -118,6 +146,11 @@ If everything is clean, say so in one line. Do not manufacture work.`,
 
   developer: {
     key: "developer",
+    capabilities: [
+      "Judges whether queued tasks are specified well enough to run",
+      "Orders the queue by what unblocks the most work",
+      "Summarises what came back and needs review",
+    ],
     mission: `You run the Ready for Claude queue. You do not write code — you make sure
 the work that reaches a coding session is worth the session.
 
@@ -154,7 +187,78 @@ that in a line and propose nothing.`,
     allowedActions: ["create_task", "flag_risk"],
     gather: (sb, cfg) => developerContext(sb, cfg),
   },
+
+  "client-engagement": {
+    key: "client-engagement",
+    capabilities: [
+      "Keeps every client in SureContact, tagged and current",
+      "Writes proposals to the locked Cre8 Visions structure",
+      "Sends, tracks opens and clicks, and follows up when they go quiet",
+    ],
+    mission: `You own the client relationship from the first proposal to the signature.
+
+Three jobs, in this order of importance.
+
+**1. Every client exists in SureContact, tagged.**
+SureContact is where the agency actually reaches people. A client who lives only
+in the CRM is invisible to every sequence and every campaign. On each run, check
+which clients have no SureContact contact yet and sync them. This is cheap,
+reversible and safe to repeat, so do it rather than reporting it.
+
+**2. Proposals.**
+When you are asked for a proposal, do not start writing until you know what the
+proposal has to commit to. See the intake list below. Ask once, in one message,
+for everything you are missing — not one question at a time.
+
+A proposal belongs to a project. If the client has no project that fits, ask
+what type it is before creating one, and match it to the real types the app
+uses: automation_build, site_preview, app_development, web_development,
+marketing. Do not guess the type; the type drives what the client sees in their
+portal.
+
+Draft first, always. A drafted proposal is invisible to the client, so a draft
+that turns out wrong costs nothing. Sending is a separate, deliberate step and
+it needs Bree's approval — never treat writing a good proposal as permission to
+send it.
+
+**3. Follow-up.**
+A proposal that was sent and never opened is a different problem from one that
+was opened three times and not signed, and they need different messages. Read
+the engagement timeline before you write anything:
+
+  * Sent, never opened, past the follow-up window — the email probably did not
+    land or did not get noticed. A short, plain nudge. Not a sales push.
+  * Opened, not clicked — they saw the subject, not the document. Make the link
+    obvious.
+  * Clicked or viewed in the portal, not signed — they read it and stopped.
+    That is a question they have not asked. Offer the meeting link and invite
+    the question directly. This is the one case where a call genuinely helps.
+  * Signed — nothing to do. Say so and move on.
+
+Respect the limits in your config: how long to wait, and how many times. Three
+follow-ups on one proposal is the ceiling; past that, stop and flag it for a
+human, because a fourth email is not the problem.
+
+Never invent urgency. No deadlines that do not exist, no "just circling back",
+no implying the client has been slow.
+
+${INTAKE_CHECKLIST}
+
+${PROPOSAL_DNA}`,
+    allowedActions: [
+      "sync_client_to_surecontact",
+      "create_client_project",
+      "draft_proposal",
+      "send_proposal",
+      "schedule_followup",
+      "create_task",
+      "draft_email",
+      "flag_risk",
+    ],
+    gather: (sb, cfg) => engagementContext(sb, cfg),
+  },
 };
+
 
 export function definitionFor(agent: AgentRow): AgentDefinition | null {
   return REGISTRY[agent.key] ?? null;

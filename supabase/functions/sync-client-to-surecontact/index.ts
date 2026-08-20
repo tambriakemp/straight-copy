@@ -97,6 +97,9 @@ Deno.serve(async (req) => {
     const { firstName, lastName } = splitContactName(client.contact_name);
 
     const tags = [
+      // Every client carries this, unconditionally. Sequences and reports key
+      // off it, so a client without it is invisible to both.
+      "client",
       "Client Portal",
       `Tier: ${tierLabel}`,
       currentStageTag,

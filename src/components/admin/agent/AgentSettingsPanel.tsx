@@ -6,8 +6,9 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import AgentAvatar from "@/components/admin/AgentAvatar";
+import { supabase } from "@/integrations/supabase/client";
 import {
-  agentsApi, errMsg, uploadAgentAvatar, removeAgentAvatar,
+  errMsg, uploadAgentAvatar, removeAgentAvatar,
   AUTONOMY_LABEL, AUTONOMY_BLURB, describeCron,
   type Agent, type Autonomy,
 } from "@/lib/agentsApi";
@@ -39,12 +40,25 @@ export default function AgentSettingsPanel({ agent, onChanged }: {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [prompt, setPrompt] = useState(agent.system_prompt ?? "");
+  const [name, setName] = useState(agent.name);
+  const [role, setRole] = useState(agent.role);
   const avatarRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * Settings write straight to the table rather than through agents-api.
+   *
+   * The admin RLS policy already allows exactly this, and going direct means
+   * changing a setting cannot fail because an edge function has not been
+   * deployed — which is how these controls silently stopped working before.
+   */
   const patch = async (body: Record<string, unknown>, note?: string) => {
     setSaving(true);
     try {
-      await agentsApi(`/agents/${agent.id}`, { method: "PATCH", body });
+      const { error } = await supabase.from("agents")
+        // The generated Update type rejects a plain record; every caller below
+        // passes real agent columns, so the cast is the narrow lie, not a hole.
+        .update(body as never).eq("id", agent.id);
+      if (error) throw new Error(error.message);
       if (note) toast.success(note);
       onChanged();
     } catch (e) {
@@ -53,6 +67,8 @@ export default function AgentSettingsPanel({ agent, onChanged }: {
       setSaving(false);
     }
   };
+
+  const renameDirty = name.trim() !== agent.name || role.trim() !== agent.role;
 
   const delivery = agent.delivery ?? {};
 
@@ -66,11 +82,30 @@ export default function AgentSettingsPanel({ agent, onChanged }: {
           <div className="ws__panel" style={{ display: "flex", gap: 18, alignItems: "center", padding: 18 }}>
             <AgentAvatar name={agent.name} url={agent.avatar_url}
               accent={agent.accent_color} size={92} />
-            <div style={{ display: "grid", gap: 8 }}>
-              <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 26 }}>{agent.name}</div>
-              <div style={{ fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
-                {agent.role}
-              </div>
+            <div style={{ display: "grid", gap: 8, flex: 1, minWidth: 0 }}>
+              <input className="crm-input"
+                style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 26, padding: "4px 8px" }}
+                value={name} maxLength={40} aria-label="Agent name"
+                onChange={(e) => setName(e.target.value)} />
+              <input className="crm-input"
+                style={{ fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", padding: "4px 8px" }}
+                value={role} maxLength={60} aria-label="Agent role"
+                onChange={(e) => setRole(e.target.value)} />
+              {renameDirty && (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="crm-btn" style={{ fontSize: 11 }} disabled={saving || !name.trim()}
+                    onClick={() => patch(
+                      { name: name.trim(), role: role.trim() || agent.role },
+                      `Renamed to ${name.trim()}`,
+                    )}>
+                    Save name
+                  </button>
+                  <button className="crm-btn crm-btn--ghost" style={{ fontSize: 11 }}
+                    onClick={() => { setName(agent.name); setRole(agent.role); }}>
+                    Cancel
+                  </button>
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8 }}>
                 <input ref={avatarRef} type="file" accept="image/*" hidden
                   onChange={async (e) => {
