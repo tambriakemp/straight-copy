@@ -11,7 +11,12 @@ import { definitionFor, systemPromptFor } from "../_shared/agents/registry.ts";
 import { executeAndRecord, type ActionRow } from "../_shared/agents/actions.ts";
 import { isDestructive, isOutward, kindDocFor, kindEnumFor } from "../_shared/agents/action-kinds.ts";
 import { loadRules, renderRules, type RulesClient } from "../_shared/agents/rules.ts";
-import { clientDirectory, renderDirectory } from "../_shared/agents/clients.ts";
+import { clientDirectory, renderClientIndex } from "../_shared/agents/clients.ts";
+import { describeTurnOutcome, normalizeTurns } from "../_shared/agents/history.ts";
+import { runToolLoop } from "../_shared/agents/loop.ts";
+import { pairedStepWriter } from "../_shared/agents/steps.ts";
+import { executeReadTool, readToolDefinitions } from "../_shared/agents/read-tools.ts";
+import { stepLabel } from "../_shared/agents/tool-labels.ts";
 import { canAutoExecute, type AgentRow } from "../_shared/agents/types.ts";
 
 const corsHeaders = {
@@ -125,6 +130,37 @@ function replyTool(allowedActions: string[]): Anthropic.Tool {
     },
   };
 }
+
+/**
+ * Appended when the tool loop is on.
+ *
+ * The rest of the prompt was written for a model that could not look anything
+ * up, and several of its instructions ("if something is not in it, say so")
+ * are now exactly wrong. This overrides them.
+ */
+const TOOL_DOCTRINE = `
+---
+
+You can look things up. You have tools over the whole business: \`search\` to
+find a client, project, proposal, invoice or task by name; \`query\` to list or
+count records matching conditions; \`get_record\` to read one thing in full,
+including the long text that lists cut short.
+
+Use them before you ask. Asking the owner for something you could have looked
+up in one call is the failure mode here — worse than a wrong guess, because it
+costs her time and tells her the software does not know its own data.
+
+So: someone names a client, you search for them. You need their email, the
+project you are attaching something to, what the last proposal said, whether an
+invoice was paid — you read it. You are unsure whether a task is well specified
+— you open it and look rather than judging from a title.
+
+Two things do not change. Never state a business figure you did not read from a
+tool or from the data given to you. And when you genuinely cannot find
+something, say what you looked for and where, so the gap is a fact rather than
+a question.
+
+Finish by answering in plain prose. There is no wrapper to fill in.`;
 
 const CHAT_ADDENDUM = `
 ---
@@ -249,14 +285,21 @@ async function runTurn(args: {
   try {
     // --- history + live context ---
     const { data: history } = await sb.from("agent_messages")
-      .select("role, content")
+      .select("role, content, action_ids, questions")
       .eq("conversation_id", conversationId)
       .eq("status", "complete")
       .order("created_at", { ascending: false })
       .limit(HISTORY_TURNS);
-    // Empty turns would be rejected by the API, and a failed turn is not
-    // something the agent should try to reason about.
-    const turns = (history ?? []).reverse().filter((m) => (m.content ?? "").trim());
+    // normalizeTurns does the work that filtering alone got wrong: dropping a
+    // failed turn left two consecutive user messages, which the API rejects —
+    // permanently, for that conversation. It also carries forward what each
+    // turn produced, so the agent knows what it already proposed.
+    const turns = normalizeTurns(
+      (history ?? []).reverse().map((m) => {
+        const note = m.role === "assistant" ? describeTurnOutcome(m) : "";
+        return { role: m.role, content: note ? `${m.content}\n\n${note}` : m.content };
+      }),
+    );
 
     const [context, rules, directory] = await Promise.all([
       def.gather(sb, agent.config ?? {}),
@@ -264,9 +307,106 @@ async function runTurn(args: {
       clientDirectory(sb as unknown as RulesClient),
     ]);
     const rulesBlock = renderRules(rules);
-    const directoryBlock = renderDirectory(directory);
+    const directoryBlock = renderClientIndex(directory);
+
+    const seedMessages: Anthropic.MessageParam[] = [
+      {
+        role: "user",
+        content: [
+          // Rules and the client index barely change, so they carry the
+          // breakpoint. Everything volatile sits after it.
+          ...(rulesBlock || directoryBlock
+            ? [{
+              type: "text" as const,
+              text: [rulesBlock, directoryBlock].filter(Boolean).join("\n\n"),
+              cache_control: { type: "ephemeral" as const },
+            }]
+            : []),
+          {
+            type: "text" as const,
+            // Compact. Pretty-printing a large blob buys whitespace nobody
+            // reads at 15-25% more input tokens.
+            text: `Current state of what you are responsible for, as of ${
+              new Date().toISOString().slice(0, 10)
+            }:\n\n${JSON.stringify(context)}`,
+          },
+        ],
+      },
+      // No synthetic "Understood — I have the current picture." turn. It was
+      // a pseudo-prefill, and when the history window happened to open on an
+      // assistant row it produced assistant-after-assistant — a 400.
+      ...turns,
+    ];
 
     const client = new Anthropic({ apiKey });
+
+    // --- the tool loop ---
+    //
+    // Gated per agent so a misbehaving one can be dropped back to the old
+    // single-shot path from settings without a deploy.
+    if ((agent.config as Record<string, unknown> | null)?.tool_loop === true) {
+      const startedAt = Date.now();
+      const spent = { bytes: 0 };
+      const onStep = pairedStepWriter(sb, pendingId);
+
+      const result = await runToolLoop({
+        client,
+        model: agent.model,
+        effort: agent.effort,
+        maxTokens: 32_000,
+        // Under the 6 minutes after which the chat marks a message stale, so a
+        // healthy long turn never renders as one that never came back.
+        budgetMs: 240_000,
+        maxIterations: 14,
+        system: [{
+          type: "text",
+          text: systemPromptFor(agent as AgentRow, def) + CHAT_ADDENDUM + TOOL_DOCTRINE,
+          cache_control: { type: "ephemeral" },
+        }],
+        tools: readToolDefinitions() as never,
+        messages: seedMessages,
+        onStep,
+        labelFor: stepLabel,
+        dispatch: async (name, input) => {
+          const outcome = await executeReadTool({ sb: sb as never, spent }, name, input);
+          return { ok: outcome.ok, content: outcome.content };
+        },
+      });
+
+      if (result.stoppedBy === "refusal") {
+        await sb.from("agent_messages").update({
+          content: "I can't help with that one.", status: "complete",
+          error: "refusal", completed_at: new Date().toISOString(),
+        }).eq("id", pendingId);
+        return;
+      }
+      if (!result.text.trim()) {
+        await fail(
+          result.error ??
+            (result.stoppedBy === "max_tokens"
+              ? "That answer ran past the length limit. Ask for it in smaller pieces."
+              : "The reply came back empty. Send the message again."),
+        );
+        return;
+      }
+
+      await sb.from("agent_messages").update({
+        content: result.text,
+        status: "complete",
+        input_tokens: result.usage.input,
+        output_tokens: result.usage.output,
+        cache_read_tokens: result.usage.cacheRead,
+        tool_calls: result.calls.length,
+        iterations: result.iterations,
+        duration_ms: Date.now() - startedAt,
+        completed_at: new Date().toISOString(),
+      }).eq("id", pendingId);
+
+      await sb.from("agent_conversations")
+        .update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
+      return;
+    }
+
     // Streamed, because a drafted proposal is long: 8000 tokens truncated the
     // tool call mid-JSON, which arrived as a reply with no message at all —
     // the empty bubble. Streaming also keeps a multi-minute turn from hitting
@@ -287,23 +427,7 @@ async function runTurn(args: {
       ],
       tools: [replyTool(def.allowedActions)],
       tool_choice: { type: "tool", name: "reply" },
-      messages: [
-        {
-          role: "user",
-          content: [
-            rulesBlock,
-            directoryBlock,
-            `Current state of what you are responsible for, as of ${
-              new Date().toISOString().slice(0, 10)
-            }:\n\n${JSON.stringify(context, null, 2)}`,
-          ].filter(Boolean).join("\n\n"),
-        },
-        { role: "assistant", content: "Understood — I have the current picture." },
-        ...turns.map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
-      ],
+      messages: seedMessages,
     });
     const response = await stream.finalMessage();
 

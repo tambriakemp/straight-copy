@@ -10,6 +10,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import AgentQuestions, { type AgentQuestion } from "@/components/admin/agent/AgentQuestions";
 import AgentActionCards from "@/components/admin/agent/AgentActionCards";
+import AgentSteps from "@/components/admin/agent/AgentSteps";
+import { useAgentSteps } from "@/components/admin/agent/useAgentSteps";
 import { supabase } from "@/integrations/supabase/client";
 import AgentAvatar from "@/components/admin/AgentAvatar";
 import {
@@ -67,6 +69,11 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
   }, [agent.id, reloadNonce, loadMessages]);
 
   const awaitingReply = messages.some((m) => m.status === "pending");
+  // Steps for assistant turns that produced any — the live ones so progress
+  // shows, the finished ones so the record of what was read survives.
+  const stepsByMessage = useAgentSteps(
+    messages.filter((m) => m.role === "assistant" && !m.id.startsWith("local-")).map((m) => m.id),
+  );
 
   /**
    * Watch the conversation rather than the request.
@@ -194,9 +201,15 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
                       </button>
                     </div>
                   ) : (
-                    <div className="ws__msg-bubble ws__msg-bubble--thinking">
-                      {agent.name} is working on it…
-                    </div>
+                    <>
+                      {stepsByMessage[m.id]?.length
+                        ? <AgentSteps steps={stepsByMessage[m.id]} live />
+                        : (
+                          <div className="ws__msg-bubble ws__msg-bubble--thinking">
+                            {agent.name} is working on it…
+                          </div>
+                        )}
+                    </>
                   )
                 ) : m.status === "failed" ? (
                   <div className="ws__msg-bubble ws__msg-failed">
@@ -228,6 +241,9 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
                     )
                     : m.content}
                 </div>
+                )}
+                {m.role === "assistant" && m.status === "complete" && !!stepsByMessage[m.id]?.length && (
+                  <AgentSteps steps={stepsByMessage[m.id]} live={false} />
                 )}
                 {m.role === "assistant" && !!(m.questions as AgentQuestion[] | null)?.length && (
                   <AgentQuestions

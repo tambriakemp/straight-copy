@@ -230,8 +230,55 @@ export type Database = {
           },
         ]
       }
+      agent_message_steps: {
+        Row: {
+          created_at: string
+          detail: Json | null
+          id: string
+          kind: string
+          label: string
+          message_id: string
+          seq: number
+          status: string
+          tool_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          kind: string
+          label: string
+          message_id: string
+          seq: number
+          status?: string
+          tool_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: Json | null
+          id?: string
+          kind?: string
+          label?: string
+          message_id?: string
+          seq?: number
+          status?: string
+          tool_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_message_steps_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "agent_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_messages: {
         Row: {
+          duration_ms: number | null
+          iterations: number | null
+          tool_calls: number | null
           action_ids: string[]
           cache_read_tokens: number | null
           completed_at: string | null
@@ -248,6 +295,9 @@ export type Database = {
           status: string
         }
         Insert: {
+          duration_ms?: number | null
+          iterations?: number | null
+          tool_calls?: number | null
           action_ids?: string[]
           cache_read_tokens?: number | null
           completed_at?: string | null
@@ -264,6 +314,9 @@ export type Database = {
           status?: string
         }
         Update: {
+          duration_ms?: number | null
+          iterations?: number | null
+          tool_calls?: number | null
           action_ids?: string[]
           cache_read_tokens?: number | null
           completed_at?: string | null

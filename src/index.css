@@ -2758,3 +2758,29 @@ html { -webkit-text-size-adjust: 100%; }
   cursor: pointer; padding: 3px; border-radius: var(--crm-r-sm);
 }
 .crm-shell .ws__link-del:hover { color: #e07a5f; background: var(--crm-ink); }
+
+/* ---------- agent progress steps ----------
+   A spinner for two minutes is indistinguishable from a hang. These are what
+   the agent is actually doing, and afterwards, what it actually read. */
+.crm-shell .ws__steps { display: grid; gap: 4px; margin: 2px 0; }
+.crm-shell .ws__steps--live { padding: 4px 0; }
+.crm-shell .ws__step {
+  display: grid; grid-template-columns: 8px 1fr; gap: 9px; align-items: baseline;
+  font-size: 14px; color: var(--crm-taupe); line-height: 1.5;
+}
+.crm-shell .ws__step-dot {
+  width: 5px; height: 5px; border-radius: 50%; align-self: center;
+}
+.crm-shell .ws__step--running .ws__step-dot { animation: ws-step-pulse 1.4s ease-in-out infinite; }
+.crm-shell .ws__step--running .ws__step-label { color: var(--crm-warm-white); }
+.crm-shell .ws__step-label { overflow-wrap: anywhere; }
+.crm-shell .ws__steps-toggle {
+  display: inline-flex; align-items: center; gap: 5px; justify-self: start;
+  background: transparent; border: none; cursor: pointer; padding: 2px 0;
+  font-family: inherit; font-size: 13px; color: var(--crm-taupe);
+}
+.crm-shell .ws__steps-toggle:hover { color: var(--crm-warm-white); }
+@keyframes ws-step-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .crm-shell .ws__step--running .ws__step-dot { animation: none; }
+}
