@@ -2460,6 +2460,20 @@ html { -webkit-text-size-adjust: 100%; }
   white-space: pre-wrap;
 }
 .crm-shell .ws__msg-bubble--thinking { color: var(--crm-taupe); font-style: italic; }
+/* A turn that died says so and offers the way out, rather than sitting blank. */
+.crm-shell .ws__msg-failed {
+  display: grid; gap: 8px; justify-items: start;
+  padding: 12px 14px; border-radius: var(--crm-r);
+  background: var(--crm-charcoal); border: 1px solid #a8563f55;
+  color: var(--crm-stone); font-size: 14.5px;
+}
+.crm-shell .ws__msg-failed p { margin: 0; }
+.crm-shell .ws__msg-retry {
+  font-family: inherit; font-size: 13px; padding: 5px 14px; border-radius: 999px;
+  background: transparent; border: 1px solid var(--crm-border-dark);
+  color: var(--crm-warm-white); cursor: pointer;
+}
+.crm-shell .ws__msg-retry:hover { border-color: var(--crm-bronze, #8a7355); }
 
 /* ---- markdown inside an assistant reply ---- */
 .crm-shell .ws__msg-bubble > :first-child { margin-top: 0; }

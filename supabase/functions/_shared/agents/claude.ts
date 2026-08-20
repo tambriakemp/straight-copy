@@ -93,6 +93,8 @@ export async function runAgentModel(args: {
   contextJson: unknown;
   /** Standing rules, rendered. Goes after the cached prefix so edits land at once. */
   rulesBlock?: string;
+  /** The client roster, rendered. Every agent gets it; see clients.ts. */
+  directoryBlock?: string;
   model: string;
   effort: string;
   allowedActions: string[];
@@ -122,6 +124,7 @@ export async function runAgentModel(args: {
         role: "user",
         content: [
           args.rulesBlock,
+          args.directoryBlock,
           `Here is the current state of the business. Today is ${
             new Date().toISOString().slice(0, 10)
           }.\n\n${JSON.stringify(args.contextJson, null, 2)}`,

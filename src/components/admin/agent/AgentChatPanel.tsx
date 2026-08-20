@@ -3,7 +3,7 @@
 // A turn that produces work writes agent_actions exactly as a scheduled run
 // does, so proposals surface inline here and still go through the same approval
 // screen. Chat is another way to reach the agent, not a second system.
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -31,19 +31,70 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
   const endRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLTextAreaElement>(null);
 
+  const loadMessages = useCallback(async (convId: string) => {
+    const { data } = await supabase.from("agent_messages")
+      .select("*").eq("conversation_id", convId).order("created_at");
+    setMessages((data ?? []) as unknown as AgentMessage[]);
+  }, []);
+
   // Resume the most recent thread rather than opening a blank one every visit.
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       const { data: conv } = await supabase.from("agent_conversations")
         .select("id").eq("agent_id", agent.id)
         .order("updated_at", { ascending: false }).limit(1).maybeSingle();
-      if (!conv) return;
+      if (cancelled || !conv) return;
       setConversationId(conv.id);
-      const { data: msgs } = await supabase.from("agent_messages")
-        .select("*").eq("conversation_id", conv.id).order("created_at");
-      setMessages((msgs ?? []) as unknown as AgentMessage[]);
+      await loadMessages(conv.id);
     })();
-  }, [agent.id, reloadNonce]);
+    return () => { cancelled = true; };
+  }, [agent.id, reloadNonce, loadMessages]);
+
+  const awaitingReply = messages.some((m) => m.status === "pending");
+
+  /**
+   * Watch the conversation rather than the request.
+   *
+   * The reply is written by a background task after the send call has already
+   * returned, so this is what actually surfaces it — and it is why leaving the
+   * page or refreshing no longer loses the answer.
+   */
+  useEffect(() => {
+    if (!conversationId) return;
+    const channel = supabase
+      .channel(`agent-chat-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "agent_messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => { void loadMessages(conversationId); },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [conversationId, loadMessages]);
+
+  /**
+   * Poll while a reply is outstanding.
+   *
+   * Realtime is the fast path, not a guarantee — a dropped socket would leave
+   * the reply written and the page never told. Only runs while something is
+   * actually pending, so it costs nothing the rest of the time.
+   */
+  useEffect(() => {
+    if (!conversationId || !awaitingReply) return;
+    const t = setInterval(() => { void loadMessages(conversationId); }, 4000);
+    return () => clearInterval(t);
+  }, [conversationId, awaitingReply, loadMessages]);
+
+  // A pending row this old is not coming back — the runtime dropped it.
+  const STALE_AFTER_MS = 6 * 60 * 1000;
+  const isStale = (m: AgentMessage) =>
+    m.status === "pending" && Date.now() - new Date(m.created_at).getTime() > STALE_AFTER_MS;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -53,32 +104,23 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
     const text = (override ?? draft).trim();
     if (!text || sending) return;
 
-    // Show it immediately; the id is replaced when the real row comes back.
+    // Show it immediately; the real rows arrive on the next load.
     const optimistic: AgentMessage = {
       id: `local-${Date.now()}`, conversation_id: conversationId ?? "",
       role: "user", content: text, run_id: null, action_ids: [],
-      questions: null, error: null, created_at: new Date().toISOString(),
+      questions: null, status: "complete", error: null,
+      created_at: new Date().toISOString(),
     };
     setMessages((m) => [...m, optimistic]);
     if (!override) setDraft("");
     setSending(true);
 
     try {
-      const reply = await sendAgentMessage({
+      const ack = await sendAgentMessage({
         agentId: agent.id, conversationId, message: text,
       });
-      setConversationId(reply.conversation_id);
-
-      const { data: msgs } = await supabase.from("agent_messages")
-        .select("*").eq("conversation_id", reply.conversation_id).order("created_at");
-      setMessages((msgs ?? []) as unknown as AgentMessage[]);
-
-      if (reply.actions.length) {
-        const pending = reply.actions.filter((a) => a.status === "proposed").length;
-        toast.success(pending
-          ? `${pending} action${pending === 1 ? "" : "s"} waiting for your approval`
-          : `${reply.actions.length} action${reply.actions.length === 1 ? "" : "s"} done`);
-      }
+      setConversationId(ack.conversation_id);
+      await loadMessages(ack.conversation_id);
       onActivity();
     } catch (e) {
       // Roll back the optimistic message so the box does not lie about what sent.
@@ -89,6 +131,22 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
       setSending(false);
       boxRef.current?.focus();
     }
+  };
+
+  /**
+   * Resend the message a dead turn was answering.
+   *
+   * The failed assistant row is deleted rather than left in place — a thread
+   * with a stale error above the real answer reads as though it failed twice.
+   */
+  const retry = async (dead: AgentMessage) => {
+    const idx = messages.findIndex((m) => m.id === dead.id);
+    const prompt = [...messages.slice(0, idx)].reverse()
+      .find((m) => m.role === "user" && m.content.trim());
+    if (!prompt) return toast.error("Nothing to resend");
+    await supabase.from("agent_messages").delete().eq("id", dead.id);
+    if (conversationId) await loadMessages(conversationId);
+    await send(prompt.content);
   };
 
   return (
@@ -112,6 +170,27 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
                   accent={agent.accent_color} size={26} />
               )}
               <div className="ws__msg-body">
+                {m.status === "pending" ? (
+                  isStale(m) ? (
+                    <div className="ws__msg-bubble ws__msg-failed">
+                      <p>This one never came back. Nothing was lost — send it again.</p>
+                      <button className="ws__msg-retry" onClick={() => void retry(m)}>
+                        Try again
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="ws__msg-bubble ws__msg-bubble--thinking">
+                      {agent.name} is working on it…
+                    </div>
+                  )
+                ) : m.status === "failed" ? (
+                  <div className="ws__msg-bubble ws__msg-failed">
+                    <p>{m.error || "That turn did not finish."}</p>
+                    <button className="ws__msg-retry" onClick={() => void retry(m)}>
+                      Try again
+                    </button>
+                  </div>
+                ) : (
                 <div className="ws__msg-bubble">
                   {m.role === "assistant"
                     ? (
@@ -134,6 +213,7 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
                     )
                     : m.content}
                 </div>
+                )}
                 {m.role === "assistant" && !!(m.questions as AgentQuestion[] | null)?.length && (
                   <AgentQuestions
                     questions={m.questions as AgentQuestion[]}
@@ -151,12 +231,12 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
             </div>
           ))
         )}
-        {sending && (
+        {sending && !awaitingReply && (
           <div className="ws__msg ws__msg--assistant">
             <AgentAvatar name={agent.name} url={agent.avatar_url}
               accent={agent.accent_color} size={26} />
             <div className="ws__msg-body">
-              <div className="ws__msg-bubble ws__msg-bubble--thinking">Thinking…</div>
+              <div className="ws__msg-bubble ws__msg-bubble--thinking">Sending…</div>
             </div>
           </div>
         )}

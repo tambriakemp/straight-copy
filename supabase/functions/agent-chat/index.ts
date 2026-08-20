@@ -11,6 +11,7 @@ import { definitionFor, systemPromptFor } from "../_shared/agents/registry.ts";
 import { executeAndRecord, type ActionRow } from "../_shared/agents/actions.ts";
 import { isOutward, kindDocFor, kindEnumFor } from "../_shared/agents/action-kinds.ts";
 import { loadRules, renderRules, type RulesClient } from "../_shared/agents/rules.ts";
+import { clientDirectory, renderDirectory } from "../_shared/agents/clients.ts";
 import { canAutoExecute, type AgentRow } from "../_shared/agents/types.ts";
 
 const corsHeaders = {
@@ -161,41 +162,114 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return json({ error: "ANTHROPIC_API_KEY is not configured" }, 500);
 
+  // --- conversation ---
+  let conversationId = body.conversation_id ?? null;
+  if (!conversationId) {
+    const { data: conv, error } = await sb.from("agent_conversations").insert({
+      agent_id: agent.id,
+      created_by: guard.userId,
+      title: text.slice(0, 80),
+    }).select("id").single();
+    if (error || !conv) return json({ error: error?.message ?? "Could not start conversation" }, 500);
+    conversationId = conv.id;
+  }
+
+  await sb.from("agent_messages").insert({
+    conversation_id: conversationId, role: "user", content: text,
+  });
+
+  // The assistant row is created empty and pending BEFORE the model is called.
+  // That row is the progress indicator: it is in the conversation, so it
+  // survives a refresh, and a turn that dies leaves something to mark failed
+  // rather than nothing at all.
+  const { data: pending, error: pendingErr } = await sb.from("agent_messages").insert({
+    conversation_id: conversationId,
+    role: "assistant",
+    content: "",
+    status: "pending",
+  }).select("id").single();
+  if (pendingErr || !pending) {
+    return json({ error: pendingErr?.message ?? "Could not start the reply" }, 500);
+  }
+  const pendingId = pending.id as string;
+
+  const work = runTurn({
+    sb, agent: agent as AgentRow, def, apiKey,
+    conversationId, pendingId,
+  });
+
+  // Hand the work to the runtime and answer now. The client watches the
+  // pending row; it does not wait on this request.
+  if (typeof EdgeRuntime !== "undefined" && "waitUntil" in EdgeRuntime) {
+    (EdgeRuntime as { waitUntil(p: Promise<unknown>): void }).waitUntil(work);
+  } else {
+    // No background runtime (local `deno run`): fall back to awaiting, which is
+    // the old behaviour rather than a dropped turn.
+    await work;
+  }
+
+  return json({
+    conversation_id: conversationId,
+    pending_message_id: pendingId,
+    status: "pending",
+  }, 202);
+});
+
+declare const EdgeRuntime: unknown;
+
+/**
+ * One chat turn: gather, call the model, execute what it proposed, and write
+ * the result onto the pending row.
+ *
+ * Never throws. Anything that goes wrong is recorded on the message, because a
+ * failure the person can see beats a failure that leaves a bubble spinning.
+ */
+async function runTurn(args: {
+  sb: ReturnType<typeof serviceClient>;
+  agent: AgentRow;
+  def: ReturnType<typeof definitionFor> & object;
+  apiKey: string;
+  conversationId: string;
+  pendingId: string;
+}): Promise<void> {
+  const { sb, agent, def, apiKey, conversationId, pendingId } = args;
+
+  const fail = async (message: string) => {
+    await sb.from("agent_messages").update({
+      status: "failed",
+      error: message,
+      completed_at: new Date().toISOString(),
+    }).eq("id", pendingId);
+  };
+
   try {
-    // --- conversation ---
-    let conversationId = body.conversation_id ?? null;
-    if (!conversationId) {
-      const { data: conv, error } = await sb.from("agent_conversations").insert({
-        agent_id: agent.id,
-        created_by: guard.userId,
-        title: text.slice(0, 80),
-      }).select("id").single();
-      if (error || !conv) return json({ error: error?.message ?? "Could not start conversation" }, 500);
-      conversationId = conv.id;
-    }
-
-    await sb.from("agent_messages").insert({
-      conversation_id: conversationId, role: "user", content: text,
-    });
-
     // --- history + live context ---
     const { data: history } = await sb.from("agent_messages")
       .select("role, content")
       .eq("conversation_id", conversationId)
+      .eq("status", "complete")
       .order("created_at", { ascending: false })
       .limit(HISTORY_TURNS);
-    const turns = (history ?? []).reverse();
+    // Empty turns would be rejected by the API, and a failed turn is not
+    // something the agent should try to reason about.
+    const turns = (history ?? []).reverse().filter((m) => (m.content ?? "").trim());
 
-    const [context, rules] = await Promise.all([
+    const [context, rules, directory] = await Promise.all([
       def.gather(sb, agent.config ?? {}),
       loadRules(sb as unknown as RulesClient, agent.id),
+      clientDirectory(sb as unknown as RulesClient),
     ]);
     const rulesBlock = renderRules(rules);
+    const directoryBlock = renderDirectory(directory);
 
     const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
+    // Streamed, because a drafted proposal is long: 8000 tokens truncated the
+    // tool call mid-JSON, which arrived as a reply with no message at all —
+    // the empty bubble. Streaming also keeps a multi-minute turn from hitting
+    // the SDK's HTTP timeout.
+    const stream = client.messages.stream({
       model: agent.model,
-      max_tokens: 8000,
+      max_tokens: 64000,
       thinking: { type: "adaptive" },
       output_config: { effort: agent.effort as "low" | "medium" | "high" | "xhigh" | "max" },
       system: [
@@ -214,6 +288,7 @@ Deno.serve(async (req) => {
           role: "user",
           content: [
             rulesBlock,
+            directoryBlock,
             `Current state of what you are responsible for, as of ${
               new Date().toISOString().slice(0, 10)
             }:\n\n${JSON.stringify(context, null, 2)}`,
@@ -226,20 +301,35 @@ Deno.serve(async (req) => {
         })),
       ],
     });
+    const response = await stream.finalMessage();
 
     if (response.stop_reason === "refusal") {
-      const msg = "I can't help with that one.";
-      await sb.from("agent_messages").insert({
-        conversation_id: conversationId, role: "assistant", content: msg,
+      await sb.from("agent_messages").update({
+        content: "I can't help with that one.",
+        status: "complete",
         error: "refusal",
-      });
-      return json({ conversation_id: conversationId, message: msg, actions: [] });
+        completed_at: new Date().toISOString(),
+      }).eq("id", pendingId);
+      return;
+    }
+
+    // Truncation used to arrive as a reply with no message, which was written
+    // as an empty bubble and read as "the agent is stuck". Say what happened.
+    if (response.stop_reason === "max_tokens") {
+      await fail(
+        "That answer ran past the length limit before it finished. Ask for it in " +
+          "smaller pieces — one section at a time — or narrow the request.",
+      );
+      return;
     }
 
     const block = response.content.find(
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === "reply",
     );
-    if (!block) throw new Error("No reply returned");
+    if (!block) {
+      await fail("The model returned nothing usable. Send the message again.");
+      return;
+    }
 
     const raw = block.input as {
       message?: string;
@@ -305,40 +395,30 @@ Deno.serve(async (req) => {
       }
     }
 
-    await sb.from("agent_messages").insert({
-      conversation_id: conversationId,
-      role: "assistant",
+    // A reply with no text and nothing proposed is a failed turn wearing a
+    // success costume — the exact thing that produced the blank bubble.
+    if (!reply.trim() && !questions.length && !actionIds.length) {
+      await fail("The reply came back empty. Send the message again.");
+      return;
+    }
+
+    await sb.from("agent_messages").update({
       content: reply,
+      status: "complete",
       run_id: runId,
       action_ids: actionIds,
       questions: questions.length ? questions : null,
       input_tokens: response.usage.input_tokens ?? 0,
       output_tokens: response.usage.output_tokens ?? 0,
       cache_read_tokens: response.usage.cache_read_input_tokens ?? 0,
-    });
+      completed_at: new Date().toISOString(),
+    }).eq("id", pendingId);
 
     // Keep the conversation at the top of the list.
     await sb.from("agent_conversations")
       .update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
-
-    const { data: actions } = actionIds.length
-      ? await sb.from("agent_actions").select("*").in("id", actionIds)
-      : { data: [] };
-
-    return json({
-      conversation_id: conversationId,
-      message: reply,
-      questions,
-      actions: actions ?? [],
-      run_id: runId,
-      usage: {
-        input: response.usage.input_tokens ?? 0,
-        output: response.usage.output_tokens ?? 0,
-        cacheRead: response.usage.cache_read_input_tokens ?? 0,
-      },
-    });
   } catch (e) {
-    console.error("agent-chat failed", e);
-    return json({ error: String((e as Error).message || e) }, 500);
+    console.error("agent-chat turn failed", e);
+    await fail(String((e as Error).message || e));
   }
-});
+}
