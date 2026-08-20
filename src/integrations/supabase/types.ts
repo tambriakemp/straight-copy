@@ -292,7 +292,6 @@ export type Database = {
           conversation_id: string
           created_at: string
           duration_ms: number | null
-          stopped_by: string | null
           error: string | null
           id: string
           input_tokens: number | null
@@ -302,6 +301,7 @@ export type Database = {
           role: string
           run_id: string | null
           status: string
+          stopped_by: string | null
           tool_calls: number | null
         }
         Insert: {
@@ -312,7 +312,6 @@ export type Database = {
           conversation_id: string
           created_at?: string
           duration_ms?: number | null
-          stopped_by?: string | null
           error?: string | null
           id?: string
           input_tokens?: number | null
@@ -322,6 +321,7 @@ export type Database = {
           role: string
           run_id?: string | null
           status?: string
+          stopped_by?: string | null
           tool_calls?: number | null
         }
         Update: {
@@ -332,7 +332,6 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           duration_ms?: number | null
-          stopped_by?: string | null
           error?: string | null
           id?: string
           input_tokens?: number | null
@@ -342,6 +341,7 @@ export type Database = {
           role?: string
           run_id?: string | null
           status?: string
+          stopped_by?: string | null
           tool_calls?: number | null
         }
         Relationships: [
@@ -3816,6 +3816,7 @@ export type Database = {
           read_ct: number
         }[]
       }
+      reap_abandoned_agent_messages: { Args: never; Returns: number }
       release_task: {
         Args: { _task_id: string; _worker: string }
         Returns: undefined
