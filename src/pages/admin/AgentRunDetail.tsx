@@ -76,7 +76,7 @@ export default function AgentRunDetail() {
 
         <div className="roster__head">
           <div className="roster__title-block">
-            <button onClick={() => navigate(agent ? `/admin/agents/${agent.id}` : "/admin/agents")}
+            <button onClick={() => navigate(agent ? `/admin/agents/${agent.id}` : "/admin")}
               className="crm-btn crm-btn--ghost" style={{ fontSize: 11, marginBottom: 10 }}>
               ← {agent?.name ?? "Agents"}
             </button>

@@ -37,10 +37,11 @@ export default function AgentAvatar({ name, url, accent, size = 48 }: {
   }, [url]);
 
   if (resolved && !failed) {
-
     return (
       <img
-        src={url}
+        // `resolved`, not `url` — for a private bucket the stored public URL
+        // 404s, and the signed one computed above is the whole point.
+        src={resolved}
         alt={name}
         onError={() => setFailed(true)}
         style={{

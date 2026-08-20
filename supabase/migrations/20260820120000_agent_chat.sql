@@ -6,7 +6,8 @@
 -- does, so there is still one approval surface and one audit trail.
 --
 -- Written idempotently: this database has taken migrations from two sources
--- (here and Lovable), so nothing may assume it is running exactly once.
+-- (here and Lovable), so nothing may assume it is running exactly once, and
+-- either side may have created these tables first.
 
 CREATE TABLE IF NOT EXISTS public.agent_conversations (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -63,3 +64,28 @@ ALTER TABLE public.agent_runs
 
 ALTER TABLE public.agent_runs
   ADD COLUMN IF NOT EXISTS conversation_id uuid REFERENCES public.agent_conversations(id) ON DELETE SET NULL;
+
+-- ============================================================ convergence
+-- Lovable created these same two tables out of band (20260820024940) with a
+-- narrower shape. CREATE TABLE IF NOT EXISTS above therefore skips silently on
+-- this database, which would leave the columns agent-chat writes missing and
+-- every insert failing at runtime. Add them explicitly so the schema ends up
+-- the same whichever migration got there first.
+ALTER TABLE public.agent_conversations
+  ADD COLUMN IF NOT EXISTS created_by uuid;
+
+ALTER TABLE public.agent_messages
+  ADD COLUMN IF NOT EXISTS input_tokens      integer,
+  ADD COLUMN IF NOT EXISTS output_tokens     integer,
+  ADD COLUMN IF NOT EXISTS cache_read_tokens integer,
+  ADD COLUMN IF NOT EXISTS run_id            uuid,
+  ADD COLUMN IF NOT EXISTS action_ids        uuid[] NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS error             text;
+
+-- Lovable's version left role unconstrained; only two values are ever valid.
+DO $$
+BEGIN
+  ALTER TABLE public.agent_messages
+    ADD CONSTRAINT agent_messages_role_check CHECK (role IN ('user','assistant'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
