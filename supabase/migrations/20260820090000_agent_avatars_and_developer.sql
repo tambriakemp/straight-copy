@@ -12,22 +12,27 @@ ALTER TABLE public.agents
   -- agent is still visually distinct on day one.
   ADD COLUMN IF NOT EXISTS accent_color text;
 
--- Public bucket: avatars are shown in an <img> on an authenticated page, and a
--- signed URL per render would be a lot of round trips for a face.
+-- Private bucket. AgentAvatar signs a URL per render, so nothing about the
+-- team is reachable without a session. DO NOTHING on conflict deliberately:
+-- if the bucket already exists, its visibility is whatever it was set to and
+-- this migration must not silently flip it.
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('agent-avatars', 'agent-avatars', true)
-ON CONFLICT (id) DO UPDATE SET public = true;
+VALUES ('agent-avatars', 'agent-avatars', false)
+ON CONFLICT (id) DO NOTHING;
 
 -- Drop first so re-running cannot collide on the policy name.
 DROP POLICY IF EXISTS "Public read agent-avatars"   ON storage.objects;
+DROP POLICY IF EXISTS "Admins read agent-avatars"   ON storage.objects;
 DROP POLICY IF EXISTS "Admins upload agent-avatars" ON storage.objects;
 DROP POLICY IF EXISTS "Admins update agent-avatars" ON storage.objects;
 DROP POLICY IF EXISTS "Admins delete agent-avatars" ON storage.objects;
 
--- Anyone may read (the bucket is public); only admins may change anything.
-CREATE POLICY "Public read agent-avatars"
+-- Signed-in admins may read (which is what signing a URL requires); only
+-- admins may change anything. No anon read: these are private by design.
+CREATE POLICY "Admins read agent-avatars"
   ON storage.objects FOR SELECT
-  USING (bucket_id = 'agent-avatars');
+  TO authenticated
+  USING (bucket_id = 'agent-avatars' AND public.is_admin(auth.uid()));
 
 CREATE POLICY "Admins upload agent-avatars"
   ON storage.objects FOR INSERT
