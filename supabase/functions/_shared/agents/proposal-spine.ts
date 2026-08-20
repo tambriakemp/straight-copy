@@ -273,7 +273,7 @@ export function missingSections(content: ProposalContent): string[] {
       .filter((s) => (s.body ?? "").trim().length > 0)
       .map((s) => s.key),
   );
-  return spineFor(content.kind).filter((s) => !present.has(s.key)).map((s) => s.key);
+  return spineFor(inferKind(content)).filter((s) => !present.has(s.key)).map((s) => s.key);
 }
 
 const esc = (s: string) =>
