@@ -7,6 +7,8 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { agentsApi, errMsg, ACTION_LABEL, type AgentAction } from "@/lib/agentsApi";
+import AgentDeliverable from "@/components/admin/agent/AgentDeliverable";
+import { deliverableOf } from "@/components/admin/agent/deliverable";
 
 const STATUS_TONE: Record<string, string> = {
   executed: "#9db8a6", rejected: "var(--crm-taupe)", failed: "#e07a5f",
@@ -112,7 +114,10 @@ export default function AgentActionCards({ actions, onSettled }: {
       })}
 
       {settled.map((a) => (
-        <div key={a.id} className="ws__act-done">
+        deliverableOf(a)
+          // Something was actually produced — show the thing, not a log line.
+          ? <AgentDeliverable key={a.id} action={a} />
+          : <div key={a.id} className="ws__act-done">
           <span style={{ color: STATUS_TONE[a.status] }}>●</span>
           <span style={{ minWidth: 0 }}>
             <span style={{ display: "block" }}>{a.title}</span>
@@ -124,7 +129,7 @@ export default function AgentActionCards({ actions, onSettled }: {
           <span style={{ color: STATUS_TONE[a.status], fontSize: 13 }}>
             {STATUS_LABEL[a.status] ?? a.status}
           </span>
-        </div>
+          </div>
       ))}
     </div>
   );

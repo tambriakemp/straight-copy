@@ -935,6 +935,14 @@ export type Database = {
       }
       client_projects: {
         Row: {
+          build_notes: string | null
+          deploy_project_id: string | null
+          deploy_project_name: string | null
+          deploy_provider: string | null
+          queue_enabled: boolean
+          repo_branch: string
+          repo_url: string | null
+          toolchain: string
           business_name: string | null
           client_id: string
           created_at: string
@@ -951,6 +959,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          build_notes?: string | null
+          deploy_project_id?: string | null
+          deploy_project_name?: string | null
+          deploy_provider?: string | null
+          queue_enabled?: boolean
+          repo_branch?: string
+          repo_url?: string | null
+          toolchain?: string
           business_name?: string | null
           client_id: string
           created_at?: string
@@ -967,6 +983,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          build_notes?: string | null
+          deploy_project_id?: string | null
+          deploy_project_name?: string | null
+          deploy_provider?: string | null
+          queue_enabled?: boolean
+          repo_branch?: string
+          repo_url?: string | null
+          toolchain?: string
           business_name?: string | null
           client_id?: string
           created_at?: string
@@ -2625,6 +2649,8 @@ export type Database = {
       }
       project_tasks: {
         Row: {
+          claimed_at: string | null
+          claimed_by: string | null
           acceptance_criteria: Json
           assignee_admin_id: string | null
           assignee_kind: Database["public"]["Enums"]["project_task_assignee_kind"]
@@ -2654,6 +2680,8 @@ export type Database = {
           url: string | null
         }
         Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
           acceptance_criteria?: Json
           assignee_admin_id?: string | null
           assignee_kind?: Database["public"]["Enums"]["project_task_assignee_kind"]
@@ -2683,6 +2711,8 @@ export type Database = {
           url?: string | null
         }
         Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
           acceptance_criteria?: Json
           assignee_admin_id?: string | null
           assignee_kind?: Database["public"]["Enums"]["project_task_assignee_kind"]

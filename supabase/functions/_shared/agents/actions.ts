@@ -203,7 +203,7 @@ export async function executeAction(
           status: "todo",
         }).select("id").single();
         if (error) return { ok: false, error: error.message };
-        return { ok: true, result: { task_id: data.id } };
+        return { ok: true, result: { task_id: data.id, client_project_id: projectId } };
       }
 
       case "complete_checklist_item": {
@@ -297,7 +297,12 @@ export async function executeAction(
           type: p.type,
         }).select("id, name, type").single();
         if (error) return { ok: false, error: error.message };
-        return { ok: true, result: { client_project_id: data.id, name: data.name, type: data.type } };
+        return {
+          ok: true,
+          result: {
+            client_project_id: data.id, client_id: p.client_id, name: data.name, type: data.type,
+          },
+        };
       }
 
       case "draft_proposal": {
@@ -374,7 +379,16 @@ export async function executeAction(
           detail: { project_name: proj?.name ?? null, client_project_id: p.client_project_id },
         });
 
-        return { ok: true, result: { proposal_id: data.id, status: "draft" } };
+        return {
+          ok: true,
+          result: {
+            proposal_id: data.id,
+            client_id: p.client_id,
+            client_project_id: p.client_project_id,
+            title: data.title,
+            status: "draft",
+          },
+        };
       }
 
       case "send_proposal": {

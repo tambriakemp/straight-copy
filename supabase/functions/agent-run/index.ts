@@ -13,6 +13,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { definitionFor, systemPromptFor } from "../_shared/agents/registry.ts";
 import { runAgentModel } from "../_shared/agents/claude.ts";
+import { runToolLoop } from "../_shared/agents/loop.ts";
+import { executeReadTool, readToolDefinitions } from "../_shared/agents/read-tools.ts";
+import { actionToolDefinition, executeActionTool, type ActionToolContext } from "../_shared/agents/action-tool.ts";
+import { stepLabel } from "../_shared/agents/tool-labels.ts";
+import Anthropic from "npm:@anthropic-ai/sdk@0.71.0";
 import { loadRules, renderRules, type RulesClient } from "../_shared/agents/rules.ts";
 import { clientDirectory, renderClientIndex } from "../_shared/agents/clients.ts";
 import { executeAndRecord, type ActionRow } from "../_shared/agents/actions.ts";
@@ -55,6 +60,23 @@ async function authorize(req: Request, sb: ReturnType<typeof serviceClient>): Pr
   return true;
 }
 
+/** Appended when a scheduled run has tools. Tighter than the chat version. */
+const RUN_TOOL_DOCTRINE = `
+---
+
+You can look things up. \`search\` finds a client, project, proposal, invoice or
+task by name. \`query\` lists or counts records matching conditions.
+\`get_record\` reads one thing in full. Use them when the summary you were given
+is not enough to say something specific — a vague brief is worse than a short one.
+
+You can also act, with \`propose_action\`. Safe work runs at once and returns its
+result; anything reaching a client or destroying a record is queued for approval
+and you are told so. Never report work as done unless a call confirmed it.
+
+Nobody is watching this run, so be economical: a handful of lookups to make the
+brief concrete, not an investigation. Finish by writing the brief as plain
+prose, opening with the single most important sentence.`;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -91,6 +113,104 @@ Deno.serve(async (req) => {
       loadRules(sb as unknown as RulesClient, agent.id),
       clientDirectory(sb as unknown as RulesClient),
     ]);
+    // A scheduled run gets the same tools as a chat turn, so a brief is
+    // researched rather than assembled from whatever the gatherer guessed at.
+    // Capped harder: nobody is watching, so it should not wander.
+    if ((agent.config as Record<string, unknown> | null)?.tool_loop === true) {
+      const spent = { bytes: 0 };
+      const actionCtx: ActionToolContext = {
+        sb,
+        agentId: agent.id,
+        agentName: agent.name,
+        autonomy: agent.autonomy,
+        allowedActions: def.allowedActions,
+        runId: run.id,
+        conversationId: null,
+        actionIds: [],
+        taken: new Map(),
+        count: { n: 0 },
+      };
+      const webSearch = (agent.config as Record<string, unknown> | null)?.web_search !== false;
+
+      const loop = await runToolLoop({
+        client: new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! }),
+        model: agent.model,
+        effort: agent.effort,
+        maxTokens: 16_000,
+        budgetMs: 180_000,
+        maxIterations: 8,
+        system: [{
+          type: "text",
+          text: systemPromptFor(agent as AgentRow, def) + RUN_TOOL_DOCTRINE,
+          cache_control: { type: "ephemeral" },
+        }],
+        tools: [
+          ...readToolDefinitions(),
+          actionToolDefinition(def.allowedActions),
+          ...(webSearch ? [{ type: "web_search_20260209", name: "web_search", max_uses: 3 }] : []),
+        ] as never,
+        messages: [{
+          role: "user",
+          content: [
+            ...(renderRules(rules) || renderClientIndex(directory)
+              ? [{
+                type: "text" as const,
+                text: [renderRules(rules), renderClientIndex(directory)].filter(Boolean).join("\n\n"),
+                cache_control: { type: "ephemeral" as const },
+              }]
+              : []),
+            {
+              type: "text" as const,
+              text: `Here is the current state of the business. Today is ${
+                new Date().toISOString().slice(0, 10)
+              }.\n\n${JSON.stringify(context)}\n\nDo your run, then write the brief.`,
+            },
+          ],
+        }],
+        labelFor: stepLabel,
+        dispatch: async (name, input) => {
+          if (name === "propose_action") {
+            return await executeActionTool(actionCtx, input, async (row) => {
+              const outcome = await executeAndRecord(sb, row as ActionRow, agent.name);
+              return { ok: outcome.ok, result: outcome.result, error: outcome.error };
+            });
+          }
+          const outcome = await executeReadTool({ sb: sb as never, spent }, name, input);
+          return { ok: outcome.ok, content: outcome.content };
+        },
+      });
+
+      const { data: settled } = await sb.from("agent_actions")
+        .select("status").in("id", actionCtx.actionIds.length ? actionCtx.actionIds : ["none"]);
+      const waiting = (settled ?? []).filter((a) => a.status === "proposed").length;
+
+      await sb.from("agent_runs").update({
+        status: loop.text.trim() ? "succeeded" : "failed",
+        finished_at: new Date().toISOString(),
+        headline: loop.text.split("\n")[0].slice(0, 120) || "Run produced nothing",
+        summary: loop.text,
+        detail: { tool_calls: loop.calls.length, iterations: loop.iterations, stopped_by: loop.stoppedBy },
+        error: loop.error ?? null,
+        input_tokens: loop.usage.input,
+        output_tokens: loop.usage.output,
+        cache_read_tokens: loop.usage.cacheRead,
+      }).eq("id", run.id);
+
+      await deliverRun(sb, agent as AgentRow, run.id, {
+        headline: loop.text.split("\n")[0].slice(0, 120),
+        summary: loop.text,
+        detail: {},
+        actions: [],
+      }, waiting);
+
+      return json({
+        run_id: run.id,
+        headline: loop.text.split("\n")[0].slice(0, 120),
+        pending_approvals: waiting,
+        tool_calls: loop.calls.length,
+      });
+    }
+
     const { finding, usage } = await runAgentModel({
       systemPrompt: systemPromptFor(agent as AgentRow, def),
       contextJson: context,

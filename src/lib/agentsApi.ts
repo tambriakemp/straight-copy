@@ -77,6 +77,8 @@ export interface AgentAction {
   executed_at: string | null;
   error: string | null;
   created_at: string;
+  /** What executing it produced — ids and paths the chat turns into a card. */
+  result: Record<string, unknown> | null;
 }
 
 export const AUTONOMY_LABEL: Record<Autonomy, string> = {
