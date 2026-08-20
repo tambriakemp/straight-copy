@@ -2459,7 +2459,17 @@ html { -webkit-text-size-adjust: 100%; }
   background: var(--crm-bronze, #8a7355); color: var(--crm-warm-white);
   white-space: pre-wrap;
 }
-.crm-shell .ws__msg-bubble--thinking { color: var(--crm-taupe); font-style: italic; }
+.crm-shell .ws__msg-bubble--thinking {
+  color: var(--crm-taupe); font-style: italic;
+  display: flex; align-items: baseline; gap: 10px;
+}
+/* The counter that says a long turn is working rather than gone. Tabular
+   figures so ticking seconds do not shuffle the line width. */
+.crm-shell .ws__turn-clock {
+  font-style: normal; font-size: 12.5px;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+  color: var(--crm-bronze, #8a7355); letter-spacing: 0.02em;
+}
 /* A turn that died says so and offers the way out, rather than sitting blank. */
 .crm-shell .ws__msg-failed {
   display: grid; gap: 8px; justify-items: start;
