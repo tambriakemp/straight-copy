@@ -7,7 +7,12 @@ name: Deploy edge functions
 #
 # Setup (once): add a repository secret SUPABASE_ACCESS_TOKEN, generated at
 # https://supabase.com/dashboard/account/tokens
-# Without it the workflow skips with a clear message rather than failing.
+#
+# Without it, a run that HAS functions to deploy fails loudly. It used to skip
+# and report success, which is how the agent tool loop sat merged and
+# undeployed for hours while five green check marks said otherwise. A deploy
+# job that goes green without deploying is worse than one that fails, because
+# it actively tells you the opposite of the truth.
 
 on:
   push:
@@ -36,23 +41,10 @@ jobs:
           # Need the previous commit to diff against.
           fetch-depth: 2
 
-      - name: Check for access token
-        id: guard
-        run: |
-          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
-            echo "::warning::SUPABASE_ACCESS_TOKEN is not set — skipping deploy."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - uses: supabase/setup-cli@v1
-        if: steps.guard.outputs.ready == 'true'
-        with:
-          version: latest
-
+      # Planning needs no credentials, so it runs before the token check. That
+      # ordering is what lets the guard below distinguish "nothing to deploy"
+      # from "something to deploy and no way to deploy it".
       - name: Work out which functions to deploy
-        if: steps.guard.outputs.ready == 'true'
         id: plan
         run: |
           set -euo pipefail
@@ -66,8 +58,20 @@ jobs:
             targets=$(all_functions)
             echo "Deploying everything (manual request)."
           else
-            changed=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} \
-              -- supabase/functions 2>/dev/null || git diff --name-only HEAD~1 HEAD -- supabase/functions)
+            before="${{ github.event.before }}"
+            # An empty or all-zero `before` means there is no previous commit to
+            # diff against — a branch's first push, or a workflow_dispatch,
+            # where `before` is not set at all. Diffing against it silently
+            # returns nothing, which reads as "no functions changed" and
+            # deploys none of them.
+            if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
+              echo "No usable base sha — diffing against HEAD~1."
+              changed=$(git diff --name-only HEAD~1 HEAD -- supabase/functions)
+            else
+              changed=$(git diff --name-only "$before" "${{ github.sha }}" \
+                -- supabase/functions 2>/dev/null \
+                || git diff --name-only HEAD~1 HEAD -- supabase/functions)
+            fi
 
             # _shared is imported by most functions, so a change there means
             # they all need redeploying — a stale copy is silently wrong.
@@ -75,10 +79,14 @@ jobs:
               targets=$(all_functions)
               echo "_shared changed — redeploying every function."
             else
+              # `|| true` because a grep that matches nothing exits 1, and
+              # under `set -e` that kills the step. "No function changed" is a
+              # normal outcome, not a failure — this step used to be skipped
+              # whenever the token was missing, which is why it never bit.
               targets=$(echo "$changed" \
                 | grep -oE '^supabase/functions/[^/]+' \
                 | sed 's|supabase/functions/||' \
-                | grep -v '^_shared$' | sort -u)
+                | grep -v '^_shared$' | sort -u || true)
             fi
           fi
 
@@ -91,10 +99,55 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
+      - name: Check for access token
+        id: guard
+        # Through env rather than inline `${{ }}`: a secret or a filename
+        # interpolated straight into a shell script is an injection waiting to
+        # happen, and the shell also mangles anything with quotes in it.
+        env:
+          TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          TARGETS: ${{ steps.plan.outputs.targets }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+
+          if [ -z "$TARGETS" ]; then
+            # Nothing to deploy, so the missing token costs nothing today.
+            echo "::warning::SUPABASE_ACCESS_TOKEN is not set, but no functions changed."
+            exit 0
+          fi
+
+          echo "::error::SUPABASE_ACCESS_TOKEN is not set, so these functions did NOT deploy:"
+          echo "$TARGETS"
+          echo "::error::Generate a token at https://supabase.com/dashboard/account/tokens then add it under Settings -> Secrets and variables -> Actions."
+          {
+            echo '## Deploy failed — no access token'
+            echo
+            echo 'These functions were **not** deployed and are running old code:'
+            echo
+            echo '```'
+            echo "$TARGETS"
+            echo '```'
+            echo
+            echo 'Add a repository secret `SUPABASE_ACCESS_TOKEN`, generated at'
+            echo '<https://supabase.com/dashboard/account/tokens>, then re-run.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+      - uses: supabase/setup-cli@v1
+        if: steps.guard.outputs.ready == 'true' && steps.plan.outputs.targets != ''
+        with:
+          version: latest
+
       - name: Deploy
         if: steps.guard.outputs.ready == 'true' && steps.plan.outputs.targets != ''
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          TARGETS: ${{ steps.plan.outputs.targets }}
         run: |
           set -uo pipefail
           # Project ref lives in supabase/config.toml, so it stays correct if
@@ -102,20 +155,49 @@ jobs:
           REF=$(grep -m1 '^project_id' supabase/config.toml | cut -d'"' -f2)
           echo "Target project: $REF"
 
+          deployed=""
           failed=""
           while read -r fn; do
             [ -z "$fn" ] && continue
             echo "::group::deploy $fn"
             if supabase functions deploy "$fn" --project-ref "$REF"; then
               echo "deployed $fn"
+              deployed="$deployed $fn"
             else
               echo "::error::failed to deploy $fn"
               failed="$failed $fn"
             fi
             echo "::endgroup::"
-          done <<< "${{ steps.plan.outputs.targets }}"
+          done <<< "$TARGETS"
+
+          # Say what actually went live, on the run page rather than buried in
+          # the log. Reading a green check mark is not the same as knowing
+          # which code is now serving traffic.
+          {
+            echo "## Edge function deploy"
+            echo
+            echo "Project \`$REF\` at commit \`$(git rev-parse --short HEAD)\`."
+            echo
+            if [ -n "$deployed" ]; then
+              echo "**Deployed:**"
+              for fn in $deployed; do echo "- \`$fn\`"; done
+            else
+              echo "**Deployed:** nothing."
+            fi
+            if [ -n "$failed" ]; then
+              echo
+              echo "**Failed:**"
+              for fn in $failed; do echo "- \`$fn\`"; done
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ -n "$failed" ]; then
             echo "::error::These functions did not deploy:$failed"
             exit 1
           fi
+
+      - name: Nothing to deploy
+        if: steps.plan.outputs.targets == ''
+        run: |
+          echo "No function directories changed — nothing to deploy." \
+            >> "$GITHUB_STEP_SUMMARY"

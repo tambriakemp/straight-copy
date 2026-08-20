@@ -198,25 +198,34 @@ export type Database = {
       agent_conversations: {
         Row: {
           agent_id: string
+          brief_debounce_until: string | null
+          context_hash: string | null
           created_at: string
           created_by: string | null
           id: string
+          last_briefed_at: string | null
           title: string | null
           updated_at: string
         }
         Insert: {
           agent_id: string
+          brief_debounce_until?: string | null
+          context_hash?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          last_briefed_at?: string | null
           title?: string | null
           updated_at?: string
         }
         Update: {
           agent_id?: string
+          brief_debounce_until?: string | null
+          context_hash?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          last_briefed_at?: string | null
           title?: string | null
           updated_at?: string
         }
@@ -283,6 +292,7 @@ export type Database = {
           conversation_id: string
           created_at: string
           duration_ms: number | null
+          stopped_by: string | null
           error: string | null
           id: string
           input_tokens: number | null
@@ -302,6 +312,7 @@ export type Database = {
           conversation_id: string
           created_at?: string
           duration_ms?: number | null
+          stopped_by?: string | null
           error?: string | null
           id?: string
           input_tokens?: number | null
@@ -321,6 +332,7 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           duration_ms?: number | null
+          stopped_by?: string | null
           error?: string | null
           id?: string
           input_tokens?: number | null

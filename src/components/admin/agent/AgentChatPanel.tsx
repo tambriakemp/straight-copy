@@ -11,6 +11,7 @@ import remarkGfm from "remark-gfm";
 import AgentQuestions, { type AgentQuestion } from "@/components/admin/agent/AgentQuestions";
 import AgentActionCards from "@/components/admin/agent/AgentActionCards";
 import AgentSteps from "@/components/admin/agent/AgentSteps";
+import AgentTurnProgress from "@/components/admin/agent/AgentTurnProgress";
 import { useAgentSteps } from "@/components/admin/agent/useAgentSteps";
 import { supabase } from "@/integrations/supabase/client";
 import AgentAvatar from "@/components/admin/AgentAvatar";
@@ -113,11 +114,6 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
     return () => clearInterval(t);
   }, [conversationId, awaitingReply, loadMessages]);
 
-  // A pending row this old is not coming back — the runtime dropped it.
-  const STALE_AFTER_MS = 6 * 60 * 1000;
-  const isStale = (m: AgentMessage) =>
-    m.status === "pending" && Date.now() - new Date(m.created_at).getTime() > STALE_AFTER_MS;
-
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, sending]);
@@ -193,27 +189,27 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
               )}
               <div className="ws__msg-body">
                 {m.status === "pending" ? (
-                  isStale(m) ? (
-                    <div className="ws__msg-bubble ws__msg-failed">
-                      <p>This one never came back. Nothing was lost — send it again.</p>
-                      <button className="ws__msg-retry" onClick={() => void retry(m)}>
-                        Try again
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      {stepsByMessage[m.id]?.length
-                        ? <AgentSteps steps={stepsByMessage[m.id]} live />
-                        : (
-                          <div className="ws__msg-bubble ws__msg-bubble--thinking">
-                            {agent.name} is working on it…
-                          </div>
-                        )}
-                    </>
-                  )
+                  <AgentTurnProgress
+                    agentName={agent.name}
+                    startedAt={m.created_at}
+                    steps={stepsByMessage[m.id] ?? []}
+                    onRetry={() => void retry(m)}
+                  />
                 ) : m.status === "failed" ? (
                   <div className="ws__msg-bubble ws__msg-failed">
                     <p>{m.error || "That turn did not finish."}</p>
+                    <button className="ws__msg-retry" onClick={() => void retry(m)}>
+                      Try again
+                    </button>
+                  </div>
+                ) : m.role === "assistant" && !m.content?.trim()
+                    && !m.questions?.length && !m.action_ids?.length ? (
+                  // Belt and braces for rows written before the turn resolver
+                  // existed. A completed message with nothing in it renders as
+                  // a bubble that neither moves nor explains itself, which is
+                  // exactly how a finished turn came to look like a hang.
+                  <div className="ws__msg-bubble ws__msg-failed">
+                    <p>This turn finished without saying anything. Send it again.</p>
                     <button className="ws__msg-retry" onClick={() => void retry(m)}>
                       Try again
                     </button>
