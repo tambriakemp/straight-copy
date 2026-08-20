@@ -276,61 +276,61 @@ export type Database = {
       }
       agent_messages: {
         Row: {
-          duration_ms: number | null
-          iterations: number | null
-          tool_calls: number | null
           action_ids: string[]
           cache_read_tokens: number | null
           completed_at: string | null
           content: string
           conversation_id: string
           created_at: string
+          duration_ms: number | null
           error: string | null
           id: string
           input_tokens: number | null
+          iterations: number | null
           output_tokens: number | null
           questions: Json | null
           role: string
           run_id: string | null
           status: string
+          tool_calls: number | null
         }
         Insert: {
-          duration_ms?: number | null
-          iterations?: number | null
-          tool_calls?: number | null
           action_ids?: string[]
           cache_read_tokens?: number | null
           completed_at?: string | null
           content?: string
           conversation_id: string
           created_at?: string
+          duration_ms?: number | null
           error?: string | null
           id?: string
           input_tokens?: number | null
+          iterations?: number | null
           output_tokens?: number | null
           questions?: Json | null
           role: string
           run_id?: string | null
           status?: string
+          tool_calls?: number | null
         }
         Update: {
-          duration_ms?: number | null
-          iterations?: number | null
-          tool_calls?: number | null
           action_ids?: string[]
           cache_read_tokens?: number | null
           completed_at?: string | null
           content?: string
           conversation_id?: string
           created_at?: string
+          duration_ms?: number | null
           error?: string | null
           id?: string
           input_tokens?: number | null
+          iterations?: number | null
           output_tokens?: number | null
           questions?: Json | null
           role?: string
           run_id?: string | null
           status?: string
+          tool_calls?: number | null
         }
         Relationships: [
           {
@@ -936,16 +936,12 @@ export type Database = {
       client_projects: {
         Row: {
           build_notes: string | null
-          deploy_project_id: string | null
-          deploy_project_name: string | null
-          deploy_provider: string | null
-          queue_enabled: boolean
-          repo_branch: string
-          repo_url: string | null
-          toolchain: string
           business_name: string | null
           client_id: string
           created_at: string
+          deploy_project_id: string | null
+          deploy_project_name: string | null
+          deploy_provider: string | null
           id: string
           name: string
           notes: string | null
@@ -953,23 +949,23 @@ export type Database = {
           progress_report_enabled: boolean
           progress_report_last_sent_at: string | null
           progress_report_recipient_ids: string[]
+          queue_enabled: boolean
+          repo_branch: string
+          repo_url: string | null
           source_order_id: string | null
           status: string
+          toolchain: string
           type: string
           updated_at: string
         }
         Insert: {
           build_notes?: string | null
-          deploy_project_id?: string | null
-          deploy_project_name?: string | null
-          deploy_provider?: string | null
-          queue_enabled?: boolean
-          repo_branch?: string
-          repo_url?: string | null
-          toolchain?: string
           business_name?: string | null
           client_id: string
           created_at?: string
+          deploy_project_id?: string | null
+          deploy_project_name?: string | null
+          deploy_provider?: string | null
           id?: string
           name: string
           notes?: string | null
@@ -977,23 +973,23 @@ export type Database = {
           progress_report_enabled?: boolean
           progress_report_last_sent_at?: string | null
           progress_report_recipient_ids?: string[]
+          queue_enabled?: boolean
+          repo_branch?: string
+          repo_url?: string | null
           source_order_id?: string | null
           status?: string
+          toolchain?: string
           type: string
           updated_at?: string
         }
         Update: {
           build_notes?: string | null
-          deploy_project_id?: string | null
-          deploy_project_name?: string | null
-          deploy_provider?: string | null
-          queue_enabled?: boolean
-          repo_branch?: string
-          repo_url?: string | null
-          toolchain?: string
           business_name?: string | null
           client_id?: string
           created_at?: string
+          deploy_project_id?: string | null
+          deploy_project_name?: string | null
+          deploy_provider?: string | null
           id?: string
           name?: string
           notes?: string | null
@@ -1001,8 +997,12 @@ export type Database = {
           progress_report_enabled?: boolean
           progress_report_last_sent_at?: string | null
           progress_report_recipient_ids?: string[]
+          queue_enabled?: boolean
+          repo_branch?: string
+          repo_url?: string | null
           source_order_id?: string | null
           status?: string
+          toolchain?: string
           type?: string
           updated_at?: string
         }
@@ -2649,13 +2649,13 @@ export type Database = {
       }
       project_tasks: {
         Row: {
-          claimed_at: string | null
-          claimed_by: string | null
           acceptance_criteria: Json
           assignee_admin_id: string | null
           assignee_kind: Database["public"]["Enums"]["project_task_assignee_kind"]
           auto_key: string | null
           blocked_by: string[]
+          claimed_at: string | null
+          claimed_by: string | null
           client_project_id: string
           completed_at: string | null
           created_at: string
@@ -2680,13 +2680,13 @@ export type Database = {
           url: string | null
         }
         Insert: {
-          claimed_at?: string | null
-          claimed_by?: string | null
           acceptance_criteria?: Json
           assignee_admin_id?: string | null
           assignee_kind?: Database["public"]["Enums"]["project_task_assignee_kind"]
           auto_key?: string | null
           blocked_by?: string[]
+          claimed_at?: string | null
+          claimed_by?: string | null
           client_project_id: string
           completed_at?: string | null
           created_at?: string
@@ -2711,13 +2711,13 @@ export type Database = {
           url?: string | null
         }
         Update: {
-          claimed_at?: string | null
-          claimed_by?: string | null
           acceptance_criteria?: Json
           assignee_admin_id?: string | null
           assignee_kind?: Database["public"]["Enums"]["project_task_assignee_kind"]
           auto_key?: string | null
           blocked_by?: string[]
+          claimed_at?: string | null
+          claimed_by?: string | null
           client_project_id?: string
           completed_at?: string | null
           created_at?: string
@@ -3716,6 +3716,14 @@ export type Database = {
       }
       automation_01_criteria_for: { Args: { _key: string }; Returns: Json }
       brain_setup_criteria_for: { Args: { _key: string }; Returns: Json }
+      claim_task: {
+        Args: { _stale_after?: string; _task_id: string; _worker: string }
+        Returns: {
+          claimed: boolean
+          held_by: string
+          id: string
+        }[]
+      }
       client_exists_active: { Args: { _client_id: string }; Returns: boolean }
       delete_email: {
         Args: { message_id: number; queue_name: string }
@@ -3795,6 +3803,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      release_task: {
+        Args: { _task_id: string; _worker: string }
+        Returns: undefined
       }
       set_project_secret: {
         Args: {
