@@ -129,7 +129,7 @@ export default function AgentDeliverable({ action }: { action: AgentAction }) {
               marginTop: 10,
               maxHeight: 340,
               overflowY: "auto",
-              borderTop: "1px solid var(--crm-line)",
+              borderTop: "1px solid var(--crm-border-dark)",
               paddingTop: 10,
             }}
           >
@@ -138,12 +138,12 @@ export default function AgentDeliverable({ action }: { action: AgentAction }) {
                 <div
                   style={{
                     fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase",
-                    color: "var(--crm-muted)", marginBottom: 4,
+                    color: "var(--crm-taupe)", marginBottom: 4,
                   }}
                 >
                   {s.heading ?? s.key}
                 </div>
-                <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", color: "var(--crm-text)" }}>
+                <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", color: "var(--crm-warm-white)" }}>
                   {s.body ?? ""}
                 </div>
               </div>
@@ -157,7 +157,7 @@ export default function AgentDeliverable({ action }: { action: AgentAction }) {
             src={pdfUrl}
             style={{
               flexBasis: "100%", marginTop: 10, height: 460, width: "100%",
-              border: "1px solid var(--crm-line)", borderRadius: 6, background: "var(--crm-surface)",
+              border: "1px solid var(--crm-border-dark)", borderRadius: 6, background: "var(--crm-warm-white)",
             }}
           />
         )}
