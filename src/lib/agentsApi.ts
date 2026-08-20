@@ -198,8 +198,13 @@ export async function uploadAgentAvatar(agentId: string, file: File): Promise<st
     .upload(path, file, { upsert: true, contentType: file.type, cacheControl: "3600" });
   if (upErr) throw new Error(upErr.message);
 
-  const { data } = supabase.storage.from("agent-avatars").getPublicUrl(path);
-  const url = `${data.publicUrl}?v=${Date.now()}`;
+  // The bucket is private, so serve the portrait through a long-lived signed
+  // URL rather than a public one.
+  const { data, error: signErr } = await supabase.storage
+    .from("agent-avatars")
+    .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+  if (signErr || !data?.signedUrl) throw new Error(signErr?.message || "Could not link the image");
+  const url = data.signedUrl;
 
   await agentsApi(`/agents/${agentId}`, { method: "PATCH", body: { avatar_url: url } });
   return url;
