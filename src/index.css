@@ -2742,3 +2742,19 @@ html { -webkit-text-size-adjust: 100%; }
   background: var(--crm-charcoal); border: 1px solid var(--crm-border-dark);
   color: var(--crm-warm-white);
 }
+
+/* ---------- meeting links ---------- */
+.crm-shell .ws__links { display: grid; gap: 10px; }
+.crm-shell .ws__link {
+  display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--crm-r);
+  background: var(--crm-charcoal); border: 1px solid var(--crm-border-dark);
+}
+.crm-shell .ws__link-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.crm-shell .ws__link-purpose {
+  font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--crm-taupe);
+}
+.crm-shell .ws__link-del {
+  background: transparent; border: none; color: var(--crm-taupe);
+  cursor: pointer; padding: 3px; border-radius: var(--crm-r-sm);
+}
+.crm-shell .ws__link-del:hover { color: #e07a5f; background: var(--crm-ink); }

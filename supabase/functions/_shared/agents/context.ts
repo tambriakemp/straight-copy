@@ -473,7 +473,7 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
       followup_after_days: followupAfter,
       max_followups: maxFollowups,
       stale_after_days: staleAfter,
-      meeting_link: (cfg.meeting_link as string) || null,
+      proposal_meeting_link: (cfg.proposal_meeting_link as string) || null,
     },
   };
 }

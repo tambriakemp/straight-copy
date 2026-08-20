@@ -68,7 +68,11 @@ function replyTool(allowedActions: string[]): Anthropic.Tool {
         questions: {
           type: "array",
           description:
-            "Anything you need answered before you can act, as choices rather than open prompts. Leave this out whenever you can proceed on a stated assumption instead — a proposal with two assumptions beats an interview. Never more than three.",
+            "LAST RESORT ONLY. Almost always leave this empty and do the work instead, listing what you assumed. " +
+            "Legitimate reasons to ask: a price nobody has stated, which of two clients was meant, or a commercial " +
+            "commitment the owner has not agreed to. Everything else — phase names, billing dates, titles, entity " +
+            "names, scope depth, the strategic argument — you decide and mark as an assumption. " +
+            "Asking about something with an obvious professional default is a failure, not caution. Never more than two.",
           items: {
             type: "object",
             properties: {
@@ -339,11 +343,12 @@ async function runTurn(args: {
       }>;
       actions?: Array<{ kind: string; title: string; description?: string; payload?: Record<string, unknown> }>;
     };
-    // Cap at three and four: past that a choice list is a form, and a form is
-    // exactly the thing these replace.
+    // Two, not three. A third question is almost always something with a
+    // default the agent should have picked — and past two, a choice list reads
+    // as a form, which is the exact thing these were meant to replace.
     const questions = (raw.questions ?? [])
       .filter((q) => q?.id && q?.question && Array.isArray(q.options) && q.options.length >= 2)
-      .slice(0, 3)
+      .slice(0, 2)
       .map((q) => ({ ...q, options: q.options.slice(0, 4) }));
     const reply = raw.message ?? "";
 

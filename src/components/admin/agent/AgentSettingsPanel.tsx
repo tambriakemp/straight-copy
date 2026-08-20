@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import AgentAvatar from "@/components/admin/AgentAvatar";
 import AgentRulesPanel from "@/components/admin/agent/AgentRulesPanel";
+import AgentMeetingLinks from "@/components/admin/agent/AgentMeetingLinks";
 import { supabase } from "@/integrations/supabase/client";
 import {
   errMsg, uploadAgentAvatar, removeAgentAvatar,
@@ -152,6 +153,9 @@ export default function AgentSettingsPanel({ agent, onChanged }: {
 
         {/* ---------- standing rules ---------- */}
         <AgentRulesPanel agent={agent} />
+
+        {/* ---------- meeting links ---------- */}
+        <AgentMeetingLinks agent={agent} onChanged={onChanged} />
 
         {/* ---------- autonomy ---------- */}
         <div className="ws__sec">

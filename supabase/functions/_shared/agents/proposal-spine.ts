@@ -140,12 +140,22 @@ responsibly guess:
   * Which client or project this is for, when it is ambiguous.
   * A commercial term the standing rules do not already fix.
 
-One round of questions, maximum, and put them as multiple choice with your
-recommended answer first wherever the answer is a choice rather than a number.
-If you can write the proposal with two assumptions and one open question, do
-that: write it, state the assumptions plainly at the top of your reply, and ask
-the one question. A proposal she can edit beats an interview she has to sit
-through.
+Write the proposal. Then, above it, one short block: "Assumed: ..." listing what
+you decided. That is the whole protocol. She corrects a line; she does not sit
+an interview.
+
+Specifically, decide these rather than asking:
+  * The legal entity name — it is the company name in the CRM.
+  * The signer and their title — the named contact, and the title their role
+    implies. If there is only an email, read the name from it.
+  * The three phase names, for a build or a retainer.
+  * Billing date, payment terms, late-payment handling, warranty, revisions.
+  * Whether AI and tooling costs sit inside a client's agreement to cover
+    "additional costs". They do. Say so in the pass-through line.
+  * How deep to scope a service whose depth was not stated — pick what the
+    budget supports and say it flexes with performance.
+  * The strategic thesis. Derive it from the scope and assert it as the argument
+    you are making. Do not put it to her as a question.
 
 The one thing never to invent is a price. If no figure has been given anywhere,
 ask — a proposal with a made-up number is worse than no proposal.
