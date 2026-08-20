@@ -67,7 +67,7 @@ const Unsubscribe = () => {
             <button
               onClick={handleUnsubscribe}
               disabled={processing}
-              className="font-sans text-[11px] tracking-[0.2em] uppercase text-warm-white bg-ink border-none px-12 py-[18px] hover:bg-accent transition-all duration-300 disabled:opacity-50"
+              className="font-sans text-[13px] tracking-[0.2em] uppercase text-warm-white bg-ink border-none px-12 py-[18px] hover:bg-accent transition-all duration-300 disabled:opacity-50"
             >
               {processing ? "Processing…" : "Confirm Unsubscribe"}
             </button>

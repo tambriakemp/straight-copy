@@ -374,7 +374,7 @@ export default function ClientDetail() {
   return (
     <AdminLayout>
       <div className="roster">
-        <Link to="/admin" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 15, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
+        <Link to="/admin" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 17, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
           <ArrowLeft size={14} /> Back to clients
         </Link>
 
@@ -387,7 +387,7 @@ export default function ClientDetail() {
                 className="crm-btn crm-btn--ghost crm-btn--sm"
                 onClick={openEditDialog}
                 title="Edit client"
-                style={{ fontSize: 12 }}
+                style={{ fontSize: 14 }}
               >
                 <Pencil size={12} /> Edit
               </button>
@@ -401,7 +401,7 @@ export default function ClientDetail() {
         </div>
 
         <div className="roster__toolbar" style={{ marginTop: 24 }}>
-          <div style={{ flex: 1, fontSize: 15, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+          <div style={{ flex: 1, fontSize: 17, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
             Projects ({projects.length})
           </div>
           <Dialog open={openNew} onOpenChange={setOpenNew}>
@@ -452,8 +452,8 @@ export default function ClientDetail() {
 
         {projects.length === 0 ? (
           <div style={{ padding: "60px 0", color: "var(--crm-taupe)", textAlign: "center", border: "1px dashed var(--crm-border-dark)", borderRadius: 12, marginTop: 16 }}>
-            <div style={{ fontSize: 15, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 8 }}>No projects yet</div>
-            <div style={{ fontSize: 18 }}>Create the first project for this client above.</div>
+            <div style={{ fontSize: 17, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 8 }}>No projects yet</div>
+            <div style={{ fontSize: 20 }}>Create the first project for this client above.</div>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16, marginTop: 16 }}>
@@ -519,7 +519,7 @@ export default function ClientDetail() {
                     }}
                   />
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", paddingLeft: 18 }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", whiteSpace: "nowrap" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 16, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", whiteSpace: "nowrap" }}>
                       <Icon size={12} style={{ flexShrink: 0 }} /> {TYPE_LABEL[p.type]}
                     </span>
                     {isBuild && (
@@ -527,11 +527,11 @@ export default function ClientDetail() {
                     )}
                   </div>
                   <div>
-                    <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 26, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
+                    <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 28, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
                       {p.name}
                     </h3>
                     {p.business_name && (
-                      <div style={{ marginTop: 4, fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                      <div style={{ marginTop: 4, fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
                         {p.business_name}
                       </div>
                     )}
@@ -541,14 +541,14 @@ export default function ClientDetail() {
                     <>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "end", paddingTop: 4 }}>
                         <div>
-                          <div className="roster__stage" style={{ fontSize: 18, lineHeight: 1.2 }}>{stageLabel}</div>
+                          <div className="roster__stage" style={{ fontSize: 20, lineHeight: 1.2 }}>{stageLabel}</div>
                           <span className="roster__stage-hint">
                             {String(stageIdx).padStart(2, "0")} / {String(total || 0).padStart(2, "0")}
                           </span>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <div style={{ textAlign: "right" }}>
-                            <div className="roster__days" style={{ fontSize: 26 }}>{daysSince}d</div>
+                            <div className="roster__days" style={{ fontSize: 28 }}>{daysSince}d</div>
                             <span className="roster__days-date">since start</span>
                           </div>
                           <button
@@ -567,7 +567,7 @@ export default function ClientDetail() {
                           </button>
                         </div>
                       </div>
-                      <div style={{ fontFamily: "var(--crm-font-serif)", fontStyle: "italic", color: "var(--crm-stone)", fontSize: 16 }}>
+                      <div style={{ fontFamily: "var(--crm-font-serif)", fontStyle: "italic", color: "var(--crm-stone)", fontSize: 18 }}>
                         {nextAction}
                       </div>
                     </>
@@ -575,7 +575,7 @@ export default function ClientDetail() {
 
                   {!isBuild && (
                     <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                      <span style={{ fontSize: 15, color: "var(--crm-stone)" }}>
+                      <span style={{ fontSize: 17, color: "var(--crm-stone)" }}>
                         Updated {new Date(p.updated_at).toLocaleDateString()}
                       </span>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -600,7 +600,7 @@ export default function ClientDetail() {
 
                   {preview && (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "auto", paddingTop: 8, borderTop: "1px solid var(--crm-border-dark)" }}>
-                      <code style={{ flex: 1, fontSize: 15, color: "var(--crm-taupe)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <code style={{ flex: 1, fontSize: 17, color: "var(--crm-taupe)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         /p/{preview.slug.slice(0, 12)}…
                       </code>
                       <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={(e) => copy(e, preview.slug, p.id)} title="Copy share link">
@@ -641,12 +641,12 @@ export default function ClientDetail() {
                   <Plus size={12} /> Add contact
                 </button>
               </div>
-              <p style={{ fontSize: 12, color: "var(--crm-taupe)", margin: "0 0 12px" }}>
+              <p style={{ fontSize: 14, color: "var(--crm-taupe)", margin: "0 0 12px" }}>
                 The primary contact is mirrored to the client's main email and used as the default recipient for client emails.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {editContacts.length === 0 && (
-                  <div style={{ fontSize: 13, color: "var(--crm-taupe)", fontStyle: "italic", padding: "8px 0" }}>
+                  <div style={{ fontSize: 15, color: "var(--crm-taupe)", fontStyle: "italic", padding: "8px 0" }}>
                     No contacts yet. Click "Add contact" above.
                   </div>
                 )}
@@ -667,7 +667,7 @@ export default function ClientDetail() {
                         onClick={() => setPrimaryContact(c._localKey)}
                         disabled={c.is_primary}
                         title={c.is_primary ? "Primary contact" : "Make primary"}
-                        style={{ fontSize: 11 }}
+                        style={{ fontSize: 13 }}
                       >
                         <Star size={11} style={{ fill: c.is_primary ? "currentColor" : "none" }} />
                         {c.is_primary ? "Primary" : "Make primary"}
@@ -684,7 +684,7 @@ export default function ClientDetail() {
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                       <div>
-                        <label className="crm-label" style={{ fontSize: 10 }}>Name</label>
+                        <label className="crm-label" style={{ fontSize: 12 }}>Name</label>
                         <input
                           className="crm-input"
                           value={c.name}
@@ -692,7 +692,7 @@ export default function ClientDetail() {
                         />
                       </div>
                       <div>
-                        <label className="crm-label" style={{ fontSize: 10 }}>Role</label>
+                        <label className="crm-label" style={{ fontSize: 12 }}>Role</label>
                         <input
                           className="crm-input"
                           value={c.role}
@@ -701,7 +701,7 @@ export default function ClientDetail() {
                         />
                       </div>
                       <div>
-                        <label className="crm-label" style={{ fontSize: 10 }}>Email</label>
+                        <label className="crm-label" style={{ fontSize: 12 }}>Email</label>
                         <input
                           className="crm-input"
                           type="email"
@@ -710,7 +710,7 @@ export default function ClientDetail() {
                         />
                       </div>
                       <div>
-                        <label className="crm-label" style={{ fontSize: 10 }}>Phone</label>
+                        <label className="crm-label" style={{ fontSize: 12 }}>Phone</label>
                         <input
                           className="crm-input"
                           value={c.phone}

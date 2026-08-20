@@ -36,7 +36,7 @@ const MonthlyValueSection = () => {
       {/* MONTHLY watermark */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-serif font-light text-warm-white/[0.02] whitespace-nowrap pointer-events-none select-none leading-none"
-        style={{ fontSize: "clamp(140px, 22vw, 280px)" }}
+        style={{ fontSize: "clamp(142px, 22vw, 282px)" }}
       >
         MONTHLY
       </div>
@@ -44,16 +44,16 @@ const MonthlyValueSection = () => {
       <div className="max-w-[1400px] mx-auto px-7 md:px-16 relative">
         {/* Centered section header */}
         <div className="max-w-[960px] mx-auto text-center mb-20 md:mb-24 reveal">
-          <p className="inline-flex items-center justify-center gap-3.5 text-[11px] font-medium tracking-[0.35em] uppercase text-accent mb-8 before:content-[''] before:w-9 before:h-px before:bg-accent after:content-[''] after:w-9 after:h-px after:bg-accent">
+          <p className="inline-flex items-center justify-center gap-3.5 text-[13px] font-medium tracking-[0.35em] uppercase text-accent mb-8 before:content-[''] before:w-9 before:h-px before:bg-accent after:content-[''] after:w-9 after:h-px after:bg-accent">
             The Ongoing Value
           </p>
           <h2
             className="font-serif font-light leading-[1.05] text-warm-white mb-8"
-            style={{ fontSize: "clamp(48px, 5.2vw, 80px)", letterSpacing: "-0.01em" }}
+            style={{ fontSize: "clamp(50px, 5.2vw, 82px)", letterSpacing: "-0.01em" }}
           >
             What keeps your <em className="italic text-stone">system growing.</em>
           </h2>
-          <p className="text-[19px] font-light leading-[1.75] text-stone max-w-[680px] mx-auto">
+          <p className="text-[21px] font-light leading-[1.75] text-stone max-w-[680px] mx-auto">
             The automations get you in. What keeps your AI OS improving every month is the intelligence layered on top — making your system smarter, your content fresher, and your business more competitive over time.
           </p>
         </div>
@@ -66,14 +66,14 @@ const MonthlyValueSection = () => {
                 i > 0 ? `reveal-delay-${i}` : ""
               }`}
             >
-              <div className="font-serif text-[72px] font-light text-warm-white/[0.12] leading-none mb-8 transition-colors duration-400 group-hover:text-accent">
+              <div className="font-serif text-[74px] font-light text-warm-white/[0.12] leading-none mb-8 transition-colors duration-400 group-hover:text-accent">
                 {c.num}
               </div>
-              <h3 className="font-serif text-[28px] md:text-[32px] font-light text-warm-white mb-6 leading-[1.1]">
+              <h3 className="font-serif text-[30px] md:text-[34px] font-light text-warm-white mb-6 leading-[1.1]">
                 {renderTitle(c.title)}
               </h3>
-              <p className="text-[16px] font-light leading-[1.75] text-stone mb-9">{c.desc}</p>
-              <div className="text-[11px] font-medium tracking-[0.22em] uppercase text-accent pt-6 border-t border-warm-white/[0.08]">
+              <p className="text-[18px] font-light leading-[1.75] text-stone mb-9">{c.desc}</p>
+              <div className="text-[13px] font-medium tracking-[0.22em] uppercase text-accent pt-6 border-t border-warm-white/[0.08]">
                 {c.time}
               </div>
             </div>

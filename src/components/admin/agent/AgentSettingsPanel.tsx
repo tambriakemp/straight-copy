@@ -84,23 +84,23 @@ export default function AgentSettingsPanel({ agent, onChanged }: {
               accent={agent.accent_color} size={92} />
             <div style={{ display: "grid", gap: 8, flex: 1, minWidth: 0 }}>
               <input className="crm-input"
-                style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 26, padding: "4px 8px" }}
+                style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 28, padding: "4px 8px" }}
                 value={name} maxLength={40} aria-label="Agent name"
                 onChange={(e) => setName(e.target.value)} />
               <input className="crm-input"
-                style={{ fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", padding: "4px 8px" }}
+                style={{ fontSize: 13, letterSpacing: "0.24em", textTransform: "uppercase", padding: "4px 8px" }}
                 value={role} maxLength={60} aria-label="Agent role"
                 onChange={(e) => setRole(e.target.value)} />
               {renameDirty && (
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button className="crm-btn" style={{ fontSize: 11 }} disabled={saving || !name.trim()}
+                  <button className="crm-btn" style={{ fontSize: 13 }} disabled={saving || !name.trim()}
                     onClick={() => patch(
                       { name: name.trim(), role: role.trim() || agent.role },
                       `Renamed to ${name.trim()}`,
                     )}>
                     Save name
                   </button>
-                  <button className="crm-btn crm-btn--ghost" style={{ fontSize: 11 }}
+                  <button className="crm-btn crm-btn--ghost" style={{ fontSize: 13 }}
                     onClick={() => { setName(agent.name); setRole(agent.role); }}>
                     Cancel
                   </button>
@@ -123,19 +123,19 @@ export default function AgentSettingsPanel({ agent, onChanged }: {
                       if (avatarRef.current) avatarRef.current.value = "";
                     }
                   }} />
-                <button className="crm-btn crm-btn--ghost" style={{ fontSize: 11 }}
+                <button className="crm-btn crm-btn--ghost" style={{ fontSize: 13 }}
                   disabled={uploading} onClick={() => avatarRef.current?.click()}>
                   {uploading ? "…" : agent.avatar_url ? "Replace photo" : "Add photo"}
                 </button>
                 {agent.avatar_url && (
-                  <button className="crm-btn crm-btn--ghost" style={{ fontSize: 11 }}
+                  <button className="crm-btn crm-btn--ghost" style={{ fontSize: 13 }}
                     onClick={async () => {
                       await removeAgentAvatar(agent.id);
                       toast.success("Portrait removed");
                       onChanged();
                     }}>Remove</button>
                 )}
-                <button className="crm-btn crm-btn--ghost" style={{ fontSize: 11 }}
+                <button className="crm-btn crm-btn--ghost" style={{ fontSize: 13 }}
                   onClick={() => patch({ enabled: !agent.enabled }, agent.enabled ? "Paused" : "Resumed")}>
                   {agent.enabled ? "Pause agent" : "Resume agent"}
                 </button>
@@ -143,7 +143,7 @@ export default function AgentSettingsPanel({ agent, onChanged }: {
             </div>
           </div>
           {agent.description && (
-            <p style={{ fontSize: 13, color: "var(--crm-taupe)", margin: "10px 2px 0", lineHeight: 1.6 }}>
+            <p style={{ fontSize: 15, color: "var(--crm-taupe)", margin: "10px 2px 0", lineHeight: 1.6 }}>
               {agent.description}
             </p>
           )}
@@ -161,15 +161,15 @@ export default function AgentSettingsPanel({ agent, onChanged }: {
                   {agent.autonomy === level ? "●" : "○"}
                 </span>
                 <span>
-                  <span style={{ fontSize: 14 }}>{AUTONOMY_LABEL[level]}</span>
-                  <span style={{ display: "block", fontSize: 12, color: "var(--crm-taupe)", marginTop: 3 }}>
+                  <span style={{ fontSize: 16 }}>{AUTONOMY_LABEL[level]}</span>
+                  <span style={{ display: "block", fontSize: 14, color: "var(--crm-taupe)", marginTop: 3 }}>
                     {AUTONOMY_BLURB[level]}
                   </span>
                 </span>
               </button>
             ))}
             {agent.autonomy === "autonomous" && (
-              <p style={{ fontSize: 12, color: "#dbb172", margin: 0 }}>
+              <p style={{ fontSize: 14, color: "#dbb172", margin: 0 }}>
                 This agent can now email real people without you reading the draft first.
               </p>
             )}
@@ -189,11 +189,11 @@ export default function AgentSettingsPanel({ agent, onChanged }: {
                 </button>
               ))}
             </div>
-            <div style={{ fontSize: 12, color: "var(--crm-taupe)" }}>
+            <div style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
               Currently: {describeCron(agent.schedule_cron)}
               {agent.next_run_at && ` · next ${new Date(agent.next_run_at).toLocaleString()}`}
             </div>
-            <p style={{ fontSize: 11, color: "var(--crm-taupe)", margin: 0, fontStyle: "italic" }}>
+            <p style={{ fontSize: 13, color: "var(--crm-taupe)", margin: 0, fontStyle: "italic" }}>
               The dispatcher wakes every 15 minutes, so a run starts within 15 minutes of its time.
             </p>
           </div>
@@ -211,8 +211,8 @@ export default function AgentSettingsPanel({ agent, onChanged }: {
                   className="ws__opt" style={{ opacity: c.locked ? 0.7 : 1 }}>
                   <span style={{ color: on ? "#9db8a6" : "var(--crm-taupe)" }}>{on ? "●" : "○"}</span>
                   <span>
-                    <span style={{ fontSize: 13 }}>{c.label}</span>
-                    <span style={{ display: "block", fontSize: 11, color: "var(--crm-taupe)", marginTop: 2 }}>
+                    <span style={{ fontSize: 15 }}>{c.label}</span>
+                    <span style={{ display: "block", fontSize: 13, color: "var(--crm-taupe)", marginTop: 2 }}>
                       {c.blurb}
                     </span>
                   </span>
@@ -237,12 +237,12 @@ export default function AgentSettingsPanel({ agent, onChanged }: {
                   </button>
                 ))}
               </div>
-              <p style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 8, fontStyle: "italic" }}>
+              <p style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 8, fontStyle: "italic" }}>
                 Higher effort means deeper reasoning and more tokens. High suits most work;
                 drop to low for simple sweeps.
               </p>
             </div>
-            <div style={{ fontSize: 12, color: "var(--crm-taupe)" }}>
+            <div style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
               Model: <code>{agent.model}</code>
             </div>
           </div>
@@ -252,14 +252,14 @@ export default function AgentSettingsPanel({ agent, onChanged }: {
         <div className="ws__sec">
           <h2 className="ws__sec-title">Its brief</h2>
           <div className="ws__panel" style={{ padding: 14, display: "grid", gap: 10 }}>
-            <p style={{ fontSize: 12, color: "var(--crm-taupe)", margin: 0 }}>
+            <p style={{ fontSize: 14, color: "var(--crm-taupe)", margin: 0 }}>
               Leave empty to use the built-in brief for this role. Anything here replaces it — the
               shared house rules about tone and how money is counted always still apply.
             </p>
             <textarea className="crm-input" rows={10} value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Override this agent's mission…"
-              style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, lineHeight: 1.6 }} />
+              style={{ fontFamily: "ui-monospace, monospace", fontSize: 14, lineHeight: 1.6 }} />
             <div style={{ display: "flex", gap: 8 }}>
               <button className="crm-btn crm-btn--bronze" disabled={saving}
                 onClick={() => patch({ system_prompt: prompt.trim() || null }, "Brief saved")}>

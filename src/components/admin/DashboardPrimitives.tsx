@@ -40,11 +40,11 @@ export function KpiTile({ label, value, sub, tone, loading, onClick }: {
     <button onClick={onClick} disabled={!onClick}
       style={{ padding: "16px 18px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10,
         textAlign: "left", cursor: onClick ? "pointer" : "default", color: "var(--crm-warm-white)" }}>
-      <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{label}</div>
-      <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 36, lineHeight: 1.1, marginTop: 6, color }}>
+      <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{label}</div>
+      <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 38, lineHeight: 1.1, marginTop: 6, color }}>
         {loading ? "—" : (value ?? 0)}
       </div>
-      {sub && <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 2 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 2 }}>{sub}</div>}
     </button>
   );
 }
@@ -57,12 +57,12 @@ export function RevenueCard({ label, amount, tone, loading, note, onClick }: {
     <div onClick={onClick}
       style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10,
         cursor: onClick ? "pointer" : "default" }}>
-      <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{label}</div>
-      <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 44, lineHeight: 1.1, marginTop: 6, color }}>
+      <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{label}</div>
+      <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 46, lineHeight: 1.1, marginTop: 6, color }}>
         {loading ? "—" : money(amount)}
       </div>
       {/* `note` is how MRR states that it is a run-rate and not collected cash. */}
-      {note && <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 4, fontStyle: "italic" }}>{note}</div>}
+      {note && <div style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 4, fontStyle: "italic" }}>{note}</div>}
     </div>
   );
 }
@@ -73,8 +73,8 @@ export function Section({ title, children, actionLabel, onAction }: {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-        <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{title}</div>
-        {actionLabel && <button onClick={onAction} className="crm-btn crm-btn--ghost" style={{ fontSize: 11 }}>{actionLabel}</button>}
+        <div style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{title}</div>
+        {actionLabel && <button onClick={onAction} className="crm-btn crm-btn--ghost" style={{ fontSize: 13 }}>{actionLabel}</button>}
       </div>
       <div style={{ border: "1px solid var(--crm-border-dark)", borderRadius: 10, overflow: "hidden" }}>{children}</div>
     </div>
@@ -82,7 +82,7 @@ export function Section({ title, children, actionLabel, onAction }: {
 }
 
 export function Empty({ children }: { children: React.ReactNode }) {
-  return <div style={{ padding: "20px 14px", color: "var(--crm-taupe)", fontSize: 13, textAlign: "center" }}>{children}</div>;
+  return <div style={{ padding: "20px 14px", color: "var(--crm-taupe)", fontSize: 15, textAlign: "center" }}>{children}</div>;
 }
 
 /** Goal-vs-actual bar used by launch cards. */
@@ -93,7 +93,7 @@ export function GoalBar({ actual, goal, tone = "#9db8a6" }: { actual: number; go
       <div style={{ height: 4, background: "var(--crm-border-dark)", overflow: "hidden" }}>
         <div style={{ height: "100%", width: `${pct ?? 0}%`, background: tone, transition: "width 200ms" }} />
       </div>
-      <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 4 }}>
+      <div style={{ fontSize: 13, color: "var(--crm-taupe)", marginTop: 4 }}>
         {pct === null ? "no goal set" : `${pct}% of goal`}
       </div>
     </div>

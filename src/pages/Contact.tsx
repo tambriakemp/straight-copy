@@ -111,12 +111,12 @@ const Contact = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 min-h-screen">
           {/* LEFT: Info */}
           <div className="bg-ink px-8 md:px-[52px] md:pr-[72px] pt-[160px] pb-20 flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute -bottom-[60px] -left-5 font-serif text-[220px] font-light text-white/[0.03] pointer-events-none leading-none">
+            <div className="absolute -bottom-[60px] -left-5 font-serif text-[222px] font-light text-white/[0.03] pointer-events-none leading-none">
               HELLO
             </div>
 
             <div>
-              <p className="text-[11px] tracking-[0.35em] uppercase text-stone mb-6 animate-fade-up">
+              <p className="text-[13px] tracking-[0.35em] uppercase text-stone mb-6 animate-fade-up">
                 Get In Touch
               </p>
               <h1 className="font-serif text-[clamp(48px,5vw,80px)] font-light leading-[0.95] text-warm-white mb-10 animate-fade-up animate-fade-up-delay-1">
@@ -124,34 +124,34 @@ const Contact = () => {
                 Your AI<br />
                 <em className="italic text-stone">Architecture.</em>
               </h1>
-              <p className="text-[13px] font-light leading-[1.9] text-taupe max-w-[380px] animate-fade-up animate-fade-up-delay-2">
+              <p className="text-[15px] font-light leading-[1.9] text-taupe max-w-[380px] animate-fade-up animate-fade-up-delay-2">
                 Tell us about your business, what you're spending too much time on, and where you want to be in 90 days. We respond to every inquiry within 24 hours. If you're ready to start, the discovery conversation is the faster path.
               </p>
             </div>
 
             <div className="animate-fade-up animate-fade-up-delay-3">
               <div className="flex flex-col gap-1 py-7 border-t border-white/[0.07]">
-                <span className="text-[11px] tracking-[0.25em] uppercase text-stone">Email</span>
+                <span className="text-[13px] tracking-[0.25em] uppercase text-stone">Email</span>
                 <a href="mailto:hello@cre8visions.com" className="font-serif text-lg font-light italic text-stone no-underline hover:text-warm-white transition-colors duration-300">
                   hello@cre8visions.com
                 </a>
               </div>
               <div className="flex flex-col gap-1 py-7 border-t border-white/[0.07]">
-                <span className="text-[11px] tracking-[0.25em] uppercase text-stone">Response Time</span>
+                <span className="text-[13px] tracking-[0.25em] uppercase text-stone">Response Time</span>
                 <span className="font-serif text-lg font-light italic text-stone">Within 24 hours</span>
               </div>
               <div className="flex flex-col gap-1 py-7 border-t border-white/[0.07]">
-                <span className="text-[11px] tracking-[0.25em] uppercase text-stone">Based In</span>
+                <span className="text-[13px] tracking-[0.25em] uppercase text-stone">Based In</span>
                 <span className="font-serif text-lg font-light italic text-stone">Fort Worth, Texas</span>
               </div>
               <div className="flex gap-6 pt-10 border-t border-white/[0.07]">
-                <a href="https://instagram.com/cre8_visions" target="_blank" rel="noopener noreferrer" className="text-[11px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
+                <a href="https://instagram.com/cre8_visions" target="_blank" rel="noopener noreferrer" className="text-[13px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
                   Instagram
                 </a>
-                <a href="https://www.linkedin.com/company/cre8visions/" target="_blank" rel="noopener noreferrer" className="text-[11px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
+                <a href="https://www.linkedin.com/company/cre8visions/" target="_blank" rel="noopener noreferrer" className="text-[13px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
                   LinkedIn
                 </a>
-                <Link to="/how-it-works" className="text-[11px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
+                <Link to="/how-it-works" className="text-[13px] tracking-[0.25em] uppercase text-stone no-underline hover:text-accent transition-colors duration-300">
                   How It Works
                 </Link>
               </div>
@@ -162,13 +162,13 @@ const Contact = () => {
           <div className="bg-cream px-8 md:px-[52px] md:pl-[72px] pt-[160px] pb-20 flex flex-col justify-center">
             {!submitted ? (
               <>
-                <p className="text-[11px] tracking-[0.35em] uppercase text-charcoal mb-12 animate-fade-up">
+                <p className="text-[13px] tracking-[0.35em] uppercase text-charcoal mb-12 animate-fade-up">
                   Send a Message
                 </p>
 
                 <div className="grid grid-cols-2 gap-8 mb-9 animate-fade-up animate-fade-up-delay-1">
                   <div>
-                    <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">First Name</label>
+                    <label className="block text-[13px] tracking-[0.25em] uppercase text-charcoal mb-2.5">First Name</label>
                     <input
                       type="text"
                       placeholder="Jane"
@@ -178,7 +178,7 @@ const Contact = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Last Name</label>
+                    <label className="block text-[13px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Last Name</label>
                     <input
                       type="text"
                       placeholder="Smith"
@@ -190,7 +190,7 @@ const Contact = () => {
                 </div>
 
                 <div className="mb-9 animate-fade-up animate-fade-up-delay-2">
-                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Email Address</label>
+                  <label className="block text-[13px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Email Address</label>
                   <input
                     type="email"
                     placeholder="jane@yourbrand.com"
@@ -201,7 +201,7 @@ const Contact = () => {
                 </div>
 
                 <div className="mb-9 animate-fade-up animate-fade-up-delay-2">
-                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Brand / Company</label>
+                  <label className="block text-[13px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Brand / Company</label>
                   <input
                     type="text"
                     placeholder="Your Brand Name"
@@ -212,7 +212,7 @@ const Contact = () => {
                 </div>
 
                 <div className="mb-9 animate-fade-up animate-fade-up-delay-3">
-                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">What Brings You Here</label>
+                  <label className="block text-[13px] tracking-[0.25em] uppercase text-charcoal mb-2.5">What Brings You Here</label>
                   <select
                     value={form.service}
                     onChange={(e) => handleChange("service", e.target.value)}
@@ -229,7 +229,7 @@ const Contact = () => {
                 </div>
 
                 <div className="mb-9 animate-fade-up animate-fade-up-delay-3">
-                  <label className="block text-[11px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Tell Us About Your Business</label>
+                  <label className="block text-[13px] tracking-[0.25em] uppercase text-charcoal mb-2.5">Tell Us About Your Business</label>
                   <textarea
                     placeholder="Tell us what you're spending too much time on, what you offer, and what you want to hand off to a system..."
                     value={form.message}
@@ -242,27 +242,27 @@ const Contact = () => {
                   <button
                     onClick={handleSubmit}
                     disabled={loading}
-                    className="font-sans text-[11px] tracking-[0.2em] uppercase text-warm-white bg-ink border-none px-12 py-[18px] whitespace-nowrap flex-shrink-0 hover:bg-accent hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="font-sans text-[13px] tracking-[0.2em] uppercase text-warm-white bg-ink border-none px-12 py-[18px] whitespace-nowrap flex-shrink-0 hover:bg-accent hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? "Sending..." : "Send Inquiry"}
                   </button>
-                  <p className="text-[11px] font-light text-taupe leading-[1.6]">
+                  <p className="text-[13px] font-light text-taupe leading-[1.6]">
                     We'll follow up within 24 hours. If you're ready to move faster, start the discovery conversation directly.
                   </p>
                 </div>
               </>
             ) : (
               <div className="text-center py-[60px] animate-fade-up">
-                <div className="font-serif text-[64px] text-accent mb-6">✦</div>
-                <div className="font-serif text-[40px] font-light text-foreground mb-4">Message Received.</div>
-                <p className="text-[13px] font-light text-taupe leading-[1.8]">
+                <div className="font-serif text-[66px] text-accent mb-6">✦</div>
+                <div className="font-serif text-[42px] font-light text-foreground mb-4">Message Received.</div>
+                <p className="text-[15px] font-light text-taupe leading-[1.8]">
                   Thank you for reaching out. We'll be in touch within 24 hours.<br />
                   In the meantime, see how the process works.
                 </p>
                 <br /><br />
                 <Link
                   to="/how-it-works"
-                  className="text-[11px] tracking-[0.2em] uppercase text-accent no-underline hover:text-foreground transition-colors duration-300"
+                  className="text-[13px] tracking-[0.2em] uppercase text-accent no-underline hover:text-foreground transition-colors duration-300"
                 >
                   See How It Works →
                 </Link>

@@ -238,7 +238,7 @@ function ProposalCard({ clientId, contactName, proposal, onSigned }: {
                     </div>
                   )}
 
-                  <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 14, fontSize: 14, color: "var(--crm-stone)" }}>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 14, fontSize: 16, color: "var(--crm-stone)" }}>
                     <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 4 }} />
                     <span>I have read this proposal and agree to be electronically bound by my signature.</span>
                   </label>

@@ -101,20 +101,20 @@ export default function InvoiceSection({ clientId, projectId }: { clientId: stri
                       }}
                     >
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
+                        <div style={{ fontSize: 13, letterSpacing: "0.18em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
                           Invoice {String(inv.sequence).padStart(2, "0")}
                         </div>
-                        <div style={{ fontSize: 15, color: "hsl(40 20% 97%)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: 17, color: "hsl(40 20% 97%)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {inv.label}
                         </div>
-                        <div style={{ fontSize: 12, color: "hsl(30 8% 62%)", marginTop: 4 }}>
+                        <div style={{ fontSize: 14, color: "hsl(30 8% 62%)", marginTop: 4 }}>
                           {isPaid
                             ? <>Paid {fmtDate(inv.paid_at)}</>
                             : <>Due {fmtDate(inv.due_date)}</>}
                           {" · "}{STATUS_LABEL[inv.status]}
                         </div>
                       </div>
-                      <div style={{ fontSize: 16, fontWeight: 500, color: "hsl(40 20% 97%)", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: 18, fontWeight: 500, color: "hsl(40 20% 97%)", whiteSpace: "nowrap" }}>
                         {fmtMoney(inv.amount_cents, inv.currency)}
                       </div>
                       <div style={{ minWidth: 100, textAlign: "right" }}>
@@ -128,11 +128,11 @@ export default function InvoiceSection({ clientId, projectId }: { clientId: stri
                             Pay →
                           </a>
                         ) : isPaid ? (
-                          <span style={{ fontSize: 12, color: "hsl(140 30% 60%)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                          <span style={{ fontSize: 14, color: "hsl(140 30% 60%)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                             ✓ Paid
                           </span>
                         ) : (
-                          <span style={{ fontSize: 12, color: "hsl(30 8% 50%)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                          <span style={{ fontSize: 14, color: "hsl(30 8% 50%)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                             {isVoid ? "Voided" : "—"}
                           </span>
                         )}

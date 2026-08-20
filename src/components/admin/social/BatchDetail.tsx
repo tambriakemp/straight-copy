@@ -108,7 +108,7 @@ export default function BatchDetail({
       <button onClick={onBack}
         style={{
           display: "inline-flex", alignItems: "center", gap: 6, background: "transparent",
-          border: "none", color: "var(--crm-taupe)", fontSize: 12, cursor: "pointer",
+          border: "none", color: "var(--crm-taupe)", fontSize: 14, cursor: "pointer",
           textTransform: "uppercase", letterSpacing: "0.2em", padding: 0,
         }}>
         <ChevronLeft size={14} /> Back to batches
@@ -116,15 +116,15 @@ export default function BatchDetail({
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
         <div>
-          <h3 style={{ fontSize: 18, color: "var(--crm-warm-white)", marginBottom: 4 }}>
+          <h3 style={{ fontSize: 20, color: "var(--crm-warm-white)", marginBottom: 4 }}>
             {batch.brief || `${batch.single_count + batch.carousel_count} posts`}
           </h3>
-          <div style={{ fontSize: 12, color: "var(--crm-taupe)" }}>
+          <div style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
             Status: {batch.status} · {posts.length} generated · {approvedCount} approved · {draftCount} draft
             {errorCount > 0 ? ` · ${errorCount} error` : ""}
           </div>
           {batch.error && (
-            <div style={{ fontSize: 12, color: "hsl(0 70% 75%)", marginTop: 6 }}>{batch.error}</div>
+            <div style={{ fontSize: 14, color: "hsl(0 70% 75%)", marginTop: 6 }}>{batch.error}</div>
           )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -142,7 +142,7 @@ export default function BatchDetail({
       {isGenerating && (
         <div style={{
           padding: 12, border: "1px solid var(--crm-border-dark)", borderRadius: 8,
-          color: "var(--crm-taupe)", fontSize: 13,
+          color: "var(--crm-taupe)", fontSize: 15,
         }}>
           Generating posts… this typically takes 1–3 minutes. Updates appear live.
         </div>

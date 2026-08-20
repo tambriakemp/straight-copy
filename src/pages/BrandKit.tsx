@@ -476,22 +476,22 @@ export default function BrandKit() {
           <div
             style={{
               fontFamily: "'Cormorant Garamond', serif",
-              fontSize: 16, fontWeight: 300, letterSpacing: "0.25em",
+              fontSize: 18, fontWeight: 300, letterSpacing: "0.25em",
               textTransform: "uppercase", marginBottom: 48,
             }}
           >
             Cre8 <span style={{ color: "#8B7355", fontStyle: "italic" }}>Visions</span>
           </div>
 
-          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 300, lineHeight: 1.2, marginBottom: 12 }}>
+          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 300, lineHeight: 1.2, marginBottom: 12 }}>
             Your Brand<br /><em style={{ color: "#C8C0B4" }}>Kit</em>.
           </h2>
-          <p style={{ fontSize: 12, color: "#A89F94", lineHeight: 1.8, marginBottom: 48 }}>
+          <p style={{ fontSize: 14, color: "#A89F94", lineHeight: 1.8, marginBottom: 48 }}>
             A short, considered conversation to capture the visual foundation of your brand.
           </p>
 
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase", color: "#A89F94", marginBottom: 20 }}>
+            <div style={{ fontSize: 12, letterSpacing: "0.25em", textTransform: "uppercase", color: "#A89F94", marginBottom: 20 }}>
               Your Journey
             </div>
             <div style={{ display: "flex", flexDirection: "column" }}>
@@ -519,10 +519,10 @@ export default function BrandKit() {
                       }}
                     />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, letterSpacing: "0.05em", color: isActive ? "#F5F2EE" : isDone ? "rgba(200,192,180,0.4)" : "#A89F94", transition: "color 0.3s" }}>
+                      <div style={{ fontSize: 14, letterSpacing: "0.05em", color: isActive ? "#F5F2EE" : isDone ? "rgba(200,192,180,0.4)" : "#A89F94", transition: "color 0.3s" }}>
                         {s.name}
                       </div>
-                      <div style={{ fontSize: 11, fontWeight: 300, marginTop: 2, color: isActive ? "#A89F94" : "rgba(168,159,148,0.5)" }}>
+                      <div style={{ fontSize: 13, fontWeight: 300, marginTop: 2, color: isActive ? "#A89F94" : "rgba(168,159,148,0.5)" }}>
                         {s.desc}
                       </div>
                     </div>
@@ -532,7 +532,7 @@ export default function BrandKit() {
             </div>
           </div>
 
-          <div style={{ marginTop: 40, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.05)", fontSize: 11, color: "#A89F94", lineHeight: 1.7 }}>
+          <div style={{ marginTop: 40, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.05)", fontSize: 13, color: "#A89F94", lineHeight: 1.7 }}>
             Your answers shape what your CRE8 team will design. Everything stays private.
           </div>
         </aside>
@@ -543,7 +543,7 @@ export default function BrandKit() {
             <div className="flex flex-col items-center justify-center h-full text-center px-8 md:px-16 py-16">
               <p
                 className="ob-fade"
-                style={{ fontSize: 10, letterSpacing: "0.35em", textTransform: "uppercase", color: "#8B7355", marginBottom: 24 }}
+                style={{ fontSize: 12, letterSpacing: "0.35em", textTransform: "uppercase", color: "#8B7355", marginBottom: 24 }}
               >
                 Brand Kit · Cre8 Visions
               </p>
@@ -551,7 +551,7 @@ export default function BrandKit() {
                 className="ob-fade"
                 style={{
                   fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: "clamp(40px, 5vw, 68px)", fontWeight: 300,
+                  fontSize: "clamp(42px, 5vw, 70px)", fontWeight: 300,
                   lineHeight: 1.05, marginBottom: 24,
                   animationDelay: "0.15s", opacity: 0,
                 }}
@@ -571,7 +571,7 @@ export default function BrandKit() {
               <p
                 className="ob-fade"
                 style={{
-                  fontSize: 15, fontWeight: 300, lineHeight: 1.9,
+                  fontSize: 17, fontWeight: 300, lineHeight: 1.9,
                   color: "#A89F94", maxWidth: 480, marginBottom: 48,
                   animationDelay: "0.3s", opacity: 0,
                 }}
@@ -586,7 +586,7 @@ export default function BrandKit() {
                 className="ob-fade"
                 style={{
                   fontFamily: "'Karla', sans-serif",
-                  fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase",
+                  fontSize: 14, letterSpacing: "0.2em", textTransform: "uppercase",
                   color: "#F5F2EE", background: "#8B7355",
                   border: "none", padding: "18px 52px",
                   cursor: hydrating ? "not-allowed" : "pointer",
@@ -608,7 +608,7 @@ export default function BrandKit() {
               </button>
               <p
                 className="ob-fade"
-                style={{ marginTop: 20, fontSize: 11, color: "#A89F94", animationDelay: "0.6s", opacity: 0 }}
+                style={{ marginTop: 20, fontSize: 13, color: "#A89F94", animationDelay: "0.6s", opacity: 0 }}
               >
                 Takes about 8–12 minutes · No design knowledge needed
               </p>
@@ -626,14 +626,14 @@ export default function BrandKit() {
                       background: "linear-gradient(135deg, #8B7355, #2A2825)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontFamily: "'Cormorant Garamond', serif",
-                      fontSize: 14, fontStyle: "italic", color: "#F5F2EE",
+                      fontSize: 16, fontStyle: "italic", color: "#F5F2EE",
                     }}
                   >
                     CV
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: "#F5F2EE" }}>Cre8 Visions AI</div>
-                    <div style={{ fontSize: 11, color: "#A89F94", display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ fontSize: 15, fontWeight: 500, color: "#F5F2EE" }}>Cre8 Visions AI</div>
+                    <div style={{ fontSize: 13, color: "#A89F94", display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#7BC47F", animation: "ob-pulse 2s infinite" }} />
                       Brand Kit
                     </div>
@@ -641,7 +641,7 @@ export default function BrandKit() {
                 </div>
 
                 <div style={{ flex: 1, maxWidth: 200, margin: "0 24px" }}>
-                  <div style={{ fontSize: 10, color: "#A89F94", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 6, textAlign: "right" }}>
+                  <div style={{ fontSize: 12, color: "#A89F94", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 6, textAlign: "right" }}>
                     {progressPct}% complete
                   </div>
                   <div style={{ height: 2, background: "rgba(255,255,255,0.08)", borderRadius: 2 }}>
@@ -659,8 +659,8 @@ export default function BrandKit() {
                         width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
                         display: "flex", alignItems: "center", justifyContent: "center",
                         ...(m.role === "assistant"
-                          ? { background: "linear-gradient(135deg, #8B7355, #2A2825)", color: "#F5F2EE", fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 13 }
-                          : { background: "rgba(255,255,255,0.08)", color: "#C8C0B4", fontSize: 11, fontWeight: 500, letterSpacing: "0.05em" }),
+                          ? { background: "linear-gradient(135deg, #8B7355, #2A2825)", color: "#F5F2EE", fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic", fontSize: 15 }
+                          : { background: "rgba(255,255,255,0.08)", color: "#C8C0B4", fontSize: 13, fontWeight: 500, letterSpacing: "0.05em" }),
                       }}
                     >
                       {m.role === "assistant" ? "CV" : "YOU"}
@@ -668,7 +668,7 @@ export default function BrandKit() {
                     <div style={{ maxWidth: "68%", display: "flex", flexDirection: "column", gap: 6, alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
                       <div
                         style={{
-                          padding: "16px 20px", fontSize: 14, fontWeight: 300,
+                          padding: "16px 20px", fontSize: 16, fontWeight: 300,
                           lineHeight: 1.75, borderRadius: 2, whiteSpace: "pre-wrap",
                           ...(m.role === "assistant"
                             ? { background: "rgba(255,255,255,0.04)", color: "#F5F2EE", borderLeft: "2px solid #8B7355" }
@@ -709,16 +709,16 @@ export default function BrandKit() {
                       borderRadius: 4,
                     }}
                   >
-                    <div style={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: "#8B7355", marginBottom: 10 }}>
+                    <div style={{ fontSize: 13, letterSpacing: "0.25em", textTransform: "uppercase", color: "#8B7355", marginBottom: 10 }}>
                       Upload your logo
                     </div>
-                    <p style={{ fontSize: 13, color: "#C8C0B4", lineHeight: 1.7, marginBottom: 16 }}>
+                    <p style={{ fontSize: 15, color: "#C8C0B4", lineHeight: 1.7, marginBottom: 16 }}>
                       Drop a PNG, JPG, or SVG of your existing logo. We'll pull the dominant colors so you can confirm your palette.
                     </p>
                     <label
                       style={{
                         display: "inline-flex", alignItems: "center", gap: 10,
-                        fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase",
+                        fontSize: 14, letterSpacing: "0.2em", textTransform: "uppercase",
                         background: logoUploading ? "rgba(139,115,85,0.4)" : "#8B7355",
                         color: "#F5F2EE", padding: "12px 24px",
                         cursor: logoUploading ? "wait" : "pointer",
@@ -755,7 +755,7 @@ export default function BrandKit() {
                       borderRadius: 4,
                     }}
                   >
-                    <div style={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: "#8B7355", marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, letterSpacing: "0.25em", textTransform: "uppercase", color: "#8B7355", marginBottom: 12 }}>
                       Detected from your logo
                     </div>
                     {logoFile.signedUrl && (
@@ -767,7 +767,7 @@ export default function BrandKit() {
                         />
                       </div>
                     )}
-                    <div style={{ display: "flex", gap: 14, marginBottom: 18, fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase" }}>
+                    <div style={{ display: "flex", gap: 14, marginBottom: 18, fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase" }}>
                       <label style={{ color: "#8B7355", cursor: logoUploading ? "wait" : "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>
                         {logoUploading ? "Uploading…" : "Replace logo"}
                         <input
@@ -786,12 +786,12 @@ export default function BrandKit() {
                         type="button"
                         onClick={removeLogo}
                         disabled={logoUploading}
-                        style={{ background: "transparent", border: "none", padding: 0, color: "#A89F94", cursor: logoUploading ? "wait" : "pointer", textDecoration: "underline", textUnderlineOffset: 3, letterSpacing: "0.18em", textTransform: "uppercase", fontSize: 10 }}
+                        style={{ background: "transparent", border: "none", padding: 0, color: "#A89F94", cursor: logoUploading ? "wait" : "pointer", textDecoration: "underline", textUnderlineOffset: 3, letterSpacing: "0.18em", textTransform: "uppercase", fontSize: 12 }}
                       >
                         Remove
                       </button>
                     </div>
-                    <p style={{ fontSize: 13, color: "#C8C0B4", lineHeight: 1.7, marginBottom: 14 }}>
+                    <p style={{ fontSize: 15, color: "#C8C0B4", lineHeight: 1.7, marginBottom: 14 }}>
                       Are these your brand colors?
                     </p>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
@@ -805,7 +805,7 @@ export default function BrandKit() {
                               boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
                             }}
                           />
-                          <span style={{ fontSize: 10, color: "#A89F94", letterSpacing: "0.05em", fontFamily: "monospace" }}>
+                          <span style={{ fontSize: 12, color: "#A89F94", letterSpacing: "0.05em", fontFamily: "monospace" }}>
                             {hex.toUpperCase()}
                           </span>
                         </div>
@@ -817,7 +817,7 @@ export default function BrandKit() {
                         disabled={isStreaming}
                         style={{
                           display: "inline-flex", alignItems: "center", gap: 8,
-                          fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+                          fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase",
                           background: "#8B7355", color: "#F5F2EE",
                           border: "none", padding: "10px 18px",
                           cursor: isStreaming ? "not-allowed" : "pointer",
@@ -831,7 +831,7 @@ export default function BrandKit() {
                         disabled={isStreaming}
                         style={{
                           display: "inline-flex", alignItems: "center", gap: 8,
-                          fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+                          fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase",
                           background: "transparent", color: "#C8C0B4",
                           border: "1px solid rgba(139,115,85,0.4)", padding: "10px 18px",
                           cursor: isStreaming ? "not-allowed" : "pointer",
@@ -850,7 +850,7 @@ export default function BrandKit() {
               {/* Input */}
               <div className="px-6 md:px-10 py-5 pb-7" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                 {submitting && (
-                  <div style={{ fontSize: 11, color: "#8B7355", marginBottom: 12, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+                  <div style={{ fontSize: 13, color: "#8B7355", marginBottom: 12, letterSpacing: "0.2em", textTransform: "uppercase" }}>
                     Submitting your brand kit…
                   </div>
                 )}
@@ -872,7 +872,7 @@ export default function BrandKit() {
                     rows={1}
                     style={{
                       flex: 1, background: "none", border: "none", outline: "none",
-                      fontFamily: "'Karla', sans-serif", fontSize: 14, fontWeight: 300,
+                      fontFamily: "'Karla', sans-serif", fontSize: 16, fontWeight: 300,
                       color: "#F5F2EE", resize: "none", maxHeight: 120, lineHeight: 1.6,
                     }}
                   />
@@ -891,7 +891,7 @@ export default function BrandKit() {
                     <Send size={14} color="#F5F2EE" />
                   </button>
                 </div>
-                <p style={{ fontSize: 11, color: "#A89F94", marginTop: 10 }}>
+                <p style={{ fontSize: 13, color: "#A89F94", marginTop: 10 }}>
                   Press Enter to send · Shift+Enter for new line
                 </p>
 
@@ -904,7 +904,7 @@ export default function BrandKit() {
                         background: "transparent",
                         border: "1px solid rgba(139,115,85,0.5)",
                         color: "#C8C0B4",
-                        fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase",
+                        fontSize: 13, letterSpacing: "0.25em", textTransform: "uppercase",
                         padding: "10px 18px",
                         cursor: isStreaming || submitting ? "not-allowed" : "pointer",
                         opacity: isStreaming || submitting ? 0.4 : 1,
@@ -930,13 +930,13 @@ export default function BrandKit() {
 
           {view === "done" && (
             <div className="ob-scroll overflow-y-auto h-full px-8 md:px-20 py-16">
-              <p style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "#8B7355", marginBottom: 16 }}>
+              <p style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "#8B7355", marginBottom: 16 }}>
                 Brand Kit Submitted
               </p>
-              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 48, fontWeight: 300, lineHeight: 1, marginBottom: 8 }}>
+              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 50, fontWeight: 300, lineHeight: 1, marginBottom: 8 }}>
                 Thank <em style={{ color: "#C8C0B4" }}>you</em>.
               </h1>
-              <p style={{ fontSize: 14, color: "#A89F94", lineHeight: 1.8, marginBottom: 48, marginTop: 16, maxWidth: 560 }}>
+              <p style={{ fontSize: 16, color: "#A89F94", lineHeight: 1.8, marginBottom: 48, marginTop: 16, maxWidth: 560 }}>
                 Your brand kit intake is in our hands
                 {contact?.business_name ? <> for <em>{contact.business_name}</em></> : null}. The
                 CRE8 team has been notified and will be in touch as your kit comes together.
@@ -952,7 +952,7 @@ export default function BrandKit() {
                   style={{
                     display: "inline-block",
                     fontFamily: "'Karla', sans-serif",
-                    fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase",
+                    fontSize: 14, letterSpacing: "0.2em", textTransform: "uppercase",
                     color: "#F5F2EE", background: "#8B7355",
                     padding: "16px 40px", textDecoration: "none",
                   }}

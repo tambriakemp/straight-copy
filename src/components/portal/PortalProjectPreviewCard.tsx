@@ -124,7 +124,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
         {totalItems > 0 && (
           <>
             <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-              <label style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
+              <label style={{ fontSize: 14, letterSpacing: "0.18em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
                 Your name
               </label>
               <input
@@ -138,7 +138,7 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
                   borderRadius: 6,
                   padding: "8px 12px",
                   color: "hsl(40 20% 97%)",
-                  fontSize: 14,
+                  fontSize: 16,
                 }}
               />
             </div>
@@ -219,7 +219,7 @@ type Row = {
 function ApprovalGroup({ title, rows, fmtDate }: { title: string; rows: Row[]; fmtDate: (s: string) => string }) {
   return (
     <div style={{ marginTop: 18 }}>
-      <div style={{ fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: "hsl(30 8% 62%)", marginBottom: 8 }}>
+      <div style={{ fontSize: 14, letterSpacing: "0.18em", textTransform: "uppercase", color: "hsl(30 8% 62%)", marginBottom: 8 }}>
         {title}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -240,14 +240,14 @@ function ApprovalGroup({ title, rows, fmtDate }: { title: string; rows: Row[]; f
             >
               <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 14 }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, color: "hsl(40 20% 97%)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: 16, color: "hsl(40 20% 97%)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.label}
                   </div>
-                  <div style={{ fontSize: 11, color: "hsl(30 8% 55%)", marginTop: 3, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: 13, color: "hsl(30 8% 55%)", marginTop: 3, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.sub}
                   </div>
                   {approved && r.approval && (
-                    <div style={{ fontSize: 11, color: "hsl(140 30% 60%)", marginTop: 4, letterSpacing: "0.06em" }}>
+                    <div style={{ fontSize: 13, color: "hsl(140 30% 60%)", marginTop: 4, letterSpacing: "0.06em" }}>
                       ✓ Approved{r.approval.approver_name ? ` by ${r.approval.approver_name}` : ""} · {fmtDate(r.approval.approved_at)}
                     </div>
                   )}
@@ -330,14 +330,14 @@ function PageCommentThread({ slug, path, fmtDate }: { slug: string; path: string
       {open && (
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
           {loaded && comments.length === 0 && (
-            <div style={{ fontSize: 12, color: "hsl(30 8% 55%)" }}>No comments yet. Be the first to leave feedback.</div>
+            <div style={{ fontSize: 14, color: "hsl(30 8% 55%)" }}>No comments yet. Be the first to leave feedback.</div>
           )}
           {comments.map((c) => (
             <div key={c.id} style={{ background: "hsl(30 6% 10%)", border: "1px solid hsl(30 8% 18%)", borderRadius: 4, padding: "8px 10px" }}>
-              <div style={{ fontSize: 11, color: "hsl(30 8% 62%)", marginBottom: 4, letterSpacing: "0.06em" }}>
+              <div style={{ fontSize: 13, color: "hsl(30 8% 62%)", marginBottom: 4, letterSpacing: "0.06em" }}>
                 {c.author_name || "Anonymous"} · {fmtDate(c.created_at)}
               </div>
-              <div style={{ fontSize: 13, color: "hsl(40 20% 95%)", whiteSpace: "pre-wrap" }}>{c.body}</div>
+              <div style={{ fontSize: 15, color: "hsl(40 20% 95%)", whiteSpace: "pre-wrap" }}>{c.body}</div>
             </div>
           ))}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -345,14 +345,14 @@ function PageCommentThread({ slug, path, fmtDate }: { slug: string; path: string
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name (optional)"
-              style={{ background: "transparent", border: "1px solid hsl(30 8% 22%)", borderRadius: 4, padding: "6px 10px", color: "hsl(40 20% 97%)", fontSize: 13 }}
+              style={{ background: "transparent", border: "1px solid hsl(30 8% 22%)", borderRadius: 4, padding: "6px 10px", color: "hsl(40 20% 97%)", fontSize: 15 }}
             />
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Share feedback for this page…"
               rows={3}
-              style={{ background: "transparent", border: "1px solid hsl(30 8% 22%)", borderRadius: 4, padding: "8px 10px", color: "hsl(40 20% 97%)", fontSize: 13, fontFamily: "inherit", resize: "vertical" }}
+              style={{ background: "transparent", border: "1px solid hsl(30 8% 22%)", borderRadius: 4, padding: "8px 10px", color: "hsl(40 20% 97%)", fontSize: 15, fontFamily: "inherit", resize: "vertical" }}
             />
             <button className="crm-btn crm-btn--bronze crm-btn--sm" onClick={submit} disabled={busy || !body.trim()} style={{ alignSelf: "flex-end" }}>
               {busy ? <Loader2 size={12} className="animate-spin" /> : <><Send size={12} /> Send</>}

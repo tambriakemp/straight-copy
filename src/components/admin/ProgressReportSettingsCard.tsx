@@ -138,7 +138,7 @@ export default function ProgressReportSettingsCard({
   if (loading) {
     return (
       <div style={cardStyle}>
-        <div style={{ color: "var(--crm-taupe)", fontSize: 14 }}>Loading progress report settings…</div>
+        <div style={{ color: "var(--crm-taupe)", fontSize: 16 }}>Loading progress report settings…</div>
       </div>
     );
   }
@@ -149,12 +149,12 @@ export default function ProgressReportSettingsCard({
         <div>
           <div style={eyebrowStyle}>Weekly Progress Report</div>
           <h3 style={titleStyle}>AI Friday Summary</h3>
-          <p style={{ color: "var(--crm-taupe)", fontSize: 14, maxWidth: 560, margin: "8px 0 0" }}>
+          <p style={{ color: "var(--crm-taupe)", fontSize: 16, maxWidth: 560, margin: "8px 0 0" }}>
             Every Friday at 5pm ET, an AI-generated summary of completed tasks is emailed to selected contacts.
             If no tasks were completed that week, no report is sent. You always receive a copy.
           </p>
         </div>
-        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--crm-warm-white)", fontSize: 14, cursor: "pointer" }}>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--crm-warm-white)", fontSize: 16, cursor: "pointer" }}>
           <input
             type="checkbox"
             checked={enabled}
@@ -168,7 +168,7 @@ export default function ProgressReportSettingsCard({
       <div style={{ borderTop: "1px solid var(--crm-border-dark)", paddingTop: 18 }}>
         <div style={{ ...eyebrowStyle, marginBottom: 10 }}>Recipients</div>
         {contacts.length === 0 ? (
-          <div style={{ color: "var(--crm-taupe)", fontSize: 14 }}>
+          <div style={{ color: "var(--crm-taupe)", fontSize: 16 }}>
             No contacts on this client yet. Add contacts on the client page.
           </div>
         ) : (
@@ -194,12 +194,12 @@ export default function ProgressReportSettingsCard({
                     disabled={!c.email}
                     style={{ width: 16, height: 16 }}
                   />
-                  <div style={{ flex: 1, color: "var(--crm-warm-white)", fontSize: 14 }}>
+                  <div style={{ flex: 1, color: "var(--crm-warm-white)", fontSize: 16 }}>
                     <div>
                       {c.name || "(unnamed)"}{" "}
                       <span style={{ color: "var(--crm-taupe)" }}>· {c.email || "no email"}</span>
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 2 }}>
+                    <div style={{ fontSize: 14, color: "var(--crm-taupe)", marginTop: 2 }}>
                       {c.role || "—"}
                       {isPrimary && (
                         <span style={{ marginLeft: 8, textTransform: "uppercase", letterSpacing: "0.2em", color: "var(--crm-accent)" }}>
@@ -213,13 +213,13 @@ export default function ProgressReportSettingsCard({
             })}
           </div>
         )}
-        <div style={{ marginTop: 10, fontSize: 12, color: "var(--crm-taupe)" }}>
+        <div style={{ marginTop: 10, fontSize: 14, color: "var(--crm-taupe)" }}>
           Admin (Tambria) is always copied on every report.
         </div>
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 22, gap: 12, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 12, color: "var(--crm-taupe)" }}>
+        <div style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
           {lastSentAt
             ? `Last sent ${format(new Date(lastSentAt), "MMM d, yyyy · h:mm a")}`
             : "Never sent."}
@@ -272,7 +272,7 @@ export default function ProgressReportSettingsCard({
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--crm-border-dark)" }}>
               <div>
                 <div style={eyebrowStyle}>Preview · {previewData.period ?? "this week"}</div>
-                <div style={{ color: "var(--crm-warm-white)", fontSize: 14, marginTop: 4 }}>
+                <div style={{ color: "var(--crm-warm-white)", fontSize: 16, marginTop: 4 }}>
                   {previewData.subject ?? "Weekly Progress Report"}
                 </div>
               </div>
@@ -280,7 +280,7 @@ export default function ProgressReportSettingsCard({
                 Close
               </button>
             </div>
-            <div style={{ padding: "10px 20px", borderBottom: "1px solid var(--crm-border-dark)", fontSize: 12, color: "var(--crm-taupe)" }}>
+            <div style={{ padding: "10px 20px", borderBottom: "1px solid var(--crm-border-dark)", fontSize: 14, color: "var(--crm-taupe)" }}>
               {previewData.recipients?.length
                 ? <>Would send to: {previewData.recipients.join(", ")}{typeof previewData.taskCount === "number" ? ` · ${previewData.taskCount} completed task(s)` : ""}</>
                 : previewing ? "Generating preview…" : "—"}
@@ -317,7 +317,7 @@ const cardStyle: React.CSSProperties = {
 };
 
 const eyebrowStyle: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: 13,
   letterSpacing: "0.3em",
   textTransform: "uppercase",
   color: "var(--crm-accent)",
@@ -325,7 +325,7 @@ const eyebrowStyle: React.CSSProperties = {
 
 const titleStyle: React.CSSProperties = {
   fontFamily: "var(--crm-font-serif)",
-  fontSize: 24,
+  fontSize: 26,
   color: "var(--crm-warm-white)",
   margin: "6px 0 0",
 };
@@ -335,7 +335,7 @@ const btnPrimary: React.CSSProperties = {
   border: "1px solid var(--crm-accent)",
   color: "var(--crm-warm-white)",
   padding: "10px 18px",
-  fontSize: 13,
+  fontSize: 15,
   letterSpacing: "0.15em",
   textTransform: "uppercase",
   cursor: "pointer",

@@ -67,14 +67,14 @@ const Privacy = () => {
 
         {/* Hero */}
         <section className="pt-[180px] pb-[100px] px-8 md:px-[52px] bg-ink relative overflow-hidden">
-          <div className="absolute -bottom-[60px] -right-5 font-serif text-[220px] font-light text-white/[0.03] pointer-events-none leading-none whitespace-nowrap">
+          <div className="absolute -bottom-[60px] -right-5 font-serif text-[222px] font-light text-white/[0.03] pointer-events-none leading-none whitespace-nowrap">
             PRIVACY
           </div>
-          <p className="text-[10px] tracking-[0.35em] uppercase text-taupe mb-6 animate-fade-up">Legal</p>
+          <p className="text-[12px] tracking-[0.35em] uppercase text-taupe mb-6 animate-fade-up">Legal</p>
           <h1 className="font-serif text-[clamp(48px,6vw,88px)] font-light leading-[0.9] text-warm-white mb-8 animate-fade-up animate-fade-up-delay-1">
             Privacy<br /><em className="italic text-stone">Policy</em>
           </h1>
-          <p className="text-[13px] font-light leading-[1.9] text-taupe max-w-[480px] animate-fade-up animate-fade-up-delay-2">
+          <p className="text-[15px] font-light leading-[1.9] text-taupe max-w-[480px] animate-fade-up animate-fade-up-delay-2">
             Your privacy matters to us. This policy explains how Cre8 Visions collects, uses, and protects your information.
           </p>
         </section>
@@ -83,14 +83,14 @@ const Privacy = () => {
 
         {/* Content */}
         <section className="py-[100px] px-8 md:px-[52px] max-w-[900px]">
-          <p className="text-[10px] tracking-[0.25em] uppercase text-taupe mb-12 reveal">
+          <p className="text-[12px] tracking-[0.25em] uppercase text-taupe mb-12 reveal">
             Effective Date — January 1, 2026
           </p>
 
           {sections.map((s, i) => (
             <div key={s.title} className={`mb-16 reveal ${i % 2 === 0 ? "" : "reveal-delay-1"}`}>
               <div className="flex items-baseline gap-4 mb-6">
-                <span className="font-serif text-[13px] tracking-[0.15em] text-taupe">
+                <span className="font-serif text-[15px] tracking-[0.15em] text-taupe">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <h2 className="font-serif text-[clamp(28px,3vw,40px)] font-light text-foreground leading-[1.1]">
@@ -98,7 +98,7 @@ const Privacy = () => {
                 </h2>
               </div>
               {s.content.map((p, j) => (
-                <p key={j} className="text-[13px] font-light leading-[1.9] text-taupe mb-4 pl-[52px]">
+                <p key={j} className="text-[15px] font-light leading-[1.9] text-taupe mb-4 pl-[52px]">
                   {p}
                 </p>
               ))}
@@ -111,19 +111,19 @@ const Privacy = () => {
           <h2 className="font-serif text-[clamp(36px,4vw,56px)] font-light text-foreground mb-4 reveal">
             Questions about<br />your <em className="italic text-accent">data?</em>
           </h2>
-          <p className="text-[13px] font-light text-taupe mb-12 reveal">
+          <p className="text-[15px] font-light text-taupe mb-12 reveal">
             Reach out anytime — we're happy to help.
           </p>
           <div className="flex justify-center gap-6 items-center reveal">
             <Link
               to="/contact"
-              className="font-sans text-[11px] tracking-[0.2em] uppercase text-warm-white bg-ink px-10 py-4 no-underline inline-block hover:bg-accent hover:-translate-y-0.5 transition-all duration-300"
+              className="font-sans text-[13px] tracking-[0.2em] uppercase text-warm-white bg-ink px-10 py-4 no-underline inline-block hover:bg-accent hover:-translate-y-0.5 transition-all duration-300"
             >
               Contact Us
             </Link>
             <Link
               to="/"
-              className="font-sans text-[11px] tracking-[0.2em] uppercase text-charcoal no-underline flex items-center gap-2.5 hover:gap-4 hover:text-accent transition-all duration-300 after:content-['→']"
+              className="font-sans text-[13px] tracking-[0.2em] uppercase text-charcoal no-underline flex items-center gap-2.5 hover:gap-4 hover:text-accent transition-all duration-300 after:content-['→']"
             >
               Back to Home
             </Link>

@@ -80,7 +80,7 @@ export default function ImageTile({
         {url ? (
           <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         ) : (
-          <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", color: "var(--crm-taupe)", fontSize: 12 }}>
+          <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", color: "var(--crm-taupe)", fontSize: 14 }}>
             Loading…
           </div>
         )}
@@ -102,7 +102,7 @@ export default function ImageTile({
             position: "absolute", top: 8, right: 8,
             padding: "4px 8px", borderRadius: 4,
             background: "rgba(40,150,90,0.85)", color: "#fff",
-            fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase",
+            fontSize: 13, letterSpacing: "0.05em", textTransform: "uppercase",
           }}>
             Sent to CoPost
           </div>
@@ -111,7 +111,7 @@ export default function ImageTile({
           <div style={{
             position: "absolute", top: 8, right: 8,
             padding: "4px 8px", borderRadius: 4,
-            background: "rgba(0,0,0,0.7)", color: "#fff", fontSize: 11,
+            background: "rgba(0,0,0,0.7)", color: "#fff", fontSize: 13,
           }}>
             Sending…
           </div>
@@ -121,19 +121,19 @@ export default function ImageTile({
             position: "absolute", top: 8, right: 8,
             padding: "4px 8px", borderRadius: 4,
             background: "rgba(180,50,50,0.9)", color: "#fff",
-            fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase",
+            fontSize: 13, letterSpacing: "0.05em", textTransform: "uppercase",
           }}>
             Failed
           </div>
         )}
       </div>
 
-      <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8, fontSize: 13, color: "var(--crm-warm-white)" }}>
+      <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8, fontSize: 15, color: "var(--crm-warm-white)" }}>
         {image.caption_status === "pending" && (
           <div style={{ color: "var(--crm-taupe)", fontStyle: "italic" }}>Generating caption…</div>
         )}
         {image.caption_status === "error" && (
-          <div style={{ color: "hsl(0 70% 75%)", fontSize: 12 }}>{image.caption_error ?? "Caption failed"}</div>
+          <div style={{ color: "hsl(0 70% 75%)", fontSize: 14 }}>{image.caption_error ?? "Caption failed"}</div>
         )}
 
         {!editing ? (
@@ -145,7 +145,7 @@ export default function ImageTile({
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {image.hashtags.map((h) => (
                   <span key={h} style={{
-                    fontSize: 11, color: "var(--crm-taupe)",
+                    fontSize: 13, color: "var(--crm-taupe)",
                     background: "rgba(255,255,255,0.05)",
                     padding: "2px 6px", borderRadius: 3,
                   }}>#{h}</span>
@@ -170,7 +170,7 @@ export default function ImageTile({
         )}
 
         {image.copost_status === "error" && (
-          <div style={{ color: "hsl(0 70% 75%)", fontSize: 11 }}>CoPost: {image.copost_error}</div>
+          <div style={{ color: "hsl(0 70% 75%)", fontSize: 13 }}>CoPost: {image.copost_error}</div>
         )}
 
         {!editing && (

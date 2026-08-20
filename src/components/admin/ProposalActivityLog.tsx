@@ -79,11 +79,11 @@ export default function ProposalActivityLog({ proposalId }: { proposalId: string
   }, [proposalId]);
 
   if (loading) {
-    return <p style={{ fontSize: 12, color: "var(--crm-taupe)" }}>Loading activity…</p>;
+    return <p style={{ fontSize: 14, color: "var(--crm-taupe)" }}>Loading activity…</p>;
   }
   if (!events.length) {
     return (
-      <p style={{ fontSize: 12, color: "var(--crm-taupe)" }}>
+      <p style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
         No activity recorded yet.
       </p>
     );

@@ -75,7 +75,7 @@ export default function VentureDetail() {
         <div className="roster__head">
           <div className="roster__title-block">
             <button onClick={() => navigate("/admin/ventures")} className="crm-btn crm-btn--ghost"
-              style={{ fontSize: 11, marginBottom: 10 }}>← All ventures</button>
+              style={{ fontSize: 13, marginBottom: 10 }}>← All ventures</button>
             <div className="roster__eyebrow">{KIND_LABEL[v.kind] ?? v.kind}</div>
             <h1 className="roster__title">{v.name}</h1>
             <hr className="roster__rule" />
@@ -87,7 +87,7 @@ export default function VentureDetail() {
         <div style={{ display: "flex", gap: 4, marginBottom: 24, overflowX: "auto", borderBottom: "1px solid var(--crm-border-dark)" }}>
           {TABS.map((t) => (
             <button key={t} onClick={() => setTab(t)}
-              style={{ padding: "8px 14px", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase",
+              style={{ padding: "8px 14px", fontSize: 13, letterSpacing: "0.2em", textTransform: "uppercase",
                 whiteSpace: "nowrap", background: "transparent", cursor: "pointer",
                 color: tab === t ? "var(--crm-warm-white)" : "var(--crm-taupe)",
                 borderBottom: tab === t ? "2px solid var(--crm-warm-white)" : "2px solid transparent" }}>
@@ -128,8 +128,8 @@ function Overview({ data, metricDefs }: {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
           {metricDefs.filter((m) => !m.money).map((m) => (
             <div key={m.key} style={{ padding: "16px 18px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10 }}>
-              <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{m.label}</div>
-              <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 34, marginTop: 6 }}>
+              <div style={{ fontSize: 12, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{m.label}</div>
+              <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 36, marginTop: 6 }}>
                 {data.levels.latest[m.key] ?? "—"}
               </div>
             </div>
@@ -139,17 +139,17 @@ function Overview({ data, metricDefs }: {
 
       {!!data.cash.monthly.length && (
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
+          <div style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
             Cash by month
           </div>
           <div style={{ background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10, padding: "16px 8px 8px" }}>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={data.cash.monthly.map((m) => ({ month: m.month.slice(5), Cash: m.cents / 100 }))}>
                 <CartesianGrid strokeDasharray="2 4" stroke="var(--crm-border-dark)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false}
+                <XAxis dataKey="month" tick={{ fill: "var(--crm-taupe)", fontSize: 13 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "var(--crm-taupe)", fontSize: 13 }} axisLine={false} tickLine={false}
                   tickFormatter={(x) => `$${x >= 1000 ? `${Math.round(x / 1000)}k` : x}`} />
-                <Tooltip contentStyle={{ background: "var(--crm-ink)", border: "1px solid var(--crm-border-dark)", fontSize: 12 }}
+                <Tooltip contentStyle={{ background: "var(--crm-ink)", border: "1px solid var(--crm-border-dark)", fontSize: 14 }}
                   formatter={(x: number) => [`$${x.toLocaleString()}`, "Cash"]} />
                 <Bar dataKey="Cash" fill="#9db8a6" />
               </BarChart>
@@ -160,17 +160,17 @@ function Overview({ data, metricDefs }: {
 
       {(mrrSeries.length > 1 || memberSeries.length > 1) && (
         <div>
-          <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
+          <div style={{ fontSize: 13, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
             Growth
           </div>
           <div style={{ background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10, padding: "16px 8px 8px" }}>
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={mergeSeries(mrrSeries, memberSeries)}>
                 <CartesianGrid strokeDasharray="2 4" stroke="var(--crm-border-dark)" vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis yAxisId="left" tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: "var(--crm-ink)", border: "1px solid var(--crm-border-dark)", fontSize: 12 }} />
+                <XAxis dataKey="date" tick={{ fill: "var(--crm-taupe)", fontSize: 13 }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="left" tick={{ fill: "var(--crm-taupe)", fontSize: 13 }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fill: "var(--crm-taupe)", fontSize: 13 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: "var(--crm-ink)", border: "1px solid var(--crm-border-dark)", fontSize: 14 }} />
                 <Line yAxisId="left" type="monotone" dataKey="Members" stroke="#dbb172" dot={false} strokeWidth={2} />
                 <Line yAxisId="right" type="monotone" dataKey="MRR" stroke="#9db8a6" dot={false} strokeWidth={2} />
               </LineChart>
@@ -368,7 +368,7 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
       {/* Snapshot entry — the Substack/Skool path. Must be fast or it won't get used. */}
       <Section title="Log today's numbers">
         <div style={{ padding: 16, display: "grid", gap: 12 }}>
-          <p style={{ fontSize: 12, color: "var(--crm-taupe)", margin: 0 }}>
+          <p style={{ fontSize: 14, color: "var(--crm-taupe)", margin: 0 }}>
             Substack and Skool bill members themselves, so these are read off their dashboards.
             Saving the same date twice corrects it rather than adding a duplicate — so nothing here
             is destructive, and a wrong number is always one edit away from right.
@@ -378,10 +378,10 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
           <div style={{ border: "1px dashed var(--crm-border-dark)", padding: 14, display: "grid", gap: 10 }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
               <button className="crm-btn crm-btn--ghost" disabled={parsing}
-                onClick={() => fileRef.current?.click()} style={{ fontSize: 12 }}>
+                onClick={() => fileRef.current?.click()} style={{ fontSize: 14 }}>
                 {parsing ? "Reading…" : "⇪ Upload screenshots"}
               </button>
-              <span style={{ fontSize: 11, color: "var(--crm-taupe)" }}>
+              <span style={{ fontSize: 13, color: "var(--crm-taupe)" }}>
                 Drop in your dashboard screens — up to 4. The numbers are read and saved for today automatically.
               </span>
             </div>
@@ -394,18 +394,18 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
               onChange={(e) => handleFiles(e.target.files)}
             />
             {parseNote && (
-              <div style={{ fontSize: 11, color: "#dbb172", fontStyle: "italic" }}>
+              <div style={{ fontSize: 13, color: "#dbb172", fontStyle: "italic" }}>
                 {parseNote}
               </div>
             )}
             {!!absentKeys.length && (
-              <div style={{ fontSize: 11, color: "var(--crm-taupe)" }}>
+              <div style={{ fontSize: 13, color: "var(--crm-taupe)" }}>
                 Shown as “—” on the dashboard, so left blank rather than zero:{" "}
                 {absentKeys.map((k) => metricDefs.find((m) => m.key === k)?.label ?? k).join(", ")}
               </div>
             )}
             {savedAt && !!parsedKeys.size && (
-              <div style={{ fontSize: 11, color: "#9db8a6" }}>
+              <div style={{ fontSize: 13, color: "#9db8a6" }}>
                 ✓ Saved for {capturedOn}. Highlighted fields came from the screenshots — if any look
                 wrong, correct them and save again; re-saving the same day overwrites rather than
                 duplicating.
@@ -459,7 +459,7 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
       {/* Manual cash entry — payouts, one-off sales outside Stripe. */}
       <Section title="Record a payment">
         <div style={{ padding: 16, display: "grid", gap: 12 }}>
-          <p style={{ fontSize: 12, color: "var(--crm-taupe)", margin: 0 }}>
+          <p style={{ fontSize: 14, color: "var(--crm-taupe)", margin: 0 }}>
             Real money in — a Substack payout, a manual sale. Stripe payments land here automatically.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
@@ -504,12 +504,12 @@ function RevenueTab({ ventureId, ventureKind, data, entries, metricDefs, onSaved
             {entries.slice(0, 30).map((e) => (
               <div key={e.id} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12,
                 padding: "10px 14px", background: "var(--crm-charcoal)",
-                borderBottom: "1px solid var(--crm-border-dark)", fontSize: 13 }}>
+                borderBottom: "1px solid var(--crm-border-dark)", fontSize: 15 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {e.description || e.customer_email || e.kind}
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--crm-taupe)" }}>
+                  <div style={{ fontSize: 13, color: "var(--crm-taupe)" }}>
                     {new Date(e.occurred_at).toLocaleDateString()} · {e.kind} · {e.source}
                   </div>
                 </div>
@@ -562,7 +562,7 @@ function LaunchesTab({ venture, launches, onSaved }: {
     <div style={{ display: "grid", gap: 24 }}>
       <Section title="New launch">
         <div style={{ padding: 16, display: "grid", gap: 12 }}>
-          <p style={{ fontSize: 12, color: "var(--crm-taupe)", margin: 0 }}>
+          <p style={{ fontSize: 14, color: "var(--crm-taupe)", margin: 0 }}>
             Each cohort gets its own checklist, dated off the session date.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
@@ -606,16 +606,16 @@ function LaunchesTab({ venture, launches, onSaved }: {
               <Link key={l.id} to={`/admin/ventures/${venture.id}/launches/${l.id}`}
                 style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, padding: "12px 14px",
                   background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)",
-                  color: "var(--crm-warm-white)", fontSize: 13 }}>
+                  color: "var(--crm-warm-white)", fontSize: 15 }}>
                 <div>
                   <div style={{ fontWeight: 500 }}>{l.name}</div>
-                  <div style={{ fontSize: 11, color: "var(--crm-taupe)" }}>
+                  <div style={{ fontSize: 13, color: "var(--crm-taupe)" }}>
                     {l.status}
                     {l.starts_at ? ` · ${new Date(l.starts_at).toLocaleDateString()}` : ""}
                     {l.goal_revenue_cents ? ` · goal ${money(l.goal_revenue_cents)}` : ""}
                   </div>
                 </div>
-                <div style={{ alignSelf: "center", color: "var(--crm-taupe)", fontSize: 11 }}>→</div>
+                <div style={{ alignSelf: "center", color: "var(--crm-taupe)", fontSize: 13 }}>→</div>
               </Link>
             ))}
           </div>
@@ -643,16 +643,16 @@ function FunnelTab({ data }: { data: Analytics }) {
             <ResponsiveContainer width="100%" height={Math.max(180, rows.length * 46)}>
               <BarChart data={rows} layout="vertical" margin={{ left: 30 }}>
                 <CartesianGrid strokeDasharray="2 4" stroke="var(--crm-border-dark)" horizontal={false} />
-                <XAxis type="number" tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                <XAxis type="number" tick={{ fill: "var(--crm-taupe)", fontSize: 13 }} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="stage" width={130}
-                  tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: "var(--crm-ink)", border: "1px solid var(--crm-border-dark)", fontSize: 12 }} />
+                  tick={{ fill: "var(--crm-taupe)", fontSize: 13 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: "var(--crm-ink)", border: "1px solid var(--crm-border-dark)", fontSize: 14 }} />
                 <Bar dataKey="count" fill="#9db8a6" />
               </BarChart>
             </ResponsiveContainer>
             <div style={{ marginTop: 12, display: "grid", gap: 4 }}>
               {rows.map((r, i) => (
-                <div key={r.stage} style={{ fontSize: 12, color: "var(--crm-taupe)" }}>
+                <div key={r.stage} style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
                   {r.stage}: <span style={{ color: "var(--crm-warm-white)" }}>{r.count}</span>
                   {i > 0 && rows[i - 1].count > 0 && (
                     <span> · {Math.round((r.count / rows[i - 1].count) * 100)}% from previous</span>
@@ -678,16 +678,16 @@ trackFunnel("${venture.public_ingest_key ?? "<ingest key>"}", "${venture.funnel_
     <div style={{ display: "grid", gap: 24 }}>
       <Section title="Funnel tracking">
         <div style={{ padding: 16, display: "grid", gap: 12 }}>
-          <p style={{ fontSize: 12, color: "var(--crm-taupe)", margin: 0 }}>
+          <p style={{ fontSize: 14, color: "var(--crm-taupe)", margin: 0 }}>
             Call this from your landing page and opt-in form to record funnel steps.
             The key below authorises writes for this venture only — treat it as public,
             and rotate it if it ends up somewhere it shouldn't.
           </p>
           <pre style={{ background: "var(--crm-ink)", border: "1px solid var(--crm-border-dark)", padding: 12,
-            fontSize: 11, overflowX: "auto", margin: 0, color: "var(--crm-warm-white)" }}>{snippet}</pre>
+            fontSize: 13, overflowX: "auto", margin: 0, color: "var(--crm-warm-white)" }}>{snippet}</pre>
           <div>
             <label className="crm-label">Stages</label>
-            <div style={{ fontSize: 12, color: "var(--crm-taupe)" }}>
+            <div style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
               {(venture.funnel_stages ?? []).map((s) => `${s.key} (${s.label})`).join("  →  ") || "None configured"}
             </div>
           </div>
@@ -696,7 +696,7 @@ trackFunnel("${venture.public_ingest_key ?? "<ingest key>"}", "${venture.funnel_
 
       {venture.platform === "stripe" && (
         <Section title="Stripe">
-          <div style={{ padding: 16, fontSize: 12, color: "var(--crm-taupe)", display: "grid", gap: 8 }}>
+          <div style={{ padding: 16, fontSize: 14, color: "var(--crm-taupe)", display: "grid", gap: 8 }}>
             <p style={{ margin: 0 }}>
               Point your Stripe webhook at <code>/functions/v1/stripe-webhook</code> and set
               <code> STRIPE_WEBHOOK_SECRET</code>. Payments land as cash automatically.
