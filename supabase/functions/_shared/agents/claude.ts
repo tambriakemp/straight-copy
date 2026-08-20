@@ -91,6 +91,8 @@ export interface RunResult {
 export async function runAgentModel(args: {
   systemPrompt: string;
   contextJson: unknown;
+  /** Standing rules, rendered. Goes after the cached prefix so edits land at once. */
+  rulesBlock?: string;
   model: string;
   effort: string;
   allowedActions: string[];
@@ -118,9 +120,13 @@ export async function runAgentModel(args: {
     messages: [
       {
         role: "user",
-        content: `Here is the current state of the business. Today is ${
-          new Date().toISOString().slice(0, 10)
-        }.\n\n${JSON.stringify(args.contextJson, null, 2)}\n\nDo your run and call the report tool.`,
+        content: [
+          args.rulesBlock,
+          `Here is the current state of the business. Today is ${
+            new Date().toISOString().slice(0, 10)
+          }.\n\n${JSON.stringify(args.contextJson, null, 2)}`,
+          "Do your run and call the report tool.",
+        ].filter(Boolean).join("\n\n"),
       },
     ],
   });

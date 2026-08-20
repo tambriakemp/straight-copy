@@ -17,7 +17,8 @@ export interface ProposalSection {
   purpose: string;
 }
 
-export const PROPOSAL_SECTIONS: ProposalSection[] = [
+/** The build spine: fixed-scope project work, sold once. */
+export const BUILD_SECTIONS: ProposalSection[] = [
   { key: "opportunity", heading: "The Opportunity", purpose: "Why this project exists — the client's world, their situation, the vision." },
   { key: "summary", heading: "Project Summary", purpose: "Investment, timeline and installments up front, what they are receiving, engagement details." },
   { key: "building", heading: "What We're Building", purpose: "The product itself, broken into surfaces and components, ending with the AI layer." },
@@ -33,6 +34,40 @@ export const PROPOSAL_SECTIONS: ProposalSection[] = [
   { key: "terms", heading: "Terms & Conditions", purpose: "Confidentiality, data and privacy, cancellation, communication, liability, governing law." },
   { key: "acceptance", heading: "Acceptance", purpose: "What signing means. The signature blocks themselves are added by the portal." },
 ];
+
+/**
+ * The retainer spine: ongoing marketing work, sold monthly.
+ *
+ * A retainer is a different document from a build, not a build with the
+ * sections renamed. Nobody buying monthly marketing cares about phase sign-off
+ * or IP transfer; they care what lands each month, what it costs, what is
+ * passed through at cost, and what the first ninety days look like. Forcing it
+ * into the build spine produced proposals with four empty sections and no
+ * month-by-month, which is the part clients actually read.
+ */
+export const RETAINER_SECTIONS: ProposalSection[] = [
+  { key: "overview", heading: "Overview", purpose: "What the client is building and why this work matters now. Ends by naming how the tactics compound into one outcome." },
+  { key: "goals", heading: "Goals & Objectives", purpose: "Five or six concrete outcomes this retainer is bought to produce. Each one measurable." },
+  { key: "services", heading: "Scope of Services", purpose: "Every service, numbered. Each opens with its budget and deliverable on one line, then a paragraph on what it is and why it works, then labelled detail rows." },
+  { key: "investment", heading: "Investment Summary", purpose: "The retainer table: service, monthly deliverable, investment. Pass-through costs stated separately, at cost, no markup." },
+  { key: "timeline", heading: "What to Expect — Month by Month", purpose: "Month 1 Foundation, Month 2 Momentum, Month 3 and beyond Growth. What actually happens, not what is promised." },
+  { key: "why_us", heading: "Why Cre8 Visions", purpose: "Why this agency for this work. Short. Ends on working in the client's voice, not the agency's." },
+  { key: "terms", heading: "Terms & Next Steps", purpose: "Retainer amount and billing date, pass-throughs, contract term, notice period, onboarding start, reporting cadence, and how to say yes." },
+];
+
+export type ProposalKind = "build" | "retainer";
+
+export const SPINES: Record<ProposalKind, ProposalSection[]> = {
+  build: BUILD_SECTIONS,
+  retainer: RETAINER_SECTIONS,
+};
+
+export function spineFor(kind: string | undefined | null): ProposalSection[] {
+  return SPINES[(kind as ProposalKind)] ?? BUILD_SECTIONS;
+}
+
+/** Back-compat alias. Existing callers that predate the retainer spine. */
+export const PROPOSAL_SECTIONS = BUILD_SECTIONS;
 
 export const PROJECT_TYPES = [
   "automation_build",
@@ -62,15 +97,64 @@ export const PALETTE = {
  */
 export const PROPOSAL_DNA = `## How a Cre8 Visions proposal is written
 
-**Structure is locked.** Exactly these fourteen sections, in this order, no
-additions, no merges, no reordering:
+### Pick the spine first
 
-${PROPOSAL_SECTIONS.map((s, i) => `${String(i + 1).padStart(2, "0")}. ${s.heading} — ${s.purpose}`).join("\n")}
+Two shapes, and they are different documents — not one document with sections
+renamed.
 
-**Voice.** Editorial, not sales-y. Confident, not humble — "This delivers", never
-"we believe this could potentially deliver". Reasoned, not asserted: every
-strategic claim is followed by why. Warm but not casual — this is a business
-document. No exclamation marks, no emoji.
+**BUILD** — fixed-scope project work, sold once, with a total and installments.
+An app, a site, an automation. Fourteen sections, in this order, no additions,
+no merges, no reordering:
+
+${BUILD_SECTIONS.map((s, i) => `${String(i + 1).padStart(2, "0")}. ${s.heading} — ${s.purpose}`).join("\n")}
+
+**RETAINER** — ongoing work, sold monthly. Marketing, social, content, ads,
+community. Seven sections:
+
+${RETAINER_SECTIONS.map((s, i) => `${String(i + 1).padStart(2, "0")}. ${s.heading} — ${s.purpose}`).join("\n")}
+
+Anything with a monthly figure, a channel list, or a per-month cadence is a
+retainer. Anything with a total and phases is a build. Set \`kind\` accordingly.
+
+### Infer. Do not interrogate.
+
+You will usually be given a rough brain-dump: a price, a list of tactics,
+maybe a budget or two. That is enough. A list like "5 SEO articles a month,
+2 reels + 2 statics a week, 1 email a week, $300 Facebook ads" already tells
+you the services, their cadence, which costs pass through, what the goals are,
+and what months one to three look like. Work all of that out yourself.
+
+What you infer without asking:
+  * Goals, from what the tactics are obviously for.
+  * The service list and its order — highest-leverage first, not the order they
+    were mentioned.
+  * Which line items are pass-through (ad spend, influencer budget, tools the
+    client keeps) versus included in the fee.
+  * The month-by-month: foundation, then momentum, then growth.
+  * Article topics, content mixes, targeting, campaign types, platform splits.
+  * Everything covered by the standing rules you were given.
+
+What you ask about — and only when it is genuinely absent and you cannot
+responsibly guess:
+  * A price nobody has stated.
+  * Which client or project this is for, when it is ambiguous.
+  * A commercial term the standing rules do not already fix.
+
+One round of questions, maximum, and put them as multiple choice with your
+recommended answer first wherever the answer is a choice rather than a number.
+If you can write the proposal with two assumptions and one open question, do
+that: write it, state the assumptions plainly at the top of your reply, and ask
+the one question. A proposal she can edit beats an interview she has to sit
+through.
+
+The one thing never to invent is a price. If no figure has been given anywhere,
+ask — a proposal with a made-up number is worse than no proposal.
+
+### Voice
+
+Editorial, not sales-y. Confident, not humble — "This delivers", never "we
+believe this could potentially deliver". Reasoned, not asserted: every strategic
+claim is followed by why. Warm but not casual. No exclamation marks, no emoji.
 
 Never write: "we're passionate about", "our team of experts", "cutting-edge",
 "world-class", "best-in-class", "innovative", "revolutionary", "game-changing",
@@ -78,51 +162,39 @@ Never write: "we're passionate about", "our team of experts", "cutting-edge",
 Never write a bullet that is a bare fragment — every bullet is a bold label, an
 em-dash, then the explanation.
 
-**Patterns that carry the voice.** Open a section with a one-sentence lead that
-sets the frame. Use "Here's why this matters" to turn into a strategic argument.
-Use named, real comparisons rather than vague appeals to authority. Close a
-strategic argument with a bottom-line box that states the conclusion plainly.
+Specifics are the voice. "Articles compound over time — month 6 traffic will
+dwarf month 1" and "the kind of content that ranks on Google and gets shared in
+Facebook groups at 2am" are the register. Concrete, a little dry, never hyped.
 
-**The thesis is not optional.** Section 04 is the whole reason a client picks
-this engagement over another: the one strategic decision that is contrarian or
-counterintuitive but right, argued rather than asserted. If you do not have one,
-do not invent filler — ask: "What is the one strategic decision here that most
-people would get wrong?"
+Open a section with a one-sentence lead that sets the frame. Use "Here's why
+this matters" to turn into a strategic argument. Use named, real comparisons
+rather than vague appeals to authority. Close a strategic argument with a
+bottom-line box.
 
-**Never guess terms.** Total investment, installment split, timeline, phase
-sequence, warranty period, governing law, AI cost handling and revisions policy
-are commercial commitments. If you have not been told one, ask. A proposal with
-an invented price is worse than no proposal.
+### The thesis (build proposals only)
 
-Defaults you may assume unless told otherwise, and should state you assumed:
-30-day warranty, Georgia governing law, two rounds of design revisions, app
-store submission handled for app builds.
+Section 04 is why a client picks this engagement over another: the one
+strategic decision that is contrarian or counterintuitive but right, argued
+rather than asserted. Derive it from the scope if you can — "web-first with a
+native shell", "rebuild with disciplined scope", "one channel done properly
+before four done badly". Only ask if the scope genuinely does not imply one.
 
-## Section body format
+### Section body format
 
-Each section body is markdown. Use \`##\` for sub-headings inside a section,
-\`-\` for bullets, and \`>\` for a bottom-line box. Do not repeat the section
-heading inside its own body.`;
+Each section body is markdown. Use \`##\` for sub-headings, \`-\` for bullets,
+and \`>\` for a bottom-line box. Do not repeat the section heading inside its
+own body.
 
-/** What the model must be told before it can ask the right questions. */
-export const INTAKE_CHECKLIST = `Before writing, you need all of this. Ask for whatever is missing, in one
-message rather than one question at a time:
+For a retainer's Scope of Services, each service is a \`##\` sub-heading
+numbered in the heading itself, followed by a budget-and-deliverable line in
+bold, a paragraph, then bulleted detail rows with bold labels.
 
-  * Client — name and entity, their title, new or long-standing, and any prior
-    work or existing assets this builds on or replaces.
-  * Project — its name, what it is in one sentence, who uses it, the core scope
-    in plain language, any named tech stack, rough screen count, and whether
-    there is more than one audience.
-  * Terms — total investment, how many installments and how they split, timeline
-    in weeks, the phase sequence, warranty period, governing law, who covers AI
-    running costs, and the revisions policy.
-  * Thesis — the one strategic decision that differentiates this engagement.
-
-If the owner gives you most of it, do not stall on the rest: write the proposal,
-and say plainly at the top of your reply which fields you assumed and which you
-still need before it can go out.`;
+For an Investment Summary, write the table as bulleted rows — service, monthly
+deliverable, investment — then the total, then the pass-through note.`;
 
 export interface ProposalContent {
+  /** Which spine this proposal follows. Defaults to build. */
+  kind?: ProposalKind;
   cover?: {
     client_name?: string;
     project_name?: string;
@@ -130,18 +202,20 @@ export interface ProposalContent {
     prepared_for?: string;
     prepared_by?: string;
     date?: string;
+    /** Retainer covers carry the price on the cover, builds do not. */
+    price_line?: string;
   };
   sections?: Array<{ key?: string; heading?: string; body?: string }>;
 }
 
-/** Which locked sections a draft is missing. Empty means the spine is intact. */
+/** Which sections of this proposal's spine are missing. Empty means intact. */
 export function missingSections(content: ProposalContent): string[] {
   const present = new Set(
     (content.sections ?? [])
       .filter((s) => (s.body ?? "").trim().length > 0)
       .map((s) => s.key),
   );
-  return PROPOSAL_SECTIONS.filter((s) => !present.has(s.key)).map((s) => s.key);
+  return spineFor(content.kind).filter((s) => !present.has(s.key)).map((s) => s.key);
 }
 
 const esc = (s: string) =>
@@ -199,16 +273,17 @@ function mdToHtml(md: string): string {
  */
 export function renderProposalHtml(title: string, content: ProposalContent): string {
   const cover = content.cover ?? {};
+  const spine = spineFor(content.kind);
   const byKey = new Map(
     (content.sections ?? []).map((s) => [s.key ?? "", s]),
   );
 
-  const toc = PROPOSAL_SECTIONS.map(
+  const toc = spine.map(
     (s, i) =>
       `<li><span class="num">${String(i + 1).padStart(2, "0")}</span><span class="h">${esc(s.heading)}</span><span class="p">${esc(s.purpose)}</span></li>`,
   ).join("");
 
-  const body = PROPOSAL_SECTIONS.map((s, i) => {
+  const body = spine.map((s, i) => {
     const found = byKey.get(s.key);
     const text = (found?.body ?? "").trim();
     return `<section class="sec">
@@ -226,6 +301,7 @@ export function renderProposalHtml(title: string, content: ProposalContent): str
 .cv-proposal .wordmark { color: ${PALETTE.bronze}; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; font-weight: 700; margin: 0 0 24px; }
 .cv-proposal h1 { font-family: Georgia, 'Times New Roman', serif; font-size: 44px; line-height: 1.1; color: ${PALETTE.ink}; margin: 0 0 12px; font-weight: 400; }
 .cv-proposal .tagline { font-family: Georgia, serif; font-style: italic; font-size: 19px; color: ${PALETTE.taupe}; margin: 0 0 28px; }
+.cv-proposal .price-line { font-family: Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: ${PALETTE.bronze}; margin: 0 0 24px; }
 .cv-proposal .meta { font-size: 12px; color: ${PALETTE.softGray}; letter-spacing: .04em; }
 .cv-proposal .meta strong { color: ${PALETTE.charcoal}; font-weight: 600; }
 .cv-proposal .toc { list-style: none; padding: 0; margin: 32px 0 0; }
@@ -249,6 +325,7 @@ export function renderProposalHtml(title: string, content: ProposalContent): str
   <p class="wordmark">Cre8 Visions · Proposal · Confidential</p>
   <h1>${esc(cover.project_name || title)}</h1>
   ${cover.tagline ? `<p class="tagline">${esc(cover.tagline)}</p>` : ""}
+  ${cover.price_line ? `<p class="price-line">${esc(cover.price_line)}</p>` : ""}
   <p class="meta">
     ${cover.prepared_for ? `Prepared for <strong>${esc(cover.prepared_for)}</strong>` : ""}
     ${cover.prepared_by ? ` · Prepared by <strong>${esc(cover.prepared_by)}</strong>` : ""}

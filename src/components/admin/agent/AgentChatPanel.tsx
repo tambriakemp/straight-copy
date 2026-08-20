@@ -7,6 +7,8 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import AgentQuestions, { type AgentQuestion } from "@/components/admin/agent/AgentQuestions";
 import { supabase } from "@/integrations/supabase/client";
 import AgentAvatar from "@/components/admin/AgentAvatar";
 import {
@@ -39,7 +41,7 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
       setConversationId(conv.id);
       const { data: msgs } = await supabase.from("agent_messages")
         .select("*").eq("conversation_id", conv.id).order("created_at");
-      setMessages((msgs ?? []) as AgentMessage[]);
+      setMessages((msgs ?? []) as unknown as AgentMessage[]);
     })();
   }, [agent.id, reloadNonce]);
 
@@ -47,18 +49,18 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, sending]);
 
-  const send = async () => {
-    const text = draft.trim();
+  const send = async (override?: string) => {
+    const text = (override ?? draft).trim();
     if (!text || sending) return;
 
     // Show it immediately; the id is replaced when the real row comes back.
     const optimistic: AgentMessage = {
       id: `local-${Date.now()}`, conversation_id: conversationId ?? "",
       role: "user", content: text, run_id: null, action_ids: [],
-      error: null, created_at: new Date().toISOString(),
+      questions: null, error: null, created_at: new Date().toISOString(),
     };
     setMessages((m) => [...m, optimistic]);
-    setDraft("");
+    if (!override) setDraft("");
     setSending(true);
 
     try {
@@ -69,7 +71,7 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
 
       const { data: msgs } = await supabase.from("agent_messages")
         .select("*").eq("conversation_id", reply.conversation_id).order("created_at");
-      setMessages((msgs ?? []) as AgentMessage[]);
+      setMessages((msgs ?? []) as unknown as AgentMessage[]);
 
       if (reply.actions.length) {
         const pending = reply.actions.filter((a) => a.status === "proposed").length;
@@ -81,7 +83,7 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
     } catch (e) {
       // Roll back the optimistic message so the box does not lie about what sent.
       setMessages((m) => m.filter((x) => x.id !== optimistic.id));
-      setDraft(text);
+      if (!override) setDraft(text);
       toast.error(errMsg(e) || "Could not reach the agent");
     } finally {
       setSending(false);
@@ -112,9 +114,33 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
               <div className="ws__msg-body">
                 <div className="ws__msg-bubble">
                   {m.role === "assistant"
-                    ? <ReactMarkdown>{m.content}</ReactMarkdown>
+                    ? (
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          // A proposal's investment table is wider than the
+                          // column; give it its own scroller rather than
+                          // letting it stretch the whole conversation.
+                          table: ({ node: _node, ...props }) => (
+                            <div className="ws__msg-table"><table {...props} /></div>
+                          ),
+                          a: ({ node: _node, ...props }) => (
+                            <a {...props} target="_blank" rel="noreferrer noopener" />
+                          ),
+                        }}
+                      >
+                        {m.content}
+                      </ReactMarkdown>
+                    )
                     : m.content}
                 </div>
+                {m.role === "assistant" && !!(m.questions as AgentQuestion[] | null)?.length && (
+                  <AgentQuestions
+                    questions={m.questions as AgentQuestion[]}
+                    disabled={sending}
+                    onAnswer={(text) => void send(text)}
+                  />
+                )}
                 {!!m.action_ids?.length && (
                   <button className="ws__msg-actions"
                     onClick={() => m.run_id && navigate(`/admin/agents/runs/${m.run_id}`)}>
@@ -153,10 +179,10 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
           }}
           onKeyDown={(e) => {
             // Enter sends; Shift+Enter is a newline.
-            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); }
           }}
         />
-        <button className="ws__composer-send" onClick={send} disabled={sending || !draft.trim()}
+        <button className="ws__composer-send" onClick={() => void send()} disabled={sending || !draft.trim()}
           aria-label="Send">↑</button>
       </div>
     </section>

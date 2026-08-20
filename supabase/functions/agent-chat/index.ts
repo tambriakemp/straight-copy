@@ -10,6 +10,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.71.0";
 import { definitionFor, systemPromptFor } from "../_shared/agents/registry.ts";
 import { executeAndRecord, type ActionRow } from "../_shared/agents/actions.ts";
 import { isOutward, kindDocFor, kindEnumFor } from "../_shared/agents/action-kinds.ts";
+import { loadRules, renderRules, type RulesClient } from "../_shared/agents/rules.ts";
 import { canAutoExecute, type AgentRow } from "../_shared/agents/types.ts";
 
 const corsHeaders = {
@@ -62,6 +63,34 @@ function replyTool(allowedActions: string[]): Anthropic.Tool {
           type: "string",
           description:
             "Your reply, in markdown. Answer what was asked. If you are proposing actions, say briefly what and why rather than restating them.",
+        },
+        questions: {
+          type: "array",
+          description:
+            "Anything you need answered before you can act, as choices rather than open prompts. Leave this out whenever you can proceed on a stated assumption instead — a proposal with two assumptions beats an interview. Never more than three.",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "Short stable key, e.g. 'project_type'." },
+              question: { type: "string", description: "One sentence, ending in a question mark." },
+              multi: { type: "boolean", description: "True when more than one option can be picked." },
+              options: {
+                type: "array",
+                description: "Two to four options, your recommended answer first. Never include an 'other' option — one is added for you.",
+                items: {
+                  type: "object",
+                  properties: {
+                    label: { type: "string", description: "One to five words." },
+                    description: { type: "string", description: "What choosing this means, in a short phrase." },
+                  },
+                  required: ["label"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ["id", "question", "options"],
+            additionalProperties: false,
+          },
         },
         actions: {
           type: "array",
@@ -157,7 +186,11 @@ Deno.serve(async (req) => {
       .limit(HISTORY_TURNS);
     const turns = (history ?? []).reverse();
 
-    const context = await def.gather(sb, agent.config ?? {});
+    const [context, rules] = await Promise.all([
+      def.gather(sb, agent.config ?? {}),
+      loadRules(sb as unknown as RulesClient, agent.id),
+    ]);
+    const rulesBlock = renderRules(rules);
 
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
@@ -179,9 +212,12 @@ Deno.serve(async (req) => {
       messages: [
         {
           role: "user",
-          content: `Current state of what you are responsible for, as of ${
-            new Date().toISOString().slice(0, 10)
-          }:\n\n${JSON.stringify(context, null, 2)}`,
+          content: [
+            rulesBlock,
+            `Current state of what you are responsible for, as of ${
+              new Date().toISOString().slice(0, 10)
+            }:\n\n${JSON.stringify(context, null, 2)}`,
+          ].filter(Boolean).join("\n\n"),
         },
         { role: "assistant", content: "Understood — I have the current picture." },
         ...turns.map((m) => ({
@@ -207,8 +243,18 @@ Deno.serve(async (req) => {
 
     const raw = block.input as {
       message?: string;
+      questions?: Array<{
+        id: string; question: string; multi?: boolean;
+        options: Array<{ label: string; description?: string }>;
+      }>;
       actions?: Array<{ kind: string; title: string; description?: string; payload?: Record<string, unknown> }>;
     };
+    // Cap at three and four: past that a choice list is a form, and a form is
+    // exactly the thing these replace.
+    const questions = (raw.questions ?? [])
+      .filter((q) => q?.id && q?.question && Array.isArray(q.options) && q.options.length >= 2)
+      .slice(0, 3)
+      .map((q) => ({ ...q, options: q.options.slice(0, 4) }));
     const reply = raw.message ?? "";
 
     // --- actions, gated exactly as a scheduled run's would be ---
@@ -265,6 +311,7 @@ Deno.serve(async (req) => {
       content: reply,
       run_id: runId,
       action_ids: actionIds,
+      questions: questions.length ? questions : null,
       input_tokens: response.usage.input_tokens ?? 0,
       output_tokens: response.usage.output_tokens ?? 0,
       cache_read_tokens: response.usage.cache_read_input_tokens ?? 0,
@@ -281,6 +328,7 @@ Deno.serve(async (req) => {
     return json({
       conversation_id: conversationId,
       message: reply,
+      questions,
       actions: actions ?? [],
       run_id: runId,
       usage: {

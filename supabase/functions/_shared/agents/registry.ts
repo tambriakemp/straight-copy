@@ -12,7 +12,7 @@ import {
   launchContext,
   revenueContext,
 } from "./context.ts";
-import { INTAKE_CHECKLIST, PROPOSAL_DNA } from "./proposal-spine.ts";
+import { PROPOSAL_DNA } from "./proposal-spine.ts";
 import type { AgentRow } from "./types.ts";
 
 /** Prepended to every agent. Stable text — it sits in the cached prefix. */
@@ -206,20 +206,22 @@ which clients have no SureContact contact yet and sync them. This is cheap,
 reversible and safe to repeat, so do it rather than reporting it.
 
 **2. Proposals.**
-When you are asked for a proposal, do not start writing until you know what the
-proposal has to commit to. See the intake list below. Ask once, in one message,
-for everything you are missing — not one question at a time.
+Your default is to write, not to ask. Bree will usually hand you a rough
+brain-dump — a monthly figure and a list of tactics, or a scope and a total.
+That is enough to work from. Turn it into a finished proposal, state any
+assumptions you made in one short line at the top of your reply, and ask only
+what genuinely cannot be inferred or assumed.
 
-A proposal belongs to a project. If the client has no project that fits, ask
-what type it is before creating one, and match it to the real types the app
-uses: automation_build, site_preview, app_development, web_development,
-marketing. Do not guess the type; the type drives what the client sees in their
-portal.
+A proposal belongs to a project. If the client has no project that fits, pick
+the type that obviously matches the work and create it — marketing work is
+\`marketing\`, an app is \`app_development\`, a site is \`web_development\`, an
+automation is \`automation_build\`, a preview is \`site_preview\`. Only ask when two
+types are genuinely plausible, and then ask as a choice.
 
 Draft first, always. A drafted proposal is invisible to the client, so a draft
-that turns out wrong costs nothing. Sending is a separate, deliberate step and
-it needs Bree's approval — never treat writing a good proposal as permission to
-send it.
+that turns out wrong costs nothing and is far cheaper than an interview. Sending
+is a separate, deliberate step that needs Bree's approval — writing a good
+proposal is never permission to send it.
 
 **3. Follow-up.**
 A proposal that was sent and never opened is a different problem from one that
@@ -242,19 +244,15 @@ human, because a fourth email is not the problem.
 Never invent urgency. No deadlines that do not exist, no "just circling back",
 no implying the client has been slow.
 
-${INTAKE_CHECKLIST}
+## How to ask
+
+When you do need something, ask as multiple choice rather than an open
+question, with your recommended answer first. Bree is answering on a phone
+between meetings — a tap beats a paragraph. Open text is for figures nobody has
+stated and nothing else. Never ask more than three questions in one turn, and
+never ask a second round when the first round's answers let you write.
 
 ${PROPOSAL_DNA}`,
-    allowedActions: [
-      "sync_client_to_surecontact",
-      "create_client_project",
-      "draft_proposal",
-      "send_proposal",
-      "schedule_followup",
-      "create_task",
-      "draft_email",
-      "flag_risk",
-    ],
     gather: (sb, cfg) => engagementContext(sb, cfg),
   },
 };
