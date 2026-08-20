@@ -199,6 +199,7 @@ export type Database = {
         Row: {
           agent_id: string
           created_at: string
+          created_by: string | null
           id: string
           title: string | null
           updated_at: string
@@ -206,6 +207,7 @@ export type Database = {
         Insert: {
           agent_id: string
           created_at?: string
+          created_by?: string | null
           id?: string
           title?: string | null
           updated_at?: string
@@ -213,6 +215,7 @@ export type Database = {
         Update: {
           agent_id?: string
           created_at?: string
+          created_by?: string | null
           id?: string
           title?: string | null
           updated_at?: string
@@ -230,31 +233,40 @@ export type Database = {
       agent_messages: {
         Row: {
           action_ids: string[]
+          cache_read_tokens: number | null
           content: string
           conversation_id: string
           created_at: string
           error: string | null
           id: string
+          input_tokens: number | null
+          output_tokens: number | null
           role: string
           run_id: string | null
         }
         Insert: {
           action_ids?: string[]
+          cache_read_tokens?: number | null
           content?: string
           conversation_id: string
           created_at?: string
           error?: string | null
           id?: string
+          input_tokens?: number | null
+          output_tokens?: number | null
           role: string
           run_id?: string | null
         }
         Update: {
           action_ids?: string[]
+          cache_read_tokens?: number | null
           content?: string
           conversation_id?: string
           created_at?: string
           error?: string | null
           id?: string
+          input_tokens?: number | null
+          output_tokens?: number | null
           role?: string
           run_id?: string | null
         }
@@ -273,6 +285,7 @@ export type Database = {
           agent_id: string
           cache_read_tokens: number | null
           client_id: string | null
+          conversation_id: string | null
           created_at: string
           detail: Json
           error: string | null
@@ -292,6 +305,7 @@ export type Database = {
           agent_id: string
           cache_read_tokens?: number | null
           client_id?: string | null
+          conversation_id?: string | null
           created_at?: string
           detail?: Json
           error?: string | null
@@ -311,6 +325,7 @@ export type Database = {
           agent_id?: string
           cache_read_tokens?: number | null
           client_id?: string | null
+          conversation_id?: string | null
           created_at?: string
           detail?: Json
           error?: string | null
@@ -339,6 +354,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_runs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "agent_conversations"
             referencedColumns: ["id"]
           },
           {
@@ -870,18 +892,6 @@ export type Database = {
       }
       client_proposals: {
         Row: {
-          content: Json | null
-          content_version: number
-          created_by_agent: string | null
-          first_opened_at: string | null
-          first_viewed_at: string | null
-          followup_count: number
-          last_activity_at: string | null
-          meeting_link: string | null
-          next_followup_at: string | null
-          send_message_id: string | null
-          sent_at: string | null
-          sent_to: string | null
           agency_countersigned_at: string | null
           agency_signer_name: string
           client_audit: Json | null
@@ -893,10 +903,22 @@ export type Database = {
           client_signature_type: string | null
           client_signed_at: string | null
           client_user_agent: string | null
+          content: Json | null
+          content_version: number
           created_at: string
+          created_by_agent: string | null
           description: string | null
+          first_opened_at: string | null
+          first_viewed_at: string | null
+          followup_count: number
           id: string
+          last_activity_at: string | null
+          meeting_link: string | null
+          next_followup_at: string | null
           pdf_generated_at: string | null
+          send_message_id: string | null
+          sent_at: string | null
+          sent_to: string | null
           signed_pdf_path: string | null
           source_pdf_path: string
           status: string
@@ -904,18 +926,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          content?: Json | null
-          content_version?: number
-          created_by_agent?: string | null
-          first_opened_at?: string | null
-          first_viewed_at?: string | null
-          followup_count?: number
-          last_activity_at?: string | null
-          meeting_link?: string | null
-          next_followup_at?: string | null
-          send_message_id?: string | null
-          sent_at?: string | null
-          sent_to?: string | null
           agency_countersigned_at?: string | null
           agency_signer_name?: string
           client_audit?: Json | null
@@ -927,10 +937,22 @@ export type Database = {
           client_signature_type?: string | null
           client_signed_at?: string | null
           client_user_agent?: string | null
+          content?: Json | null
+          content_version?: number
           created_at?: string
+          created_by_agent?: string | null
           description?: string | null
+          first_opened_at?: string | null
+          first_viewed_at?: string | null
+          followup_count?: number
           id?: string
+          last_activity_at?: string | null
+          meeting_link?: string | null
+          next_followup_at?: string | null
           pdf_generated_at?: string | null
+          send_message_id?: string | null
+          sent_at?: string | null
+          sent_to?: string | null
           signed_pdf_path?: string | null
           source_pdf_path: string
           status?: string
@@ -938,18 +960,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          content?: Json | null
-          content_version?: number
-          created_by_agent?: string | null
-          first_opened_at?: string | null
-          first_viewed_at?: string | null
-          followup_count?: number
-          last_activity_at?: string | null
-          meeting_link?: string | null
-          next_followup_at?: string | null
-          send_message_id?: string | null
-          sent_at?: string | null
-          sent_to?: string | null
           agency_countersigned_at?: string | null
           agency_signer_name?: string
           client_audit?: Json | null
@@ -961,17 +971,37 @@ export type Database = {
           client_signature_type?: string | null
           client_signed_at?: string | null
           client_user_agent?: string | null
+          content?: Json | null
+          content_version?: number
           created_at?: string
+          created_by_agent?: string | null
           description?: string | null
+          first_opened_at?: string | null
+          first_viewed_at?: string | null
+          followup_count?: number
           id?: string
+          last_activity_at?: string | null
+          meeting_link?: string | null
+          next_followup_at?: string | null
           pdf_generated_at?: string | null
+          send_message_id?: string | null
+          sent_at?: string | null
+          sent_to?: string | null
           signed_pdf_path?: string | null
           source_pdf_path?: string
           status?: string
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "client_proposals_created_by_agent_fkey"
+            columns: ["created_by_agent"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
@@ -2484,54 +2514,6 @@ export type Database = {
         }
         Relationships: []
       }
-      proposal_events: {
-        Row: {
-          actor: string
-          client_id: string | null
-          created_at: string
-          detail: Json
-          event_type: string
-          id: string
-          occurred_at: string
-          proposal_id: string
-        }
-        Insert: {
-          actor?: string
-          client_id?: string | null
-          created_at?: string
-          detail?: Json
-          event_type: string
-          id?: string
-          occurred_at?: string
-          proposal_id: string
-        }
-        Update: {
-          actor?: string
-          client_id?: string | null
-          created_at?: string
-          detail?: Json
-          event_type?: string
-          id?: string
-          occurred_at?: string
-          proposal_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "proposal_events_proposal_id_fkey"
-            columns: ["proposal_id"]
-            isOneToOne: false
-            referencedRelation: "client_proposals"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "proposal_events_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       project_tasks: {
         Row: {
           acceptance_criteria: Json
@@ -2640,6 +2622,54 @@ export type Database = {
             columns: ["parent_task_id"]
             isOneToOne: false
             referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposal_events: {
+        Row: {
+          actor: string
+          client_id: string | null
+          created_at: string
+          detail: Json
+          event_type: string
+          id: string
+          occurred_at: string
+          proposal_id: string
+        }
+        Insert: {
+          actor?: string
+          client_id?: string | null
+          created_at?: string
+          detail?: Json
+          event_type: string
+          id?: string
+          occurred_at?: string
+          proposal_id: string
+        }
+        Update: {
+          actor?: string
+          client_id?: string | null
+          created_at?: string
+          detail?: Json
+          event_type?: string
+          id?: string
+          occurred_at?: string
+          proposal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_events_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "client_proposals"
             referencedColumns: ["id"]
           },
         ]
@@ -3029,7 +3059,6 @@ export type Database = {
       }
       surecontact_events: {
         Row: {
-          proposal_id: string | null
           campaign_id: string | null
           campaign_name: string | null
           client_id: string | null
@@ -3040,12 +3069,12 @@ export type Database = {
           message_id: string | null
           occurred_at: string | null
           payload: Json
+          proposal_id: string | null
           recipient_email: string | null
           url: string | null
           user_agent: string | null
         }
         Insert: {
-          proposal_id?: string | null
           campaign_id?: string | null
           campaign_name?: string | null
           client_id?: string | null
@@ -3056,12 +3085,12 @@ export type Database = {
           message_id?: string | null
           occurred_at?: string | null
           payload?: Json
+          proposal_id?: string | null
           recipient_email?: string | null
           url?: string | null
           user_agent?: string | null
         }
         Update: {
-          proposal_id?: string | null
           campaign_id?: string | null
           campaign_name?: string | null
           client_id?: string | null
@@ -3072,6 +3101,7 @@ export type Database = {
           message_id?: string | null
           occurred_at?: string | null
           payload?: Json
+          proposal_id?: string | null
           recipient_email?: string | null
           url?: string | null
           user_agent?: string | null
@@ -3082,6 +3112,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "surecontact_events_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "client_proposals"
             referencedColumns: ["id"]
           },
         ]
