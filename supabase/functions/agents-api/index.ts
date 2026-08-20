@@ -16,6 +16,19 @@ const corsHeaders = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+/** Turn a cron into the short badge the dashboard shows. */
+function cadenceOf(cron: string | null): string | null {
+  if (!cron) return null;
+  const f = cron.trim().split(/\s+/);
+  if (f.length !== 5) return null;
+  const [, , dom, mon, dow] = f;
+  if (dom !== "*" || mon !== "*") return null;
+  if (dow === "*") return "daily";
+  if (dow === "1-5") return "weekdays";
+  if (/^\d$/.test(dow)) return "weekly";
+  return null;
+}
+
 const serviceClient = () =>
   createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -62,6 +75,8 @@ const AgentPatch = z.object({
   delivery: z.record(z.string(), z.boolean()).optional(),
   config: z.record(z.string(), z.unknown()).optional(),
   name: z.string().min(1).max(80).optional(),
+  avatar_url: z.string().max(1000).nullish(),
+  accent_color: z.string().max(32).nullish(),
 });
 
 const PushSub = z.object({
@@ -85,6 +100,137 @@ Deno.serve(async (req) => {
   const readBody = async () => { try { return await req.json(); } catch { return null; } };
 
   try {
+    // ==================== /dashboard ====================
+    // Everything the reworked home screen needs, in one round trip: the agent
+    // roster with a short activity log each, four counts, and a merged
+    // "up next" feed.
+    if (parts[0] === "dashboard" && parts.length === 1 && method === "GET") {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const in14 = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10);
+
+      const [
+        agentsRes, runsRes, pendingRes,
+        openTasksRes, overdueRes, activeProjectsRes, needsReviewRes,
+        readyRes, upcomingRes, projectsRes,
+      ] = await Promise.all([
+        sb.from("agents").select("*").order("created_at"),
+        // Recent runs across all agents; sliced per agent below.
+        sb.from("agent_runs").select("id, agent_id, status, headline, started_at")
+          .order("started_at", { ascending: false }).limit(120),
+        sb.from("agent_pending_actions_v").select("agent_id"),
+
+        sb.from("project_tasks").select("id", { count: "exact", head: true }).neq("status", "complete"),
+        sb.from("project_tasks").select("id", { count: "exact", head: true })
+          .neq("status", "complete").lt("due_date", todayIso),
+        sb.from("client_projects").select("id", { count: "exact", head: true }).eq("status", "active"),
+        sb.from("project_tasks").select("id", { count: "exact", head: true }).eq("status", "needs_review"),
+
+        // Up next, source 1: the engineering queue.
+        sb.from("project_tasks")
+          .select("id, name, client_project_id, priority, due_date, order_index")
+          .eq("status", "ready_for_claude").order("order_index").limit(12),
+        // Up next, source 2: anything dated soon, from any project.
+        sb.from("project_tasks")
+          .select("id, name, client_project_id, priority, due_date, status")
+          .neq("status", "complete").not("due_date", "is", null).lte("due_date", in14)
+          .order("due_date", { ascending: true }).limit(20),
+        sb.from("client_projects").select("id, client_id, name"),
+      ]);
+
+      // --- agent cards ---
+      const pendingBy: Record<string, number> = {};
+      for (const p of pendingRes.data ?? []) pendingBy[p.agent_id] = (pendingBy[p.agent_id] ?? 0) + 1;
+
+      const runsBy: Record<string, Array<Record<string, unknown>>> = {};
+      for (const r of runsRes.data ?? []) (runsBy[r.agent_id] ??= []).push(r);
+
+      const agents = (agentsRes.data ?? []).map((a) => ({
+        id: a.id, key: a.key, name: a.name, role: a.role,
+        description: a.description, enabled: a.enabled, autonomy: a.autonomy,
+        avatar_url: a.avatar_url, accent_color: a.accent_color,
+        schedule_cron: a.schedule_cron, last_run_at: a.last_run_at,
+        next_run_at: a.next_run_at ??
+          (a.schedule_cron ? nextRunAfter(a.schedule_cron, new Date())?.toISOString() ?? null : null),
+        pending_actions: pendingBy[a.id] ?? 0,
+        // The small log on each card.
+        recent: (runsBy[a.id] ?? []).slice(0, 4),
+      }));
+
+      // --- up next ---
+      const projMap: Record<string, { name: string | null; client_id: string }> = {};
+      for (const p of projectsRes.data ?? []) projMap[p.id] = { name: p.name, client_id: p.client_id };
+      const clientIds = [...new Set(Object.values(projMap).map((p) => p.client_id))];
+      const clientName: Record<string, string> = {};
+      if (clientIds.length) {
+        const { data: cls } = await sb.from("clients")
+          .select("id, business_name, contact_name").in("id", clientIds);
+        for (const c of cls ?? []) clientName[c.id] = c.business_name || c.contact_name || "Untitled";
+      }
+      const where = (projectId: string | null) => {
+        const p = projectId ? projMap[projectId] : null;
+        if (!p) return null;
+        const client = clientName[p.client_id];
+        return [client, p.name].filter(Boolean).join(" · ") || null;
+      };
+
+      type UpNext = {
+        kind: "queue" | "task" | "agent";
+        id: string; title: string; subtitle: string | null;
+        at: string | null; badge: string | null;
+        agent_id?: string; client_project_id?: string | null;
+      };
+
+      const upNext: UpNext[] = [];
+      const seen = new Set<string>();
+
+      for (const t of readyRes.data ?? []) {
+        seen.add(t.id);
+        upNext.push({
+          kind: "queue", id: t.id, title: t.name, subtitle: where(t.client_project_id),
+          at: t.due_date, badge: "ready", client_project_id: t.client_project_id,
+        });
+      }
+      for (const t of upcomingRes.data ?? []) {
+        // A ready_for_claude task with a due date appears in both queries.
+        if (seen.has(t.id)) continue;
+        seen.add(t.id);
+        upNext.push({
+          kind: "task", id: t.id, title: t.name, subtitle: where(t.client_project_id),
+          at: t.due_date,
+          badge: t.due_date && t.due_date < todayIso ? "overdue" : null,
+          client_project_id: t.client_project_id,
+        });
+      }
+      for (const a of agents) {
+        if (!a.enabled || !a.next_run_at) continue;
+        upNext.push({
+          kind: "agent", id: `agent-${a.id}`, title: `${a.name} — scheduled run`,
+          subtitle: a.role, at: a.next_run_at,
+          badge: cadenceOf(a.schedule_cron), agent_id: a.id,
+        });
+      }
+
+      // Undated work sorts last: it is real, but it is not "next".
+      upNext.sort((x, y) => {
+        if (!x.at && !y.at) return 0;
+        if (!x.at) return 1;
+        if (!y.at) return -1;
+        return x.at.localeCompare(y.at);
+      });
+
+      return json({
+        agents,
+        stats: {
+          open_tasks: openTasksRes.count ?? 0,
+          overdue_tasks: overdueRes.count ?? 0,
+          active_projects: activeProjectsRes.count ?? 0,
+          needs_review: needsReviewRes.count ?? 0,
+        },
+        up_next: upNext.slice(0, 25),
+        total_pending: pendingRes.data?.length ?? 0,
+      });
+    }
+
     // ==================== /agents ====================
     if (parts[0] === "agents" && parts.length === 1 && method === "GET") {
       const [{ data: agents }, { data: pending }, { data: recent }] = await Promise.all([

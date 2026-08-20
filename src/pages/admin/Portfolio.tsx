@@ -1,0 +1,400 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import AdminLayout from "@/components/admin/AdminLayout";
+import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { toast } from "sonner";
+import {
+  KpiTile, RevenueCard, Section, Empty, GoalBar, money, relTime, dueLabel,
+} from "@/components/admin/DashboardPrimitives";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+
+type ActivityEvent = {
+  id: string;
+  occurred_at: string;
+  kind: string;
+  title: string;
+  description: string | null;
+  client_id: string | null;
+  client_project_id: string | null;
+  actor: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
+type UpcomingTask = {
+  id: string;
+  name: string;
+  due_date: string | null;
+  status: string;
+  priority: string | null;
+  client_project_id: string | null;
+  project_name: string | null;
+  client_id: string | null;
+  client_name: string | null;
+  assignee_kind: string;
+};
+
+type StreamRow = {
+  venture_id: string | null;
+  slug: string;
+  name: string;
+  kind: string;
+  brand_color?: string | null;
+  cash_30d_cents: number;
+  mrr_cents: number;
+  members: number | null;
+};
+
+type ActiveLaunch = {
+  id: string;
+  venture_id: string;
+  venture_name: string | null;
+  name: string;
+  status: string;
+  cart_close_at: string | null;
+  starts_at: string | null;
+  goal_revenue_cents: number | null;
+  actual_revenue_cents: number;
+  goal_signups: number | null;
+  actual_signups: number;
+};
+
+type Summary = {
+  kpis: {
+    active_clients: number;
+    active_subscriptions: number;
+    active_projects: number;
+    open_tasks: number;
+    overdue_tasks: number;
+    pending_proposals: number;
+    unpaid_invoices: number;
+  };
+  revenue: { paid_30d_cents: number; outstanding_cents: number };
+  portfolio?: {
+    cash_30d_cents: number;
+    agency_30d_cents: number;
+    ventures_30d_cents: number;
+    recurring_mrr_cents: number;
+    outstanding_cents: number;
+    by_stream: StreamRow[];
+    trend: Array<{ month: string; agency_cents: number; venture_cents: number }>;
+  };
+  active_launches?: ActiveLaunch[];
+  activity: ActivityEvent[];
+  upcoming: UpcomingTask[];
+  recent_clients: Array<{ id: string; business_name: string | null; contact_name: string | null; updated_at: string }>;
+  pending_proposals: Array<{ id: string; title: string; client_id: string; client_name: string | null; created_at: string }>;
+  pending_invoices: Array<{ id: string; label: string; amount_cents: number; client_id: string; client_name: string | null; due_date: string | null }>;
+};
+
+const ACTIVITY_ICON: Record<string, string> = {
+  contract_signed: "✎",
+  proposal_signed: "✎",
+  preview_approved: "✓",
+  invoice_paid: "$",
+  client_created: "+",
+  claude_run_completed: "★",
+  venture_revenue: "$",
+  launch_opened: "◈",
+  launch_completed: "◈",
+  metric_snapshot: "▲",
+  funnel_milestone: "▸",
+  agent_run_completed: "◎",
+};
+
+const ACTIVITY_LABEL: Record<string, string> = {
+  contract_signed: "Contract",
+  proposal_signed: "Proposal",
+  preview_approved: "Approval",
+  invoice_paid: "Payment",
+  client_created: "Client",
+  claude_run_completed: "Claude",
+  venture_revenue: "Venture",
+  launch_opened: "Launch",
+  launch_completed: "Launch",
+  metric_snapshot: "Metrics",
+  funnel_milestone: "Funnel",
+  agent_run_completed: "Agent",
+};
+
+export default function Portfolio() {
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [data, setData] = useState<Summary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-dashboard/summary`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setData(await res.json());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load analytics");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+
+  // Realtime activity updates
+  useEffect(() => {
+    const ch = supabase
+      .channel("dashboard-activity")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity_events" }, (payload) => {
+        setData((d) => d ? { ...d, activity: [payload.new as ActivityEvent, ...d.activity].slice(0, 40) } : d);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
+  const k = data?.kpis;
+  const p = data?.portfolio;
+
+  return (
+    <AdminLayout>
+      <div className="roster">
+        <div className="roster__ghost">DASH</div>
+
+        <div className="roster__head">
+          <div className="roster__title-block">
+            <div className="roster__eyebrow">Command Center</div>
+            <h1 className="roster__title">Portfolio <em>analytics</em></h1>
+            <hr className="roster__rule" />
+            <p className="roster__sub">Every revenue stream in one place — agency clients, live trainings, and communities — plus work in flight and what needs attention next.</p>
+          </div>
+        </div>
+
+        {/* KPI tiles */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
+          <KpiTile label="Active clients" value={k?.active_clients} sub={`${k?.active_subscriptions ?? 0} subscribed`} loading={loading} />
+          <KpiTile label="Active projects" value={k?.active_projects} loading={loading} />
+          <KpiTile label="Open tasks" value={k?.open_tasks} loading={loading} onClick={() => navigate("/admin/tasks")} />
+          <KpiTile label="Overdue" value={k?.overdue_tasks} tone={k && k.overdue_tasks > 0 ? "danger" : undefined} loading={loading} onClick={() => navigate("/admin/tasks")} />
+          <KpiTile label="Pending proposals" value={k?.pending_proposals} loading={loading} />
+          <KpiTile label="Unpaid invoices" value={k?.unpaid_invoices} loading={loading} />
+        </div>
+
+        {/* Revenue.
+            Cash and run-rate are separate tiles on purpose. `recurring_mrr_cents`
+            is a level read from metric_snapshots (Substack/Skool bill their own
+            members); adding it to collected cash would double-count. The note on
+            the MRR card says so out loud. */}
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
+          <RevenueCard
+            label="Cash collected (30d)"
+            amount={p?.cash_30d_cents ?? data?.revenue.paid_30d_cents ?? 0}
+            loading={loading}
+            note={p ? `${money(p.agency_30d_cents)} agency · ${money(p.ventures_30d_cents)} ventures` : undefined}
+          />
+          <RevenueCard label="Ventures (30d)" amount={p?.ventures_30d_cents ?? 0} tone="accent" loading={loading}
+            onClick={() => navigate("/admin/ventures")} />
+          <RevenueCard label="Recurring MRR" amount={p?.recurring_mrr_cents ?? 0} tone="accent" loading={loading}
+            note="run-rate, not cash collected" />
+          <RevenueCard label="Outstanding" amount={data?.revenue.outstanding_cents ?? 0} tone="warn" loading={loading} />
+        </div>
+
+        {/* Revenue by stream */}
+        {!!p?.by_stream?.length && (
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(170px, 1fr))",
+            gap: 12, marginBottom: 24 }}>
+            {p.by_stream.map((row) => (
+              <button
+                key={row.slug}
+                onClick={() => row.venture_id ? navigate(`/admin/ventures/${row.venture_id}`) : navigate("/admin/clients")}
+                style={{ padding: "14px 16px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
+                  textAlign: "left", cursor: "pointer", color: "var(--crm-warm-white)" }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                  {row.name}
+                </div>
+                <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 26, marginTop: 4 }}>
+                  {money(row.cash_30d_cents)}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 2 }}>
+                  {row.mrr_cents ? `${money(row.mrr_cents)}/mo run-rate` : "30d cash"}
+                  {row.members != null ? ` · ${row.members} members` : ""}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 12-month trend, agency vs ventures */}
+        {!!p?.trend?.length && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase",
+              color: "var(--crm-taupe)", marginBottom: 8 }}>
+              Revenue — trailing 12 months
+            </div>
+            <div style={{ background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", padding: "16px 8px 8px" }}>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={p.trend.map((t) => ({
+                  month: t.month.slice(5),
+                  Agency: t.agency_cents / 100,
+                  Ventures: t.venture_cents / 100,
+                }))}>
+                  <CartesianGrid strokeDasharray="2 4" stroke="var(--crm-border-dark)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false}
+                    tickFormatter={(v) => `$${v >= 1000 ? `${Math.round(v / 1000)}k` : v}`} />
+                  <Tooltip
+                    contentStyle={{ background: "var(--crm-ink)", border: "1px solid var(--crm-border-dark)", fontSize: 12 }}
+                    formatter={(v: number) => [`$${v.toLocaleString()}`, ""]} />
+                  <Bar dataKey="Agency" stackId="rev" fill="#8a8378" />
+                  <Bar dataKey="Ventures" stackId="rev" fill="#9db8a6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Active launches */}
+        {!!data?.active_launches?.length && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase",
+              color: "var(--crm-taupe)", marginBottom: 8 }}>
+              Active launches
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+              {data.active_launches.map((l) => (
+                <button key={l.id} onClick={() => navigate(`/admin/ventures/${l.venture_id}/launches/${l.id}`)}
+                  style={{ padding: "14px 16px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
+                    textAlign: "left", cursor: "pointer", color: "var(--crm-warm-white)" }}>
+                  <div style={{ fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                    {l.venture_name} · {l.status}
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 500, marginTop: 4 }}>{l.name}</div>
+                  <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 4 }}>
+                    {money(l.actual_revenue_cents)}
+                    {l.goal_revenue_cents ? ` of ${money(l.goal_revenue_cents)}` : ""}
+                    {" · "}{l.actual_signups}{l.goal_signups ? `/${l.goal_signups}` : ""} signups
+                  </div>
+                  <GoalBar actual={l.actual_revenue_cents} goal={l.goal_revenue_cents} />
+                  {l.cart_close_at && (
+                    <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 6 }}>
+                      Cart closes {new Date(l.cart_close_at).toLocaleDateString()}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Main two-column: left = upcoming + queues + recent. right = activity */}
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.6fr) minmax(280px, 1fr)", gap: 24, alignItems: "start" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
+            <Section title="Upcoming & overdue tasks" actionLabel="View all" onAction={() => navigate("/admin/tasks")}>
+              {loading ? <Empty>Loading…</Empty> : !data?.upcoming.length ? <Empty>Nothing due in the next two weeks.</Empty> : (
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {data.upcoming.map((t) => {
+                    const d = dueLabel(t.due_date);
+                    return (
+                      <button key={t.id} onClick={() => t.client_id && t.client_project_id && navigate(`/admin/clients/${t.client_id}/projects/${t.client_project_id}`)}
+                        style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, padding: "12px 14px", textAlign: "left",
+                          background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", cursor: "pointer" }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
+                          <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 2 }}>
+                            {t.client_name || "—"}{t.project_name ? ` · ${t.project_name}` : ""}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 12, color: d.overdue ? "#e07a5f" : d.soon ? "#dbb172" : "var(--crm-taupe)", textTransform: "uppercase", letterSpacing: "0.15em", alignSelf: "center" }}>
+                          {d.text}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </Section>
+
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 24 }}>
+              <Section title="Pending proposals">
+                {loading ? <Empty>Loading…</Empty> : !data?.pending_proposals.length ? <Empty>None awaiting signature.</Empty> : (
+                  <div>
+                    {data.pending_proposals.map((p) => (
+                      <Link key={p.id} to={`/admin/clients/${p.client_id}`}
+                        style={{ display: "block", padding: "10px 14px", background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", fontSize: 13 }}>
+                        <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                        <div style={{ fontSize: 11, color: "var(--crm-taupe)" }}>{p.client_name}</div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </Section>
+
+              <Section title="Unpaid invoices">
+                {loading ? <Empty>Loading…</Empty> : !data?.pending_invoices.length ? <Empty>All clear.</Empty> : (
+                  <div>
+                    {data.pending_invoices.map((i) => (
+                      <Link key={i.id} to={`/admin/clients/${i.client_id}`}
+                        style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, padding: "10px 14px", background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", fontSize: 13 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{i.label}</div>
+                          <div style={{ fontSize: 11, color: "var(--crm-taupe)" }}>{i.client_name}{i.due_date ? ` · due ${new Date(i.due_date).toLocaleDateString()}` : ""}</div>
+                        </div>
+                        <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 16 }}>{money(i.amount_cents)}</div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </Section>
+            </div>
+
+            <Section title="Recent clients">
+              {loading ? <Empty>Loading…</Empty> : !data?.recent_clients.length ? <Empty>No clients yet.</Empty> : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
+                  {data.recent_clients.map((c) => (
+                    <Link key={c.id} to={`/admin/clients/${c.id}`}
+                      style={{ padding: "12px 14px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", textDecoration: "none" }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.business_name || c.contact_name || "Untitled"}</div>
+                      <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 2 }}>updated {relTime(c.updated_at)}</div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </Section>
+          </div>
+
+          {/* Activity feed */}
+          <div style={{ position: isMobile ? "static" : "sticky", top: 16, alignSelf: "start", minWidth: 0 }}>
+            <Section title="Activity">
+              <div style={{ maxHeight: "calc(100vh - 180px)", overflowY: "auto" }}>
+                {loading ? <Empty>Loading…</Empty> : !data?.activity.length ? <Empty>No activity yet.</Empty> : (
+                  data.activity.map((e) => (
+                    <div key={e.id} style={{ display: "grid", gridTemplateColumns: "28px 1fr", gap: 10, padding: "12px 14px",
+                      background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)" }}>
+                      <div style={{ width: 24, height: 24, borderRadius: "50%", background: "hsl(36 5% 22%)",
+                        display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "var(--crm-warm-white)" }}>
+                        {ACTIVITY_ICON[e.kind] || "•"}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                          {ACTIVITY_LABEL[e.kind] || e.kind} · {relTime(e.occurred_at)}
+                        </div>
+                        <div style={{ fontSize: 13, color: "var(--crm-warm-white)", marginTop: 2 }}>
+                          {e.client_id ? (
+                            <Link to={`/admin/clients/${e.client_id}`} style={{ color: "inherit" }}>{e.title}</Link>
+                          ) : e.title}
+                        </div>
+                        {e.description && (
+                          <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 2 }}>{e.description}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </Section>
+          </div>
+        </div>
+      </div>
+    </AdminLayout>
+  );
+}

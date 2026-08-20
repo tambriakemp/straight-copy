@@ -42,6 +42,8 @@ export interface Agent {
   config: Record<string, unknown>;
   last_run_at: string | null;
   next_run_at: string | null;
+  avatar_url: string | null;
+  accent_color: string | null;
   pending_actions?: number;
   last_run?: { id: string; status: string; headline: string | null; started_at: string } | null;
 }
@@ -174,4 +176,35 @@ export async function unsubscribeFromPush(): Promise<void> {
   if (!sub) return;
   await agentsApi("/push/unsubscribe", { method: "POST", body: { endpoint: sub.endpoint } });
   await sub.unsubscribe();
+}
+
+/**
+ * Upload a portrait for an agent.
+ *
+ * Goes straight to storage from the browser (RLS restricts writes to admins),
+ * then records the public URL on the agent. Keyed by agent id with a cache
+ * buster so replacing a photo shows up immediately rather than serving the old
+ * one from cache.
+ */
+export async function uploadAgentAvatar(agentId: string, file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("That file is not an image");
+  if (file.size > 5 * 1024 * 1024) throw new Error("Image must be under 5MB");
+
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const path = `${agentId}/portrait.${ext}`;
+
+  const { error: upErr } = await supabase.storage
+    .from("agent-avatars")
+    .upload(path, file, { upsert: true, contentType: file.type, cacheControl: "3600" });
+  if (upErr) throw new Error(upErr.message);
+
+  const { data } = supabase.storage.from("agent-avatars").getPublicUrl(path);
+  const url = `${data.publicUrl}?v=${Date.now()}`;
+
+  await agentsApi(`/agents/${agentId}`, { method: "PATCH", body: { avatar_url: url } });
+  return url;
+}
+
+export async function removeAgentAvatar(agentId: string): Promise<void> {
+  await agentsApi(`/agents/${agentId}`, { method: "PATCH", body: { avatar_url: null } });
 }
