@@ -9,7 +9,7 @@
 // The Cre8 Visions palette and typographic hierarchy are reproduced with
 // pdf-lib's standard fonts: Times for the Georgia display faces, Helvetica for
 // the Arial body. Not identical to the docx template, deliberately close.
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import { PROPOSAL_SECTIONS, type ProposalContent } from "./agents/proposal-spine.ts";
 
 const PAGE_W = 612;   // US Letter, 72dpi
