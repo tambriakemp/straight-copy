@@ -1,67 +1,57 @@
-## Mobile-native overhaul — Admin CRM
+# Why Bria keeps "sending" a proposal that never arrives
 
-Make every admin screen feel like a native mobile app: bottom tab bar, bottom-sheet forms, tabbed task board, and a locked viewport (no horizontal swipe/pan).
+## What the conversation actually shows
 
-### 1. Global mobile shell
+I read the whole Bria thread and the rows behind it. The pattern is consistent:
 
-- Add a `MobileShell` wrapper used by `AdminLayout` when `useIsMobile()` is true:
-  - Hide the desktop `topnav` on mobile; show a slim top app bar with page title + contextual action (back arrow on nested routes).
-  - Add a fixed **bottom tab bar** with 5 destinations: Dashboard, Clients, Tasks, Knowledge, Profile. Secondary items (Invites, Tokens/Settings, Previews) move into a "More" sheet reachable from Profile.
-  - Reserve bottom padding equal to tab-bar height so content never sits under it. Respect iOS safe-area (`env(safe-area-inset-bottom)`).
-- **Lock the viewport** (no horizontal drift, no rubber-banding, no accidental swipe-nav):
-  - `index.html` meta viewport: `width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover`.
-  - Global CSS on `html, body`: `overflow-x: hidden; overscroll-behavior: none; touch-action: pan-y; width: 100%; position: relative;`.
-  - Add `overscroll-behavior-x: none` to scrollable containers.
+- Every assistant row in Bria's history has `duration_ms`, `iterations` and `tool_calls` **null**, including the newest one from tonight. Those three columns are written only by the tool-loop path in `agent-chat`. Null on every row means the **deployed `agent-chat` is an older build than the source in this project** — the tool loop, the read tools (`search` / `query` / `get_record`) and the `propose_action` tool are simply not running for her.
+- Bria has proposed exactly **four actions ever**, all `flag_risk`. **No `draft_proposal` has ever been created** — not once, in any turn where she said "Drafted", "Proposing it properly now", or "Here it is".
+- Her 22:41 message tonight says the proposal is "proposed as a draft against Menovia Social Media" and its `action_ids` is empty. Nothing was written. That is the exact thing she apologised for at 05:04 and then did again.
+- One turn at 06:37 is stored `complete` with completely empty content — a blank bubble.
 
-### 2. Navigation
+So the repetition is not personality. On the old build she has no tools: she cannot look anything up, cannot see that last turn produced nothing, and the only way for her to create anything is a payload attached to her final reply — which she keeps forgetting to attach. Each turn she re-derives the same summary from the same static context blob and re-announces the same draft.
 
-- New `MobileTabBar` component (icons + labels, active state matches editorial palette).
-- Nested/detail pages (ClientDetail, ProjectDetail, PreviewDetail, Wiki article) get a top-left back button instead of relying on breadcrumbs.
-- `ProjectTabs` (currently horizontal chip row) becomes a horizontally-scrollable tab strip on mobile with snap and an active underline — still keyboard/tap accessible, no page-level horizontal scroll.
+## Fixes
 
-### 3. Task board (Tasks page + ProjectTasksPanel)
+### 1. Deploy the current `agent-chat` (the main fix)
 
-- Mobile layout = **single-column list per status with tabs**: To do / Doing / Done (+ counts).
-- Task rows: larger tap targets (min 44px), status pill, due-date chip, assignee avatar, swipe-free — status changes via long-press action sheet or a status dropdown in the row.
-- Sticky filter bar under the top app bar (client filter + search) that collapses on scroll.
-- Calendar view: collapse to month grid with day-detail bottom sheet; skip week view on mobile.
+Redeploy `agent-chat` with `_shared/agents/*`. That alone gives Bria the tool loop, the read tools, and `propose_action` — where a `draft_proposal` runs immediately, returns a real proposal id, and the model is told plainly when something was only queued.
 
-### 4. Add/edit task — bottom sheet
+Verify it landed by sending one message and checking that the new assistant row has non-null `duration_ms`, `iterations` and `tool_calls`. A green deploy is not evidence.
 
-- Replace the current dialog with a `BottomSheet` component on mobile (Radix Dialog styled as a sheet, or `vaul`).
-  - Drag handle, dismiss on swipe-down or backdrop tap.
-  - Full-height on keyboard open; fields stacked, large inputs, native date/select controls.
-  - Primary "Save" button pinned to the sheet footer above the keyboard.
-- Reuse the same sheet pattern for other quick-entry dialogs on mobile (new client, new invoice, new proposal, add secret, new batch) — no scope creep in fields, just presentation.
+### 2. Fix the crash waiting in the fallback path
 
-### 5. Per-screen mobile passes (Admin CRM only)
+`agent-chat/index.ts` line 617 reads `startedAt`, but `startedAt` is declared inside the tool-loop branch at line 369. Any agent with `tool_loop` off will throw `ReferenceError` mid-turn and every reply will fail. Hoist it to the top of `runTurn`.
 
-Tighten each admin screen to a single-column, thumb-reachable layout. No new features — layout, spacing, and control ergonomics only:
+### 3. Make "I drafted it" impossible when nothing was drafted
 
-- **Dashboard / AdminDashboard** — stacked KPI cards, horizontal snap for card carousels only where already present.
-- **Clients (roster)** — full-width rows already close; enlarge tap target, move sort into a small chip row, search sticky under top bar.
-- **ClientDetail** — collapse the side meta panel into an accordion above tabs; tab strip becomes the mobile tabs pattern from §2.
-- **ProjectDetail** — same tabs treatment; each tab's inner panels (Invoices, Proposals, Preview, Social, Secrets, Resources, Progress Reports, Automation Subscription, Contract, Portal Actions) reflow to single column with sheet-based edit forms.
-- **Previews / PreviewDetail** — list rows enlarged; detail actions collapse into a bottom action bar.
-- **Wiki** — list rows single column; editor gets a mobile toolbar that sticks above the keyboard; history/users/export pages stack.
-- **Invites, Tokens (Settings), Profile** — stacked forms, full-width inputs, sheet confirmations.
-- **AllTasks** — uses the new task board treatment from §3.
+Add a completion check to the chat turn: if the final reply claims a deliverable (drafted / created / wrote / sent / attached / "here it is") and zero actions were recorded that turn, do not accept the turn. Feed the model one corrective message — "you described work you never performed; either call `propose_action` or say plainly that you have not done it yet" — and let it use its remaining iterations. If it still ends empty-handed, the reply is saved with an explicit note that nothing was written, rather than a confident lie.
 
-### 6. Technical details
+### 4. Show the document in the chat, inline
 
-- Add `vaul` (or build a small Radix-based `Sheet` primitive) for bottom sheets. Prefer `vaul` — small, well-tested, gesture-friendly.
-- New files (approx):
-  - `src/components/admin/mobile/MobileShell.tsx`
-  - `src/components/admin/mobile/MobileTopBar.tsx`
-  - `src/components/admin/mobile/MobileTabBar.tsx`
-  - `src/components/admin/mobile/MobileTabs.tsx` (shared tab strip)
-  - `src/components/ui/bottom-sheet.tsx`
-- Edits: `AdminLayout.tsx` (branch on `useIsMobile`), `index.html` (viewport meta), `src/index.css` (global lock + safe-area vars + mobile utility classes), each admin page file for responsive spacing, `ProjectTasksPanel.tsx` + add-task dialog for tabs/sheet, `ProjectTabs.tsx` for mobile tabs.
-- Keep desktop layouts untouched — every change gated on `useIsMobile()` or Tailwind `md:` breakpoints so nothing regresses on desktop.
-- Preserve the editorial palette, Cormorant/Karla typography, and existing button styling rules from project memory.
+`AgentDeliverable` already renders a card for an executed `draft_proposal` and can pull the signed PDF. Two gaps to close:
 
-### Out of scope
+- Open the PDF in an inline viewer inside the chat panel (expandable preview) instead of only a new-tab download.
+- Show the proposal's text body in the card as a collapsible section, so she can read it without leaving the thread.
 
-- Client Portal, Marketing site, Onboarding (can be a follow-up).
-- Any business-logic / data-model changes.
-- Turning the app into a true Capacitor native app (this is mobile-web only).
+### 5. Give the thread real continuity
+
+Today the replay is plain text plus a bare note like "[1 action proposed]". Improve `describeTurnOutcome` to carry the specifics — action kind, status and the resulting id/name (e.g. "draft_proposal executed → proposal `abc123` on Menovia Social Media"). That is what stops her re-proposing something that already exists, and lets "send me the draft" resolve to a concrete record instead of a fresh invention.
+
+Also raise the replayed window from 24 turns and stop dropping turns whose content is empty but whose actions were real.
+
+### 6. Clean up the poisoned thread
+
+The 06:37 blank assistant row and the failed 04:28 row are still in the history. Backfill them to an explicit "this turn produced nothing" note so the replay is honest, and mark the two orphaned "Drafted" claims so Bria's own history stops telling her the draft exists.
+
+## Technical summary
+
+| File | Change |
+| --- | --- |
+| deploy | `agent-chat` + `_shared/agents/*` (no code change needed for the loop itself) |
+| `supabase/functions/agent-chat/index.ts` | hoist `startedAt`; add the claim-without-action check |
+| `supabase/functions/_shared/agents/history.ts` | richer `describeTurnOutcome`, keep action-bearing empty turns |
+| `src/components/admin/agent/AgentDeliverable.tsx` | inline PDF preview + collapsible proposal body |
+| migration | backfill the blank/failed rows in Bria's thread |
+
+Verification: `npx tsc --noEmit -p tsconfig.app.json`, `npm run test`, then one live message to Bria asking for the Menovia draft — expecting a real `draft_proposal` row and a deliverable card in the thread.
