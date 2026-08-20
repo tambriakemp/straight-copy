@@ -13,6 +13,7 @@ import { isDestructive, isOutward, kindDocFor, kindEnumFor } from "../_shared/ag
 import { loadRules, renderRules, type RulesClient } from "../_shared/agents/rules.ts";
 import { clientDirectory, renderClientIndex } from "../_shared/agents/clients.ts";
 import { describeTurnOutcome, normalizeTurns } from "../_shared/agents/history.ts";
+import { CLAIM_CORRECTION, CLAIM_DISCLAIMER, claimsUnperformedWork } from "../_shared/agents/claims.ts";
 import { runToolLoop } from "../_shared/agents/loop.ts";
 import { pairedStepWriter } from "../_shared/agents/steps.ts";
 import { executeReadTool, readToolDefinitions } from "../_shared/agents/read-tools.ts";
