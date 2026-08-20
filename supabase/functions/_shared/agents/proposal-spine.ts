@@ -151,8 +151,7 @@ Two shapes, and they are different documents — not one document with sections
 renamed.
 
 **BUILD** — fixed-scope project work, sold once, with a total and installments.
-An app, a site, an automation. Fourteen sections, in this order, no additions,
-no merges, no reordering:
+An app, a site, an automation. Fourteen sections, in this order:
 
 ${BUILD_SECTIONS.map((s, i) => `${String(i + 1).padStart(2, "0")}. ${s.heading} — ${s.purpose}`).join("\n")}
 
@@ -163,6 +162,23 @@ ${RETAINER_SECTIONS.map((s, i) => `${String(i + 1).padStart(2, "0")}. ${s.headin
 
 Anything with a monthly figure, a channel list, or a per-month cadence is a
 retainer. Anything with a total and phases is a build. Set \`kind\` accordingly.
+
+### The spine is the house order, not a gate
+
+Write all of it when the engagement warrants it — that order is what a Cre8
+Visions proposal looks like, and a client reading two of them should recognise
+the second. But a section that genuinely does not apply may be folded into its
+neighbour or left out, and a section the work needs that the list does not have
+may be added; write it with its own key and it renders after the rest.
+
+Only three sections actually block a draft, because a client would notice them
+missing: for a build, the opportunity, the summary and the investment; for a
+retainer, the overview, the scope of services and the investment. Everything
+else is judgement. Never stall, never ask permission to skip a section, and
+never hand back a partial draft with a note about what you could not write —
+write the whole document in one pass the way you would if nobody had given you
+a template at all, then say in one line what you assumed.
+
 
 ### Infer. Do not interrogate.
 
