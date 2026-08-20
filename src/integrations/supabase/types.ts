@@ -200,6 +200,7 @@ export type Database = {
           agent_id: string
           cache_read_tokens: number | null
           client_id: string | null
+          conversation_id: string | null
           created_at: string
           detail: Json
           error: string | null
@@ -219,6 +220,7 @@ export type Database = {
           agent_id: string
           cache_read_tokens?: number | null
           client_id?: string | null
+          conversation_id?: string | null
           created_at?: string
           detail?: Json
           error?: string | null
@@ -238,6 +240,7 @@ export type Database = {
           agent_id?: string
           cache_read_tokens?: number | null
           client_id?: string | null
+          conversation_id?: string | null
           created_at?: string
           detail?: Json
           error?: string | null
@@ -3307,6 +3310,91 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      agent_conversations: {
+        Row: {
+          agent_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_conversations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_messages: {
+        Row: {
+          action_ids: string[]
+          cache_read_tokens: number | null
+          content: string
+          conversation_id: string
+          created_at: string
+          error: string | null
+          id: string
+          input_tokens: number | null
+          output_tokens: number | null
+          role: string
+          run_id: string | null
+        }
+        Insert: {
+          action_ids?: string[]
+          cache_read_tokens?: number | null
+          content: string
+          conversation_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          input_tokens?: number | null
+          output_tokens?: number | null
+          role: string
+          run_id?: string | null
+        }
+        Update: {
+          action_ids?: string[]
+          cache_read_tokens?: number | null
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          input_tokens?: number | null
+          output_tokens?: number | null
+          role?: string
+          run_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "agent_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
