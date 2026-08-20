@@ -12,8 +12,7 @@ export interface NavItem {
 export const NAV_GROUPS = ["Workspace", "Business", "Reference", "Account"] as const;
 
 export const NAV: NavItem[] = [
-  { to: "/admin", label: "Dashboard", glyph: "◆", exact: true, group: "Workspace" },
-  { to: "/admin/agents", label: "Agents", glyph: "◎", group: "Workspace" },
+  { to: "/admin", label: "Agents", glyph: "◎", exact: true, group: "Workspace" },
   { to: "/admin/tasks", label: "Tasks", glyph: "✓", group: "Workspace" },
   { to: "/admin/clients", label: "Clients", glyph: "▦", group: "Business" },
   { to: "/admin/ventures", label: "Ventures", glyph: "◈", group: "Business" },

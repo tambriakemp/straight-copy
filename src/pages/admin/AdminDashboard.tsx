@@ -11,6 +11,7 @@ import AgentAvatar from "@/components/admin/AgentAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import {
   agentsApi, errMsg, describeCron, nextRunFromCron, cadenceOf,
+  pushStatus, subscribeToPush, unsubscribeFromPush,
 } from "@/lib/agentsApi";
 
 type RunLine = {
@@ -36,8 +37,14 @@ type UpNextItem = {
   agent_id?: string; client_project_id?: string | null;
 };
 
+type PendingAction = {
+  id: string; run_id: string; agent_id: string; agent_name: string;
+  kind: string; outward: boolean; title: string; created_at: string;
+};
+
 type Payload = {
   agents: AgentCard[];
+  pending: PendingAction[];
   stats: { open_tasks: number; overdue_tasks: number; active_projects: number; needs_review: number };
   up_next: UpNextItem[];
   total_pending: number;
@@ -80,6 +87,7 @@ export default function AdminDashboard() {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<string | null>(null);
+  const [push, setPush] = useState<string>("unsupported");
 
   /**
    * Read straight from the tables.
@@ -104,7 +112,7 @@ export default function AdminDashboard() {
         supabase.from("agent_runs")
           .select("id, agent_id, status, headline, started_at")
           .order("started_at", { ascending: false }).limit(120),
-        supabase.from("agent_pending_actions_v").select("agent_id"),
+        supabase.from("agent_pending_actions_v").select("*").limit(30),
 
         supabase.from("project_tasks").select("id", { count: "exact", head: true })
           .neq("status", "complete"),
@@ -205,6 +213,7 @@ export default function AdminDashboard() {
 
       setData({
         agents,
+        pending: (pendingRes.data ?? []) as PendingAction[],
         stats: {
           open_tasks: openRes.count ?? 0,
           overdue_tasks: overdueRes.count ?? 0,
@@ -221,7 +230,7 @@ export default function AdminDashboard() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); pushStatus().then(setPush); }, []);
 
   const runNow = async (agent: AgentCard) => {
     setRunning(agent.id);
@@ -238,7 +247,23 @@ export default function AdminDashboard() {
     }
   };
 
+  const togglePush = async () => {
+    try {
+      if (push === "subscribed") {
+        await unsubscribeFromPush();
+        toast.success("Notifications off for this device");
+      } else {
+        await subscribeToPush();
+        toast.success("Notifications on for this device");
+      }
+      setPush(await pushStatus());
+    } catch (e) {
+      toast.error(errMsg(e) || "Could not change notification setting");
+    }
+  };
+
   const stats = data?.stats;
+  const pending = data?.pending ?? [];
   const upNext = data?.up_next ?? [];
 
   // Group the feed by day so it reads as a schedule, not a list.
@@ -303,7 +328,9 @@ export default function AdminDashboard() {
               ))}
 
               {/* Grow-your-team card, as in the reference. */}
-              <button className="agent-card agent-card--new" onClick={() => navigate("/admin/agents")}>
+              {/* No create flow yet — agents are seeded by migration. Says so
+                  rather than linking somewhere that does not exist. */}
+              <div className="agent-card agent-card--new" style={{ cursor: "default" }}>
                 <span className="agent-card--new__pill">Grow your team</span>
                 <span className="agent-card--new__row">
                   {["◐", "◓", "◑", "◒", "◐"].map((g, i) => (
@@ -311,9 +338,9 @@ export default function AdminDashboard() {
                   ))}
                 </span>
                 <span className="agent-card--new__copy">
-                  More agents, more handled — give another corner of the business its own owner. →
+                  More agents, more handled — give another corner of the business its own owner.
                 </span>
-              </button>
+              </div>
             </div>
           )}
         </div>
@@ -342,8 +369,38 @@ export default function AdminDashboard() {
             </button>
           </div>
 
+          {!!pending.length && (
+            <div className="dash__upnext">
+              <div className="dash__upnext-head" style={{ color: "#dbb172" }}>
+                Waiting for you — {pending.length}
+              </div>
+              {pending.map((p) => (
+                <button key={p.id} className="upnext__row"
+                  onClick={() => navigate(`/admin/agents/runs/${p.run_id}`)}>
+                  <span className="upnext__time" style={{ color: "#dbb172" }}>▲</span>
+                  <span className="upnext__body">
+                    <span className="upnext__title">{p.title}</span>
+                    <span className="upnext__sub">
+                      {p.agent_name}{p.outward ? " · reaches a person" : ""}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="dash__upnext">
-            <div className="dash__upnext-head">Up next</div>
+            <div className="dash__upnext-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>Up next</span>
+              {push !== "unsupported" && push !== "denied" && (
+                <button onClick={togglePush}
+                  style={{ background: "transparent", border: "none", cursor: "pointer",
+                    fontSize: 9.5, letterSpacing: "0.18em", textTransform: "uppercase",
+                    color: push === "subscribed" ? "#9db8a6" : "var(--crm-taupe)" }}>
+                  {push === "subscribed" ? "◉ Alerts on" : "○ Alerts off"}
+                </button>
+              )}
+            </div>
             {!buckets.length ? (
               <div className="agent-card__empty" style={{ padding: "18px 14px" }}>
                 Nothing scheduled or queued.
