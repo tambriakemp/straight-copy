@@ -286,7 +286,9 @@ export type Database = {
       }
       agents: {
         Row: {
+          accent_color: string | null
           autonomy: string
+          avatar_url: string | null
           config: Json
           created_at: string
           delivery: Json
@@ -306,7 +308,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accent_color?: string | null
           autonomy?: string
+          avatar_url?: string | null
           config?: Json
           created_at?: string
           delivery?: Json
@@ -326,7 +330,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accent_color?: string | null
           autonomy?: string
+          avatar_url?: string | null
           config?: Json
           created_at?: string
           delivery?: Json
