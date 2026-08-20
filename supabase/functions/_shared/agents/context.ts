@@ -236,3 +236,108 @@ export async function clientOpsContext(sb: SupabaseClient, cfg: Record<string, u
     thresholds: { invoice_overdue_days: invoiceOverdueDays, proposal_stale_days: proposalStaleDays },
   };
 }
+
+/**
+ * The engineering queue: what is waiting to be handed to Claude, what came back
+ * for review, and what is quietly rotting.
+ *
+ * Full task descriptions and acceptance criteria are included for queued items
+ * only — judging whether a task is specified well enough is the whole job, and
+ * that cannot be done from a title.
+ */
+export async function developerContext(sb: SupabaseClient, cfg: Record<string, unknown>) {
+  const queueStatus = String(cfg.queue_status ?? "ready_for_claude");
+  const reviewStatus = String(cfg.review_status ?? "needs_review");
+  const staleDays = Number(cfg.stale_after_days ?? 21);
+  const maxDepth = Number(cfg.max_queue_depth ?? 15);
+
+  const [queued, inReview, inProgress, blocked, projects] = await Promise.all([
+    sb.from("project_tasks")
+      .select("id, name, description, acceptance_criteria, client_project_id, priority, size, due_date, blocked_by, tags, url, design_url, created_at, updated_at, epic_id")
+      .eq("status", queueStatus).order("order_index").limit(40),
+    sb.from("project_tasks")
+      .select("id, name, description, client_project_id, priority, updated_at, completed_at")
+      .eq("status", reviewStatus).order("updated_at", { ascending: true }).limit(25),
+    sb.from("project_tasks")
+      .select("id, name, client_project_id, updated_at")
+      .eq("status", "in_progress").limit(25),
+    sb.from("project_tasks")
+      .select("id, name, client_project_id, blocked_by, manual_prereqs")
+      .eq("status", "blocked").limit(25),
+    sb.from("client_projects").select("id, client_id, name, status"),
+  ]);
+
+  const projMap: Record<string, { name: string | null; client_id: string }> = {};
+  for (const p of projects.data ?? []) projMap[p.id] = { name: p.name, client_id: p.client_id };
+
+  const clientIds = [...new Set(Object.values(projMap).map((p) => p.client_id))];
+  const clientName: Record<string, string> = {};
+  if (clientIds.length) {
+    const { data: cls } = await sb.from("clients")
+      .select("id, business_name, contact_name").in("id", clientIds);
+    for (const c of cls ?? []) clientName[c.id] = c.business_name || c.contact_name || "Untitled";
+  }
+
+  const label = (projectId: string | null) => {
+    if (!projectId) return null;
+    const p = projMap[projectId];
+    if (!p) return null;
+    return { project: p.name, client: clientName[p.client_id] ?? null };
+  };
+
+  const ageDays = (iso: string | null) =>
+    iso ? Math.round((Date.now() - new Date(iso).getTime()) / DAY) : null;
+
+  // A task's own id set, so a blocked_by pointing at something already done can
+  // be spotted rather than taken at face value.
+  const openIds = new Set([
+    ...(queued.data ?? []).map((t) => t.id),
+    ...(inProgress.data ?? []).map((t) => t.id),
+    ...(blocked.data ?? []).map((t) => t.id),
+  ]);
+
+  return {
+    thresholds: { stale_after_days: staleDays, healthy_queue_depth: maxDepth },
+    queue_depth: queued.data?.length ?? 0,
+    queue: (queued.data ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      // Truncated: enough to judge specification quality without blowing context.
+      description: (t.description ?? "").slice(0, 1500),
+      description_length: (t.description ?? "").length,
+      acceptance_criteria: t.acceptance_criteria ?? [],
+      acceptance_criteria_count: Array.isArray(t.acceptance_criteria) ? t.acceptance_criteria.length : 0,
+      has_design: !!t.design_url,
+      has_url: !!t.url,
+      priority: t.priority,
+      size: t.size,
+      tags: t.tags ?? [],
+      due_date: t.due_date,
+      age_days: ageDays(t.created_at),
+      days_since_touched: ageDays(t.updated_at),
+      blocked_by: t.blocked_by ?? [],
+      blocked_by_still_open: (t.blocked_by ?? []).filter((id: string) => openIds.has(id)),
+      ...label(t.client_project_id),
+    })),
+    awaiting_review: (inReview.data ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: (t.description ?? "").slice(0, 800),
+      days_waiting: ageDays(t.updated_at),
+      priority: t.priority,
+      ...label(t.client_project_id),
+    })),
+    in_progress: (inProgress.data ?? []).map((t) => ({
+      id: t.id, name: t.name, days_running: ageDays(t.updated_at), ...label(t.client_project_id),
+    })),
+    blocked: (blocked.data ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      blocked_by: t.blocked_by ?? [],
+      // A blocker that is no longer open means this task is probably unblocked.
+      blockers_still_open: (t.blocked_by ?? []).filter((id: string) => openIds.has(id)).length,
+      manual_prereqs: t.manual_prereqs,
+      ...label(t.client_project_id),
+    })),
+  };
+}

@@ -2145,3 +2145,161 @@ html { -webkit-text-size-adjust: 100%; }
   border-radius: 0 0 2px 2px;
 }
 .m-tabbar__item { position: relative; }
+
+/* ============================================================
+   Dashboard — agent roster + side rail
+   Two columns: the team on the left, what needs you on the right.
+   ============================================================ */
+.crm-shell .dash {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 28px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .crm-shell .dash { grid-template-columns: 1fr; }
+}
+
+.crm-shell .dash__agents {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 14px;
+}
+
+/* ---------- agent card ---------- */
+.crm-shell .agent-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--crm-charcoal);
+  border: 1px solid var(--crm-border-dark);
+  color: var(--crm-warm-white);
+  min-height: 208px;
+}
+.crm-shell .agent-card__head {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 16px 12px;
+  background: transparent; border: none; cursor: pointer;
+  text-align: left; color: inherit; width: 100%;
+}
+.crm-shell .agent-card__id { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.crm-shell .agent-card__name {
+  font-family: var(--crm-font-serif); font-size: 22px; font-weight: 300;
+  line-height: 1.1; display: flex; align-items: center; gap: 6px;
+}
+.crm-shell .agent-card__chev { font-size: 15px; color: var(--crm-taupe); }
+.crm-shell .agent-card__role {
+  font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--crm-taupe);
+}
+.crm-shell .agent-card__paused {
+  font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--crm-taupe); border: 1px solid var(--crm-border-dark);
+  padding: 1px 6px; width: fit-content; margin-top: 2px;
+}
+
+/* The small activity log — the thing that makes a card feel alive. */
+.crm-shell .agent-card__log {
+  flex: 1; display: flex; flex-direction: column;
+  border-top: 1px solid var(--crm-border-dark);
+}
+.crm-shell .agent-card__line {
+  display: grid; grid-template-columns: 40px 12px 1fr; gap: 8px; align-items: baseline;
+  padding: 7px 16px; background: transparent; border: none; cursor: pointer;
+  text-align: left; color: inherit; font-size: 12.5px; width: 100%;
+}
+.crm-shell .agent-card__line:hover { background: var(--crm-ink); }
+.crm-shell .agent-card__ago { font-size: 10.5px; color: var(--crm-taupe); }
+.crm-shell .agent-card__dot { font-size: 8px; }
+.crm-shell .agent-card__what {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--crm-warm-white);
+}
+.crm-shell .agent-card__empty {
+  padding: 14px 16px; font-size: 12px; color: var(--crm-taupe); font-style: italic;
+}
+
+.crm-shell .agent-card__foot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px; border-top: 1px solid var(--crm-border-dark);
+  font-size: 10.5px; color: var(--crm-taupe);
+}
+.crm-shell .agent-card__sched { flex: 1; }
+.crm-shell .agent-card__pending { color: #dbb172; }
+.crm-shell .agent-card__run {
+  background: transparent; border: 1px solid var(--crm-border-dark);
+  color: var(--crm-warm-white); font-size: 10.5px; letter-spacing: 0.12em;
+  text-transform: uppercase; padding: 4px 9px; cursor: pointer;
+}
+.crm-shell .agent-card__run:hover:not(:disabled) { background: var(--crm-ink); }
+.crm-shell .agent-card__run:disabled { opacity: 0.5; cursor: default; }
+
+/* ---------- grow your team ---------- */
+.crm-shell .agent-card--new {
+  align-items: center; justify-content: center; gap: 16px;
+  padding: 22px 20px; cursor: pointer; text-align: center;
+  border-style: dashed;
+}
+.crm-shell .agent-card--new:hover { background: var(--crm-ink); }
+.crm-shell .agent-card--new__pill {
+  font-size: 9.5px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--crm-taupe); border: 1px solid var(--crm-border-dark);
+  border-radius: 999px; padding: 4px 12px;
+}
+.crm-shell .agent-card--new__row { display: flex; gap: 8px; align-items: center; }
+.crm-shell .agent-card--new__slot {
+  width: 34px; height: 46px; display: grid; place-items: center;
+  background: var(--crm-ink); border: 1px solid var(--crm-border-dark);
+  color: var(--crm-taupe); font-size: 15px;
+}
+.crm-shell .agent-card--new__copy {
+  font-size: 12px; color: var(--crm-taupe); max-width: 260px; line-height: 1.5;
+}
+
+/* ---------- side rail ---------- */
+.crm-shell .dash__side { display: flex; flex-direction: column; gap: 14px; }
+.crm-shell .dash__stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.crm-shell .stat {
+  display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+  padding: 14px 16px; background: var(--crm-charcoal);
+  border: 1px solid var(--crm-border-dark); cursor: pointer;
+  color: var(--crm-warm-white); text-align: left;
+}
+.crm-shell .stat:hover { background: var(--crm-ink); }
+.crm-shell .stat__label {
+  font-size: 9.5px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--crm-taupe);
+}
+.crm-shell .stat__value {
+  font-family: var(--crm-font-serif); font-size: 32px; line-height: 1; font-weight: 300;
+}
+
+.crm-shell .dash__upnext {
+  background: var(--crm-charcoal); border: 1px solid var(--crm-border-dark);
+}
+.crm-shell .dash__upnext-head {
+  font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--crm-taupe); padding: 14px 16px 10px;
+}
+.crm-shell .upnext__day {
+  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--crm-taupe); padding: 10px 16px 5px;
+  border-top: 1px solid var(--crm-border-dark);
+}
+.crm-shell .upnext__row {
+  display: grid; grid-template-columns: 46px 1fr auto; gap: 10px; align-items: center;
+  width: 100%; padding: 8px 16px; background: transparent; border: none;
+  cursor: pointer; text-align: left; color: var(--crm-warm-white);
+}
+.crm-shell .upnext__row:hover { background: var(--crm-ink); }
+.crm-shell .upnext__time {
+  font-size: 11px; color: var(--crm-taupe); font-variant-numeric: tabular-nums;
+}
+.crm-shell .upnext__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.crm-shell .upnext__title {
+  font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.crm-shell .upnext__sub {
+  font-size: 10.5px; color: var(--crm-taupe);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.crm-shell .upnext__badge {
+  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+  border: 1px solid; border-radius: 999px; padding: 2px 7px;
+}

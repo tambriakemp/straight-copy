@@ -27,6 +27,7 @@ const ResetPassword = lazy(() => import("./pages/admin/ResetPassword.tsx"));
 const Profile = lazy(() => import("./pages/admin/Profile.tsx"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard.tsx"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard.tsx"));
+const Portfolio = lazy(() => import("./pages/admin/Portfolio.tsx"));
 const ClientDetail = lazy(() => import("./pages/admin/ClientDetail.tsx"));
 const Ventures = lazy(() => import("./pages/admin/Ventures.tsx"));
 const VentureDetail = lazy(() => import("./pages/admin/VentureDetail.tsx"));
@@ -88,6 +89,7 @@ const App = () => (
             <Route path="/admin/ventures" element={<RequireAdmin><Ventures /></RequireAdmin>} />
             <Route path="/admin/ventures/:id" element={<RequireAdmin><VentureDetail /></RequireAdmin>} />
             <Route path="/admin/ventures/:id/launches/:launchId" element={<RequireAdmin><LaunchDetail /></RequireAdmin>} />
+            <Route path="/admin/portfolio" element={<RequireAdmin><Portfolio /></RequireAdmin>} />
             <Route path="/admin/agents" element={<RequireAdmin><Agents /></RequireAdmin>} />
             <Route path="/admin/agents/runs/:runId" element={<RequireAdmin><AgentRunDetail /></RequireAdmin>} />
             <Route path="/admin/agents/:id" element={<RequireAdmin><AgentDetail /></RequireAdmin>} />

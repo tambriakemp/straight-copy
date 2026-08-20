@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Empty, Section, relTime } from "@/components/admin/DashboardPrimitives";
+import AgentAvatar from "@/components/admin/AgentAvatar";
 import {
   agentsApi, errMsg, AUTONOMY_LABEL, AUTONOMY_BLURB, describeCron,
   pushStatus, subscribeToPush, unsubscribeFromPush,
@@ -140,7 +141,8 @@ export default function Agents() {
                 style={{ padding: "18px 20px", background: "var(--crm-charcoal)",
                   border: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)",
                   opacity: a.enabled ? 1 : 0.55 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 16, alignItems: "start" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "start" }}>
+                  <AgentAvatar name={a.name} url={a.avatar_url} accent={a.accent_color} size={56} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
                       {a.role}

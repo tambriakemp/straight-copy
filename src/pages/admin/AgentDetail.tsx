@@ -1,13 +1,15 @@
 // Agent configuration — autonomy, schedule, delivery, and run history.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Empty, Section, relTime } from "@/components/admin/DashboardPrimitives";
 import {
   agentsApi, errMsg, AUTONOMY_LABEL, AUTONOMY_BLURB, describeCron,
+  uploadAgentAvatar, removeAgentAvatar,
   type Agent, type Autonomy,
 } from "@/lib/agentsApi";
+import AgentAvatar from "@/components/admin/AgentAvatar";
 
 type RunSummary = {
   id: string; status: string; trigger: string; headline: string | null;
@@ -43,6 +45,8 @@ export default function AgentDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [prompt, setPrompt] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const avatarRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     if (!id) return;
@@ -93,10 +97,49 @@ export default function AgentDetail() {
           <div className="roster__title-block">
             <button onClick={() => navigate("/admin/agents")} className="crm-btn crm-btn--ghost"
               style={{ fontSize: 11, marginBottom: 10 }}>← All agents</button>
-            <div className="roster__eyebrow">{agent.role}</div>
-            <h1 className="roster__title">{agent.name}</h1>
-            <hr className="roster__rule" />
-            {agent.description && <p className="roster__sub">{agent.description}</p>}
+            <div style={{ display: "flex", gap: 18, alignItems: "flex-start" }}>
+              <div style={{ display: "grid", gap: 6, justifyItems: "center" }}>
+                <AgentAvatar name={agent.name} url={agent.avatar_url}
+                  accent={agent.accent_color} size={84} />
+                <input ref={avatarRef} type="file" accept="image/*" hidden
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !id) return;
+                    setUploading(true);
+                    try {
+                      await uploadAgentAvatar(id, file);
+                      toast.success("Portrait updated");
+                      load();
+                    } catch (err) {
+                      toast.error(errMsg(err) || "Could not upload that image");
+                    } finally {
+                      setUploading(false);
+                      if (avatarRef.current) avatarRef.current.value = "";
+                    }
+                  }} />
+                <button className="crm-btn crm-btn--ghost" style={{ fontSize: 10 }}
+                  disabled={uploading} onClick={() => avatarRef.current?.click()}>
+                  {uploading ? "…" : agent.avatar_url ? "Replace" : "Add photo"}
+                </button>
+                {agent.avatar_url && (
+                  <button className="crm-btn crm-btn--ghost" style={{ fontSize: 10 }}
+                    onClick={async () => {
+                      if (!id) return;
+                      await removeAgentAvatar(id);
+                      toast.success("Portrait removed");
+                      load();
+                    }}>
+                    Remove
+                  </button>
+                )}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div className="roster__eyebrow">{agent.role}</div>
+                <h1 className="roster__title">{agent.name}</h1>
+                <hr className="roster__rule" />
+                {agent.description && <p className="roster__sub">{agent.description}</p>}
+              </div>
+            </div>
           </div>
           <div className="roster__actions">
             <button className="crm-btn crm-btn--ghost"

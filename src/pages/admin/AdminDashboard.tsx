@@ -1,149 +1,88 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import AdminLayout from "@/components/admin/AdminLayout";
-import { supabase } from "@/integrations/supabase/client";
-import { useIsMobile } from "@/hooks/use-mobile";
+// The home screen: your team of agents, what needs attention, and what is next.
+//
+// Deliberately not an analytics page — those moved to /admin/portfolio. This
+// answers "who is working on what, and what should I look at" and nothing else.
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  KpiTile, RevenueCard, Section, Empty, GoalBar, money, relTime, dueLabel,
-} from "@/components/admin/DashboardPrimitives";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import AdminLayout from "@/components/admin/AdminLayout";
+import { relTime } from "@/components/admin/DashboardPrimitives";
+import AgentAvatar from "@/components/admin/AgentAvatar";
+import { agentsApi, errMsg, describeCron } from "@/lib/agentsApi";
 
-type ActivityEvent = {
+type RunLine = {
   id: string;
-  occurred_at: string;
-  kind: string;
-  title: string;
-  description: string | null;
-  client_id: string | null;
-  client_project_id: string | null;
-  actor: string | null;
-  metadata: any;
-};
-
-type UpcomingTask = {
-  id: string;
-  name: string;
-  due_date: string | null;
-  status: string;
-  priority: string | null;
-  client_project_id: string | null;
-  project_name: string | null;
-  client_id: string | null;
-  client_name: string | null;
-  assignee_kind: string;
-};
-
-type StreamRow = {
-  venture_id: string | null;
-  slug: string;
-  name: string;
-  kind: string;
-  brand_color?: string | null;
-  cash_30d_cents: number;
-  mrr_cents: number;
-  members: number | null;
-};
-
-type ActiveLaunch = {
-  id: string;
-  venture_id: string;
-  venture_name: string | null;
-  name: string;
-  status: string;
-  cart_close_at: string | null;
-  starts_at: string | null;
-  goal_revenue_cents: number | null;
-  actual_revenue_cents: number;
-  goal_signups: number | null;
-  actual_signups: number;
-};
-
-type AgentBrief = {
-  run_id: string;
-  agent_id: string;
-  agent_name: string;
-  headline: string;
+  status: "running" | "succeeded" | "failed" | "skipped";
+  headline: string | null;
   started_at: string;
 };
 
-type Summary = {
-  kpis: {
-    active_clients: number;
-    active_subscriptions: number;
-    active_projects: number;
-    open_tasks: number;
-    overdue_tasks: number;
-    pending_proposals: number;
-    unpaid_invoices: number;
-  };
-  revenue: { paid_30d_cents: number; outstanding_cents: number };
-  portfolio?: {
-    cash_30d_cents: number;
-    agency_30d_cents: number;
-    ventures_30d_cents: number;
-    recurring_mrr_cents: number;
-    outstanding_cents: number;
-    by_stream: StreamRow[];
-    trend: Array<{ month: string; agency_cents: number; venture_cents: number }>;
-  };
-  active_launches?: ActiveLaunch[];
-  activity: ActivityEvent[];
-  upcoming: UpcomingTask[];
-  recent_clients: Array<{ id: string; business_name: string | null; contact_name: string | null; updated_at: string }>;
-  pending_proposals: Array<{ id: string; title: string; client_id: string; client_name: string | null; created_at: string }>;
-  pending_invoices: Array<{ id: string; label: string; amount_cents: number; client_id: string; client_name: string | null; due_date: string | null }>;
+type AgentCard = {
+  id: string; key: string; name: string; role: string;
+  description: string | null; enabled: boolean; autonomy: string;
+  avatar_url: string | null; accent_color: string | null;
+  schedule_cron: string | null; last_run_at: string | null; next_run_at: string | null;
+  pending_actions: number;
+  recent: RunLine[];
 };
 
-const ACTIVITY_ICON: Record<string, string> = {
-  contract_signed: "✎",
-  proposal_signed: "✎",
-  preview_approved: "✓",
-  invoice_paid: "$",
-  client_created: "+",
-  claude_run_completed: "★",
-  venture_revenue: "$",
-  launch_opened: "◈",
-  launch_completed: "◈",
-  metric_snapshot: "▲",
-  funnel_milestone: "▸",
-  agent_run_completed: "◎",
+type UpNextItem = {
+  kind: "queue" | "task" | "agent";
+  id: string; title: string; subtitle: string | null;
+  at: string | null; badge: string | null;
+  agent_id?: string; client_project_id?: string | null;
 };
 
-const ACTIVITY_LABEL: Record<string, string> = {
-  contract_signed: "Contract",
-  proposal_signed: "Proposal",
-  preview_approved: "Approval",
-  invoice_paid: "Payment",
-  client_created: "Client",
-  claude_run_completed: "Claude",
-  venture_revenue: "Venture",
-  launch_opened: "Launch",
-  launch_completed: "Launch",
-  metric_snapshot: "Metrics",
-  funnel_milestone: "Funnel",
-  agent_run_completed: "Agent",
+type Payload = {
+  agents: AgentCard[];
+  stats: { open_tasks: number; overdue_tasks: number; active_projects: number; needs_review: number };
+  up_next: UpNextItem[];
+  total_pending: number;
 };
 
-export default function Dashboard() {
+const RUN_TONE: Record<string, string> = {
+  succeeded: "#9db8a6", failed: "#e07a5f", running: "#dbb172", skipped: "var(--crm-taupe)",
+};
+
+const BADGE_TONE: Record<string, string> = {
+  overdue: "#e07a5f", ready: "#9db8a6", daily: "#9db8a6", weekly: "#8fa8c4", weekdays: "#8fa8c4",
+};
+
+/** Clock time for a timestamp, or the date for a plain yyyy-mm-dd. */
+function whenLabel(at: string | null): string {
+  if (!at) return "—";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(at)) {
+    const d = new Date(`${at}T12:00:00Z`);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  return new Date(at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Group heading for the up-next feed. */
+function dayBucket(at: string | null): string {
+  if (!at) return "No date";
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(at) ? `${at}T12:00:00Z` : at);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const day = new Date(d); day.setHours(0, 0, 0, 0);
+  const diff = Math.round((day.getTime() - today.getTime()) / 86400000);
+  if (diff < 0) return "Overdue";
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  if (diff <= 7) return day.toLocaleDateString(undefined, { weekday: "long" });
+  return day.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+export default function AdminDashboard() {
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
-  const [data, setData] = useState<Summary | null>(null);
+  const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
-  const [brief, setBrief] = useState<AgentBrief | null>(null);
-  const [pendingActions, setPendingActions] = useState(0);
+  const [running, setRunning] = useState<string | null>(null);
 
   const load = async () => {
-    setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-dashboard/summary`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setData(await res.json());
-    } catch (e: any) {
-      toast.error(e.message || "Failed to load dashboard");
+      setData(await agentsApi<Payload>("/dashboard"));
+    } catch (e) {
+      toast.error(errMsg(e) || "Failed to load dashboard");
     } finally {
       setLoading(false);
     }
@@ -151,321 +90,160 @@ export default function Dashboard() {
 
   useEffect(() => { load(); }, []);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agents-api/agents`,
-          { headers: { Authorization: `Bearer ${session?.access_token}` } },
-        );
-        if (!res.ok) return;
-        const payload = (await res.json()) as {
-          total_pending?: number;
-          agents?: Array<{
-            id: string;
-            name: string;
-            last_run?: { id: string; headline: string | null; started_at: string } | null;
-          }>;
-        };
-        setPendingActions(payload.total_pending ?? 0);
-        const withRuns = (payload.agents ?? []).filter(
-          (a): a is typeof a & { last_run: { id: string; headline: string; started_at: string } } =>
-            !!a.last_run?.headline,
-        );
-        const latest = withRuns.sort(
-          (a, b) => new Date(b.last_run.started_at).getTime() - new Date(a.last_run.started_at).getTime(),
-        )[0];
-        if (latest) {
-          setBrief({
-            run_id: latest.last_run.id,
-            agent_id: latest.id,
-            agent_name: latest.name,
-            headline: latest.last_run.headline,
-            started_at: latest.last_run.started_at,
-          });
-        }
-      } catch {
-        // Agents not deployed yet — the rest of the dashboard is unaffected.
-      }
-    })();
-  }, []);
+  const runNow = async (agent: AgentCard) => {
+    setRunning(agent.id);
+    try {
+      const res = await agentsApi<{ run_id: string; headline: string }>(
+        `/agents/${agent.id}/run`, { method: "POST" },
+      );
+      toast.success(res.headline || `${agent.name} finished`);
+      navigate(`/admin/agents/runs/${res.run_id}`);
+    } catch (e) {
+      toast.error(errMsg(e) || "Run failed");
+    } finally {
+      setRunning(null);
+    }
+  };
 
-  // Realtime activity updates
-  useEffect(() => {
-    const ch = supabase
-      .channel("dashboard-activity")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity_events" }, (payload) => {
-        setData((d) => d ? { ...d, activity: [payload.new as ActivityEvent, ...d.activity].slice(0, 40) } : d);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, []);
+  const stats = data?.stats;
+  const upNext = data?.up_next ?? [];
 
-  const k = data?.kpis;
-  const p = data?.portfolio;
+  // Group the feed by day so it reads as a schedule, not a list.
+  const buckets: Array<{ label: string; items: UpNextItem[] }> = [];
+  for (const item of upNext) {
+    const label = dayBucket(item.at);
+    const last = buckets[buckets.length - 1];
+    if (last?.label === label) last.items.push(item);
+    else buckets.push({ label, items: [item] });
+  }
 
   return (
     <AdminLayout>
-      <div className="roster">
-        <div className="roster__ghost">DASH</div>
+      <div className="dash">
+        <div className="dash__main">
+          {loading ? (
+            <p className="text-[hsl(30_8%_62%)] text-sm">Loading…</p>
+          ) : (
+            <div className="dash__agents">
+              {(data?.agents ?? []).map((a) => (
+                <div key={a.id} className="agent-card" style={{ opacity: a.enabled ? 1 : 0.55 }}>
+                  <button className="agent-card__head" onClick={() => navigate(`/admin/agents/${a.id}`)}>
+                    <AgentAvatar name={a.name} url={a.avatar_url} accent={a.accent_color} size={64} />
+                    <span className="agent-card__id">
+                      <span className="agent-card__name">
+                        {a.name}
+                        <span className="agent-card__chev">›</span>
+                      </span>
+                      <span className="agent-card__role">{a.role}</span>
+                      {!a.enabled && <span className="agent-card__paused">Paused</span>}
+                    </span>
+                  </button>
 
-        <div className="roster__head">
-          <div className="roster__title-block">
-            <div className="roster__eyebrow">Command Center</div>
-            <h1 className="roster__title">Portfolio <em>dashboard</em></h1>
-            <hr className="roster__rule" />
-            <p className="roster__sub">Every revenue stream in one place — agency clients, live trainings, and communities — plus work in flight and what needs attention next.</p>
-          </div>
-        </div>
-
-        {/* KPI tiles */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
-          <KpiTile label="Active clients" value={k?.active_clients} sub={`${k?.active_subscriptions ?? 0} subscribed`} loading={loading} />
-          <KpiTile label="Active projects" value={k?.active_projects} loading={loading} />
-          <KpiTile label="Open tasks" value={k?.open_tasks} loading={loading} onClick={() => navigate("/admin/tasks")} />
-          <KpiTile label="Overdue" value={k?.overdue_tasks} tone={k && k.overdue_tasks > 0 ? "danger" : undefined} loading={loading} onClick={() => navigate("/admin/tasks")} />
-          <KpiTile label="Pending proposals" value={k?.pending_proposals} loading={loading} />
-          <KpiTile label="Unpaid invoices" value={k?.unpaid_invoices} loading={loading} />
-        </div>
-
-        {/* Revenue.
-            Cash and run-rate are separate tiles on purpose. `recurring_mrr_cents`
-            is a level read from metric_snapshots (Substack/Skool bill their own
-            members); adding it to collected cash would double-count. The note on
-            the MRR card says so out loud. */}
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
-          <RevenueCard
-            label="Cash collected (30d)"
-            amount={p?.cash_30d_cents ?? data?.revenue.paid_30d_cents ?? 0}
-            loading={loading}
-            note={p ? `${money(p.agency_30d_cents)} agency · ${money(p.ventures_30d_cents)} ventures` : undefined}
-          />
-          <RevenueCard label="Ventures (30d)" amount={p?.ventures_30d_cents ?? 0} tone="accent" loading={loading}
-            onClick={() => navigate("/admin/ventures")} />
-          <RevenueCard label="Recurring MRR" amount={p?.recurring_mrr_cents ?? 0} tone="accent" loading={loading}
-            note="run-rate, not cash collected" />
-          <RevenueCard label="Outstanding" amount={data?.revenue.outstanding_cents ?? 0} tone="warn" loading={loading} />
-        </div>
-
-        {/* Revenue by stream */}
-        {!!p?.by_stream?.length && (
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(170px, 1fr))",
-            gap: 12, marginBottom: 24 }}>
-            {p.by_stream.map((row) => (
-              <button
-                key={row.slug}
-                onClick={() => row.venture_id ? navigate(`/admin/ventures/${row.venture_id}`) : navigate("/admin/clients")}
-                style={{ padding: "14px 16px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
-                  textAlign: "left", cursor: "pointer", color: "var(--crm-warm-white)" }}>
-                <div style={{ fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
-                  {row.name}
-                </div>
-                <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 26, marginTop: 4 }}>
-                  {money(row.cash_30d_cents)}
-                </div>
-                <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 2 }}>
-                  {row.mrr_cents ? `${money(row.mrr_cents)}/mo run-rate` : "30d cash"}
-                  {row.members != null ? ` · ${row.members} members` : ""}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* 12-month trend, agency vs ventures */}
-        {!!p?.trend?.length && (
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase",
-              color: "var(--crm-taupe)", marginBottom: 8 }}>
-              Revenue — trailing 12 months
-            </div>
-            <div style={{ background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", padding: "16px 8px 8px" }}>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={p.trend.map((t) => ({
-                  month: t.month.slice(5),
-                  Agency: t.agency_cents / 100,
-                  Ventures: t.venture_cents / 100,
-                }))}>
-                  <CartesianGrid strokeDasharray="2 4" stroke="var(--crm-border-dark)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "var(--crm-taupe)", fontSize: 11 }} axisLine={false} tickLine={false}
-                    tickFormatter={(v) => `$${v >= 1000 ? `${Math.round(v / 1000)}k` : v}`} />
-                  <Tooltip
-                    contentStyle={{ background: "var(--crm-ink)", border: "1px solid var(--crm-border-dark)", fontSize: 12 }}
-                    formatter={(v: number) => [`$${v.toLocaleString()}`, ""]} />
-                  <Bar dataKey="Agency" stackId="rev" fill="#8a8378" />
-                  <Bar dataKey="Ventures" stackId="rev" fill="#9db8a6" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-
-        {/* Latest agent brief */}
-        {(brief || pendingActions > 0) && (
-          <button
-            onClick={() => navigate(pendingActions > 0 ? "/admin/agents" : `/admin/agents/runs/${brief!.run_id}`)}
-            style={{ display: "block", width: "100%", textAlign: "left", padding: "16px 18px",
-              background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
-              color: "var(--crm-warm-white)", cursor: "pointer", marginBottom: 24 }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
-              {brief ? `${brief.agent_name} · ${relTime(brief.started_at)}` : "Agents"}
-            </div>
-            {brief && (
-              <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 22, marginTop: 6, lineHeight: 1.3 }}>
-                {brief.headline}
-              </div>
-            )}
-            {pendingActions > 0 && (
-              <div style={{ fontSize: 12, color: "#dbb172", marginTop: brief ? 8 : 6 }}>
-                {pendingActions} action{pendingActions === 1 ? "" : "s"} waiting for your approval
-              </div>
-            )}
-          </button>
-        )}
-
-        {/* Active launches */}
-        {!!data?.active_launches?.length && (
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase",
-              color: "var(--crm-taupe)", marginBottom: 8 }}>
-              Active launches
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
-              {data.active_launches.map((l) => (
-                <button key={l.id} onClick={() => navigate(`/admin/ventures/${l.venture_id}/launches/${l.id}`)}
-                  style={{ padding: "14px 16px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
-                    textAlign: "left", cursor: "pointer", color: "var(--crm-warm-white)" }}>
-                  <div style={{ fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
-                    {l.venture_name} · {l.status}
+                  <div className="agent-card__log">
+                    {a.recent.length === 0 ? (
+                      <div className="agent-card__empty">No runs yet</div>
+                    ) : (
+                      a.recent.map((r) => (
+                        <button key={r.id} className="agent-card__line"
+                          onClick={() => navigate(`/admin/agents/runs/${r.id}`)}>
+                          <span className="agent-card__ago">{relTime(r.started_at)}</span>
+                          <span className="agent-card__dot" style={{ color: RUN_TONE[r.status] }}>●</span>
+                          <span className="agent-card__what">
+                            {r.headline ?? (r.status === "failed" ? "Run failed" : "Run")}
+                          </span>
+                        </button>
+                      ))
+                    )}
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 500, marginTop: 4 }}>{l.name}</div>
-                  <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 4 }}>
-                    {money(l.actual_revenue_cents)}
-                    {l.goal_revenue_cents ? ` of ${money(l.goal_revenue_cents)}` : ""}
-                    {" · "}{l.actual_signups}{l.goal_signups ? `/${l.goal_signups}` : ""} signups
+
+                  <div className="agent-card__foot">
+                    <span className="agent-card__sched">{describeCron(a.schedule_cron)}</span>
+                    {a.pending_actions > 0 && (
+                      <span className="agent-card__pending">{a.pending_actions} to approve</span>
+                    )}
+                    <button className="agent-card__run" disabled={running === a.id}
+                      onClick={() => runNow(a)}>
+                      {running === a.id ? "Running…" : "Run now"}
+                    </button>
                   </div>
-                  <GoalBar actual={l.actual_revenue_cents} goal={l.goal_revenue_cents} />
-                  {l.cart_close_at && (
-                    <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 6 }}>
-                      Cart closes {new Date(l.cart_close_at).toLocaleDateString()}
-                    </div>
-                  )}
-                </button>
+                </div>
               ))}
+
+              {/* Grow-your-team card, as in the reference. */}
+              <button className="agent-card agent-card--new" onClick={() => navigate("/admin/agents")}>
+                <span className="agent-card--new__pill">Grow your team</span>
+                <span className="agent-card--new__row">
+                  {["◐", "◓", "◑", "◒", "◐"].map((g, i) => (
+                    <span key={i} className="agent-card--new__slot" style={{ opacity: 0.25 + i * 0.15 }}>{g}</span>
+                  ))}
+                </span>
+                <span className="agent-card--new__copy">
+                  More agents, more handled — give another corner of the business its own owner. →
+                </span>
+              </button>
             </div>
+          )}
+        </div>
+
+        <aside className="dash__side">
+          <div className="dash__stats">
+            <button className="stat" onClick={() => navigate("/admin/tasks")}>
+              <span className="stat__label">Open tasks</span>
+              <span className="stat__value">{stats?.open_tasks ?? "—"}</span>
+            </button>
+            <button className="stat" onClick={() => navigate("/admin/tasks")}>
+              <span className="stat__label">Overdue</span>
+              <span className="stat__value" style={{ color: stats?.overdue_tasks ? "#e07a5f" : undefined }}>
+                {stats?.overdue_tasks ?? "—"}
+              </span>
+            </button>
+            <button className="stat" onClick={() => navigate("/admin/clients")}>
+              <span className="stat__label">Active projects</span>
+              <span className="stat__value">{stats?.active_projects ?? "—"}</span>
+            </button>
+            <button className="stat" onClick={() => navigate("/admin/tasks")}>
+              <span className="stat__label">Needs review</span>
+              <span className="stat__value" style={{ color: stats?.needs_review ? "#dbb172" : undefined }}>
+                {stats?.needs_review ?? "—"}
+              </span>
+            </button>
           </div>
-        )}
 
-        {/* Main two-column: left = upcoming + queues + recent. right = activity */}
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.6fr) minmax(280px, 1fr)", gap: 24, alignItems: "start" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
-            <Section title="Upcoming & overdue tasks" actionLabel="View all" onAction={() => navigate("/admin/tasks")}>
-              {loading ? <Empty>Loading…</Empty> : !data?.upcoming.length ? <Empty>Nothing due in the next two weeks.</Empty> : (
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  {data.upcoming.map((t) => {
-                    const d = dueLabel(t.due_date);
-                    return (
-                      <button key={t.id} onClick={() => t.client_id && t.client_project_id && navigate(`/admin/clients/${t.client_id}/projects/${t.client_project_id}`)}
-                        style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, padding: "12px 14px", textAlign: "left",
-                          background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", cursor: "pointer" }}>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
-                          <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 2 }}>
-                            {t.client_name || "—"}{t.project_name ? ` · ${t.project_name}` : ""}
-                          </div>
-                        </div>
-                        <div style={{ fontSize: 12, color: d.overdue ? "#e07a5f" : d.soon ? "#dbb172" : "var(--crm-taupe)", textTransform: "uppercase", letterSpacing: "0.15em", alignSelf: "center" }}>
-                          {d.text}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </Section>
-
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 24 }}>
-              <Section title="Pending proposals">
-                {loading ? <Empty>Loading…</Empty> : !data?.pending_proposals.length ? <Empty>None awaiting signature.</Empty> : (
-                  <div>
-                    {data.pending_proposals.map((p) => (
-                      <Link key={p.id} to={`/admin/clients/${p.client_id}`}
-                        style={{ display: "block", padding: "10px 14px", background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", fontSize: 13 }}>
-                        <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
-                        <div style={{ fontSize: 11, color: "var(--crm-taupe)" }}>{p.client_name}</div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </Section>
-
-              <Section title="Unpaid invoices">
-                {loading ? <Empty>Loading…</Empty> : !data?.pending_invoices.length ? <Empty>All clear.</Empty> : (
-                  <div>
-                    {data.pending_invoices.map((i) => (
-                      <Link key={i.id} to={`/admin/clients/${i.client_id}`}
-                        style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, padding: "10px 14px", background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", fontSize: 13 }}>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{i.label}</div>
-                          <div style={{ fontSize: 11, color: "var(--crm-taupe)" }}>{i.client_name}{i.due_date ? ` · due ${new Date(i.due_date).toLocaleDateString()}` : ""}</div>
-                        </div>
-                        <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 16 }}>{money(i.amount_cents)}</div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </Section>
-            </div>
-
-            <Section title="Recent clients">
-              {loading ? <Empty>Loading…</Empty> : !data?.recent_clients.length ? <Empty>No clients yet.</Empty> : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
-                  {data.recent_clients.map((c) => (
-                    <Link key={c.id} to={`/admin/clients/${c.id}`}
-                      style={{ padding: "12px 14px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)", textDecoration: "none" }}>
-                      <div style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.business_name || c.contact_name || "Untitled"}</div>
-                      <div style={{ fontSize: 11, color: "var(--crm-taupe)", marginTop: 2 }}>updated {relTime(c.updated_at)}</div>
-                    </Link>
+          <div className="dash__upnext">
+            <div className="dash__upnext-head">Up next</div>
+            {!buckets.length ? (
+              <div className="agent-card__empty" style={{ padding: "18px 14px" }}>
+                Nothing scheduled or queued.
+              </div>
+            ) : (
+              buckets.map((b) => (
+                <div key={b.label}>
+                  <div className="upnext__day">{b.label}</div>
+                  {b.items.map((item) => (
+                    <button key={item.id} className="upnext__row"
+                      onClick={() => {
+                        if (item.kind === "agent" && item.agent_id) navigate(`/admin/agents/${item.agent_id}`);
+                        else navigate("/admin/tasks");
+                      }}>
+                      <span className="upnext__time">{whenLabel(item.at)}</span>
+                      <span className="upnext__body">
+                        <span className="upnext__title">{item.title}</span>
+                        {item.subtitle && <span className="upnext__sub">{item.subtitle}</span>}
+                      </span>
+                      {item.badge && (
+                        <span className="upnext__badge"
+                          style={{ color: BADGE_TONE[item.badge] ?? "var(--crm-taupe)",
+                                   borderColor: BADGE_TONE[item.badge] ?? "var(--crm-border-dark)" }}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
                   ))}
                 </div>
-              )}
-            </Section>
+              ))
+            )}
           </div>
-
-          {/* Activity feed */}
-          <div style={{ position: isMobile ? "static" : "sticky", top: 16, alignSelf: "start", minWidth: 0 }}>
-            <Section title="Activity">
-              <div style={{ maxHeight: "calc(100vh - 180px)", overflowY: "auto" }}>
-                {loading ? <Empty>Loading…</Empty> : !data?.activity.length ? <Empty>No activity yet.</Empty> : (
-                  data.activity.map((e) => (
-                    <div key={e.id} style={{ display: "grid", gridTemplateColumns: "28px 1fr", gap: 10, padding: "12px 14px",
-                      background: "var(--crm-charcoal)", borderBottom: "1px solid var(--crm-border-dark)" }}>
-                      <div style={{ width: 24, height: 24, borderRadius: "50%", background: "hsl(36 5% 22%)",
-                        display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "var(--crm-warm-white)" }}>
-                        {ACTIVITY_ICON[e.kind] || "•"}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
-                          {ACTIVITY_LABEL[e.kind] || e.kind} · {relTime(e.occurred_at)}
-                        </div>
-                        <div style={{ fontSize: 13, color: "var(--crm-warm-white)", marginTop: 2 }}>
-                          {e.client_id ? (
-                            <Link to={`/admin/clients/${e.client_id}`} style={{ color: "inherit" }}>{e.title}</Link>
-                          ) : e.title}
-                        </div>
-                        {e.description && (
-                          <div style={{ fontSize: 12, color: "var(--crm-taupe)", marginTop: 2 }}>{e.description}</div>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </Section>
-          </div>
-        </div>
+        </aside>
       </div>
     </AdminLayout>
   );
