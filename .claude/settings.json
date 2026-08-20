@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch *)",
+      "Bash(npm run test)",
+      "Bash(npm run build)",
+      "Bash(npm run lint)",
+      "Bash(npx tsc --noEmit -p tsconfig.app.json)",
+      "mcp__github__pull_request_read",
+      "mcp__github__list_pull_requests",
+      "mcp__github__actions_list",
+      "mcp__github__get_job_logs",
+      "mcp__github__get_file_contents",
+      "mcp__github__list_commits",
+      "mcp__github__get_commit",
+      "mcp__github__list_branches",
+      "mcp__github__search_code",
+      "mcp__Cre8_Visions__list_tasks",
+      "mcp__Cre8_Visions__get_task",
+      "mcp__Cre8_Visions__list_projects",
+      "mcp__Cre8_Visions__get_client_project",
+      "mcp__Cre8_Visions__list_clients",
+      "mcp__Cre8_Visions__get_client",
+      "mcp__Cre8_Visions__list_epics",
+      "mcp__Cre8_Visions__list_task_comments",
+      "mcp__Lovable__get_project",
+      "mcp__Lovable__list_projects",
+      "mcp__Lovable__get_database_status",
+      "mcp__Lovable__list_files",
+      "mcp__Lovable__read_file",
+      "mcp__Lovable__get_diff",
+      "mcp__Claude_Code_Remote__list_triggers",
+      "mcp__Claude_Code_Remote__get_session",
+      "mcp__Claude_Code_Remote__list_sessions",
+      "mcp__Claude_Code_Remote__list_environments"
+    ]
+  }
+}
