@@ -127,7 +127,7 @@ function Overview({ data, metricDefs }: {
       {metricDefs.some((m) => !m.money && data.levels.latest[m.key] != null) && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
           {metricDefs.filter((m) => !m.money).map((m) => (
-            <div key={m.key} style={{ padding: "16px 18px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)" }}>
+            <div key={m.key} style={{ padding: "16px 18px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10 }}>
               <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{m.label}</div>
               <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 34, marginTop: 6 }}>
                 {data.levels.latest[m.key] ?? "—"}
@@ -142,7 +142,7 @@ function Overview({ data, metricDefs }: {
           <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
             Cash by month
           </div>
-          <div style={{ background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", padding: "16px 8px 8px" }}>
+          <div style={{ background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10, padding: "16px 8px 8px" }}>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={data.cash.monthly.map((m) => ({ month: m.month.slice(5), Cash: m.cents / 100 }))}>
                 <CartesianGrid strokeDasharray="2 4" stroke="var(--crm-border-dark)" vertical={false} />
@@ -163,7 +163,7 @@ function Overview({ data, metricDefs }: {
           <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)", marginBottom: 8 }}>
             Growth
           </div>
-          <div style={{ background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", padding: "16px 8px 8px" }}>
+          <div style={{ background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10, padding: "16px 8px 8px" }}>
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={mergeSeries(mrrSeries, memberSeries)}>
                 <CartesianGrid strokeDasharray="2 4" stroke="var(--crm-border-dark)" vertical={false} />

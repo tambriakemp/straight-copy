@@ -139,7 +139,7 @@ export default function Agents() {
             {agents.map((a) => (
               <div key={a.id}
                 style={{ padding: "18px 20px", background: "var(--crm-charcoal)",
-                  border: "1px solid var(--crm-border-dark)", color: "var(--crm-warm-white)",
+                  border: "1px solid var(--crm-border-dark)", borderRadius: 10, color: "var(--crm-warm-white)",
                   opacity: a.enabled ? 1 : 0.55 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "start" }}>
                   <AgentAvatar name={a.name} url={a.avatar_url} accent={a.accent_color} size={56} />

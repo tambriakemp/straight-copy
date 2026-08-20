@@ -38,7 +38,7 @@ export function KpiTile({ label, value, sub, tone, loading, onClick }: {
   const color = tone === "danger" ? "#e07a5f" : "var(--crm-warm-white)";
   return (
     <button onClick={onClick} disabled={!onClick}
-      style={{ padding: "16px 18px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
+      style={{ padding: "16px 18px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10,
         textAlign: "left", cursor: onClick ? "pointer" : "default", color: "var(--crm-warm-white)" }}>
       <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{label}</div>
       <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 36, lineHeight: 1.1, marginTop: 6, color }}>
@@ -55,7 +55,7 @@ export function RevenueCard({ label, amount, tone, loading, note, onClick }: {
   const color = tone === "warn" ? "#dbb172" : tone === "accent" ? "#9db8a6" : "var(--crm-warm-white)";
   return (
     <div onClick={onClick}
-      style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)",
+      style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10,
         cursor: onClick ? "pointer" : "default" }}>
       <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{label}</div>
       <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 44, lineHeight: 1.1, marginTop: 6, color }}>
@@ -76,7 +76,7 @@ export function Section({ title, children, actionLabel, onAction }: {
         <div style={{ fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>{title}</div>
         {actionLabel && <button onClick={onAction} className="crm-btn crm-btn--ghost" style={{ fontSize: 11 }}>{actionLabel}</button>}
       </div>
-      <div style={{ border: "1px solid var(--crm-border-dark)" }}>{children}</div>
+      <div style={{ border: "1px solid var(--crm-border-dark)", borderRadius: 10, overflow: "hidden" }}>{children}</div>
     </div>
   );
 }

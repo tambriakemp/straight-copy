@@ -8,7 +8,10 @@ import { toast } from "sonner";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { relTime } from "@/components/admin/DashboardPrimitives";
 import AgentAvatar from "@/components/admin/AgentAvatar";
-import { agentsApi, errMsg, describeCron } from "@/lib/agentsApi";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  agentsApi, errMsg, describeCron, nextRunFromCron, cadenceOf,
+} from "@/lib/agentsApi";
 
 type RunLine = {
   id: string;
@@ -78,9 +81,139 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<string | null>(null);
 
+  /**
+   * Read straight from the tables.
+   *
+   * Every one of these is already readable by an admin under RLS, so putting an
+   * edge function in front of them only added a deploy that could lag behind
+   * the UI — which is exactly what left this screen blank. The counts come from
+   * project_tasks and client_projects, so they are the same numbers the task
+   * board shows.
+   */
   const load = async () => {
     try {
-      setData(await agentsApi<Payload>("/dashboard"));
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const in14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+
+      const [
+        agentsRes, runsRes, pendingRes,
+        openRes, overdueRes, projectsActiveRes, reviewRes,
+        readyRes, upcomingRes, projectsRes,
+      ] = await Promise.all([
+        supabase.from("agents").select("*").order("created_at"),
+        supabase.from("agent_runs")
+          .select("id, agent_id, status, headline, started_at")
+          .order("started_at", { ascending: false }).limit(120),
+        supabase.from("agent_pending_actions_v").select("agent_id"),
+
+        supabase.from("project_tasks").select("id", { count: "exact", head: true })
+          .neq("status", "complete"),
+        supabase.from("project_tasks").select("id", { count: "exact", head: true })
+          .neq("status", "complete").lt("due_date", todayIso),
+        supabase.from("client_projects").select("id", { count: "exact", head: true })
+          .eq("status", "active"),
+        supabase.from("project_tasks").select("id", { count: "exact", head: true })
+          .eq("status", "needs_review"),
+
+        supabase.from("project_tasks")
+          .select("id, name, client_project_id, due_date, order_index")
+          .eq("status", "ready_for_claude").order("order_index").limit(12),
+        supabase.from("project_tasks")
+          .select("id, name, client_project_id, due_date, status")
+          .neq("status", "complete").not("due_date", "is", null).lte("due_date", in14)
+          .order("due_date", { ascending: true }).limit(20),
+        supabase.from("client_projects").select("id, client_id, name"),
+      ]);
+
+      // --- agent cards ---
+      const pendingBy: Record<string, number> = {};
+      for (const row of pendingRes.data ?? []) {
+        if (row.agent_id) pendingBy[row.agent_id] = (pendingBy[row.agent_id] ?? 0) + 1;
+      }
+      const runsBy: Record<string, RunLine[]> = {};
+      for (const r of runsRes.data ?? []) {
+        (runsBy[r.agent_id] ??= []).push(r as RunLine);
+      }
+
+      const agents: AgentCard[] = (agentsRes.data ?? []).map((a) => ({
+        id: a.id, key: a.key, name: a.name, role: a.role,
+        description: a.description, enabled: a.enabled, autonomy: a.autonomy,
+        avatar_url: a.avatar_url, accent_color: a.accent_color,
+        schedule_cron: a.schedule_cron, last_run_at: a.last_run_at,
+        next_run_at: a.next_run_at ?? nextRunFromCron(a.schedule_cron)?.toISOString() ?? null,
+        pending_actions: pendingBy[a.id] ?? 0,
+        recent: (runsBy[a.id] ?? []).slice(0, 4),
+      }));
+
+      // --- naming for the up-next feed ---
+      const projMap: Record<string, { name: string | null; client_id: string }> = {};
+      for (const p of projectsRes.data ?? []) {
+        projMap[p.id] = { name: p.name, client_id: p.client_id };
+      }
+      const clientIds = [...new Set(Object.values(projMap).map((p) => p.client_id))];
+      const clientName: Record<string, string> = {};
+      if (clientIds.length) {
+        const { data: cls } = await supabase.from("clients")
+          .select("id, business_name, contact_name").in("id", clientIds);
+        for (const c of cls ?? []) {
+          clientName[c.id] = c.business_name || c.contact_name || "Untitled";
+        }
+      }
+      const where = (projectId: string | null) => {
+        const p = projectId ? projMap[projectId] : null;
+        if (!p) return null;
+        return [clientName[p.client_id], p.name].filter(Boolean).join(" · ") || null;
+      };
+
+      // --- up next: queue, dated work, scheduled runs ---
+      const upNext: UpNextItem[] = [];
+      const seen = new Set<string>();
+
+      for (const t of readyRes.data ?? []) {
+        seen.add(t.id);
+        upNext.push({
+          kind: "queue", id: t.id, title: t.name, subtitle: where(t.client_project_id),
+          at: t.due_date, badge: "ready", client_project_id: t.client_project_id,
+        });
+      }
+      for (const t of upcomingRes.data ?? []) {
+        if (seen.has(t.id)) continue;   // already in the queue list above
+        seen.add(t.id);
+        upNext.push({
+          kind: "task", id: t.id, title: t.name, subtitle: where(t.client_project_id),
+          at: t.due_date,
+          badge: t.due_date && t.due_date < todayIso ? "overdue" : null,
+          client_project_id: t.client_project_id,
+        });
+      }
+      for (const a of agents) {
+        if (!a.enabled || !a.next_run_at) continue;
+        upNext.push({
+          kind: "agent", id: `agent-${a.id}`, title: `${a.name} — scheduled run`,
+          subtitle: a.role, at: a.next_run_at,
+          badge: cadenceOf(a.schedule_cron), agent_id: a.id,
+        });
+      }
+
+      // Undated work is real, but it is not "next" — it sorts last.
+      upNext.sort((x, y) => {
+        if (!x.at && !y.at) return 0;
+        if (!x.at) return 1;
+        if (!y.at) return -1;
+        return x.at.localeCompare(y.at);
+      });
+
+      setData({
+        agents,
+        stats: {
+          open_tasks: openRes.count ?? 0,
+          overdue_tasks: overdueRes.count ?? 0,
+          active_projects: projectsActiveRes.count ?? 0,
+          needs_review: reviewRes.count ?? 0,
+        },
+        up_next: upNext.slice(0, 25),
+        total_pending: pendingRes.data?.length ?? 0,
+      });
     } catch (e) {
       toast.error(errMsg(e) || "Failed to load dashboard");
     } finally {

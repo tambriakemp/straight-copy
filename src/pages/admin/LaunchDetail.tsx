@@ -96,21 +96,21 @@ export default function LaunchDetail() {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
-          <div style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)" }}>
+          <div style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10 }}>
             <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Revenue</div>
             <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 40, lineHeight: 1.1, marginTop: 6 }}>
               {money(actual_revenue_cents)}
             </div>
             <GoalBar actual={actual_revenue_cents} goal={launch.goal_revenue_cents} />
           </div>
-          <div style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)" }}>
+          <div style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10 }}>
             <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Signups</div>
             <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 40, lineHeight: 1.1, marginTop: 6 }}>
               {actual_signups}
             </div>
             <GoalBar actual={actual_signups} goal={launch.goal_signups} tone="#dbb172" />
           </div>
-          <div style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)" }}>
+          <div style={{ padding: "20px 22px", background: "var(--crm-charcoal)", border: "1px solid var(--crm-border-dark)", borderRadius: 10 }}>
             <div style={{ fontSize: 10, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>Checklist</div>
             <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: 40, lineHeight: 1.1, marginTop: 6 }}>
               {done}<span style={{ fontSize: 22, color: "var(--crm-taupe)" }}>/{checklist.length}</span>
