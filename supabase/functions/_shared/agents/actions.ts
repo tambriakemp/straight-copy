@@ -7,7 +7,9 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 import { logProposalEvent } from "../proposal-events.ts";
 import { renderProposalPdf } from "../proposal-pdf.ts";
 import { logSureContactActivity, sendSureContactEmail } from "../surecontact-send.ts";
-import { missingSections, PROJECT_TYPES, type ProposalContent } from "./proposal-spine.ts";
+import {
+  inferKind, missingEssentials, missingSections, PROJECT_TYPES, type ProposalContent,
+} from "./proposal-spine.ts";
 
 // Mirrors the constants in send-transactional-email/index.ts so agent mail
 // leaves from the same identity as every other email the app sends.
@@ -318,24 +320,31 @@ export async function executeAction(
         }
         if (!p.content) return { ok: false, error: "No proposal content supplied" };
 
-        // The structure is the product. A draft missing locked sections would
-        // render with visible holes, so refuse it here where the agent can see
-        // exactly which ones it skipped.
-        const missing = missingSections(p.content);
-        if (missing.length) {
-          return { ok: false, error: `Proposal is missing required sections: ${missing.join(", ")}` };
+        // The spine is the house order, not a gate. Rejecting a finished draft
+        // for a section it folded into its neighbour put the agent in a loop it
+        // could not win, so only the sections a client would notice missing
+        // block — the rest are recorded as gaps and rendered as such.
+        const content: ProposalContent = { ...p.content, kind: inferKind(p.content) };
+        const blocking = missingEssentials(content);
+        if (blocking.length) {
+          return {
+            ok: false,
+            error: `Write these before filing the draft: ${blocking.join(", ")}. Everything else is optional.`,
+          };
         }
+        const gaps = missingSections(content);
 
         const { data, error } = await sb.from("client_proposals").insert({
           client_id: p.client_id,
           client_project_id: p.client_project_id,
           title: p.title ?? action.title,
           description: action.description ?? null,
-          content: p.content,
+          content,
           status: "draft",
           created_by_agent: action.agent_id,
         }).select("id, title").single();
         if (error) return { ok: false, error: error.message };
+
 
         await logProposalEvent(sb, {
           proposal_id: data.id,
@@ -349,7 +358,7 @@ export async function executeAction(
         // source PDF, so a proposal with no PDF cannot be signed — generating it
         // here is what makes an agent-written proposal a real one.
         try {
-          const pdf = await renderProposalPdf(data.title, p.content);
+          const pdf = await renderProposalPdf(data.title, content);
           const path = `proposals/${p.client_id}/${data.id}/source.pdf`;
           const { error: upErr } = await sb.storage.from(PROPOSAL_BUCKET)
             .upload(path, pdf, { contentType: "application/pdf", upsert: true, cacheControl: "3600" });
@@ -386,7 +395,11 @@ export async function executeAction(
             client_id: p.client_id,
             client_project_id: p.client_project_id,
             title: data.title,
+            kind: content.kind,
             status: "draft",
+            // Named so the reply can say what it left out rather than the agent
+            // guessing, and so nothing re-drafts to "fix" a deliberate omission.
+            gaps: gaps.length ? gaps : undefined,
           },
         };
       }

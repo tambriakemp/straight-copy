@@ -66,8 +66,56 @@ export function spineFor(kind: string | undefined | null): ProposalSection[] {
   return SPINES[(kind as ProposalKind)] ?? BUILD_SECTIONS;
 }
 
+/**
+ * Work out which document this is when the agent didn't say.
+ *
+ * A retainer submitted without `kind` was being judged against the build spine
+ * and rejected for missing twelve sections it should never have had. Reading
+ * the shape of what was actually written is more reliable than trusting a field
+ * the model forgets.
+ */
+export function inferKind(content: ProposalContent): ProposalKind {
+  if (content.kind === "retainer" || content.kind === "build") return content.kind;
+  const keys = new Set((content.sections ?? []).map((s) => s.key));
+  const hit = (spine: ProposalSection[]) =>
+    spine.filter((s) => keys.has(s.key)).length / spine.length;
+  if (hit(RETAINER_SECTIONS) > hit(BUILD_SECTIONS)) return "retainer";
+  const text = [
+    content.cover?.price_line ?? "",
+    content.cover?.tagline ?? "",
+    ...(content.sections ?? []).map((s) => s.heading ?? ""),
+  ].join(" ");
+  if (/\/\s*mo\b|per month|monthly|retainer/i.test(text)) return "retainer";
+  return "build";
+}
+
+/**
+ * The sections a draft cannot ship without.
+ *
+ * The full spine is the house style, not a gate. Rejecting a finished proposal
+ * because one of fourteen sections was folded into another sent the agent round
+ * a loop it could not win. Only the sections a client would notice missing —
+ * what this is, what it costs — actually block.
+ */
+export const ESSENTIAL_SECTIONS: Record<ProposalKind, string[]> = {
+  build: ["opportunity", "summary", "investment"],
+  retainer: ["overview", "services", "investment"],
+};
+
+/** Essential sections with no body. Empty means the draft is shippable. */
+export function missingEssentials(content: ProposalContent): string[] {
+  const kind = inferKind(content);
+  const present = new Set(
+    (content.sections ?? [])
+      .filter((s) => (s.body ?? "").trim().length > 0)
+      .map((s) => s.key),
+  );
+  return ESSENTIAL_SECTIONS[kind].filter((k) => !present.has(k));
+}
+
 /** Back-compat alias. Existing callers that predate the retainer spine. */
 export const PROPOSAL_SECTIONS = BUILD_SECTIONS;
+
 
 export const PROJECT_TYPES = [
   "automation_build",
@@ -103,8 +151,7 @@ Two shapes, and they are different documents — not one document with sections
 renamed.
 
 **BUILD** — fixed-scope project work, sold once, with a total and installments.
-An app, a site, an automation. Fourteen sections, in this order, no additions,
-no merges, no reordering:
+An app, a site, an automation. Fourteen sections, in this order:
 
 ${BUILD_SECTIONS.map((s, i) => `${String(i + 1).padStart(2, "0")}. ${s.heading} — ${s.purpose}`).join("\n")}
 
@@ -115,6 +162,23 @@ ${RETAINER_SECTIONS.map((s, i) => `${String(i + 1).padStart(2, "0")}. ${s.headin
 
 Anything with a monthly figure, a channel list, or a per-month cadence is a
 retainer. Anything with a total and phases is a build. Set \`kind\` accordingly.
+
+### The spine is the house order, not a gate
+
+Write all of it when the engagement warrants it — that order is what a Cre8
+Visions proposal looks like, and a client reading two of them should recognise
+the second. But a section that genuinely does not apply may be folded into its
+neighbour or left out, and a section the work needs that the list does not have
+may be added; write it with its own key and it renders after the rest.
+
+Only three sections actually block a draft, because a client would notice them
+missing: for a build, the opportunity, the summary and the investment; for a
+retainer, the overview, the scope of services and the investment. Everything
+else is judgement. Never stall, never ask permission to skip a section, and
+never hand back a partial draft with a note about what you could not write —
+write the whole document in one pass the way you would if nobody had given you
+a template at all, then say in one line what you assumed.
+
 
 ### Infer. Do not interrogate.
 
@@ -225,7 +289,7 @@ export function missingSections(content: ProposalContent): string[] {
       .filter((s) => (s.body ?? "").trim().length > 0)
       .map((s) => s.key),
   );
-  return spineFor(content.kind).filter((s) => !present.has(s.key)).map((s) => s.key);
+  return spineFor(inferKind(content)).filter((s) => !present.has(s.key)).map((s) => s.key);
 }
 
 const esc = (s: string) =>
@@ -283,24 +347,41 @@ function mdToHtml(md: string): string {
  */
 export function renderProposalHtml(title: string, content: ProposalContent): string {
   const cover = content.cover ?? {};
-  const spine = spineFor(content.kind);
+  const kind = inferKind(content);
+  const spine = spineFor(kind);
   const byKey = new Map(
     (content.sections ?? []).map((s) => [s.key ?? "", s]),
   );
 
-  const toc = spine.map(
+  // Spine order first, then anything the agent wrote that the spine has no slot
+  // for. A section it invented for good reason is worth more than the house
+  // order, so it renders at the end rather than being silently dropped.
+  const spineKeys = new Set(spine.map((s) => s.key));
+  const extras = (content.sections ?? []).filter(
+    (s) => !spineKeys.has(s.key ?? "") && (s.body ?? "").trim().length > 0,
+  );
+  const ordered: Array<{ heading: string; purpose?: string; body: string }> = [
+    ...spine.map((s) => ({
+      heading: byKey.get(s.key)?.heading || s.heading,
+      purpose: s.purpose,
+      body: (byKey.get(s.key)?.body ?? "").trim(),
+      essential: ESSENTIAL_SECTIONS[kind].includes(s.key),
+      written: (byKey.get(s.key)?.body ?? "").trim().length > 0,
+    })).filter((s) => s.written || s.essential),
+    ...extras.map((s) => ({ heading: s.heading || "", body: (s.body ?? "").trim() })),
+  ];
+
+  const toc = ordered.map(
     (s, i) =>
-      `<li><span class="num">${String(i + 1).padStart(2, "0")}</span><span class="h">${esc(s.heading)}</span><span class="p">${esc(s.purpose)}</span></li>`,
+      `<li><span class="num">${String(i + 1).padStart(2, "0")}</span><span class="h">${esc(s.heading)}</span><span class="p">${esc(s.purpose ?? "")}</span></li>`,
   ).join("");
 
-  const body = spine.map((s, i) => {
-    const found = byKey.get(s.key);
-    const text = (found?.body ?? "").trim();
+  const body = ordered.map((s, i) => {
     return `<section class="sec">
       <p class="eyebrow">${String(i + 1).padStart(2, "0")} — ${esc(s.heading).toUpperCase()}</p>
-      <h2>${esc(found?.heading || s.heading)}</h2>
+      <h2>${esc(s.heading)}</h2>
       <hr />
-      ${text ? mdToHtml(text) : `<p class="gap">This section has not been written yet.</p>`}
+      ${s.body ? mdToHtml(s.body) : `<p class="gap">This section has not been written yet.</p>`}
     </section>`;
   }).join("");
 

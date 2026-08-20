@@ -64,66 +64,25 @@ export function normalizeTurns(rows: StoredTurn[]): ReplayTurn[] {
   return merged;
 }
 
-/** One action a past turn produced, as much of it as the replay needs. */
-export interface TurnActionSummary {
-  kind?: string | null;
-  status?: string | null;
-  title?: string | null;
-  result?: Record<string, unknown> | null;
-}
-
-/** The id a deliverable is findable by, if the action left one behind. */
-function idOf(result: Record<string, unknown> | null | undefined): string | null {
-  if (!result) return null;
-  for (const key of ["proposal_id", "task_id", "client_project_id", "invoice_id", "id"]) {
-    const value = result[key];
-    if (typeof value === "string" && value) return `${key.replace(/_id$/, "")} ${value}`;
-  }
-  return null;
-}
-
 /**
- * A note describing what a turn produced, appended to the assistant's replayed
- * text.
+ * A one-line note describing what a turn produced, appended to the assistant's
+ * replayed text.
  *
  * Without this the model has no record that it proposed anything last turn, so
- * it re-proposes work already sitting in the approval queue, or answers a
- * question it already asked. A bare count was not enough: "1 action proposed"
- * does not tell it *which* proposal now exists, so "send me the draft" one turn
- * later got a freshly invented document instead of the one on file. When the
- * actions themselves are known, each is named with its kind, its outcome and
- * the id it left behind.
+ * it re-proposes work that is already sitting in the approval queue, or answers
+ * a question it already asked.
  */
 export function describeTurnOutcome(turn: {
   action_ids?: string[] | null;
   questions?: unknown;
-  actions?: TurnActionSummary[] | null;
 }): string {
   const notes: string[] = [];
-  const detailed = (turn.actions ?? []).filter(Boolean);
-
-  if (detailed.length) {
-    for (const a of detailed) {
-      const kind = a.kind ?? "action";
-      const status = a.status ?? "proposed";
-      const ref = idOf(a.result);
-      const outcome = status === "executed"
-        ? `done${ref ? ` → ${ref}` : ""}`
-        : status === "proposed"
-        ? "queued, awaiting the owner — it does not exist yet"
-        : status;
-      notes.push(`[${kind}: ${outcome}${a.title ? ` — "${a.title}"` : ""}]`);
-    }
-  } else {
-    const actions = turn.action_ids?.length ?? 0;
-    if (actions) {
-      notes.push(`[${actions} action${actions === 1 ? "" : "s"} proposed and awaiting the owner]`);
-    }
+  const actions = turn.action_ids?.length ?? 0;
+  if (actions) {
+    notes.push(`[${actions} action${actions === 1 ? "" : "s"} proposed and awaiting the owner]`);
   }
-
   if (Array.isArray(turn.questions) && turn.questions.length) {
     notes.push(`[${turn.questions.length} question${turn.questions.length === 1 ? "" : "s"} asked]`);
   }
   return notes.join(" ");
 }
-

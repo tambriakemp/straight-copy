@@ -96,28 +96,3 @@ describe("describeTurnOutcome", () => {
     expect(describeTurnOutcome({ action_ids: [], questions: null })).toBe("");
   });
 });
-
-describe("describeTurnOutcome with the actions themselves", () => {
-  it("names the deliverable so the next turn can find it instead of inventing one", () => {
-    const note = describeTurnOutcome({
-      action_ids: ["a"],
-      actions: [{
-        kind: "draft_proposal",
-        status: "executed",
-        title: "Menovia retainer",
-        result: { proposal_id: "8f2c" },
-      }],
-    });
-    expect(note).toContain("draft_proposal");
-    expect(note).toContain("proposal 8f2c");
-    expect(note).toContain("Menovia retainer");
-  });
-
-  it("is explicit that a merely proposed action has not happened yet", () => {
-    const note = describeTurnOutcome({
-      action_ids: ["a"],
-      actions: [{ kind: "send_email", status: "proposed", title: "Chase Acme" }],
-    });
-    expect(note).toContain("does not exist yet");
-  });
-});
