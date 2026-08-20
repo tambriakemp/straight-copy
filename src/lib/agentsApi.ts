@@ -282,6 +282,13 @@ export function cadenceOf(cron: string | null): string | null {
 
 // ---------------------------------------------------------------- chat
 
+export interface AgentQuestionSpec {
+  id: string;
+  question: string;
+  multi?: boolean;
+  options: Array<{ label: string; description?: string }>;
+}
+
 export interface AgentMessage {
   id: string;
   conversation_id: string;
@@ -289,6 +296,7 @@ export interface AgentMessage {
   content: string;
   run_id: string | null;
   action_ids: string[];
+  questions: AgentQuestionSpec[] | null;
   error: string | null;
   created_at: string;
 }
@@ -304,6 +312,7 @@ export interface AgentConversation {
 export interface ChatReply {
   conversation_id: string;
   message: string;
+  questions: AgentQuestionSpec[];
   actions: AgentAction[];
   run_id: string | null;
 }

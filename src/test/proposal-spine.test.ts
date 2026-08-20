@@ -3,9 +3,12 @@
 // before it reaches a client rather than after.
 import { describe, it, expect } from "vitest";
 import {
+  BUILD_SECTIONS,
   PROPOSAL_SECTIONS,
+  RETAINER_SECTIONS,
   missingSections,
   renderProposalHtml,
+  spineFor,
   type ProposalContent,
 } from "../../supabase/functions/_shared/agents/proposal-spine";
 
@@ -92,5 +95,46 @@ describe("renderProposalHtml", () => {
     expect(html).toContain("<p>A lead line.</p>");
     expect(html).toContain("<strong>Focus</strong>");
     expect(html).toContain("<blockquote>The bottom line.</blockquote>");
+  });
+});
+
+
+describe("the retainer spine", () => {
+  const retainer = (): ProposalContent => ({
+    kind: "retainer",
+    cover: { project_name: "Menovia", price_line: "Monthly retainer: $900" },
+    sections: RETAINER_SECTIONS.map((s) => ({ key: s.key, heading: s.heading, body: `Body for ${s.key}.` })),
+  });
+
+  it("is a different document, not the build spine renamed", () => {
+    expect(RETAINER_SECTIONS).toHaveLength(7);
+    const buildKeys = new Set(BUILD_SECTIONS.map((s) => s.key));
+    // The month-by-month is the part a retainer client actually reads, and the
+    // build spine has nowhere to put it.
+    expect(buildKeys.has("timeline")).toBe(false);
+    expect(RETAINER_SECTIONS.some((s) => s.key === "timeline")).toBe(true);
+  });
+
+  it("validates a retainer against its own spine, not the build one", () => {
+    expect(missingSections(retainer())).toEqual([]);
+    // The same content judged as a build would be missing almost everything.
+    expect(missingSections({ ...retainer(), kind: "build" }).length).toBeGreaterThan(10);
+  });
+
+  it("renders seven sections for a retainer and fourteen for a build", () => {
+    const html = renderProposalHtml("Menovia", retainer());
+    expect(html).toContain("Month by Month");
+    expect(html).not.toContain("Ownership &amp; IP");
+    expect(html).toContain("Monthly retainer: $900");
+  });
+
+  it("falls back to the build spine for an unknown or missing kind", () => {
+    expect(spineFor(undefined)).toBe(BUILD_SECTIONS);
+    expect(spineFor("nonsense")).toBe(BUILD_SECTIONS);
+    expect(spineFor("retainer")).toBe(RETAINER_SECTIONS);
+  });
+
+  it("keeps PROPOSAL_SECTIONS pointing at the build spine", () => {
+    expect(PROPOSAL_SECTIONS).toBe(BUILD_SECTIONS);
   });
 });

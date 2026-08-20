@@ -2352,7 +2352,7 @@ html { -webkit-text-size-adjust: 100%; }
 
 /* ---------- rail ---------- */
 .crm-shell .ws__rail {
-  display: flex; flex-direction: column; gap: 4px;
+  display: flex; flex-direction: column; gap: 4px; min-height: 0;
   padding: 12px; overflow-y: auto;
   border-right: 1px solid var(--crm-border-dark);
   background: var(--crm-charcoal);
@@ -2422,7 +2422,11 @@ html { -webkit-text-size-adjust: 100%; }
 .crm-shell .ws__rail-back:hover { color: var(--crm-warm-white); }
 
 /* ---------- chat ---------- */
-.crm-shell .ws__chat { display: flex; flex-direction: column; min-width: 0; }
+/* min-height: 0 is what makes the chat scroll at all. A grid item defaults to
+   min-height: auto, so this column sized itself to its content and the
+   flex:1 scroller below it never got a bounded height — the overflow was just
+   clipped by .ws. */
+.crm-shell .ws__chat { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .crm-shell .ws__chat-scroll {
   flex: 1; overflow-y: auto; padding: 22px 26px;
   display: flex; flex-direction: column; gap: 16px;
@@ -2433,25 +2437,110 @@ html { -webkit-text-size-adjust: 100%; }
 .crm-shell .ws__chat-empty-title { font-size: 16px; color: var(--crm-warm-white); margin: 0; }
 .crm-shell .ws__chat-empty-sub { font-size: 14px; color: var(--crm-taupe); margin: 0; line-height: 1.6; }
 
-.crm-shell .ws__msg { display: flex; gap: 10px; align-items: flex-start; }
+.crm-shell .ws__msg { display: flex; gap: 12px; align-items: flex-start; }
 .crm-shell .ws__msg--user { justify-content: flex-end; }
-.crm-shell .ws__msg-body { display: flex; flex-direction: column; gap: 6px; max-width: 76%; min-width: 0; }
+.crm-shell .ws__msg-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+/* The agent gets the width; only the person's own words sit in a bubble. A
+   reply that runs to a page reads as a document, not as a chat message, and
+   boxing it at 76% made every proposal draft a narrow column. */
+.crm-shell .ws__msg--assistant .ws__msg-body { flex: 1; max-width: none; }
+.crm-shell .ws__msg--user .ws__msg-body { max-width: 74%; align-items: flex-end; }
+
 .crm-shell .ws__msg-bubble {
-  padding: 11px 14px; border-radius: var(--crm-r);
-  font-size: 15.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word;
-  background: var(--crm-charcoal); border: 1px solid var(--crm-border-dark);
+  font-size: 15.5px; line-height: 1.7; word-break: break-word;
   color: var(--crm-warm-white);
 }
+/* Assistant text is markdown-rendered, so the source newlines are already
+   expressed as block elements. pre-wrap here doubled every one of them, which
+   is what put a blank line between each bullet. */
+.crm-shell .ws__msg--assistant .ws__msg-bubble { white-space: normal; }
 .crm-shell .ws__msg--user .ws__msg-bubble {
-  background: var(--crm-bronze, #8a7355); border-color: transparent; white-space: pre-wrap;
+  padding: 10px 14px; border-radius: 18px 18px 4px 18px;
+  background: var(--crm-bronze, #8a7355); color: var(--crm-warm-white);
+  white-space: pre-wrap;
 }
 .crm-shell .ws__msg-bubble--thinking { color: var(--crm-taupe); font-style: italic; }
-.crm-shell .ws__msg-bubble p { margin: 0 0 8px; }
-.crm-shell .ws__msg-bubble p:last-child { margin-bottom: 0; }
-.crm-shell .ws__msg-bubble ul, .crm-shell .ws__msg-bubble ol { margin: 6px 0; padding-left: 18px; }
-.crm-shell .ws__msg-bubble code {
-  background: var(--crm-ink); padding: 1px 4px; border-radius: 3px; font-size: 14px;
+
+/* ---- markdown inside an assistant reply ---- */
+.crm-shell .ws__msg-bubble > :first-child { margin-top: 0; }
+.crm-shell .ws__msg-bubble > :last-child { margin-bottom: 0; }
+.crm-shell .ws__msg-bubble p { margin: 0 0 14px; }
+.crm-shell .ws__msg-bubble h1,
+.crm-shell .ws__msg-bubble h2,
+.crm-shell .ws__msg-bubble h3,
+.crm-shell .ws__msg-bubble h4 {
+  font-family: var(--crm-font-serif); font-weight: 400; color: var(--crm-warm-white);
+  line-height: 1.25; margin: 24px 0 10px;
 }
+.crm-shell .ws__msg-bubble h1 { font-size: 24px; }
+.crm-shell .ws__msg-bubble h2 { font-size: 21px; }
+.crm-shell .ws__msg-bubble h3 { font-size: 18px; }
+.crm-shell .ws__msg-bubble h4 {
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--crm-taupe);
+}
+.crm-shell .ws__msg-bubble ul,
+.crm-shell .ws__msg-bubble ol { margin: 0 0 14px; padding-left: 22px; }
+.crm-shell .ws__msg-bubble li { margin: 0 0 6px; padding-left: 2px; }
+.crm-shell .ws__msg-bubble li::marker { color: var(--crm-bronze, #8a7355); }
+.crm-shell .ws__msg-bubble li > ul,
+.crm-shell .ws__msg-bubble li > ol { margin: 6px 0 0; }
+.crm-shell .ws__msg-bubble strong { color: #fff; font-weight: 600; }
+.crm-shell .ws__msg-bubble a { color: #dbb172; text-decoration: underline; }
+.crm-shell .ws__msg-bubble hr {
+  border: 0; border-top: 1px solid var(--crm-border-dark); margin: 22px 0;
+}
+.crm-shell .ws__msg-bubble blockquote {
+  margin: 0 0 14px; padding: 2px 0 2px 16px;
+  border-left: 2px solid var(--crm-bronze, #8a7355); color: var(--crm-stone);
+}
+.crm-shell .ws__msg-bubble code {
+  background: var(--crm-ink); padding: 1px 5px; border-radius: 4px; font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.crm-shell .ws__msg-bubble pre {
+  background: var(--crm-ink); border: 1px solid var(--crm-border-dark);
+  border-radius: var(--crm-r-sm); padding: 12px 14px; margin: 0 0 14px;
+  overflow-x: auto; font-size: 13.5px; line-height: 1.55;
+}
+.crm-shell .ws__msg-bubble pre code { background: none; padding: 0; }
+/* Wide tables scroll in their own box rather than pushing the column out. */
+.crm-shell .ws__msg-table { overflow-x: auto; margin: 0 0 14px; }
+.crm-shell .ws__msg-bubble table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.crm-shell .ws__msg-bubble th,
+.crm-shell .ws__msg-bubble td {
+  border: 1px solid var(--crm-border-dark); padding: 7px 10px; text-align: left; vertical-align: top;
+}
+.crm-shell .ws__msg-bubble th {
+  font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--crm-taupe); font-weight: 600;
+}
+
+/* ---- multiple-choice questions ---- */
+.crm-shell .ws__ask { display: grid; gap: 14px; margin-top: 4px; }
+.crm-shell .ws__ask-block { display: grid; gap: 8px; }
+.crm-shell .ws__ask-q { font-size: 14.5px; color: var(--crm-warm-white); margin: 0; }
+.crm-shell .ws__ask-hint {
+  font-size: 12px; color: var(--crm-taupe); margin: -4px 0 0;
+}
+.crm-shell .ws__ask-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.crm-shell .ws__ask-opt {
+  display: grid; gap: 2px; text-align: left; cursor: pointer;
+  padding: 8px 14px; border-radius: 14px;
+  background: var(--crm-charcoal); border: 1px solid var(--crm-border-dark);
+  color: var(--crm-warm-white); font-size: 14px; max-width: 100%;
+}
+.crm-shell .ws__ask-opt:hover { border-color: var(--crm-bronze, #8a7355); }
+.crm-shell .ws__ask-opt--on {
+  border-color: var(--crm-bronze, #8a7355); background: #8a735522;
+}
+.crm-shell .ws__ask-opt-desc { font-size: 12px; color: var(--crm-taupe); }
+.crm-shell .ws__ask-send {
+  justify-self: start; padding: 7px 16px; border-radius: 999px;
+  background: var(--crm-bronze, #8a7355); border: none; color: var(--crm-warm-white);
+  font-size: 13.5px; cursor: pointer;
+}
+.crm-shell .ws__ask-send:disabled { opacity: .45; cursor: default; }
 .crm-shell .ws__msg-actions {
   align-self: flex-start; font-size: 13px; color: #dbb172;
   background: transparent; border: 1px solid #dbb17255; border-radius: 999px;
@@ -2477,13 +2566,65 @@ html { -webkit-text-size-adjust: 100%; }
 .crm-shell .ws__composer-send:disabled { opacity: .3; cursor: default; }
 
 /* ---------- settings pane ---------- */
-.crm-shell .ws__settings { overflow-y: auto; min-width: 0; }
+.crm-shell .ws__settings { overflow-y: auto; min-width: 0; min-height: 0; }
 .crm-shell .ws__settings-inner {
   padding: 24px 28px 40px; display: flex; flex-direction: column; gap: 26px; max-width: 780px;
 }
 .crm-shell .ws__sec-title {
   font-family: var(--crm-font-serif); font-weight: 300; font-size: 21px;
   color: var(--crm-warm-white); margin: 0 0 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.crm-shell .ws__sec-blurb {
+  font-size: 14px; line-height: 1.6; color: var(--crm-taupe); margin: -4px 0 12px;
+}
+
+/* ---------- standing rules ---------- */
+.crm-shell .ws__rule-add {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px;
+  background: transparent; border: 1px solid var(--crm-border-dark);
+  color: var(--crm-taupe); cursor: pointer;
+}
+.crm-shell .ws__rule-add:hover { color: var(--crm-warm-white); border-color: var(--crm-bronze, #8a7355); }
+.crm-shell .ws__rules { display: grid; gap: 8px; }
+.crm-shell .ws__rule {
+  display: flex; gap: 12px; align-items: flex-start; justify-content: space-between;
+  padding: 12px 14px; border-radius: var(--crm-r);
+  background: var(--crm-charcoal); border: 1px solid var(--crm-border-dark);
+}
+.crm-shell .ws__rule--off { opacity: .45; }
+.crm-shell .ws__rule-text { display: grid; gap: 4px; min-width: 0; }
+.crm-shell .ws__rule-label {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 15px; color: var(--crm-warm-white);
+}
+.crm-shell .ws__rule-tag {
+  font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--crm-taupe); border: 1px solid var(--crm-border-dark);
+  border-radius: 999px; padding: 1px 8px;
+}
+.crm-shell .ws__rule-body { font-size: 14px; line-height: 1.55; color: var(--crm-taupe); }
+.crm-shell .ws__rule-controls { display: flex; gap: 4px; flex-shrink: 0; }
+.crm-shell .ws__rule-controls button {
+  background: transparent; border: none; color: var(--crm-taupe);
+  cursor: pointer; padding: 4px; border-radius: var(--crm-r-sm);
+}
+.crm-shell .ws__rule-controls button:hover { color: var(--crm-warm-white); background: var(--crm-ink); }
+.crm-shell .ws__rule-empty { font-size: 14px; color: var(--crm-taupe); font-style: italic; margin: 0; }
+.crm-shell .ws__rule-form {
+  display: grid; gap: 10px; margin-top: 10px; padding: 14px;
+  border-radius: var(--crm-r); background: var(--crm-charcoal);
+  border: 1px solid var(--crm-border-dark);
+}
+.crm-shell .ws__rule-cats { display: flex; gap: 6px; flex-wrap: wrap; }
+.crm-shell .ws__rule-cat {
+  font-family: inherit; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 4px 12px; border-radius: 999px; cursor: pointer;
+  background: transparent; border: 1px solid var(--crm-border-dark); color: var(--crm-taupe);
+}
+.crm-shell .ws__rule-cat--on {
+  border-color: var(--crm-bronze, #8a7355); color: var(--crm-warm-white); background: #8a735522;
 }
 .crm-shell .ws__panel {
   background: var(--crm-charcoal); border: 1px solid var(--crm-border-dark);
@@ -2505,7 +2646,7 @@ html { -webkit-text-size-adjust: 100%; }
 
 /* ---------- activity ---------- */
 .crm-shell .ws__activity {
-  display: flex; flex-direction: column; min-width: 0;
+  display: flex; flex-direction: column; min-width: 0; min-height: 0;
   border-left: 1px solid var(--crm-border-dark); background: var(--crm-charcoal);
 }
 .crm-shell .ws__activity-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--crm-border-dark); }
