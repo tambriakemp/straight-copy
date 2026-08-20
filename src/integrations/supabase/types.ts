@@ -232,6 +232,8 @@ export type Database = {
       }
       agent_messages: {
         Row: {
+          completed_at: string | null
+          status: string
           action_ids: string[]
           cache_read_tokens: number | null
           content: string
@@ -246,6 +248,8 @@ export type Database = {
           run_id: string | null
         }
         Insert: {
+          completed_at?: string | null
+          status?: string
           action_ids?: string[]
           cache_read_tokens?: number | null
           content?: string
@@ -260,6 +264,8 @@ export type Database = {
           run_id?: string | null
         }
         Update: {
+          completed_at?: string | null
+          status?: string
           action_ids?: string[]
           cache_read_tokens?: number | null
           content?: string

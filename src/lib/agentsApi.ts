@@ -297,6 +297,8 @@ export interface AgentMessage {
   run_id: string | null;
   action_ids: string[];
   questions: AgentQuestionSpec[] | null;
+  /** pending while the model is working; the row exists before the reply does. */
+  status: "pending" | "complete" | "failed";
   error: string | null;
   created_at: string;
 }
@@ -309,15 +311,24 @@ export interface AgentConversation {
   updated_at: string;
 }
 
+/**
+ * What sending returns now: an acknowledgement, not an answer.
+ *
+ * The reply is written to the pending message row by a background task, so the
+ * caller watches that row rather than waiting on this request.
+ */
 export interface ChatReply {
   conversation_id: string;
-  message: string;
-  questions: AgentQuestionSpec[];
-  actions: AgentAction[];
-  run_id: string | null;
+  pending_message_id: string;
+  status: "pending";
 }
 
-/** Send a message to an agent. Returns its reply and anything it proposed. */
+/**
+ * Send a message to an agent.
+ *
+ * Returns as soon as the pending row exists — the reply lands on that row
+ * later. Watch it via realtime, or poll; do not wait on this call.
+ */
 export async function sendAgentMessage(args: {
   agentId: string;
   conversationId?: string | null;
