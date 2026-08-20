@@ -17,6 +17,7 @@ import { runToolLoop } from "../_shared/agents/loop.ts";
 import { pairedStepWriter } from "../_shared/agents/steps.ts";
 import { executeReadTool, readToolDefinitions } from "../_shared/agents/read-tools.ts";
 import { stepLabel } from "../_shared/agents/tool-labels.ts";
+import { actionToolDefinition, executeActionTool, type ActionToolContext } from "../_shared/agents/action-tool.ts";
 import { canAutoExecute, type AgentRow } from "../_shared/agents/types.ts";
 
 const corsHeaders = {
@@ -159,6 +160,20 @@ Two things do not change. Never state a business figure you did not read from a
 tool or from the data given to you. And when you genuinely cannot find
 something, say what you looked for and where, so the gap is a fact rather than
 a question.
+
+You can also DO things, with \`propose_action\`. Anything safe runs at once and
+returns its real result, so chain them: create the project, read the id back,
+then draft the proposal against it. Anything that reaches a client or destroys
+a record is queued for the owner instead, and you are told so.
+
+The rule that follows from this: never say you have written, created, sent or
+scheduled something unless a call came back saying it was done. Describing a
+draft you did not propose is the worst thing you can do here — it looks like
+work and it is not.
+
+When you are asked to make a task and no project is named, put it on the
+project you have been discussing. If nothing has been discussed, put it on the
+agency's own board and say which board you used.
 
 Finish by answering in plain prose. There is no wrapper to fill in.`;
 
@@ -349,6 +364,29 @@ async function runTurn(args: {
       const spent = { bytes: 0 };
       const onStep = pairedStepWriter(sb, pendingId);
 
+      const actionCtx: ActionToolContext = {
+        sb,
+        agentId: agent.id,
+        agentName: agent.name,
+        autonomy: agent.autonomy,
+        allowedActions: def.allowedActions,
+        runId: null,
+        conversationId,
+        actionIds: [],
+        taken: new Map(),
+        count: { n: 0 },
+      };
+
+      const webSearch = (agent.config as Record<string, unknown> | null)?.web_search !== false;
+      const tools = [
+        ...readToolDefinitions(),
+        actionToolDefinition(def.allowedActions),
+        // Anthropic's server-side search. The _20260209 variant runs code under
+        // the hood, so code_execution must NOT also be declared — two execution
+        // environments confuse the model.
+        ...(webSearch ? [{ type: "web_search_20260209", name: "web_search", max_uses: 5 }] : []),
+      ];
+
       const result = await runToolLoop({
         client,
         model: agent.model,
@@ -363,11 +401,17 @@ async function runTurn(args: {
           text: systemPromptFor(agent as AgentRow, def) + CHAT_ADDENDUM + TOOL_DOCTRINE,
           cache_control: { type: "ephemeral" },
         }],
-        tools: readToolDefinitions() as never,
+        tools: tools as never,
         messages: seedMessages,
         onStep,
         labelFor: stepLabel,
         dispatch: async (name, input) => {
+          if (name === "propose_action") {
+            return await executeActionTool(actionCtx, input, async (row) => {
+              const result = await executeAndRecord(sb, row as ActionRow, agent.name);
+              return { ok: result.ok, result: result.result, error: result.error };
+            });
+          }
           const outcome = await executeReadTool({ sb: sb as never, spent }, name, input);
           return { ok: outcome.ok, content: outcome.content };
         },
@@ -393,6 +437,8 @@ async function runTurn(args: {
       await sb.from("agent_messages").update({
         content: result.text,
         status: "complete",
+        run_id: actionCtx.runId,
+        action_ids: actionCtx.actionIds,
         input_tokens: result.usage.input,
         output_tokens: result.usage.output,
         cache_read_tokens: result.usage.cacheRead,
@@ -401,6 +447,19 @@ async function runTurn(args: {
         duration_ms: Date.now() - startedAt,
         completed_at: new Date().toISOString(),
       }).eq("id", pendingId);
+
+      // Close the run off so it stops showing as still going in the activity
+      // panel. It was opened lazily by the first action.
+      if (actionCtx.runId) {
+        await sb.from("agent_runs").update({
+          finished_at: new Date().toISOString(),
+          headline: result.text.split("\n")[0].slice(0, 120),
+          summary: result.text,
+          input_tokens: result.usage.input,
+          output_tokens: result.usage.output,
+          cache_read_tokens: result.usage.cacheRead,
+        }).eq("id", actionCtx.runId);
+      }
 
       await sb.from("agent_conversations")
         .update({ updated_at: new Date().toISOString() }).eq("id", conversationId);

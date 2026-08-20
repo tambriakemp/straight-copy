@@ -80,6 +80,102 @@ mcp.tool("list_projects", {
   },
 });
 
+/**
+ * The sweep's entry point.
+ *
+ * list_tasks requires a project_id, which is why the ready-for-claude routine
+ * could only ever process one board. This returns every project that has work
+ * waiting AND somewhere to push it, so one routine can walk them all.
+ */
+mcp.tool("list_queue_projects", {
+  description:
+    "Projects with ready_for_claude tasks waiting and a repo configured, newest work first. " +
+    "Each carries everything a coding session needs: repo, branch, deploy target, toolchain, build notes. " +
+    "Use this to drive a sweep across every board instead of naming one project.",
+  inputSchema: { type: "object", properties: {} },
+  handler: async () => {
+    const { data: projects, error } = await sb.from("client_projects")
+      .select(
+        "id, name, type, status, repo_url, repo_branch, deploy_provider, " +
+          "deploy_project_id, deploy_project_name, toolchain, build_notes, " +
+          "client:clients(id, business_name)",
+      )
+      .eq("queue_enabled", true)
+      .neq("status", "complete");
+    if (error) throw new Error(error.message);
+
+    const ids = (projects ?? []).map((p) => p.id as string);
+    if (!ids.length) return textResult({ projects: [] });
+
+    // Unclaimed only: a task another run is holding is not waiting for this one.
+    const { data: tasks, error: tErr } = await sb.from("project_tasks")
+      .select("id, client_project_id, name, created_at, claimed_by")
+      .eq("status", "ready_for_claude")
+      .in("client_project_id", ids)
+      .is("claimed_by", null)
+      .order("created_at", { ascending: true });
+    if (tErr) throw new Error(tErr.message);
+
+    const byProject = new Map<string, Array<Record<string, unknown>>>();
+    for (const t of tasks ?? []) {
+      const list = byProject.get(t.client_project_id) ?? [];
+      list.push({ id: t.id, name: t.name, created_at: t.created_at });
+      byProject.set(t.client_project_id, list);
+    }
+
+    return textResult({
+      projects: (projects ?? [])
+        .map((p) => ({ ...p, ready_tasks: byProject.get(p.id as string) ?? [] }))
+        .filter((p) => p.ready_tasks.length > 0),
+    });
+  },
+});
+
+/**
+ * Take a task, or find out someone else has it.
+ *
+ * Moving a task to in_progress is not a claim — two runs can both read it as
+ * ready and both move it, and the second silently redoes the first's work. This
+ * is a conditional update: whoever wins, wins, and the loser is told now rather
+ * than at push time.
+ */
+mcp.tool("claim_task", {
+  description:
+    "Claim a task before working on it. Returns claimed:true if it is yours, or claimed:false and who holds it. " +
+    "ALWAYS claim before starting, and skip anything you did not get. A claim older than 90 minutes is treated " +
+    "as abandoned so a dead run cannot block the queue forever.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string" },
+      worker: { type: "string", description: "Who is claiming — a run id or routine name." },
+    },
+    required: ["task_id", "worker"],
+  },
+  handler: async ({ task_id, worker }: { task_id: string; worker: string }) => {
+    const { data, error } = await sb.rpc("claim_task", { _task_id: task_id, _worker: worker });
+    if (error) throw new Error(error.message);
+    const row = Array.isArray(data) ? data[0] : data;
+    return textResult(row ?? { claimed: false, held_by: null });
+  },
+});
+
+mcp.tool("release_task", {
+  description:
+    "Hand a task back when you are done with it or could not finish, so the next sweep can pick it up. " +
+    "Call this on the way out of every task you claimed, including ones you moved to blocked.",
+  inputSchema: {
+    type: "object",
+    properties: { task_id: { type: "string" }, worker: { type: "string" } },
+    required: ["task_id", "worker"],
+  },
+  handler: async ({ task_id, worker }: { task_id: string; worker: string }) => {
+    const { error } = await sb.rpc("release_task", { _task_id: task_id, _worker: worker });
+    if (error) throw new Error(error.message);
+    return textResult({ released: true, task_id });
+  },
+});
+
 mcp.tool("list_tasks", {
   description: "List tasks for a project. Optionally filter by status.",
   inputSchema: {

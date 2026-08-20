@@ -2784,3 +2784,20 @@ html { -webkit-text-size-adjust: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .crm-shell .ws__step--running .ws__step-dot { animation: none; }
 }
+
+/* ---------- agent deliverables ----------
+   A document the agent produced, with the handle on it, in the conversation
+   that asked for it. */
+.crm-shell .ws__deliverable {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+  padding: 13px 15px; border-radius: var(--crm-r);
+  background: var(--crm-charcoal); border: 1px solid var(--crm-border-dark);
+  color: var(--crm-warm-white);
+}
+.crm-shell .ws__deliverable-icon { color: var(--crm-bronze, #8a7355); }
+.crm-shell .ws__deliverable-body { min-width: 0; }
+.crm-shell .ws__deliverable-title {
+  font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.crm-shell .ws__deliverable-sub { font-size: 13px; color: var(--crm-taupe); margin-top: 2px; }
+.crm-shell .ws__deliverable-actions { display: flex; gap: 6px; flex-shrink: 0; }

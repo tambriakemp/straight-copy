@@ -61,8 +61,13 @@ export const READABLE: Record<string, TableAccess> = {
   },
   client_projects: {
     entity: "project",
-    columns: ["id", "client_id", "name", "type", "status", "created_at", "updated_at"],
+    columns: [
+      "id", "client_id", "name", "type", "status", "notes",
+      "repo_url", "repo_branch", "deploy_provider", "deploy_project_name",
+      "toolchain", "queue_enabled", "build_notes", "created_at", "updated_at",
+    ],
     searchable: ["name", "type"],
+    long: ["notes", "build_notes"],
     maxLimit: 50,
   },
   client_proposals: {
@@ -105,7 +110,7 @@ export const READABLE: Record<string, TableAccess> = {
       "id", "client_project_id", "epic_id", "name", "description",
       "acceptance_criteria", "status", "priority", "size", "assignee_kind",
       "due_date", "blocked_by", "tags", "url", "design_url",
-      "created_at", "updated_at",
+      "claimed_by", "claimed_at", "created_at", "updated_at",
     ],
     searchable: ["name", "description"],
     long: ["description", "acceptance_criteria"],
