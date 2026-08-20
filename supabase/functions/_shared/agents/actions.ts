@@ -7,7 +7,9 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 import { logProposalEvent } from "../proposal-events.ts";
 import { renderProposalPdf } from "../proposal-pdf.ts";
 import { logSureContactActivity, sendSureContactEmail } from "../surecontact-send.ts";
-import { missingSections, PROJECT_TYPES, type ProposalContent } from "./proposal-spine.ts";
+import {
+  inferKind, missingEssentials, missingSections, PROJECT_TYPES, type ProposalContent,
+} from "./proposal-spine.ts";
 
 // Mirrors the constants in send-transactional-email/index.ts so agent mail
 // leaves from the same identity as every other email the app sends.
@@ -356,7 +358,7 @@ export async function executeAction(
         // source PDF, so a proposal with no PDF cannot be signed — generating it
         // here is what makes an agent-written proposal a real one.
         try {
-          const pdf = await renderProposalPdf(data.title, p.content);
+          const pdf = await renderProposalPdf(data.title, content);
           const path = `proposals/${p.client_id}/${data.id}/source.pdf`;
           const { error: upErr } = await sb.storage.from(PROPOSAL_BUCKET)
             .upload(path, pdf, { contentType: "application/pdf", upsert: true, cacheControl: "3600" });
@@ -393,7 +395,11 @@ export async function executeAction(
             client_id: p.client_id,
             client_project_id: p.client_project_id,
             title: data.title,
+            kind: content.kind,
             status: "draft",
+            // Named so the reply can say what it left out rather than the agent
+            // guessing, and so nothing re-drafts to "fix" a deliberate omission.
+            gaps: gaps.length ? gaps : undefined,
           },
         };
       }
