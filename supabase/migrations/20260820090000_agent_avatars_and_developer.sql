@@ -1,18 +1,28 @@
 -- Dashboard rework: agent avatars, and a developer agent for the
 -- ready_for_claude queue.
+--
+-- Written idempotently throughout. Lovable applied the avatar columns and a set
+-- of storage policies out of band (20260820024332, 20260820024402), so this has
+-- to be safe against a database where some of it already exists.
 
 -- ============================================================ avatars
 ALTER TABLE public.agents
-  ADD COLUMN avatar_url text,
+  ADD COLUMN IF NOT EXISTS avatar_url text,
   -- Fallback tint for the monogram shown until a photo is uploaded, so each
   -- agent is still visually distinct on day one.
-  ADD COLUMN accent_color text;
+  ADD COLUMN IF NOT EXISTS accent_color text;
 
 -- Public bucket: avatars are shown in an <img> on an authenticated page, and a
 -- signed URL per render would be a lot of round trips for a face.
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('agent-avatars', 'agent-avatars', true)
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Drop first so re-running cannot collide on the policy name.
+DROP POLICY IF EXISTS "Public read agent-avatars"   ON storage.objects;
+DROP POLICY IF EXISTS "Admins upload agent-avatars" ON storage.objects;
+DROP POLICY IF EXISTS "Admins update agent-avatars" ON storage.objects;
+DROP POLICY IF EXISTS "Admins delete agent-avatars" ON storage.objects;
 
 -- Anyone may read (the bucket is public); only admins may change anything.
 CREATE POLICY "Public read agent-avatars"
@@ -34,10 +44,16 @@ CREATE POLICY "Admins delete agent-avatars"
   TO authenticated
   USING (bucket_id = 'agent-avatars' AND public.is_admin(auth.uid()));
 
+-- Lovable's equivalents, removed so one bucket does not carry two overlapping
+-- policy sets that have to be reasoned about together.
+DROP POLICY IF EXISTS "Admins manage agent avatars"      ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated read agent avatars" ON storage.objects;
+
 -- ============================================================ accents
-UPDATE public.agents SET accent_color = '#9db8a6' WHERE key = 'revenue-analyst';
-UPDATE public.agents SET accent_color = '#dbb172' WHERE key = 'launch-ops';
-UPDATE public.agents SET accent_color = '#c08f7a' WHERE key = 'client-triage';
+-- Only fill a blank, so a colour picked by hand is never overwritten.
+UPDATE public.agents SET accent_color = '#9db8a6' WHERE key = 'revenue-analyst' AND accent_color IS NULL;
+UPDATE public.agents SET accent_color = '#dbb172' WHERE key = 'launch-ops'      AND accent_color IS NULL;
+UPDATE public.agents SET accent_color = '#c08f7a' WHERE key = 'client-triage'   AND accent_color IS NULL;
 
 -- ============================================================ developer agent
 -- Owns the ready_for_claude queue. Deliberately act_in_app: it may reorder,
