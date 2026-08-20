@@ -318,24 +318,31 @@ export async function executeAction(
         }
         if (!p.content) return { ok: false, error: "No proposal content supplied" };
 
-        // The structure is the product. A draft missing locked sections would
-        // render with visible holes, so refuse it here where the agent can see
-        // exactly which ones it skipped.
-        const missing = missingSections(p.content);
-        if (missing.length) {
-          return { ok: false, error: `Proposal is missing required sections: ${missing.join(", ")}` };
+        // The spine is the house order, not a gate. Rejecting a finished draft
+        // for a section it folded into its neighbour put the agent in a loop it
+        // could not win, so only the sections a client would notice missing
+        // block — the rest are recorded as gaps and rendered as such.
+        const content: ProposalContent = { ...p.content, kind: inferKind(p.content) };
+        const blocking = missingEssentials(content);
+        if (blocking.length) {
+          return {
+            ok: false,
+            error: `Write these before filing the draft: ${blocking.join(", ")}. Everything else is optional.`,
+          };
         }
+        const gaps = missingSections(content);
 
         const { data, error } = await sb.from("client_proposals").insert({
           client_id: p.client_id,
           client_project_id: p.client_project_id,
           title: p.title ?? action.title,
           description: action.description ?? null,
-          content: p.content,
+          content,
           status: "draft",
           created_by_agent: action.agent_id,
         }).select("id, title").single();
         if (error) return { ok: false, error: error.message };
+
 
         await logProposalEvent(sb, {
           proposal_id: data.id,
