@@ -232,7 +232,6 @@ export type Database = {
       }
       agent_messages: {
         Row: {
-          questions: Json | null
           action_ids: string[]
           cache_read_tokens: number | null
           content: string
@@ -242,11 +241,11 @@ export type Database = {
           id: string
           input_tokens: number | null
           output_tokens: number | null
+          questions: Json | null
           role: string
           run_id: string | null
         }
         Insert: {
-          questions?: Json | null
           action_ids?: string[]
           cache_read_tokens?: number | null
           content?: string
@@ -256,11 +255,11 @@ export type Database = {
           id?: string
           input_tokens?: number | null
           output_tokens?: number | null
+          questions?: Json | null
           role: string
           run_id?: string | null
         }
         Update: {
-          questions?: Json | null
           action_ids?: string[]
           cache_read_tokens?: number | null
           content?: string
@@ -270,6 +269,7 @@ export type Database = {
           id?: string
           input_tokens?: number | null
           output_tokens?: number | null
+          questions?: Json | null
           role?: string
           run_id?: string | null
         }
