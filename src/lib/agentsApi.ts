@@ -208,3 +208,69 @@ export async function uploadAgentAvatar(agentId: string, file: File): Promise<st
 export async function removeAgentAvatar(agentId: string): Promise<void> {
   await agentsApi(`/agents/${agentId}`, { method: "PATCH", body: { avatar_url: null } });
 }
+
+// ---------------------------------------------------------------- schedule
+
+/**
+ * Next time a 5-field UTC cron fires after `from`.
+ *
+ * Mirrors supabase/functions/_shared/agents/schedule.ts, which the dispatcher
+ * uses. Duplicated rather than imported because edge functions and the browser
+ * bundle cannot share a module across that boundary; the server copy is the one
+ * under test, and this one only drives display.
+ */
+export function nextRunFromCron(cron: string | null, from = new Date()): Date | null {
+  if (!cron) return null;
+  const f = cron.trim().split(/\s+/);
+  if (f.length !== 5) return null;
+
+  const matches = (field: string, value: number): boolean => {
+    if (field === "*") return true;
+    return field.split(",").some((part) => {
+      const [range, stepRaw] = part.split("/");
+      const step = stepRaw ? Number(stepRaw) : 1;
+      if (!Number.isFinite(step) || step < 1) return false;
+      if (range === "*") return value % step === 0;
+      const [lo, hi] = range.includes("-")
+        ? range.split("-").map(Number)
+        : [Number(range), Number(range)];
+      if (!Number.isFinite(lo) || !Number.isFinite(hi)) return false;
+      if (value < lo || value > hi) return false;
+      return (value - lo) % step === 0;
+    });
+  };
+
+  const cursor = new Date(from.getTime());
+  cursor.setUTCSeconds(0, 0);
+  cursor.setUTCMinutes(cursor.getUTCMinutes() + 1);
+  const limit = new Date(from.getTime() + 370 * 86400000);
+
+  while (cursor <= limit) {
+    const dayOk = matches(f[2], cursor.getUTCDate())
+      && matches(f[3], cursor.getUTCMonth() + 1)
+      && matches(f[4], cursor.getUTCDay());
+    if (dayOk) {
+      if (matches(f[1], cursor.getUTCHours()) && matches(f[0], cursor.getUTCMinutes())) {
+        return new Date(cursor.getTime());
+      }
+      cursor.setUTCMinutes(cursor.getUTCMinutes() + 1);
+    } else {
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+      cursor.setUTCHours(0, 0, 0, 0);
+    }
+  }
+  return null;
+}
+
+/** Short cadence badge for a cron, matching the dashboard's chips. */
+export function cadenceOf(cron: string | null): string | null {
+  if (!cron) return null;
+  const f = cron.trim().split(/\s+/);
+  if (f.length !== 5) return null;
+  const [, , dom, mon, dow] = f;
+  if (dom !== "*" || mon !== "*") return null;
+  if (dow === "*") return "daily";
+  if (dow === "1-5") return "weekdays";
+  if (/^\d$/.test(dow)) return "weekly";
+  return null;
+}
