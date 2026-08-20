@@ -2384,6 +2384,21 @@ html { -webkit-text-size-adjust: 100%; }
   font-size: 9.5px; letter-spacing: 0.24em; text-transform: uppercase;
   color: var(--crm-taupe); padding: 4px 4px 10px;
 }
+/* Three things this agent does, under its role. Capped at three in code —
+   the list is here to orient, not to document. */
+.crm-shell .ws__rail-caps {
+  list-style: none; margin: 0 0 14px; padding: 0 4px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.crm-shell .ws__rail-caps li {
+  position: relative; padding-left: 12px;
+  font-size: 11.5px; line-height: 1.45; color: var(--crm-taupe);
+}
+.crm-shell .ws__rail-caps li::before {
+  content: ""; position: absolute; left: 0; top: 7px;
+  width: 4px; height: 4px; border-radius: 50%; background: var(--crm-bronze, #8B7355);
+}
+
 .crm-shell .ws__rail-group { display: flex; flex-direction: column; gap: 2px; }
 .crm-shell .ws__rail-item {
   display: flex; align-items: center; gap: 10px;
@@ -2519,3 +2534,20 @@ html { -webkit-text-size-adjust: 100%; }
 }
 .crm-shell .ws__activity-time { font-size: 11px; color: var(--crm-taupe); font-variant-numeric: tabular-nums; }
 .crm-shell .ws__empty { padding: 20px 16px; font-size: 12px; color: var(--crm-taupe); font-style: italic; }
+
+/* Proposal engagement timeline. Client-caused events carry the accent because
+   they are the only ones that tell you anything you did not already know. */
+.crm-shell .prop-log { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 2px; }
+.crm-shell .prop-log__row {
+  display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: var(--crm-r-sm); font-size: 12.5px;
+  color: var(--crm-taupe);
+}
+.crm-shell .prop-log__row:hover { background: var(--crm-ink); }
+.crm-shell .prop-log__dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--crm-sand, #D4CCBF); justify-self: center;
+}
+.crm-shell .prop-log__row--client { color: var(--crm-warm-white); }
+.crm-shell .prop-log__row--client .prop-log__dot { background: var(--crm-bronze, #8B7355); }
+.crm-shell .prop-log__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-shell .prop-log__when { font-size: 11px; color: var(--crm-soft-gray, #9A938A); }

@@ -8,6 +8,7 @@
 // is unparseable, so SureContact won't retry valid events forever.
 
 import { createClient } from "@supabase/supabase-js";
+import { logProposalEvent, type ProposalEventType } from "../_shared/proposal-events.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,6 +99,16 @@ function normalizeEvent(body: any) {
   };
 }
 
+/** SureContact event names we mirror onto a proposal's timeline. */
+const ENGAGEMENT_EVENTS: Record<string, ProposalEventType> = {
+  sent: "email_sent",
+  delivered: "email_delivered",
+  opened: "email_opened",
+  open: "email_opened",
+  clicked: "link_clicked",
+  click: "link_clicked",
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -160,9 +171,40 @@ Deno.serve(async (req) => {
       client_id = client?.id ?? null;
     }
 
+    // Correlate back to a proposal so opens and clicks land on its timeline
+    // rather than only in the generic event log. message_id is the reliable
+    // link — it is what we stored when the proposal was sent.
+    let proposal_id: string | null = null;
+    if (norm.message_id) {
+      const { data: p } = await supabase
+        .from("client_proposals")
+        .select("id, client_id")
+        .eq("send_message_id", norm.message_id)
+        .maybeSingle();
+      if (p) {
+        proposal_id = p.id;
+        client_id = client_id ?? p.client_id;
+      }
+    }
+    // Fall back to the client's most recent sent proposal. Less precise, but a
+    // SureContact event that carries no message_id is otherwise unattributable,
+    // and "they opened something we sent them" is still worth knowing.
+    if (!proposal_id && client_id && ENGAGEMENT_EVENTS[norm.event_type]) {
+      const { data: p } = await supabase
+        .from("client_proposals")
+        .select("id")
+        .eq("client_id", client_id)
+        .eq("status", "sent")
+        .order("sent_at", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle();
+      proposal_id = p?.id ?? null;
+    }
+
     rows.push({
       ...norm,
       client_id,
+      proposal_id,
       payload: raw,
     });
   }
@@ -182,6 +224,26 @@ Deno.serve(async (req) => {
       JSON.stringify({ error: "Failed to log events", details: error.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
+  }
+
+  // Mirror engagement onto the proposal timeline, so the admin proposal panel
+  // and the engagement agent read one ordered list instead of joining tables.
+  for (const row of rows) {
+    const mapped = ENGAGEMENT_EVENTS[row.event_type];
+    if (!mapped || !row.proposal_id) continue;
+    await logProposalEvent(supabase, {
+      proposal_id: row.proposal_id,
+      client_id: row.client_id,
+      event_type: mapped,
+      actor: "client",
+      occurred_at: row.occurred_at ?? undefined,
+      detail: {
+        url: row.url,
+        campaign_name: row.campaign_name,
+        message_id: row.message_id,
+        source: "surecontact",
+      },
+    });
   }
 
   // Best-effort: for "opened" events, see if we can correlate to a logged

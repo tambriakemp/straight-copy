@@ -14,10 +14,12 @@ import {
   type Agent, type AgentMessage,
 } from "@/lib/agentsApi";
 
-export default function AgentChatPanel({ agent, onActivity }: {
+export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
   agent: Agent;
   /** Called after a turn that may have produced a run, so activity can refresh. */
   onActivity: () => void;
+  /** Bumped by the parent when something outside chat added a message. */
+  reloadNonce?: number;
 }) {
   const navigate = useNavigate();
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export default function AgentChatPanel({ agent, onActivity }: {
         .select("*").eq("conversation_id", conv.id).order("created_at");
       setMessages((msgs ?? []) as AgentMessage[]);
     })();
-  }, [agent.id]);
+  }, [agent.id, reloadNonce]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });

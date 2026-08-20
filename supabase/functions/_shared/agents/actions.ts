@@ -4,12 +4,110 @@
 // or a human approved it later, so there is exactly one code path that can
 // change the world on an agent's behalf.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+import { logProposalEvent } from "../proposal-events.ts";
+import { renderProposalPdf } from "../proposal-pdf.ts";
+import { logSureContactActivity, sendSureContactEmail } from "../surecontact-send.ts";
+import { missingSections, PROJECT_TYPES, type ProposalContent } from "./proposal-spine.ts";
 
 // Mirrors the constants in send-transactional-email/index.ts so agent mail
 // leaves from the same identity as every other email the app sends.
 const FROM_NAME = "straight-copy";
 const FROM_DOMAIN = "cre8visions.com";
 const SENDER_DOMAIN = "notify.cre8visions.com";
+
+/** Same bucket proposal-sign reads from, so uploads and signing agree. */
+const PROPOSAL_BUCKET = "client-assets";
+
+const PORTAL_BASE_URL =
+  (Deno.env.get("PORTAL_BASE_URL") || "https://cre8visions.com").replace(/\/$/, "");
+
+/**
+ * Deliver one client-facing email.
+ *
+ * SureContact first, always. Client mail that bypasses SureContact leaves no
+ * trace on the contact's timeline and gets no opens or clicks, which makes the
+ * whole engagement history a guess. The queue below is a fallback for when the
+ * API key isn't configured — not a second option.
+ *
+ * Either way the send is written to email_send_log, so there is one place to
+ * look for "did we actually send this".
+ */
+async function deliverClientEmail(
+  sb: SupabaseClient,
+  args: {
+    to: string;
+    subject: string;
+    html: string;
+    label: string;
+    idempotencyKey: string;
+    templateName: string;
+    /** Used to create the SureContact contact if they are new. */
+    name?: string | null;
+    company?: string | null;
+    reason?: string;
+  },
+): Promise<
+  | { ok: true; messageId: string; via: "surecontact" | "queue" }
+  | { ok: false; error: string }
+> {
+  const messageId = crypto.randomUUID();
+  await sb.from("email_send_log").insert({
+    message_id: messageId,
+    template_name: args.templateName,
+    recipient_email: args.to,
+    status: "pending",
+  });
+
+  const apiKey = Deno.env.get("SURECONTACT_API_KEY");
+  if (apiKey) {
+    const sent = await sendSureContactEmail(apiKey, {
+      to: args.to,
+      subject: args.subject,
+      html: args.html,
+      name: args.name,
+      company: args.company,
+      reason: args.reason,
+    });
+    if (sent.ok) {
+      await sb.from("email_send_log").update({
+        status: "sent",
+        // SureContact's own id, so a webhook event can be matched back.
+        metadata: { provider: "surecontact", provider_message_id: sent.messageId ?? null },
+      }).eq("message_id", messageId);
+      await logSureContactActivity(apiKey, {
+        email: args.to,
+        type: "email_sent",
+        description: args.reason ?? args.subject,
+        metadata: { subject: args.subject, label: args.label, crm_message_id: messageId },
+      });
+      return { ok: true, messageId: sent.messageId ?? messageId, via: "surecontact" };
+    }
+    // Fall through to the queue rather than dropping the message — but say so
+    // loudly, because a silent fallback is how mail quietly stops being tracked.
+    console.error("[actions] SureContact send failed, falling back to queue", sent.error);
+    await sb.from("email_send_log").update({
+      error_message: `SureContact send failed: ${sent.error}`,
+    }).eq("message_id", messageId);
+  }
+
+  const { error } = await sb.rpc("enqueue_email", {
+    queue_name: "transactional_emails",
+    payload: {
+      message_id: messageId,
+      to: args.to,
+      from: `${FROM_NAME} <noreply@${FROM_DOMAIN}>`,
+      sender_domain: SENDER_DOMAIN,
+      subject: args.subject,
+      html: args.html,
+      purpose: "transactional",
+      label: args.label,
+      idempotency_key: args.idempotencyKey,
+      queued_at: new Date().toISOString(),
+    },
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, messageId, via: "queue" };
+}
 
 export interface ActionRow {
   id: string;
@@ -71,39 +169,276 @@ export async function executeAction(
 
       case "draft_email": {
         // Reaching a person is the one thing an agent never does implicitly.
-        // Executing here means a human already approved this exact text, so
-        // hand it to the existing queue rather than sending inline.
-        const p = action.payload as { to?: string; subject?: string; body?: string };
+        // Executing here means a human already approved this exact text.
+        const p = action.payload as {
+          to?: string; subject?: string; body?: string; client_id?: string;
+        };
         if (!p.to || !p.subject || !p.body) {
           return { ok: false, error: "Draft is missing to, subject or body" };
         }
-        // Same envelope shape send-transactional-email builds, so
-        // process-email-queue handles retries and rate limiting as usual.
-        const messageId = crypto.randomUUID();
-        await sb.from("email_send_log").insert({
-          message_id: messageId,
-          template_name: `agent:${action.kind}`,
-          recipient_email: p.to,
-          status: "pending",
+
+        let name: string | null = null;
+        let company: string | null = null;
+        if (p.client_id) {
+          const { data: c } = await sb.from("clients")
+            .select("contact_name, business_name").eq("id", p.client_id).maybeSingle();
+          name = c?.contact_name ?? null;
+          company = c?.business_name ?? null;
+        }
+
+        const sent = await deliverClientEmail(sb, {
+          to: p.to,
+          subject: p.subject,
+          html: p.body,
+          label: `agent-${action.kind}`,
+          // One approval, one send: a double-click can't send it twice.
+          idempotencyKey: `agent-action-${action.id}`,
+          templateName: `agent:${action.kind}`,
+          name,
+          company,
+          reason: `${agentName}: ${action.title}`,
         });
-        const { data, error } = await sb.rpc("enqueue_email", {
-          queue_name: "transactional_emails",
-          payload: {
-            message_id: messageId,
-            to: p.to,
-            from: `${FROM_NAME} <noreply@${FROM_DOMAIN}>`,
-            sender_domain: SENDER_DOMAIN,
-            subject: p.subject,
-            html: p.body,
-            purpose: "transactional",
-            label: `agent-${action.kind}`,
-            // One approval, one send: a double-click can't queue it twice.
-            idempotency_key: `agent-action-${action.id}`,
-            queued_at: new Date().toISOString(),
+        if (!sent.ok) return { ok: false, error: sent.error };
+        return {
+          ok: true,
+          result: { sent: true, via: sent.via, message_id: sent.messageId, to: p.to },
+        };
+      }
+
+      // --- client engagement ------------------------------------------------
+
+      case "sync_client_to_surecontact": {
+        const p = action.payload as { client_id?: string };
+        if (!p.client_id) return { ok: false, error: "No client_id supplied" };
+        // Reuse the existing function rather than calling SureContact directly:
+        // it owns the portal URLs, the tier and stage tags, and writing
+        // surecontact_contact_uuid back. A second implementation would drift.
+        const resp = await fetch(
+          `${Deno.env.get("SUPABASE_URL")}/functions/v1/sync-client-to-surecontact`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({ clientId: p.client_id }),
           },
-        });
+        );
+        const body = await resp.json().catch(() => ({}));
+        if (!resp.ok || body?.success === false) {
+          return { ok: false, error: body?.error || `Sync failed (${resp.status})` };
+        }
+        return { ok: true, result: { client_id: p.client_id, surecontact: body } };
+      }
+
+      case "create_client_project": {
+        const p = action.payload as { client_id?: string; name?: string; type?: string };
+        if (!p.client_id) return { ok: false, error: "No client_id supplied" };
+        if (!p.type || !(PROJECT_TYPES as readonly string[]).includes(p.type)) {
+          // The type decides what the client sees in their portal, so an
+          // invented one is worse than none. Send it back rather than defaulting.
+          return {
+            ok: false,
+            error: `Project type must be one of: ${PROJECT_TYPES.join(", ")}`,
+          };
+        }
+        const { data, error } = await sb.from("client_projects").insert({
+          client_id: p.client_id,
+          name: p.name ?? action.title,
+          type: p.type,
+        }).select("id, name, type").single();
         if (error) return { ok: false, error: error.message };
-        return { ok: true, result: { queued: true, message_id: messageId, msg_id: data ?? null } };
+        return { ok: true, result: { client_project_id: data.id, name: data.name, type: data.type } };
+      }
+
+      case "draft_proposal": {
+        const p = action.payload as {
+          client_id?: string;
+          client_project_id?: string;
+          title?: string;
+          content?: ProposalContent;
+        };
+        if (!p.client_id) return { ok: false, error: "No client_id supplied" };
+        if (!p.client_project_id) {
+          return { ok: false, error: "No client_project_id supplied; a proposal has to hang off a project" };
+        }
+        if (!p.content) return { ok: false, error: "No proposal content supplied" };
+
+        // The structure is the product. A draft missing locked sections would
+        // render with visible holes, so refuse it here where the agent can see
+        // exactly which ones it skipped.
+        const missing = missingSections(p.content);
+        if (missing.length) {
+          return { ok: false, error: `Proposal is missing required sections: ${missing.join(", ")}` };
+        }
+
+        const { data, error } = await sb.from("client_proposals").insert({
+          client_id: p.client_id,
+          client_project_id: p.client_project_id,
+          title: p.title ?? action.title,
+          description: action.description ?? null,
+          content: p.content,
+          status: "draft",
+          created_by_agent: action.agent_id,
+        }).select("id, title").single();
+        if (error) return { ok: false, error: error.message };
+
+        await logProposalEvent(sb, {
+          proposal_id: data.id,
+          client_id: p.client_id,
+          event_type: "drafted",
+          actor: agentName,
+          detail: { title: data.title },
+        });
+
+        // Render immediately. The signing flow stamps a signature page onto a
+        // source PDF, so a proposal with no PDF cannot be signed — generating it
+        // here is what makes an agent-written proposal a real one.
+        try {
+          const pdf = await renderProposalPdf(data.title, p.content);
+          const path = `proposals/${p.client_id}/${data.id}/source.pdf`;
+          const { error: upErr } = await sb.storage.from(PROPOSAL_BUCKET)
+            .upload(path, pdf, { contentType: "application/pdf", upsert: true, cacheControl: "3600" });
+          if (upErr) throw upErr;
+          await sb.from("client_proposals")
+            .update({ source_pdf_path: path, pdf_generated_at: new Date().toISOString() })
+            .eq("id", data.id);
+          await logProposalEvent(sb, {
+            proposal_id: data.id,
+            client_id: p.client_id,
+            event_type: "pdf_uploaded",
+            actor: agentName,
+            detail: { path, generated: true },
+          });
+        } catch (e) {
+          // The draft still exists and is readable; it just can't be sent for
+          // signature until a PDF lands. Say so rather than failing the draft.
+          console.error("[actions] proposal PDF render failed", String((e as Error).message || e));
+        }
+        const { data: proj } = await sb.from("client_projects")
+          .select("name").eq("id", p.client_project_id).maybeSingle();
+        await logProposalEvent(sb, {
+          proposal_id: data.id,
+          client_id: p.client_id,
+          event_type: "project_attached",
+          actor: agentName,
+          detail: { project_name: proj?.name ?? null, client_project_id: p.client_project_id },
+        });
+
+        return { ok: true, result: { proposal_id: data.id, status: "draft" } };
+      }
+
+      case "send_proposal": {
+        const p = action.payload as {
+          proposal_id?: string; subject?: string; body?: string; to?: string;
+        };
+        if (!p.proposal_id) return { ok: false, error: "No proposal_id supplied" };
+        if (!p.subject || !p.body) return { ok: false, error: "Send is missing subject or body" };
+
+        const { data: proposal, error: pErr } = await sb.from("client_proposals")
+          .select("id, title, client_id, client_project_id, status, followup_count, source_pdf_path")
+          .eq("id", p.proposal_id).maybeSingle();
+        if (pErr) return { ok: false, error: pErr.message };
+        if (!proposal) return { ok: false, error: "Proposal not found" };
+        if (proposal.status === "signed") {
+          return { ok: false, error: "Proposal is already signed" };
+        }
+        if (!proposal.source_pdf_path) {
+          // Sending a link to a proposal the client cannot sign wastes the one
+          // moment they were actually paying attention.
+          return { ok: false, error: "Proposal has no PDF yet, so it cannot be signed. Regenerate it first." };
+        }
+
+        const { data: client } = await sb.from("clients")
+          .select("contact_email, contact_name, business_name")
+          .eq("id", proposal.client_id).maybeSingle();
+        const to = p.to || client?.contact_email;
+        if (!to) return { ok: false, error: "No recipient email on the client" };
+
+        const link = proposal.client_project_id
+          ? `${PORTAL_BASE_URL}/portal/${proposal.client_id}/projects/${proposal.client_project_id}`
+          : `${PORTAL_BASE_URL}/portal/${proposal.client_id}`;
+
+        // The link is appended rather than trusted to the drafted body: the
+        // client must always get a working way in, whatever the agent wrote.
+        const html = `${p.body}\n<p style="margin:24px 0"><a href="${link}" style="background:#8B7355;color:#FAFAF8;padding:12px 20px;border-radius:8px;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;display:inline-block">Review and sign the proposal</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#9A938A">Or paste this into your browser: ${link}</p>`;
+
+        const sent = await deliverClientEmail(sb, {
+          to,
+          subject: p.subject,
+          html,
+          label: "agent-send-proposal",
+          // One approval, one send: a double-click cannot send it twice.
+          idempotencyKey: `agent-action-${action.id}`,
+          templateName: "agent:send_proposal",
+          name: client?.contact_name ?? null,
+          company: client?.business_name ?? null,
+          reason: `Proposal sent: ${proposal.title}`,
+        });
+        if (!sent.ok) return { ok: false, error: sent.error };
+
+        const followupDays = 4;
+        const { error: uErr } = await sb.from("client_proposals").update({
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          sent_to: to,
+          send_message_id: sent.messageId,
+          next_followup_at: new Date(Date.now() + followupDays * 86_400_000).toISOString(),
+        }).eq("id", proposal.id);
+        if (uErr) return { ok: false, error: uErr.message };
+
+        await logProposalEvent(sb, {
+          proposal_id: proposal.id,
+          client_id: proposal.client_id,
+          event_type: sent.via === "surecontact" ? "email_sent" : "email_queued",
+          actor: agentName,
+          detail: { to, subject: p.subject, message_id: sent.messageId, via: sent.via, link },
+        });
+
+        return {
+          ok: true,
+          result: { proposal_id: proposal.id, to, message_id: sent.messageId, via: sent.via, link },
+        };
+      }
+
+      case "schedule_followup": {
+        const p = action.payload as { proposal_id?: string; due_date?: string; note?: string };
+        if (!p.proposal_id) return { ok: false, error: "No proposal_id supplied" };
+        const { data: proposal } = await sb.from("client_proposals")
+          .select("id, client_id, client_project_id, title").eq("id", p.proposal_id).maybeSingle();
+        if (!proposal) return { ok: false, error: "Proposal not found" };
+
+        const due = p.due_date ?? new Date(Date.now() + 4 * 86_400_000).toISOString().slice(0, 10);
+        const { error } = await sb.from("client_proposals")
+          .update({ next_followup_at: new Date(`${due}T09:00:00Z`).toISOString() })
+          .eq("id", proposal.id);
+        if (error) return { ok: false, error: error.message };
+
+        // Also open a dated task so the follow-up shows in Up Next alongside
+        // everything else a person is expected to do that day.
+        let taskId: string | null = null;
+        if (proposal.client_project_id) {
+          const { data: task } = await sb.from("project_tasks").insert({
+            client_project_id: proposal.client_project_id,
+            name: `Follow up on proposal: ${proposal.title}`,
+            description: `${p.note ?? action.description ?? ""}\n\n> Scheduled by ${agentName}.`.trim(),
+            due_date: due,
+            priority: "medium",
+            assignee_kind: "agency",
+            status: "todo",
+          }).select("id").maybeSingle();
+          taskId = task?.id ?? null;
+        }
+
+        await logProposalEvent(sb, {
+          proposal_id: proposal.id,
+          client_id: proposal.client_id,
+          event_type: "followup_scheduled",
+          actor: agentName,
+          detail: { due_date: due, note: p.note ?? null, task_id: taskId },
+        });
+
+        return { ok: true, result: { proposal_id: proposal.id, due_date: due, task_id: taskId } };
       }
 
       case "flag_risk":

@@ -16,65 +16,72 @@
 // timestamp, no run id) is in the system prompt — the changing data goes in the
 // user message, after the breakpoint.
 import Anthropic from "npm:@anthropic-ai/sdk@0.71.0";
+import { isOutward, kindDocFor, kindEnumFor } from "./action-kinds.ts";
 import type { AgentFinding, ProposedAction } from "./types.ts";
 
-const REPORT_TOOL: Anthropic.Tool = {
-  name: "report",
-  description:
-    "Report your findings for this run. Call this exactly once, as your final step.",
-  input_schema: {
-    type: "object",
-    properties: {
-      headline: {
-        type: "string",
-        description:
-          "One sentence, under 120 characters, stating the single most important thing. Shown alone in list views.",
-      },
-      summary: {
-        type: "string",
-        description:
-          "The brief itself, in markdown. Short paragraphs or bullets. No title heading — the headline covers that.",
-      },
-      detail: {
-        type: "object",
-        description:
-          "Structured facts behind the brief (figures cited, entities involved). Free-form; used for rendering and later comparison.",
-        additionalProperties: true,
-      },
-      actions: {
-        type: "array",
-        description:
-          "Things that should happen as a result. Empty array is a valid and often correct answer.",
-        items: {
+/**
+ * The report tool, built per agent.
+ *
+ * The `kind` enum is generated from the agent's allowlist rather than hardcoded,
+ * so an agent is never shown an action it isn't permitted to take. Offering one
+ * and then silently dropping it wasted a whole run's reasoning.
+ */
+function reportTool(allowedActions: string[]): Anthropic.Tool {
+  const kinds = kindEnumFor(allowedActions);
+  return {
+    name: "report",
+    description:
+      "Report your findings for this run. Call this exactly once, as your final step.",
+    input_schema: {
+      type: "object",
+      properties: {
+        headline: {
+          type: "string",
+          description:
+            "One sentence, under 120 characters, stating the single most important thing. Shown alone in list views.",
+        },
+        summary: {
+          type: "string",
+          description:
+            "The brief itself, in markdown. Short paragraphs or bullets. No title heading — the headline covers that.",
+        },
+        detail: {
           type: "object",
-          properties: {
-            kind: {
-              type: "string",
-              enum: ["create_task", "complete_checklist_item", "draft_email", "flag_risk"],
-              description:
-                "create_task: real work for a person. complete_checklist_item: mark a launch checklist item done when the data proves it is. draft_email: compose a message for a human to review and send. flag_risk: raise something needing a decision, with no side effect.",
+          description:
+            "Structured facts behind the brief (figures cited, entities involved). Free-form; used for rendering and later comparison.",
+          additionalProperties: true,
+        },
+        actions: {
+          type: "array",
+          description:
+            "Things that should happen as a result. Empty array is a valid and often correct answer.",
+          items: {
+            type: "object",
+            properties: {
+              kind: {
+                type: "string",
+                enum: kinds,
+                description: kindDocFor(allowedActions),
+              },
+              title: { type: "string", description: "Short imperative label, e.g. 'Chase Acme invoice #3'." },
+              description: { type: "string", description: "Why this, in one or two sentences." },
+              payload: {
+                type: "object",
+                description: "Fields for this kind, as described in the kind enum.",
+                additionalProperties: true,
+              },
             },
-            title: { type: "string", description: "Short imperative label, e.g. 'Chase Acme invoice #3'." },
-            description: { type: "string", description: "Why this, in one or two sentences." },
-            payload: {
-              type: "object",
-              description:
-                "Fields for this kind. create_task: {name, client_project_id?, due_date?, priority?}. complete_checklist_item: {item_id}. draft_email: {to, subject, body, client_id?}. flag_risk: {severity: 'low'|'medium'|'high'}.",
-              additionalProperties: true,
-            },
+            required: ["kind", "title", "payload"],
+            additionalProperties: false,
           },
-          required: ["kind", "title", "payload"],
-          additionalProperties: false,
         },
       },
+      required: ["headline", "summary", "detail", "actions"],
+      additionalProperties: false,
     },
-    required: ["headline", "summary", "detail", "actions"],
-    additionalProperties: false,
-  },
-};
+  };
+}
 
-// Actions that reach a real person. Everything else is in-app and reversible.
-const OUTWARD_KINDS = new Set(["draft_email"]);
 
 export interface RunResult {
   finding: AgentFinding;
@@ -106,7 +113,7 @@ export async function runAgentModel(args: {
         cache_control: { type: "ephemeral" },
       },
     ],
-    tools: [REPORT_TOOL],
+    tools: [reportTool(args.allowedActions)],
     tool_choice: { type: "tool", name: "report" },
     messages: [
       {
@@ -146,7 +153,7 @@ export async function runAgentModel(args: {
     .filter((a) => allowed.has(a.kind))
     .map((a) => ({
       kind: a.kind,
-      outward: OUTWARD_KINDS.has(a.kind),
+      outward: isOutward(a.kind),
       title: a.title,
       description: a.description,
       payload: a.payload ?? {},

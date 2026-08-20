@@ -12,6 +12,7 @@ import AgentChatPanel from "@/components/admin/agent/AgentChatPanel";
 import AgentActivityPanel, { type ActivityRun } from "@/components/admin/agent/AgentActivityPanel";
 import AgentSettingsPanel from "@/components/admin/agent/AgentSettingsPanel";
 import { agentsApi, errMsg, type Agent } from "@/lib/agentsApi";
+import { capabilitiesFor } from "@/lib/agentCapabilities";
 
 type View = "chat" | "agent";
 
@@ -34,6 +35,8 @@ export default function AgentWorkspace() {
   const [runs, setRuns] = useState<ActivityRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  // Bumped after a run so the chat pane reloads and shows the brief it wrote.
+  const [chatNonce, setChatNonce] = useState(0);
 
   const loadAgent = useCallback(async () => {
     if (!id) return;
@@ -56,6 +59,14 @@ export default function AgentWorkspace() {
     })();
   }, [loadAgent, loadRuns]);
 
+  /**
+   * Run the agent and put the result in the chat.
+   *
+   * A run used to land only in the activity list, so reading what the agent
+   * found meant leaving the page you were talking to it on. The brief is a
+   * message from the agent — it belongs in the thread with everything else it
+   * has said, where you can reply to it.
+   */
   const runNow = async () => {
     if (!agent) return;
     setRunning(true);
@@ -63,6 +74,39 @@ export default function AgentWorkspace() {
       const res = await agentsApi<{ run_id: string; headline: string }>(
         `/agents/${agent.id}/run`, { method: "POST" },
       );
+
+      // Written client-side rather than by the run itself: the run has no idea
+      // which thread you are reading, and this way it lands in the one you are
+      // looking at.
+      if (res.run_id) {
+        const { data: run } = await supabase.from("agent_runs")
+          .select("id, headline, summary").eq("id", res.run_id).maybeSingle();
+        if (run) {
+          let convId: string | null = null;
+          const { data: conv } = await supabase.from("agent_conversations")
+            .select("id").eq("agent_id", agent.id)
+            .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+          if (conv) {
+            convId = conv.id;
+          } else {
+            const { data: created } = await supabase.from("agent_conversations")
+              .insert({ agent_id: agent.id, title: "Chat" }).select("id").maybeSingle();
+            convId = created?.id ?? null;
+          }
+          if (convId) {
+            const headline = run.headline ? `**${run.headline}**\n\n` : "";
+            await supabase.from("agent_messages").insert({
+              conversation_id: convId,
+              role: "assistant",
+              content: `${headline}${run.summary ?? ""}`.trim() || "Run finished with nothing to report.",
+              run_id: run.id,
+            });
+            setChatNonce((n) => n + 1);
+            setView("chat");
+          }
+        }
+      }
+
       toast.success(res.headline || `${agent.name} finished`);
       loadRuns();
     } catch (e) {
@@ -105,6 +149,14 @@ export default function AgentWorkspace() {
 
           <div className="ws__rail-role">{agent.role}</div>
 
+          {capabilitiesFor(agent.key).length > 0 && (
+            <ul className="ws__rail-caps">
+              {capabilitiesFor(agent.key).map((cap) => (
+                <li key={cap}>{cap}</li>
+              ))}
+            </ul>
+          )}
+
           <div className="ws__rail-group">
             {RAIL.map((r) => (
               <button key={r.view}
@@ -129,7 +181,7 @@ export default function AgentWorkspace() {
 
         {/* ---------- middle ---------- */}
         {view === "chat"
-          ? <AgentChatPanel agent={agent} onActivity={loadRuns} />
+          ? <AgentChatPanel agent={agent} onActivity={loadRuns} reloadNonce={chatNonce} />
           : <AgentSettingsPanel agent={agent} onChanged={loadAgent} />}
 
         {/* ---------- activity ---------- */}

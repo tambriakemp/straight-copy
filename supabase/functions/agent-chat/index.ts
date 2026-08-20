@@ -9,6 +9,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import Anthropic from "npm:@anthropic-ai/sdk@0.71.0";
 import { definitionFor, systemPromptFor } from "../_shared/agents/registry.ts";
 import { executeAndRecord, type ActionRow } from "../_shared/agents/actions.ts";
+import { isOutward, kindDocFor, kindEnumFor } from "../_shared/agents/action-kinds.ts";
 import { canAutoExecute, type AgentRow } from "../_shared/agents/types.ts";
 
 const corsHeaders = {
@@ -50,43 +51,46 @@ async function authorize(
  * Reply is required so there is always something to show; actions are optional
  * because most messages are questions, not instructions.
  */
-const REPLY_TOOL: Anthropic.Tool = {
-  name: "reply",
-  description: "Reply to the message. Call this exactly once, as your final step.",
-  input_schema: {
-    type: "object",
-    properties: {
-      message: {
-        type: "string",
-        description:
-          "Your reply, in markdown. Answer what was asked. If you are proposing actions, say briefly what and why rather than restating them.",
-      },
-      actions: {
-        type: "array",
-        description:
-          "Things that should happen as a result. Empty is the normal case — most messages want an answer, not work.",
-        items: {
-          type: "object",
-          properties: {
-            kind: {
-              type: "string",
-              enum: ["create_task", "complete_checklist_item", "draft_email", "flag_risk"],
+function replyTool(allowedActions: string[]): Anthropic.Tool {
+  return {
+    name: "reply",
+    description: "Reply to the message. Call this exactly once, as your final step.",
+    input_schema: {
+      type: "object",
+      properties: {
+        message: {
+          type: "string",
+          description:
+            "Your reply, in markdown. Answer what was asked. If you are proposing actions, say briefly what and why rather than restating them.",
+        },
+        actions: {
+          type: "array",
+          description:
+            "Things that should happen as a result. Empty is the normal case — most messages want an answer, not work.",
+          items: {
+            type: "object",
+            properties: {
+              kind: {
+                type: "string",
+                // Generated from this agent's allowlist, so it is never offered
+                // an action that would be silently dropped afterwards.
+                enum: kindEnumFor(allowedActions),
+                description: kindDocFor(allowedActions),
+              },
+              title: { type: "string" },
+              description: { type: "string" },
+              payload: { type: "object", additionalProperties: true },
             },
-            title: { type: "string" },
-            description: { type: "string" },
-            payload: { type: "object", additionalProperties: true },
+            required: ["kind", "title", "payload"],
+            additionalProperties: false,
           },
-          required: ["kind", "title", "payload"],
-          additionalProperties: false,
         },
       },
+      required: ["message"],
+      additionalProperties: false,
     },
-    required: ["message"],
-    additionalProperties: false,
-  },
-};
-
-const OUTWARD_KINDS = new Set(["draft_email"]);
+  };
+}
 
 const CHAT_ADDENDUM = `
 ---
@@ -170,7 +174,7 @@ Deno.serve(async (req) => {
           cache_control: { type: "ephemeral" },
         },
       ],
-      tools: [REPLY_TOOL],
+      tools: [replyTool(def.allowedActions)],
       tool_choice: { type: "tool", name: "reply" },
       messages: [
         {
@@ -233,7 +237,7 @@ Deno.serve(async (req) => {
 
       if (runId) {
         const rows = proposals.map((a) => {
-          const outward = OUTWARD_KINDS.has(a.kind);
+          const outward = isOutward(a.kind);
           return {
             run_id: runId,
             agent_id: agent.id,

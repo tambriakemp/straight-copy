@@ -341,3 +341,139 @@ export async function developerContext(sb: SupabaseClient, cfg: Record<string, u
     })),
   };
 }
+
+/**
+ * The engagement picture: who is missing from SureContact, what proposals are
+ * in flight, and what each client has actually done with the one they were sent.
+ *
+ * The engagement timeline is the point of this gatherer. "Proposal sent 6 days
+ * ago" and "proposal sent 6 days ago, opened twice, clicked once, never signed"
+ * call for completely different follow-ups, and only the second is a decision
+ * you can make from data.
+ */
+export async function engagementContext(sb: SupabaseClient, cfg: Record<string, unknown>) {
+  const followupAfter = Number(cfg.followup_after_days ?? 4);
+  const maxFollowups = Number(cfg.max_followups ?? 3);
+  const staleAfter = Number(cfg.stale_after_days ?? 21);
+
+  const [clients, proposals, projects, events] = await Promise.all([
+    sb.from("clients")
+      .select("id, business_name, contact_name, contact_email, pipeline_stage, surecontact_contact_uuid, created_at")
+      .eq("archived", false).order("created_at", { ascending: false }).limit(120),
+    sb.from("client_proposals")
+      .select(
+        "id, title, client_id, client_project_id, status, created_at, sent_at, sent_to, " +
+          "first_opened_at, first_viewed_at, last_activity_at, next_followup_at, followup_count, " +
+          "client_signed_at, source_pdf_path, content",
+      )
+      .neq("status", "voided").order("created_at", { ascending: false }).limit(40),
+    sb.from("client_projects").select("id, client_id, name, type, status").limit(200),
+    sb.from("proposal_events")
+      .select("proposal_id, event_type, actor, occurred_at, detail")
+      .gte("occurred_at", iso(90 * DAY))
+      .order("occurred_at", { ascending: false }).limit(300),
+  ]);
+
+  const cName: Record<string, string> = {};
+  const cEmail: Record<string, string | null> = {};
+  for (const c of clients.data ?? []) {
+    cName[c.id] = c.business_name || c.contact_name || "Untitled";
+    cEmail[c.id] = c.contact_email;
+  }
+
+  const projById: Record<string, { name: string | null; type: string | null }> = {};
+  const projByClient: Record<string, Array<{ id: string; name: string | null; type: string | null; status: string | null }>> = {};
+  for (const p of projects.data ?? []) {
+    projById[p.id] = { name: p.name, type: p.type };
+    (projByClient[p.client_id] ??= []).push({ id: p.id, name: p.name, type: p.type, status: p.status });
+  }
+
+  const evByProposal: Record<string, Array<{ event_type: string; occurred_at: string; detail: unknown }>> = {};
+  for (const e of events.data ?? []) {
+    (evByProposal[e.proposal_id] ??= []).push({
+      event_type: e.event_type,
+      occurred_at: e.occurred_at,
+      detail: e.detail,
+    });
+  }
+
+  const daysSince = (d: string | null) =>
+    d ? Math.round((Date.now() - new Date(d).getTime()) / DAY) : null;
+
+  // A client is only "missing" once we have an email to sync — a client with no
+  // contact_email cannot be a SureContact contact, so listing them as work to do
+  // would be noise the agent can never clear.
+  const unsynced = (clients.data ?? [])
+    .filter((c) => !c.surecontact_contact_uuid && c.contact_email)
+    .map((c) => ({
+      client_id: c.id,
+      client: cName[c.id],
+      email: c.contact_email,
+      pipeline_stage: c.pipeline_stage,
+      days_since_created: daysSince(c.created_at),
+    }));
+
+  const inFlight = (proposals.data ?? []).map((p) => {
+    const evs = evByProposal[p.id] ?? [];
+    const counts: Record<string, number> = {};
+    for (const e of evs) counts[e.event_type] = (counts[e.event_type] ?? 0) + 1;
+
+    // What the client themselves did, as distinct from what we did to them.
+    const engaged = (counts.email_opened ?? 0) + (counts.link_clicked ?? 0) +
+      (counts.viewed_in_portal ?? 0);
+
+    return {
+      id: p.id,
+      title: p.title,
+      status: p.status,
+      client: cName[p.client_id] ?? null,
+      client_id: p.client_id,
+      client_email: p.sent_to ?? cEmail[p.client_id] ?? null,
+      project: p.client_project_id ? projById[p.client_project_id]?.name ?? null : null,
+      project_type: p.client_project_id ? projById[p.client_project_id]?.type ?? null : null,
+      client_project_id: p.client_project_id,
+      has_content: !!p.content,
+      has_pdf: !!p.source_pdf_path,
+      days_since_created: daysSince(p.created_at),
+      days_since_sent: daysSince(p.sent_at),
+      days_since_activity: daysSince(p.last_activity_at ?? p.sent_at),
+      opened: !!p.first_opened_at,
+      viewed_in_portal: !!p.first_viewed_at,
+      signed_at: p.client_signed_at,
+      followups_sent: p.followup_count ?? 0,
+      followup_due: !!p.next_followup_at && new Date(p.next_followup_at) <= new Date(),
+      next_followup_at: p.next_followup_at,
+      client_engagement_events: engaged,
+      event_counts: counts,
+      recent_events: evs.slice(0, 8),
+    };
+  });
+
+  const sent = inFlight.filter((p) => p.status === "sent");
+
+  return {
+    clients_missing_from_surecontact: unsynced,
+    proposals: inFlight,
+    // Pre-sliced so the agent spends its reasoning on what to say, not on
+    // rederiving which bucket each proposal is in.
+    needs_followup: sent.filter(
+      (p) =>
+        p.followups_sent < maxFollowups &&
+        (p.followup_due || (p.days_since_sent ?? 0) >= followupAfter) &&
+        (p.days_since_activity ?? 0) >= followupAfter,
+    ),
+    sent_never_opened: sent.filter((p) => !p.opened && (p.days_since_sent ?? 0) >= followupAfter),
+    read_but_unsigned: sent.filter((p) => (p.opened || p.viewed_in_portal) && !p.signed_at),
+    exhausted_followups: sent.filter((p) => p.followups_sent >= maxFollowups),
+    stale: inFlight.filter((p) => (p.days_since_activity ?? 0) >= staleAfter && !p.signed_at),
+    drafts_not_sent: inFlight.filter((p) => p.status === "draft"),
+    projects_by_client: projByClient,
+    project_types: ["automation_build", "site_preview", "app_development", "web_development", "marketing"],
+    thresholds: {
+      followup_after_days: followupAfter,
+      max_followups: maxFollowups,
+      stale_after_days: staleAfter,
+      meeting_link: (cfg.meeting_link as string) || null,
+    },
+  };
+}
