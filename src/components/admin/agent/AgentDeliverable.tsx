@@ -6,11 +6,15 @@
 // handle on it from the place you asked.
 import { useState } from "react";
 import { toast } from "sonner";
-import { FileText, Download, ExternalLink, FolderOpen } from "lucide-react";
+import { FileText, Download, ExternalLink, FolderOpen, BookOpen, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { AgentAction } from "@/lib/agentsApi";
 import { deliverableOf, type Result } from "./deliverable";
+import {
+  renderProposalHtml, type ProposalContent,
+} from "../../../../supabase/functions/_shared/agents/proposal-spine";
+
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
