@@ -1065,7 +1065,7 @@ export type Database = {
           sent_at: string | null
           sent_to: string | null
           signed_pdf_path: string | null
-          source_pdf_path: string
+          source_pdf_path: string | null
           status: string
           title: string
           updated_at: string
@@ -1099,7 +1099,7 @@ export type Database = {
           sent_at?: string | null
           sent_to?: string | null
           signed_pdf_path?: string | null
-          source_pdf_path: string
+          source_pdf_path?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -1133,7 +1133,7 @@ export type Database = {
           sent_at?: string | null
           sent_to?: string | null
           signed_pdf_path?: string | null
-          source_pdf_path?: string
+          source_pdf_path?: string | null
           status?: string
           title?: string
           updated_at?: string

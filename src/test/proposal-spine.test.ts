@@ -70,13 +70,28 @@ describe("renderProposalHtml", () => {
     expect(positions).toEqual(sorted);
   });
 
-  it("marks an unwritten section rather than dropping it", () => {
+  it("drops an optional section the agent left out rather than printing a hole", () => {
     const c = full();
     c.sections = c.sections!.filter((s) => s.key !== "ai");
     const html = renderProposalHtml("Menovia", c);
-    expect(html).toContain("AI in Development");
+    expect(html).not.toContain("AI in Development");
+  });
+
+  it("marks an unwritten essential section rather than dropping it", () => {
+    const c = full();
+    c.sections = c.sections!.filter((s) => s.key !== "investment");
+    const html = renderProposalHtml("Menovia", c);
+    expect(html).toContain("Investment &amp; Payment Schedule");
     expect(html).toContain("has not been written yet");
   });
+
+  it("renders a section the agent invented rather than discarding it", () => {
+    const c = full();
+    c.sections!.push({ key: "case_study", heading: "Comparable Work", body: "A body." });
+    const html = renderProposalHtml("Menovia", c);
+    expect(html).toContain("Comparable Work");
+  });
+
 
   it("escapes markup in client-supplied text", () => {
     const c = full();
