@@ -9,11 +9,12 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import AgentQuestions, { type AgentQuestion } from "@/components/admin/agent/AgentQuestions";
+import AgentActionCards from "@/components/admin/agent/AgentActionCards";
 import { supabase } from "@/integrations/supabase/client";
 import AgentAvatar from "@/components/admin/AgentAvatar";
 import {
   sendAgentMessage, errMsg,
-  type Agent, type AgentMessage,
+  type Agent, type AgentAction, type AgentMessage,
 } from "@/lib/agentsApi";
 
 export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
@@ -31,10 +32,24 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
   const endRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLTextAreaElement>(null);
 
+  // Actions referenced by messages in this thread, keyed by id. Loaded
+  // alongside the messages so a proposal is decidable where it was made rather
+  // than behind a link to the run page.
+  const [actions, setActions] = useState<Record<string, AgentAction>>({});
+
   const loadMessages = useCallback(async (convId: string) => {
     const { data } = await supabase.from("agent_messages")
       .select("*").eq("conversation_id", convId).order("created_at");
-    setMessages((data ?? []) as unknown as AgentMessage[]);
+    const rows = (data ?? []) as unknown as AgentMessage[];
+    setMessages(rows);
+
+    const ids = [...new Set(rows.flatMap((m) => m.action_ids ?? []))];
+    if (!ids.length) return setActions({});
+    const { data: acts } = await supabase.from("agent_actions")
+      .select("*").in("id", ids);
+    setActions(Object.fromEntries(
+      ((acts ?? []) as unknown as AgentAction[]).map((a) => [a.id, a]),
+    ));
   }, []);
 
   // Resume the most recent thread rather than opening a blank one every visit.
@@ -222,10 +237,18 @@ export default function AgentChatPanel({ agent, onActivity, reloadNonce = 0 }: {
                   />
                 )}
                 {!!m.action_ids?.length && (
-                  <button className="ws__msg-actions"
-                    onClick={() => m.run_id && navigate(`/admin/agents/runs/${m.run_id}`)}>
-                    {m.action_ids.length} action{m.action_ids.length === 1 ? "" : "s"} — review →
-                  </button>
+                  <>
+                    <AgentActionCards
+                      actions={m.action_ids.map((id) => actions[id]).filter(Boolean)}
+                      onSettled={() => { if (conversationId) void loadMessages(conversationId); onActivity(); }}
+                    />
+                    {m.run_id && (
+                      <button className="ws__msg-actions"
+                        onClick={() => navigate(`/admin/agents/runs/${m.run_id}`)}>
+                        Open the full run →
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>

@@ -38,10 +38,19 @@ export interface AgentFinding {
 /**
  * Whether an action may execute without a human looking at it.
  *
- * The single rule the whole autonomy model reduces to: outward-facing work
- * needs a person unless the agent is explicitly fully autonomous.
+ * Two rules, and the second one has no exceptions:
+ *   * Outward work — anything reaching a person — needs approval unless the
+ *     agent is explicitly fully autonomous.
+ *   * Destructive work always needs approval. An autonomous agent can send an
+ *     email you would not have sent, and you can apologise. It cannot un-delete
+ *     an invoice.
  */
-export function canAutoExecute(autonomy: Autonomy, outward: boolean): boolean {
+export function canAutoExecute(
+  autonomy: Autonomy,
+  outward: boolean,
+  destructive = false,
+): boolean {
+  if (destructive) return false;
   if (autonomy === "autonomous") return true;
   if (autonomy === "act_in_app") return !outward;
   return false;

@@ -14,6 +14,15 @@ export interface ActionKind {
   kind: string;
   /** True when executing this touches someone outside the business. */
   outward: boolean;
+  /**
+   * True when executing this destroys something.
+   *
+   * Separate from `outward` because they fail differently. An outward action
+   * embarrasses you in front of a client; a destructive one takes a row away
+   * and no autonomy setting should be able to do that unasked. These always
+   * wait for a person, even for a fully autonomous agent.
+   */
+  destructive?: boolean;
   /** What this kind does — goes into the tool schema the model sees. */
   purpose: string;
   /** The payload shape, described for the model. */
@@ -39,6 +48,17 @@ export const ACTION_KINDS: Record<string, ActionKind> = {
     purpose: "compose a message for a human to review before it sends",
     payload: "{to, subject, body, client_id?}",
   },
+  delete_record: {
+    kind: "delete_record",
+    outward: false,
+    destructive: true,
+    purpose:
+      "delete a record the owner has asked you to remove — test invoices, a duplicate task, a dead proposal. " +
+      "Always waits for confirmation, so proposing it is safe. One action per record; say what it is in the title.",
+    payload:
+      "{table: 'project_invoices'|'project_tasks'|'client_proposals'|'project_links'|'project_notes'|'agent_runs', id, label}",
+  },
+
   flag_risk: {
     kind: "flag_risk",
     outward: false,
@@ -89,6 +109,18 @@ export const ACTION_KINDS: Record<string, ActionKind> = {
 /** Whether executing this kind reaches a real person. Unknown kinds are treated as outward. */
 export function isOutward(kind: string): boolean {
   return ACTION_KINDS[kind]?.outward ?? true;
+}
+
+/**
+ * Whether executing this kind destroys something.
+ *
+ * A known kind is destructive only if it says so; an unknown one is assumed to
+ * be, so a kind added without being classified fails closed rather than
+ * silently gaining the right to auto-execute.
+ */
+export function isDestructive(kind: string): boolean {
+  const known = ACTION_KINDS[kind];
+  return known ? known.destructive === true : true;
 }
 
 /** The `kind` enum for a tool schema, limited to what this agent may propose. */

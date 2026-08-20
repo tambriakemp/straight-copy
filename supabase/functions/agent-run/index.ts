@@ -17,6 +17,7 @@ import { loadRules, renderRules, type RulesClient } from "../_shared/agents/rule
 import { clientDirectory, renderDirectory } from "../_shared/agents/clients.ts";
 import { executeAndRecord, type ActionRow } from "../_shared/agents/actions.ts";
 import { deliverRun } from "../_shared/agents/delivery.ts";
+import { isDestructive } from "../_shared/agents/action-kinds.ts";
 import { canAutoExecute, type AgentRow } from "../_shared/agents/types.ts";
 
 const corsHeaders = {
@@ -105,7 +106,9 @@ Deno.serve(async (req) => {
     const executed: Array<{ id: string; ok: boolean; error?: string }> = [];
 
     if (finding.actions.length) {
-      const auto = finding.actions.map((a) => canAutoExecute(agent.autonomy, a.outward));
+      const auto = finding.actions.map((a) =>
+        canAutoExecute(agent.autonomy, a.outward, isDestructive(a.kind)),
+      );
       const { data: rows, error: actErr } = await sb.from("agent_actions").insert(
         finding.actions.map((a, i) => ({
           run_id: run.id,

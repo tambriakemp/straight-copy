@@ -96,6 +96,12 @@ export const ACTION_LABEL: Record<string, string> = {
   complete_checklist_item: "Tick a checklist item",
   draft_email: "Send an email",
   flag_risk: "Flag a risk",
+  delete_record: "Delete a record",
+  sync_client_to_surecontact: "Sync to SureContact",
+  create_client_project: "Create a project",
+  draft_proposal: "Write a proposal",
+  send_proposal: "Send the proposal",
+  schedule_followup: "Schedule a follow-up",
 };
 
 /** Human description of a 5-field UTC cron, for the common shapes we generate. */
