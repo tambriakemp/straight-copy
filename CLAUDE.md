@@ -40,8 +40,42 @@ that chat can touch the board.
 
 **Lovable only deploys edge functions its own agent edited.** A function changed
 by a git merge is never deployed — it stays on the old code and calls to it fail
-in ways that look like frontend bugs. Use the "Deploy edge functions" GitHub
-Actions workflow, and say which functions changed.
+in ways that look like frontend bugs.
+
+**Asking Lovable's agent to deploy is the only way to deploy them.** This
+project runs on **Lovable Cloud**, so the Supabase project
+(`zjxvcgcuukgqawczanud`) lives in Lovable's organisation, not ours. There is no
+Supabase dashboard for it, no service-role key, and no personal access token
+that can reach it — so `supabase functions deploy`, the CLI, and anything built
+on the Management API cannot authenticate against it, whatever credentials you
+generate. Tell-tale signs of Cloud rather than a self-managed project:
+`LOVABLE_API_KEY` and `ai.gateway.lovable.dev` in the functions.
+
+So: send a message to the project agent (`lovable.dev/projects/3041a012-...`,
+or the Lovable MCP `send_message`) naming the functions and saying explicitly
+**not to change any code** — it will otherwise treat a deploy request as a
+licence to edit. It deploys `_shared/` alongside them, which matters because
+`agent-chat` and `agent-run` import from there and a stale copy fails to boot.
+
+`.github/workflows/deploy-edge-functions.yml` exists and is correct, but it
+cannot authenticate on Cloud. It is dead weight unless this project is ever
+moved onto a Supabase account we own. It does at least fail loudly now rather
+than reporting success while deploying nothing, which is how the tool loop sat
+merged and undeployed for a full day.
+
+**How to tell whether a deploy actually landed** — never trust a green check
+or the agent's own summary. Send one chat message to any agent, then:
+
+```sql
+select role, status, duration_ms, iterations, tool_calls, stopped_by
+from agent_messages where created_at > now() - interval '10 minutes'
+order by created_at desc;
+```
+
+`duration_ms`, `iterations` and `tool_calls` are written only by the tool-loop
+path. Null on a fresh assistant row means the old code answered it. Note the
+columns only move on a **new** turn — checking straight after a deploy shows
+nothing, because nothing has run yet.
 
 **This database takes migrations from two sources** — this repo and Lovable's
 agent — so every migration must be idempotent (`IF NOT EXISTS`,
