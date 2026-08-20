@@ -1,0 +1,2 @@
+CREATE POLICY "Admins manage agent avatars" ON storage.objects FOR ALL TO authenticated USING (bucket_id = 'agent-avatars' AND public.is_admin(auth.uid())) WITH CHECK (bucket_id = 'agent-avatars' AND public.is_admin(auth.uid()));
+CREATE POLICY "Authenticated read agent avatars" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'agent-avatars');
