@@ -1,5 +1,6 @@
 import { sendLovableEmail } from 'npm:@lovable.dev/email-js'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { logSureContactActivity, sendSureContactEmail } from '../_shared/surecontact-send.ts'
 
 const MAX_RETRIES = 5
 const DEFAULT_BATCH_SIZE = 10
@@ -250,33 +251,82 @@ Deno.serve(async (req) => {
       }
 
       try {
-        await sendLovableEmail(
-          {
-            run_id: payload.run_id,
+        // SureContact first, for EVERY queued email.
+        //
+        // Bree: "all emails need to go through surecontact so that i can see
+        // what is being sent." Until now only agent-sent mail took that path —
+        // deliverClientEmail in _shared/agents/actions.ts. Everything rendered
+        // through send-transactional-email (proposals, invoices, onboarding,
+        // brand kits) was enqueued here and handed straight to Lovable's
+        // sender, so it left the building with no trace on the contact's
+        // timeline and no opens or clicks. That is why a proposal could be
+        // genuinely delivered and still be invisible in SureContact.
+        //
+        // This is the one dispatcher every queued message passes through, so
+        // routing it here covers all eight callers rather than each of them
+        // remembering.
+        const scKey = Deno.env.get('SURECONTACT_API_KEY')
+        let via = 'lovable'
+
+        let sent = false
+        if (scKey) {
+          const result = await sendSureContactEmail(scKey, {
             to: payload.to,
-            from: payload.from,
-            sender_domain: payload.sender_domain,
             subject: payload.subject,
             html: payload.html,
-            text: payload.text,
-            purpose: payload.purpose,
-            label: payload.label,
-            idempotency_key: payload.idempotency_key,
-            unsubscribe_token: payload.unsubscribe_token,
-            message_id: payload.message_id,
-          },
-          // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
-          // falls back to the default Lovable API endpoint (https://api.lovable.dev).
-          // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
-          { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
-        )
+            reason: payload.label || queue,
+          })
+          if (result.ok) {
+            sent = true
+            via = 'surecontact'
+            await logSureContactActivity(scKey, {
+              email: payload.to,
+              type: 'email_sent',
+              description: payload.label || queue,
+              metadata: { subject: payload.subject, crm_message_id: payload.message_id },
+            })
+          } else {
+            // Fall through to Lovable rather than dropping the message — but
+            // say so loudly, because a silent fallback is how mail quietly
+            // stops being tracked again.
+            console.error('SureContact send failed, falling back to Lovable', {
+              queue, message_id: payload.message_id, error: result.error,
+            })
+          }
+        }
 
-        // Log success
+        if (!sent) {
+          await sendLovableEmail(
+            {
+              run_id: payload.run_id,
+              to: payload.to,
+              from: payload.from,
+              sender_domain: payload.sender_domain,
+              subject: payload.subject,
+              html: payload.html,
+              text: payload.text,
+              purpose: payload.purpose,
+              label: payload.label,
+              idempotency_key: payload.idempotency_key,
+              unsubscribe_token: payload.unsubscribe_token,
+              message_id: payload.message_id,
+            },
+            // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
+            // falls back to the default Lovable API endpoint (https://api.lovable.dev).
+            // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
+            { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
+          )
+        }
+
+        // Log success, recording WHICH sender carried it. Without this the log
+        // says "sent" for both paths and there is no way to tell from the data
+        // whether a message should be findable in SureContact.
         await supabase.from('email_send_log').insert({
           message_id: payload.message_id,
           template_name: payload.label || queue,
           recipient_email: payload.to,
           status: 'sent',
+          metadata: { provider: via },
         })
 
         // Delete from queue
