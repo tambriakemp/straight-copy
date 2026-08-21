@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import PdfFrame from "@/components/PdfFrame";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -237,12 +238,11 @@ function ProposalCard({ clientId, contactName, proposal, onChanged }: {
 
           {loading && <p style={{ color: "var(--crm-taupe)" }}>Loading…</p>}
 
+          {/* Through a blob rather than straight at the signed URL: storage
+              serves it as a download, so a frame pointed at it renders blank
+              and the client sees nothing where the proposal should be. */}
           {!loading && detail?.source_url && (
-            <iframe
-              src={detail.source_url}
-              title={proposal.title}
-              style={{ width: "100%", height: 520, border: "1px solid var(--crm-border-dark)", borderRadius: 8, background: "#fff" }}
-            />
+            <PdfFrame url={detail.source_url} title={proposal.title} height={520} />
           )}
 
           {isDeclined && !loading && (

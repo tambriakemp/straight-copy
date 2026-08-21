@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Upload, Download, Trash2, FileSignature, ExternalLink, Activity, Send, Eye } from "lucide-react";
 import ProposalActivityLog from "@/components/admin/ProposalActivityLog";
 import SidePanel from "@/components/admin/SidePanel";
+import PdfFrame from "@/components/PdfFrame";
 import {
   renderProposalHtml, writtenSections,
   type ProposalContent,
@@ -444,15 +445,7 @@ function ProposalPreviewBody({ p, pdfUrl }: { p: Proposal; pdfUrl: string | null
     [content, p.title, sections],
   );
 
-  if (pdfUrl) {
-    return (
-      <iframe
-        src={pdfUrl}
-        title={p.title}
-        style={{ width: "100%", height: "72vh", border: "1px solid var(--crm-border-dark)", borderRadius: 8, background: "#fff" }}
-      />
-    );
-  }
+  if (pdfUrl) return <PdfFrame url={pdfUrl} title={p.title} />;
 
   if (sections) {
     return (

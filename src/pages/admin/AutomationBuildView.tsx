@@ -100,8 +100,21 @@ interface Client {
 }
 
 // ---------- Page ----------
-export default function AutomationBuildView() {
-  const { id, projectId } = useParams<{ id: string; projectId?: string }>();
+/**
+ * @param embedded Render without AdminLayout, for the agent Workspace rail.
+ *   Ids come from props there because the panel has no route of its own.
+ */
+export default function AutomationBuildView({
+  clientId: clientIdProp, projectId: projectIdProp, embedded = false, onBack,
+}: {
+  clientId?: string;
+  projectId?: string;
+  embedded?: boolean;
+  onBack?: () => void;
+} = {}) {
+  const params = useParams<{ id: string; projectId?: string }>();
+  const id = clientIdProp ?? params.id;
+  const projectId = projectIdProp ?? params.projectId;
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
   const [projectName, setProjectName] = useState<string | null>(null);
@@ -305,13 +318,18 @@ export default function AutomationBuildView() {
     didInitOpen.current = true;
   }, [nodes]);
 
+  // One wrapper, chosen once, so the loading return agrees with the main one
+  // about whether this is a page or a panel.
+  const Shell = ({ children }: { children: React.ReactNode }) =>
+    embedded ? <>{children}</> : <AdminLayout>{children}</AdminLayout>;
+
   if (loading || !client) {
     return (
-      <AdminLayout>
+      <Shell>
         <div className="px-12 py-16 text-[hsl(30_8%_62%)]">
           {loading ? "Loading…" : "Client not found."}
         </div>
-      </AdminLayout>
+      </Shell>
     );
   }
 
@@ -321,8 +339,16 @@ export default function AutomationBuildView() {
   );
 
   return (
-    <AdminLayout>
-      <div className="roster">
+    <Shell>
+      <div className={embedded ? undefined : "roster"}>
+        {/* Embedded, going back is a step inside the panel — a Link would take
+            the whole window somewhere the panel cannot follow. */}
+        {embedded && (
+          <button className="acv__back" onClick={onBack}>
+            <ArrowLeft size={13} /> Back to {client.contact_name ?? client.business_name ?? "client"}
+          </button>
+        )}
+        {!embedded && (
         <Link
           to={`/admin/clients/${client.id}`}
           style={{
@@ -333,6 +359,7 @@ export default function AutomationBuildView() {
         >
           <ArrowLeft size={14} /> Back to {client.business_name ?? "client"}
         </Link>
+        )}
 
         <div className="roster__head">
           <div className="roster__title-block">
@@ -558,7 +585,7 @@ export default function AutomationBuildView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </Shell>
   );
 }
 
