@@ -195,6 +195,29 @@ outstanding, and tell Bree. Never silently omit one.
 the whole document in a single call — a real proposal is 20,000+ characters and
 one oversized call that truncates loses all of it.
 
+### How a section is written
+
+Open every section with a one-line thesis on its own line, in bold — "The app
+is live. Now she has to find it." It becomes the section's title under the
+numbered heading, so it is the line that carries the argument. One sentence,
+specific, not a label.
+
+Do NOT put a number in the heading. Write "Engagement Summary", not
+"02 — ENGAGEMENT SUMMARY". Sections are numbered by position when the document
+renders, so a number you write yourself is either duplicated or wrong the
+moment a section moves.
+
+Subheads within a section go on their own line in bold — **WHAT WE PRODUCE** —
+or as \`## \`. Either renders as a subhead. A bold phrase that opens a
+paragraph and is followed by prose on the same line stays part of that
+paragraph, which is the right way to write a labelled list item.
+
+**Lead with the numbers, then explain them.** Any section that discusses money
+opens by stating it plainly — the fee, the pass-through, the cadence — before a
+word of prose about it. A reader looking for the price should find it in the
+first line of that section, not in the fourth paragraph. Use a blockquote for
+the callout when it deserves to sit apart from the body.
+
 ### Revising
 
 Bree revises by talking to you, the way she talks to Claude. "Make the second
@@ -266,6 +289,34 @@ claim is followed by why. Warm but not casual. No exclamation marks, no emoji.`;
 /** @deprecated Kept so nothing breaks mid-migration. Use PROPOSAL_BRIEFING. */
 export const PROPOSAL_DNA = PROPOSAL_BRIEFING;
 
+/**
+ * The agent writes headings like "02 — ENGAGEMENT SUMMARY", already numbered
+ * and already uppercase. The renderer numbers sections by position too, so the
+ * eyebrow came out as "01 — 02 — ENGAGEMENT SUMMARY". Strip what the agent
+ * supplied and let position be the single source of the number — it is the only
+ * one that stays correct when a section is inserted or moved.
+ */
+export function stripSectionNumber(heading: string): string {
+  return heading.replace(/^\s*\d{1,2}\s*[—–-]\s*/, "").trim();
+}
+
+/**
+ * Lift a leading all-bold line out of the body to use as the section's title.
+ *
+ * Every section in a real Cre8 Visions proposal opens with a one-line thesis
+ * under the numbered heading — "The app is live. Now she has to find it." The
+ * agent writes it as `**...**` on its own line, which rendered as just another
+ * bold paragraph while the <h2> uselessly repeated the eyebrow.
+ */
+export function liftThesis(body: string): { thesis: string; rest: string } {
+  const lines = body.split(/\r?\n/);
+  let i = 0;
+  while (i < lines.length && !lines[i].trim()) i++;
+  const m = lines[i]?.trim().match(/^\*\*(.+?)\*\*$/);
+  if (!m) return { thesis: "", rest: body };
+  return { thesis: m[1].trim(), rest: lines.slice(i + 1).join("\n").trim() };
+}
+
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
@@ -294,9 +345,17 @@ function mdToHtml(md: string): string {
   for (const rawLine of md.split(/\r?\n/)) {
     const line = rawLine.trimEnd();
     if (!line.trim()) { flushList(); flushQuote(); continue; }
+    const wholeBold = line.trim().match(/^\*\*(.+?)\*\*$/);
     if (line.startsWith("## ")) {
       flushList(); flushQuote();
       out.push(`<h3>${inline(line.slice(3).trim())}</h3>`);
+    } else if (wholeBold && wholeBold[1].length <= 60) {
+      // A line that is entirely bold and short is a subhead, whatever syntax
+      // the agent reached for. "**Organic social media.** No content calendar…"
+      // is a bold lead-in to a paragraph, not a subhead, and stays a paragraph
+      // because it has text after the closing asterisks.
+      flushList(); flushQuote();
+      out.push(`<h3>${inline(wholeBold[1])}</h3>`);
     } else if (/^[-*]\s+/.test(line)) {
       flushQuote();
       list.push(`<li>${inline(line.replace(/^[-*]\s+/, ""))}</li>`);
@@ -325,11 +384,15 @@ export function renderProposalHtml(title: string, content: ProposalContent): str
   // Document order, exactly as written. There is no spine to reorder against
   // and nothing to slot into — the agent decided the structure, so the
   // renderer's job is to present it, not to second-guess it.
-  const ordered = writtenSections(content).map((s) => ({
-    heading: (s.heading ?? "").trim() || "Untitled section",
-    purpose: (s.summary ?? "").trim(),
-    body: (s.body ?? "").trim(),
-  }));
+  const ordered = writtenSections(content).map((s) => {
+    const { thesis, rest } = liftThesis((s.body ?? "").trim());
+    return {
+      heading: stripSectionNumber((s.heading ?? "").trim()) || "Untitled section",
+      purpose: stripSectionNumber((s.summary ?? "").trim()),
+      thesis,
+      body: rest,
+    };
+  });
 
 const toc = ordered.map(
     (s, i) =>
@@ -337,9 +400,12 @@ const toc = ordered.map(
   ).join("");
 
   const body = ordered.map((s, i) => {
+    // Eyebrow carries the number and the section name; the h2 carries the
+    // thesis. When the agent wrote no thesis the heading takes the h2 back, so
+    // a section is never left with a number and nothing above the rule.
     return `<section class="sec">
       <p class="eyebrow">${String(i + 1).padStart(2, "0")} — ${esc(s.heading).toUpperCase()}</p>
-      <h2>${esc(s.heading)}</h2>
+      <h2>${esc(s.thesis || s.heading)}</h2>
       <hr />
       ${s.body ? mdToHtml(s.body) : `<p class="gap">This section has not been written yet.</p>`}
     </section>`;
@@ -363,7 +429,8 @@ const toc = ordered.map(
 .cv-proposal .sec { padding: 40px 0 8px; }
 .cv-proposal .eyebrow { color: ${PALETTE.bronze}; font-size: 11px; font-weight: 700; letter-spacing: .18em; margin: 0 0 10px; }
 .cv-proposal h2 { font-family: Georgia, serif; font-weight: 400; font-size: 32px; line-height: 1.15; color: ${PALETTE.ink}; margin: 0 0 16px; }
-.cv-proposal h3 { font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: ${PALETTE.ink}; margin: 28px 0 10px; }
+.cv-proposal h3 { font-size: 12.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: ${PALETTE.bronze}; margin: 30px 0 12px; padding-bottom: 7px; border-bottom: 1px solid ${PALETTE.mist}; }
+.cv-proposal h3 + p, .cv-proposal h3 + ul { margin-top: 0; }
 .cv-proposal hr { border: 0; border-top: 1px solid ${PALETTE.sand}; margin: 0 0 22px; }
 .cv-proposal p { margin: 0 0 14px; }
 .cv-proposal ul { margin: 0 0 16px; padding-left: 18px; }

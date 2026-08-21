@@ -2813,10 +2813,26 @@ html { -webkit-text-size-adjust: 100%; }
 /* A viewer, not an editor: Bree revises by talking to the agent, so there is
    deliberately no editing affordance anywhere in here. */
 .crm-shell .ws__aside {
+  position: relative;
   display: grid; grid-template-rows: auto minmax(0, 1fr);
   min-height: 0; border-left: 1px solid var(--crm-border-dark);
   background: var(--crm-charcoal);
 }
+/* The drag handle sits over the left border rather than taking a column of its
+   own, so widening the panel does not shift the seam the eye is following. */
+.crm-shell .ws__aside-grip {
+  position: absolute; top: 0; bottom: 0; left: -3px; width: 7px; z-index: 5;
+  cursor: col-resize; background: transparent;
+}
+.crm-shell .ws__aside-grip::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 1px;
+  background: transparent; transition: background 120ms ease;
+}
+.crm-shell .ws__aside-grip:hover::after,
+.crm-shell .ws__aside-grip.is-dragging::after { background: var(--crm-bronze, #8a7355); }
+/* While dragging, stop the pointer selecting the proposal text it passes over. */
+.crm-shell .ws__aside-grip.is-dragging { cursor: col-resize; }
+body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
 .crm-shell .ws__aside-tabs {
   display: flex; gap: 2px; padding: 10px 14px 0;
   border-bottom: 1px solid var(--crm-border-dark);

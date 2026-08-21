@@ -53,17 +53,24 @@ describe("the exemplar library", () => {
 const briefing = PROPOSAL_BRIEFING.toLowerCase().replace(/\s+/g, " ");
 
 describe("the briefing", () => {
-  // Honest accounting. PROPOSAL_DNA was ~6,455 characters. The briefing came
-  // in at ~1,830 and then grew back to ~5,200 once the revision doctrine was
-  // added, because those rules have to be known BEFORE the agent decides to
-  // call read_proposal — they cannot be loaded on demand the way an exemplar
-  // can. So the per-turn saving is real but modest.
+  // HONEST ACCOUNTING, third revision of this number and the last.
   //
-  // The actual win was never the token count: it is that the agent now has the
-  // document instead of a description of it. This bound exists to stop the
-  // briefing drifting back into being a substitute for reading a real one.
-  it("stays smaller than the description it replaced", () => {
-    expect(PROPOSAL_BRIEFING.length).toBeLessThan(6_000);
+  // PROPOSAL_DNA was 6,455 characters. The briefing replaced it at ~1,830,
+  // then grew to ~5,200 with the revision doctrine, and now sits at ~6,340
+  // with the section-formatting rules. It is the same size as the thing it
+  // replaced. I claimed a 72% saving early on and that claim was wrong.
+  //
+  // The token count was never the win and framing it that way was a mistake.
+  // The win is that the agent has the real documents to read instead of only a
+  // description of them, and that everything here is a rule it must know
+  // BEFORE deciding to read one — which is precisely why it cannot be loaded
+  // on demand the way an exemplar can.
+  //
+  // So this is a ceiling against unbounded growth, not a shrinkage claim.
+  // Anything that can wait until the agent is actually writing belongs in the
+  // exemplar's front matter, not here.
+  it("stays within its ceiling", () => {
+    expect(PROPOSAL_BRIEFING.length).toBeLessThan(8_000);
   });
 
   it("sends the agent to a real document before it writes", () => {
@@ -107,6 +114,20 @@ describe("the briefing", () => {
   // that did not exist, with empty action_ids.
   it("forbids describing a revision that was never made", () => {
     expect(briefing).toContain("never describe a revision you did not actually make");
+  });
+
+  it("tells the agent not to number its own headings", () => {
+    expect(briefing).toContain("do not put a number in the heading");
+  });
+
+  it("tells the agent to open a section with a bold one-line thesis", () => {
+    expect(briefing).toContain("one-line thesis on its own line, in bold");
+  });
+
+  // Bree: "the engagement summary didn't have a call out of the pricing before
+  // it started talking about pricing."
+  it("tells the agent to lead with the numbers before explaining them", () => {
+    expect(briefing).toContain("lead with the numbers, then explain them");
   });
 
   it("points 'put it back' at the restore action", () => {
