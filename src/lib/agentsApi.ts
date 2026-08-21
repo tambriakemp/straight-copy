@@ -101,7 +101,8 @@ export const ACTION_LABEL: Record<string, string> = {
   delete_record: "Delete a record",
   sync_client_to_surecontact: "Sync to SureContact",
   create_client_project: "Create a project",
-  draft_proposal: "Write a proposal",
+  create_proposal_draft: "Start a proposal",
+  write_proposal_section: "Write a proposal section",
   send_proposal: "Send the proposal",
   schedule_followup: "Schedule a follow-up",
 };

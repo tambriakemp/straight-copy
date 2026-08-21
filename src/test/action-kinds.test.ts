@@ -17,7 +17,7 @@ describe("outward classification", () => {
   });
 
   it("marks in-app work as not outward", () => {
-    for (const k of ["create_task", "flag_risk", "draft_proposal", "create_client_project", "sync_client_to_surecontact", "schedule_followup"]) {
+    for (const k of ["create_task", "flag_risk", "create_proposal_draft", "create_client_project", "sync_client_to_surecontact", "schedule_followup"]) {
       expect(isOutward(k), k).toBe(false);
     }
   });
@@ -35,7 +35,7 @@ describe("autonomy gating", () => {
   });
 
   it("lets act_in_app draft one", () => {
-    expect(canAutoExecute("act_in_app", isOutward("draft_proposal"))).toBe(true);
+    expect(canAutoExecute("act_in_app", isOutward("create_proposal_draft"))).toBe(true);
   });
 
   it("gates everything under propose", () => {
@@ -51,8 +51,8 @@ describe("tool schema generation", () => {
   });
 
   it("documents the payload of every kind it offers", () => {
-    const doc = kindDocFor(["draft_proposal", "send_proposal"]);
-    expect(doc).toContain("draft_proposal");
+    const doc = kindDocFor(["create_proposal_draft", "send_proposal"]);
+    expect(doc).toContain("create_proposal_draft");
     expect(doc).toContain("proposal_id");
   });
 

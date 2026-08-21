@@ -22,7 +22,8 @@ export const ALLOWED_ACTIONS: Record<string, string[]> = {
   "client-engagement": [
     "sync_client_to_surecontact",
     "create_client_project",
-    "draft_proposal",
+    "create_proposal_draft",
+    "write_proposal_section",
     "send_proposal",
     "schedule_followup",
     "create_task",

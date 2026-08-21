@@ -25,7 +25,7 @@ const ctx = (over: Partial<ActionToolContext> = {}): ActionToolContext => ({
   agentId: "agent-1",
   agentName: "Bria",
   autonomy: "act_in_app",
-  allowedActions: ["create_task", "draft_proposal", "draft_email", "delete_record", "create_client_project"],
+  allowedActions: ["create_task", "create_proposal_draft", "draft_email", "delete_record", "create_client_project"],
   runId: "run-1",
   conversationId: "conv-1",
   actionIds: [],
@@ -84,7 +84,7 @@ describe("executeActionTool", () => {
 
   it("tells the model when its own action failed, rather than reporting success", async () => {
     const out = await executeActionTool(ctx(), {
-      kind: "draft_proposal", title: "Draft it", payload: { client_id: "c1" },
+      kind: "create_proposal_draft", title: "Draft it", payload: { client_id: "c1" },
     }, vi.fn().mockResolvedValue({ ok: false, error: "missing required sections: investment" }));
     expect(out.ok).toBe(false);
     const body = JSON.parse(out.content);

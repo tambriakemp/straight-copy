@@ -191,6 +191,26 @@ export function readToolDefinitions(): Array<Record<string, unknown>> {
         additionalProperties: false,
       },
     },
+    {
+      name: "read_proposal",
+      description:
+        "Read a proposal you are writing or revising. Without `heading` you get the section list — " +
+        "headings and lengths only, cheap. With `heading` you get that ONE section in full. " +
+        "Always read a section before rewriting it: revising from memory of what you wrote earlier " +
+        "is where invented numbers come from. Never pull the whole document back when you only need one part.",
+      input_schema: {
+        type: "object",
+        properties: {
+          proposal_id: { type: "string" },
+          heading: {
+            type: "string",
+            description: "Exact or partial section heading. Omit for the section list.",
+          },
+        },
+        required: ["proposal_id"],
+        additionalProperties: false,
+      },
+    },
   ];
 }
 
@@ -225,6 +245,7 @@ async function dispatch(
   if (name === "search") return await runSearch(ctx, input);
   if (name === "query") return await runQuery(ctx, input);
   if (name === "get_record") return await runGetRecord(ctx, input);
+  if (name === "read_proposal") return await runReadProposal(ctx, input);
   return { ok: false, content: `No such tool: ${name}` };
 }
 
@@ -363,5 +384,96 @@ async function runGetRecord(
         ),
       })
       : body,
+  };
+}
+
+/**
+ * Read a proposal, one section at a time.
+ *
+ * The Menovia retainer runs to about 24,000 characters. Dragging all of it
+ * back into context to change a number would cost ~6,000 tokens a turn, and a
+ * ten-turn revision session would spend sixty thousand tokens re-reading
+ * itself — while making the model pick a needle out of a haystack it has to
+ * re-read each time. So the default is the section list, and a heading gets
+ * exactly one section.
+ */
+async function runReadProposal(
+  ctx: ReadToolContext,
+  input: Record<string, unknown>,
+): Promise<ToolOutcome> {
+  const id = String(input.proposal_id ?? "").trim();
+  if (!id) return { ok: false, content: "read_proposal needs a proposal_id." };
+
+  const res = await ctx.sb.from("client_proposals")
+    .select("id, title, status, content, content_version")
+    .eq("id", id).limit(1);
+  if (res.error) return { ok: false, content: `That lookup failed: ${res.error.message}` };
+
+  const row = (res.data ?? [])[0] as
+    | { id: string; title: string; status: string; content: unknown; content_version: number }
+    | undefined;
+  if (!row) return { ok: false, content: `No proposal with id ${id}.` };
+
+  const content = (row.content ?? {}) as {
+    kind?: string;
+    sections?: Array<{ heading?: string; summary?: string; body?: string }>;
+  };
+  const sections = (content.sections ?? []).filter(
+    (s) => (s.body ?? "").trim().length > 0,
+  );
+
+  const wanted = String(input.heading ?? "").trim().toLowerCase();
+  if (!wanted) {
+    // The list. Headings and sizes, so the agent can work out which section a
+    // vague instruction like "the pricing" is pointing at without reading any
+    // of them.
+    const list = sections.map((s, i) => ({
+      position: i + 1,
+      heading: (s.heading ?? "").trim() || "Untitled section",
+      summary: (s.summary ?? "").trim() || undefined,
+      chars: (s.body ?? "").trim().length,
+    }));
+    return {
+      ok: true,
+      content: JSON.stringify({
+        proposal_id: row.id,
+        title: row.title,
+        status: row.status,
+        kind: content.kind,
+        version: row.content_version,
+        sections: list,
+        note: list.length
+          ? "Call read_proposal again with a heading to read one section in full."
+          : "Nothing written yet.",
+      }),
+    };
+  }
+
+  const exact = sections.findIndex(
+    (s) => (s.heading ?? "").trim().toLowerCase() === wanted,
+  );
+  const at = exact >= 0
+    ? exact
+    : sections.findIndex((s) => (s.heading ?? "").toLowerCase().includes(wanted));
+
+  if (at < 0) {
+    return {
+      ok: false,
+      content: `No section matching "${input.heading}". The sections are: ` +
+        sections.map((s) => (s.heading ?? "").trim()).filter(Boolean).join("; "),
+    };
+  }
+
+  const s = sections[at];
+  return {
+    ok: true,
+    content: JSON.stringify({
+      proposal_id: row.id,
+      version: row.content_version,
+      position: at + 1,
+      heading: (s.heading ?? "").trim(),
+      summary: (s.summary ?? "").trim() || undefined,
+      body: (s.body ?? "").trim(),
+    }),
   };
 }

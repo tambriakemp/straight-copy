@@ -82,13 +82,20 @@ export const ACTION_KINDS: Record<string, ActionKind> = {
     payload:
       "{client_id, name, type: 'automation_build'|'site_preview'|'app_development'|'web_development'|'marketing'}",
   },
-  draft_proposal: {
-    kind: "draft_proposal",
+  create_proposal_draft: {
+    kind: "create_proposal_draft",
     outward: false,
     purpose:
-      "write a proposal into the system as a draft. It is not sent and the client cannot see it until a send_proposal action runs.",
+      "start a proposal. Creates an empty draft and returns its id, which you then fill one section at a time with write_proposal_section. Nothing is sent and the client cannot see it.",
+    payload: "{client_id, client_project_id, title, kind?, cover?}",
+  },
+  write_proposal_section: {
+    kind: "write_proposal_section",
+    outward: false,
+    purpose:
+      "write ONE section into a proposal draft. Call it once per section, in the order the document should read. Pass an existing heading to replace that section instead of appending. This is how a long proposal gets written — never try to write the whole document in one call.",
     payload:
-      "{client_id, client_project_id, title, content: {cover, sections: [{key, heading, body}]}}",
+      "{proposal_id, heading, body, summary?, replace?}",
   },
   send_proposal: {
     kind: "send_proposal",
