@@ -12,16 +12,30 @@ import AgentChatPanel from "@/components/admin/agent/AgentChatPanel";
 import AgentActivityPanel, { type ActivityRun } from "@/components/admin/agent/AgentActivityPanel";
 import AgentSettingsPanel from "@/components/admin/agent/AgentSettingsPanel";
 import AgentProposalPanel from "@/components/admin/agent/AgentProposalPanel";
+import AgentWorkspacePanel from "@/components/admin/agent/AgentWorkspacePanel";
 import { useFocusedProposal } from "@/components/admin/agent/useFocusedProposal";
 import { useAsideWidth } from "@/components/admin/agent/useAsideWidth";
 import { agentsApi, errMsg, type Agent } from "@/lib/agentsApi";
 import { capabilitiesFor } from "@/lib/agentCapabilities";
 
-type View = "chat" | "agent";
+type View = "chat" | "agent" | "clients" | "tasks" | "knowledge";
 
 const RAIL: Array<{ view: View; label: string; glyph: string }> = [
   { view: "chat", label: "Chat", glyph: "◍" },
   { view: "agent", label: "Agent", glyph: "⚙" },
+];
+
+/**
+ * The things you reach for while working with an agent.
+ *
+ * They open here rather than navigating away, so asking Bria about a client and
+ * then looking that client up does not cost you the conversation. Same data and
+ * same components as the standalone pages — these are not copies.
+ */
+const WORKSPACE: Array<{ view: View; label: string; glyph: string }> = [
+  { view: "clients", label: "Clients", glyph: "▦" },
+  { view: "tasks", label: "Tasks", glyph: "✓" },
+  { view: "knowledge", label: "Knowledge Base", glyph: "❒" },
 ];
 
 // Shown greyed so the shape of what is coming is visible, without pretending
@@ -33,6 +47,7 @@ export default function AgentWorkspace() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const view = (params.get("view") as View) || "chat";
+  const isWorkspaceView = view === "clients" || view === "tasks" || view === "knowledge";
 
   const [agent, setAgent] = useState<Agent | null>(null);
   const [runs, setRuns] = useState<ActivityRun[]>([]);
@@ -156,7 +171,17 @@ export default function AgentWorkspace() {
 
   return (
     <AdminLayout>
-      <div className="ws" style={{ gridTemplateColumns: `232px minmax(0, 1fr) ${asideWidth}px` }}>
+      {/* Clients, Tasks and the Knowledge Base want the width — none of them
+          has a document or a run to show beside it, and a 400px empty rail
+          next to a task board is just less room for the board. */}
+      <div
+        className="ws"
+        style={{
+          gridTemplateColumns: isWorkspaceView
+            ? "232px minmax(0, 1fr)"
+            : `232px minmax(0, 1fr) ${asideWidth}px`,
+        }}
+      >
         {/* ---------- rail ---------- */}
         <nav className="ws__rail">
           <div className="ws__portrait">
@@ -193,6 +218,17 @@ export default function AgentWorkspace() {
             ))}
           </div>
 
+          <div className="ws__rail-label">Workspace</div>
+          <div className="ws__rail-group">
+            {WORKSPACE.map((r) => (
+              <button key={r.view}
+                className={`ws__rail-item ${view === r.view ? "ws__rail-item--on" : ""}`}
+                onClick={() => setView(r.view)}>
+                <span className="ws__rail-glyph">{r.glyph}</span>{r.label}
+              </button>
+            ))}
+          </div>
+
           <div className="ws__rail-label">Coming soon</div>
           <div className="ws__rail-group">
             {SOON.map((s) => (
@@ -206,11 +242,16 @@ export default function AgentWorkspace() {
         </nav>
 
         {/* ---------- middle ---------- */}
-        {view === "chat"
-          ? <AgentChatPanel agent={agent} onActivity={loadRuns} reloadNonce={chatNonce} />
-          : <AgentSettingsPanel agent={agent} onChanged={loadAgent} />}
+        {view === "chat" ? (
+          <AgentChatPanel agent={agent} onActivity={loadRuns} reloadNonce={chatNonce} />
+        ) : view === "agent" ? (
+          <AgentSettingsPanel agent={agent} onChanged={loadAgent} />
+        ) : (
+          <AgentWorkspacePanel view={view} />
+        )}
 
         {/* ---------- activity / document ---------- */}
+        {!isWorkspaceView && (
         <aside className="ws__aside">
           {/* A 24,000-character document in a 400px column is unreadable. Drag
               to trade chat width for document width; the choice persists. */}
@@ -242,6 +283,7 @@ export default function AgentWorkspace() {
             : <AgentProposalPanel proposal={proposal} loading={proposalLoading} agentName={agent.name}
                 pinned={pinned} onFollowLatest={followLatest} />}
         </aside>
+        )}
       </div>
     </AdminLayout>
   );

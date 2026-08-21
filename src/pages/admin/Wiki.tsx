@@ -56,7 +56,13 @@ function Badge({ children, tone = STONE }: { children: React.ReactNode; tone?: s
 const statusTone = (s: string) => s === "Active" ? "hsl(150 35% 65%)" : s === "Draft" ? "hsl(40 60% 65%)" : STONE;
 
 // ===== LIST =====
-export function WikiList() {
+/**
+ * @param embedded Render without AdminLayout and without the page header, for
+ *   the agent Workspace rail. Same list, same filters — a second copy of this
+ *   would drift from the first within a week and then two screens would
+ *   disagree about what is documented.
+ */
+export function WikiList({ embedded = false }: { embedded?: boolean } = {}) {
   const { isFounder, hasAccess, loading } = useWikiRole();
   const isMobile = useIsMobile();
   const nav = useNavigate();
@@ -92,24 +98,34 @@ export function WikiList() {
     });
   }, [docs, q, dept, type, status]);
 
-  if (loading) return <AdminLayout><div style={pageScroll}><div style={page}>Loading…</div></div></AdminLayout>;
-  if (!hasAccess) return <AdminLayout><div style={pageScroll}><div style={page}>
+  // One wrapper, chosen once, so every early return below agrees with the
+  // main one about whether it is a page or a panel.
+  const Shell = ({ children }: { children: React.ReactNode }) =>
+    embedded ? <>{children}</> : <AdminLayout>{children}</AdminLayout>;
+
+  if (loading) return <Shell><div style={pageScroll}><div style={page}>Loading…</div></div></Shell>;
+  if (!hasAccess) return <Shell><div style={pageScroll}><div style={page}>
     <p style={eyebrow}>Knowledge Base</p>
     <h1 style={title}>No <em style={titleEm}>access</em></h1>
     <hr style={rule} />
     <p style={sub}>You don't have access to the Knowledge Base. Ask the founder to add you.</p>
-  </div></div></AdminLayout>;
+  </div></div></Shell>;
 
   return (
-    <AdminLayout>
-      <div style={pageScroll}><div style={isMobile ? { ...page, padding: "24px 16px 80px" } : page}>
+    <Shell>
+      <div style={embedded ? undefined : pageScroll}>
+        <div style={embedded ? { padding: 0 } : (isMobile ? { ...page, padding: "24px 16px 80px" } : page)}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24 }}>
+          {/* The panel supplies its own heading, so the page one would be a
+              second title saying the same thing. */}
+          {!embedded && (
           <div>
             <p style={eyebrow}>Knowledge Base</p>
             <h1 style={isMobile ? { ...title, fontSize: 40 } : title}>Internal <em style={titleEm}>wiki</em></h1>
             <hr style={rule} />
             <p style={sub}>SOPs, vendor notes, client resources — everything operational, in one searchable place.</p>
           </div>
+          )}
           {isFounder && (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <Link to="/admin/wiki/admin/users" style={{ ...btn, textDecoration: "none" }}><Users size={14} /> Users</Link>
@@ -119,7 +135,7 @@ export function WikiList() {
           )}
         </div>
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "44px 0 28px" }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: embedded ? "0 0 20px" : "44px 0 28px" }}>
           <div style={{ position: "relative", flex: 1, minWidth: isMobile ? "100%" : 260 }}>
             <Search size={14} style={{ position: "absolute", left: 12, top: 13, color: TAUPE }} />
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search title, content, tags…"
@@ -179,7 +195,7 @@ export function WikiList() {
           ))}
         </div>
       </div>
-    </div></AdminLayout>
+    </div></Shell>
   );
 }
 

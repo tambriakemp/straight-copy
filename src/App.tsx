@@ -36,8 +36,6 @@ const AgentWorkspace = lazy(() => import("./pages/admin/AgentWorkspace.tsx"));
 const AgentRunDetail = lazy(() => import("./pages/admin/AgentRunDetail.tsx"));
 const Tokens = lazy(() => import("./pages/admin/Tokens.tsx"));
 const Invites = lazy(() => import("./pages/admin/Invites.tsx"));
-const Previews = lazy(() => import("./pages/admin/Previews.tsx"));
-const PreviewDetail = lazy(() => import("./pages/admin/PreviewDetail.tsx"));
 const ProjectDetail = lazy(() => import("./pages/admin/ProjectDetail.tsx"));
 const AllTasks = lazy(() => import("./pages/admin/AllTasks.tsx"));
 const PreviewViewer = lazy(() => import("./pages/PreviewViewer.tsx"));
@@ -93,8 +91,6 @@ const App = () => (
             <Route path="/admin/agents/:id" element={<RequireAdmin><AgentWorkspace /></RequireAdmin>} />
             <Route path="/admin/tokens" element={<RequireAdmin><Tokens /></RequireAdmin>} />
             <Route path="/admin/invites" element={<RequireAdmin><Invites /></RequireAdmin>} />
-            <Route path="/admin/previews" element={<RequireAdmin><Previews /></RequireAdmin>} />
-            <Route path="/admin/previews/:id" element={<RequireAdmin><PreviewDetail /></RequireAdmin>} />
             <Route path="/admin/clients/:id/projects/:projectId" element={<RequireAdmin><ProjectDetail /></RequireAdmin>} />
             <Route path="/admin/wiki" element={<RequireWiki><WikiList /></RequireWiki>} />
             <Route path="/admin/wiki/new" element={<RequireWiki><WikiEdit mode="new" /></RequireWiki>} />

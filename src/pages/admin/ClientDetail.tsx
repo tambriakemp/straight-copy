@@ -439,9 +439,16 @@ export default function ClientDetail() {
           <ClientPortalActions clientId={client.id} />
         </div>
 
-        {/* Above Projects on purpose: a project now picks a company, so the
-            companies have to exist first and be visible when they do not. */}
-        <ClientCompaniesCard clientId={id!} />
+        {/* Two columns: the work on the left, who it is for on the right.
+            Projects is the only tab — everything else about a client is either
+            in the header or in the Companies rail beside it. */}
+        <div className="cdet">
+          <div className="cdet__main">
+            <div className="cdet__tabs" role="tablist">
+              <button className="cdet__tab is-on" role="tab" aria-selected="true">
+                Projects <span className="cdet__tab-count">{projects.length}</span>
+              </button>
+            </div>
 
         <div className="roster__toolbar" style={{ marginTop: 24 }}>
           <div style={{ flex: 1, fontSize: 17, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
@@ -673,6 +680,15 @@ export default function ClientDetail() {
             })}
           </div>
         )}
+          </div>
+
+          <aside className="cdet__side">
+            {/* Where companies are added and listed, the way contacts sit beside
+                a record in SureContact. A project picks from this list, so it
+                belongs next to the projects rather than above them. */}
+            <ClientCompaniesCard clientId={id!} />
+          </aside>
+        </div>
       </div>
       <ProjectResourcesSheet
         projectId={resourceProject?.id ?? null}

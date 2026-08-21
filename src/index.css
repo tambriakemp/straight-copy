@@ -2907,3 +2907,155 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
 .crm-shell .ws__doc-dl:hover { border-color: var(--crm-bronze, #8a7355); }
 .crm-shell .ws__doc-dl--none { color: var(--crm-soft-gray, #9a938a); cursor: default; }
 .crm-shell .ws__doc-dl--none:hover { border-color: var(--crm-border-dark); }
+
+/* ---------------------------------------------------------------------------
+   Client roster table (.ctbl)
+
+   The roster read as a stack of cards, which is fine for six clients and
+   useless for sixty. This is the same shape SureContact uses for companies —
+   scannable rows, sortable headers, a status filter — so finding someone is a
+   glance rather than a scroll.
+
+   Sized to work in the agent Workspace column as well as full width, which is
+   why the contact column is droppable rather than the layout being duplicated.
+--------------------------------------------------------------------------- */
+.crm-shell .ctbl { display: flex; flex-direction: column; min-height: 0; }
+
+.crm-shell .ctbl__bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding-bottom: 14px;
+}
+.crm-shell .ctbl__search {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px;
+  padding: 8px 12px; border: 1px solid var(--crm-border-dark);
+  border-radius: 6px; color: var(--crm-taupe);
+}
+.crm-shell .ctbl__search input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--crm-warm-white); font-size: 16px;
+}
+.crm-shell .ctbl__search input::placeholder { color: var(--crm-taupe); }
+.crm-shell .ctbl__filter {
+  padding: 8px 12px; border: 1px solid var(--crm-border-dark); border-radius: 6px;
+  background: transparent; color: var(--crm-warm-white); font-size: 15px;
+}
+.crm-shell .ctbl__count {
+  font-size: 14px; color: var(--crm-taupe); white-space: nowrap;
+}
+
+/* The table scrolls inside its own box so the page never scrolls sideways. */
+.crm-shell .ctbl__scroll { overflow-x: auto; min-height: 0; }
+.crm-shell .ctbl__table { width: 100%; border-collapse: collapse; }
+
+.crm-shell .ctbl__table thead th {
+  text-align: left; padding: 10px 14px;
+  border-top: 1px solid var(--crm-border-dark);
+  border-bottom: 1px solid var(--crm-border-dark);
+  font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--crm-taupe); font-weight: 400; white-space: nowrap;
+}
+.crm-shell .ctbl__table thead th button {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: inherit; letter-spacing: inherit; text-transform: inherit;
+  color: inherit;
+}
+.crm-shell .ctbl__table thead th button:hover { color: var(--crm-warm-white); }
+
+.crm-shell .ctbl__table tbody tr {
+  border-bottom: 1px solid var(--crm-border-dark); cursor: pointer;
+}
+.crm-shell .ctbl__table tbody tr:hover { background: hsl(40 20% 97% / 0.03); }
+.crm-shell .ctbl__table tbody tr:focus-visible {
+  outline: 1px solid var(--crm-accent); outline-offset: -1px;
+}
+.crm-shell .ctbl__table tbody td {
+  padding: 13px 14px; font-size: 17px; color: var(--crm-stone);
+  vertical-align: middle;
+}
+.crm-shell .ctbl__name {
+  color: var(--crm-warm-white); font-family: var(--crm-font-serif);
+  font-size: 20px; font-weight: 300;
+}
+/* Dates never wrap — a wrapped date buckles the row height around it. */
+.crm-shell .ctbl__when { white-space: nowrap; color: var(--crm-taupe); font-size: 15px; }
+.crm-shell .ctbl__empty {
+  padding: 40px 14px; text-align: center; color: var(--crm-taupe); font-style: italic;
+}
+
+.crm-shell .ctbl__pill {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase;
+  background: hsl(120 30% 50% / 0.15); color: hsl(120 60% 72%); white-space: nowrap;
+}
+.crm-shell .ctbl__pill--off {
+  background: hsl(40 20% 97% / 0.06); color: var(--crm-taupe);
+}
+
+@media (max-width: 720px) {
+  .crm-shell .ctbl__col-contact { display: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Client detail (.cdet)
+
+   Two columns: the work on the left, who it is for on the right. Projects is
+   the only tab — everything else about a client is in the header or the
+   Companies rail. The tab strip is deliberately a strip of one: it names what
+   the column holds, and leaves room for a second tab without a relayout.
+--------------------------------------------------------------------------- */
+.crm-shell .cdet {
+  display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 28px; align-items: start; margin-top: 20px;
+}
+.crm-shell .cdet__main { min-width: 0; }
+.crm-shell .cdet__side { min-width: 0; position: sticky; top: 16px; }
+/* The card carries its own top margin for the stacked case; not needed here. */
+.crm-shell .cdet__side > section { margin-top: 0; }
+
+.crm-shell .cdet__tabs {
+  display: flex; gap: 4px; border-bottom: 1px solid var(--crm-border-dark);
+}
+.crm-shell .cdet__tab {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 16px; background: transparent; border: none;
+  border-bottom: 2px solid transparent; cursor: pointer;
+  font-size: 16px; text-transform: uppercase;
+  letter-spacing: 0.16em; color: var(--crm-taupe);
+}
+.crm-shell .cdet__tab.is-on {
+  color: var(--crm-warm-white); border-bottom-color: var(--crm-accent);
+}
+.crm-shell .cdet__tab-count {
+  font-size: 13px; padding: 1px 8px; border-radius: 999px;
+  background: hsl(40 20% 97% / 0.08); letter-spacing: 0;
+}
+
+/* Below this the rail underneath the projects reads better than beside them. */
+@media (max-width: 1100px) {
+  .crm-shell .cdet { grid-template-columns: minmax(0, 1fr); }
+  .crm-shell .cdet__side { position: static; }
+  .crm-shell .cdet__side > section { margin-top: 16px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Workspace panels inside an agent (.ws__work)
+
+   Clients, Tasks and the Knowledge Base, opened from the agent rail. They take
+   the full width because none of them has a document or a run to show beside
+   it — the aside is hidden for these views.
+--------------------------------------------------------------------------- */
+.crm-shell .ws__work {
+  display: flex; flex-direction: column; min-height: 0; min-width: 0;
+  padding: 26px 30px; overflow: auto;
+}
+.crm-shell .ws__work-head { margin-bottom: 20px; }
+.crm-shell .ws__work-eyebrow {
+  font-size: 13px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--crm-accent); margin-bottom: 6px;
+}
+.crm-shell .ws__work-title {
+  font-family: var(--crm-font-serif); font-weight: 300; font-size: 34px;
+  color: var(--crm-warm-white); margin: 0 0 6px; line-height: 1.1;
+}
+.crm-shell .ws__work-sub { font-size: 17px; color: var(--crm-taupe); margin: 0; }
+.crm-shell .ws__work-body { min-width: 0; }

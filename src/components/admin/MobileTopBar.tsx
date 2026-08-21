@@ -18,7 +18,6 @@ const TITLE_MAP: Array<[RegExp, string]> = [
   [/^\/admin\/invites/, "Invites"],
   [/^\/admin\/tokens/, "Settings"],
   [/^\/admin\/previews\/[^/]+/, "Preview"],
-  [/^\/admin\/previews\/?$/, "Previews"],
   [/^\/admin\/profile/, "Profile"],
 ];
 
