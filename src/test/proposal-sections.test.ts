@@ -17,10 +17,13 @@ import {
 function applySection(
   sections: ProposalSectionContent[],
   written: ProposalSectionContent,
-  replace?: string,
+  replace?: string | boolean,
 ): { sections: ProposalSectionContent[]; action: "replaced" | "appended"; position: number } {
   const next = [...sections];
-  const target = (replace ?? written.heading ?? "").trim().toLowerCase();
+  const target = (typeof replace === "string" && replace.trim()
+    ? replace
+    : written.heading ?? ""
+  ).trim().toLowerCase();
   const at = next.findIndex((s) => (s.heading ?? "").trim().toLowerCase() === target);
   if (at >= 0) {
     next[at] = written;
@@ -144,5 +147,45 @@ describe("section-addressable reads", () => {
 
   it("reports no match rather than guessing", () => {
     expect(find(draft(), "prescriptions")).toBe(-1);
+  });
+});
+
+// The exact payload that failed in production on 21 Aug, repeatedly:
+// "(p.replace ?? p.heading).trim is not a function". The tool schema said
+// `replace?`, which reads as a boolean flag, so the model sent `replace: true`
+// and every rewrite died with the error showing in the chat.
+describe("a boolean in replace must not crash the write", () => {
+  it("treats replace: true as 'the section named in heading'", () => {
+    const r = applySection(
+      draft(),
+      { heading: "Investment & Pass-Throughs", body: "**$600/mo.**" },
+      true,
+    );
+    expect(r.action).toBe("replaced");
+    expect(r.position).toBe(2);
+    expect(r.sections[1].body).toContain("$600");
+  });
+
+  it("treats replace: false the same way rather than throwing", () => {
+    const r = applySection(draft(), { heading: "Acceptance", body: "Updated." }, false);
+    expect(r.action).toBe("replaced");
+    expect(r.position).toBe(3);
+  });
+
+  it("still renames in place when replace is a real heading", () => {
+    const r = applySection(
+      draft(),
+      { heading: "Investment", body: "Renamed." },
+      "Investment & Pass-Throughs",
+    );
+    expect(r.action).toBe("replaced");
+    expect(r.position).toBe(2);
+    expect(r.sections[1].heading).toBe("Investment");
+  });
+
+  it("ignores an empty string in replace", () => {
+    const r = applySection(draft(), { heading: "Acceptance", body: "Updated." }, "   ");
+    expect(r.action).toBe("replaced");
+    expect(r.position).toBe(3);
   });
 });

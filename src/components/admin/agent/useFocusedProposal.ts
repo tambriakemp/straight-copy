@@ -11,6 +11,7 @@
 // Deliberately narrow: a signed proposal is finished and is not the subject of
 // a revision, so it never becomes the focus by accident.
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { ProposalContent } from "../../../../supabase/functions/_shared/agents/proposal-spine";
 
@@ -28,9 +29,14 @@ export interface FocusedProposal {
 export function useFocusedProposal(agentId: string, nonce = 0) {
   const [proposal, setProposal] = useState<FocusedProposal | null>(null);
   const [loading, setLoading] = useState(true);
+  // Through the router rather than window.location: reading the URL once on
+  // mount meant clicking a proposal in the chat left the panel showing whatever
+  // it had already resolved to, which is the mismatch Bree hit — reading one
+  // document while the agent edited another.
+  const [params, setParams] = useSearchParams();
+  const explicit = params.get("proposal");
 
   const load = useCallback(async () => {
-    const explicit = new URLSearchParams(window.location.search).get("proposal");
 
     let q = supabase
       .from("client_proposals")
@@ -54,9 +60,27 @@ export function useFocusedProposal(agentId: string, nonce = 0) {
         : null,
     );
     setLoading(false);
-  }, [agentId]);
+  }, [agentId, explicit]);
 
   useEffect(() => { void load(); }, [load, nonce]);
+
+  /** Pin the panel to one proposal. Clicking a different one re-pins. */
+  const focus = useCallback((id: string) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("proposal", id);
+      return next;
+    }, { replace: true });
+  }, [setParams]);
+
+  /** Unpin, so the panel follows whatever the agent touched last again. */
+  const followLatest = useCallback(() => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("proposal");
+      return next;
+    }, { replace: true });
+  }, [setParams]);
 
   // The agent writes a section at a time, so the panel has to follow along.
   //
@@ -78,5 +102,5 @@ export function useFocusedProposal(agentId: string, nonce = 0) {
     return () => { void supabase.removeChannel(channel); };
   }, [proposal?.id, load]);
 
-  return { proposal, loading, reload: load };
+  return { proposal, loading, reload: load, focus, followLatest, pinned: Boolean(explicit) };
 }

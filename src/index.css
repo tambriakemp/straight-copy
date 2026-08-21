@@ -2850,6 +2850,18 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
 .crm-shell .ws__aside > .ws__activity { border-left: 0; }
 
 .crm-shell .ws__doc { display: grid; grid-template-rows: auto auto minmax(0, 1fr); min-height: 0; }
+.crm-shell .ws__doc--pinnable { grid-template-rows: auto auto auto minmax(0, 1fr); }
+.crm-shell .ws__doc-pin {
+  margin: 0; padding: 8px 16px; font-size: 12.5px; color: var(--crm-taupe);
+  border-bottom: 1px solid var(--crm-border-dark);
+  display: flex; align-items: center; gap: 10px; justify-content: space-between;
+}
+.crm-shell .ws__doc-pin-btn {
+  font-family: inherit; font-size: 12px; padding: 3px 10px; border-radius: 999px;
+  background: transparent; border: 1px solid var(--crm-border-dark);
+  color: var(--crm-warm-white); cursor: pointer; white-space: nowrap;
+}
+.crm-shell .ws__doc-pin-btn:hover { border-color: var(--crm-bronze, #8a7355); }
 .crm-shell .ws__doc--empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 8px; text-align: center; padding: 32px 24px; color: var(--crm-taupe);

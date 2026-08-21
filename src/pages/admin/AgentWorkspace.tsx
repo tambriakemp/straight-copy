@@ -43,7 +43,7 @@ export default function AgentWorkspace() {
   const [aside, setAside] = useState<"activity" | "document">("activity");
   const { width: asideWidth, dragging, startDrag } = useAsideWidth();
 
-  const { proposal, loading: proposalLoading } = useFocusedProposal(id ?? "", chatNonce);
+  const { proposal, loading: proposalLoading, followLatest, pinned } = useFocusedProposal(id ?? "", chatNonce);
   const proposalSections = proposal?.content?.sections?.filter(
     (sec) => (sec.body ?? "").trim().length > 0,
   ).length ?? 0;
@@ -239,7 +239,8 @@ export default function AgentWorkspace() {
           </div>
           {aside === "activity"
             ? <AgentActivityPanel runs={runs} />
-            : <AgentProposalPanel proposal={proposal} loading={proposalLoading} agentName={agent.name} />}
+            : <AgentProposalPanel proposal={proposal} loading={proposalLoading} agentName={agent.name}
+                pinned={pinned} onFollowLatest={followLatest} />}
         </aside>
       </div>
     </AdminLayout>

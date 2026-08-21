@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { FileText, Download, ExternalLink, FolderOpen, BookOpen, X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { AgentAction } from "@/lib/agentsApi";
 import { deliverableOf, type Result } from "./deliverable";
@@ -20,6 +20,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
 export default function AgentDeliverable({ action }: { action: AgentAction }) {
   const navigate = useNavigate();
+  const [, setParams] = useSearchParams();
   const [busy, setBusy] = useState(false);
   // The written document, rendered in place. Asking for a proposal and getting
   // a filename is the thing that made the agent feel like it had done nothing.
@@ -87,6 +88,19 @@ export default function AgentDeliverable({ action }: { action: AgentAction }) {
             </div>
           </div>
           <div className="ws__deliverable-actions">
+            {/* Clicking a proposal in the chat points the sidebar at THAT
+                document. Reading one version while the agent edits another is
+                the mismatch this closes. */}
+            {result.proposal_id && (
+              <button className="crm-btn crm-btn--ghost crm-btn--sm"
+                onClick={() => setParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.set("proposal", result.proposal_id!);
+                  return next;
+                }, { replace: true })}>
+                Show in panel
+              </button>
+            )}
             <button className="crm-btn crm-btn--ghost crm-btn--sm" disabled={busy} onClick={() => void read()}>
               <BookOpen size={12} /> Read
             </button>
