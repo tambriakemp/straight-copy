@@ -3059,3 +3059,186 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
 }
 .crm-shell .ws__work-sub { font-size: 17px; color: var(--crm-taupe); margin: 0; }
 .crm-shell .ws__work-body { min-width: 0; }
+
+/* ---------------------------------------------------------------------------
+   Side panel (.sidep)
+
+   One thing being edited, beside the list it came from. Replaces inline field
+   blocks that pushed a list around while you typed in the middle of it.
+--------------------------------------------------------------------------- */
+.crm-shell .sidep { position: fixed; inset: 0; z-index: 80; display: flex; justify-content: flex-end; }
+.crm-shell .sidep__scrim { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+.crm-shell .sidep__panel {
+  position: relative; max-width: 100vw; height: 100%;
+  display: flex; flex-direction: column;
+  background: hsl(36 5% 16%);
+  border-left: 1px solid var(--crm-border-dark);
+  box-shadow: -24px 0 60px rgba(0,0,0,.45);
+  animation: sidep-in 180ms ease-out;
+}
+@keyframes sidep-in { from { transform: translateX(16px); opacity: .6; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .crm-shell .sidep__panel { animation: none; }
+}
+
+.crm-shell .sidep__head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 20px 22px 14px; border-bottom: 1px solid var(--crm-border-dark);
+}
+.crm-shell .sidep__title {
+  font-family: var(--crm-font-serif); font-weight: 300; font-size: 26px;
+  color: var(--crm-warm-white); margin: 0; line-height: 1.2;
+}
+.crm-shell .sidep__sub { font-size: 15px; color: var(--crm-taupe); margin: 4px 0 0; }
+.crm-shell .sidep__close {
+  background: transparent; border: 1px solid var(--crm-border-dark);
+  border-radius: 4px; color: var(--crm-taupe); cursor: pointer;
+  padding: 6px; line-height: 0; flex-shrink: 0;
+}
+.crm-shell .sidep__close:hover { color: var(--crm-warm-white); }
+
+/* The body scrolls; the footer does not, so Save is always reachable. */
+.crm-shell .sidep__body { flex: 1; overflow-y: auto; padding: 18px 22px; }
+.crm-shell .sidep__foot {
+  display: flex; gap: 8px; justify-content: flex-end;
+  padding: 14px 22px; border-top: 1px solid var(--crm-border-dark);
+}
+
+@media (max-width: 560px) {
+  .crm-shell .sidep__panel { width: 100vw !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   Companies list (.cmp)
+
+   A list, not a form. Four inputs per company sitting permanently open turned
+   a three-company sidebar into twelve fields nobody was editing. Editing opens
+   a side panel instead.
+--------------------------------------------------------------------------- */
+.crm-shell .cmp {
+  border: 1px solid var(--crm-border-dark); border-radius: 12px; padding: 16px 18px;
+}
+.crm-shell .cmp__head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 10px;
+}
+.crm-shell .cmp__eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 15px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--crm-accent);
+}
+.crm-shell .cmp__add {
+  display: grid; place-items: center; width: 28px; height: 28px;
+  background: transparent; border: 1px solid var(--crm-border-dark);
+  border-radius: 4px; color: var(--crm-taupe); cursor: pointer;
+}
+.crm-shell .cmp__add:hover { color: var(--crm-warm-white); border-color: var(--crm-accent); }
+
+.crm-shell .cmp__empty {
+  font-size: 15px; color: var(--crm-taupe); font-style: italic; margin: 6px 0;
+}
+.crm-shell .cmp__list { list-style: none; margin: 0; padding: 0; }
+.crm-shell .cmp__row {
+  display: flex; align-items: center; gap: 8px;
+  border-top: 1px solid var(--crm-border-dark);
+}
+.crm-shell .cmp__row:first-child { border-top: none; }
+.crm-shell .cmp__row-main {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+  padding: 11px 0; background: none; border: none; cursor: pointer; text-align: left;
+}
+.crm-shell .cmp__row:hover { background: hsl(40 20% 97% / 0.03); }
+.crm-shell .cmp__name {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--crm-font-serif); font-weight: 300; font-size: 20px;
+  color: var(--crm-warm-white); line-height: 1.2;
+}
+.crm-shell .cmp__star { color: var(--crm-accent); flex-shrink: 0; }
+.crm-shell .cmp__meta {
+  font-size: 15px; color: var(--crm-taupe);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Only on hover: a pencil on every row reads as clutter, none reads as static. */
+.crm-shell .cmp__pencil { color: var(--crm-taupe); opacity: 0; flex-shrink: 0; }
+.crm-shell .cmp__row:hover .cmp__pencil { opacity: 1; }
+
+/* ---------------------------------------------------------------------------
+   Client view inside an agent (.acv) and the project list (.plist)
+
+   The project tiles became a list, the same shape as the client roster, so
+   moving between the two does not mean learning a second layout. Tiles carried
+   a stage bar and a day count that only the automation builds used; the detail
+   page is where that belongs.
+--------------------------------------------------------------------------- */
+.crm-shell .acv__back {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer; padding: 0;
+  font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--crm-taupe); margin-bottom: 14px;
+}
+.crm-shell .acv__back:hover { color: var(--crm-warm-white); }
+
+.crm-shell .acv__head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 18px;
+}
+
+.crm-shell .acv__bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin: 16px 0 10px;
+}
+.crm-shell .acv__bar-note { font-size: 15px; color: var(--crm-taupe); }
+
+.crm-shell .acv__dl {
+  display: grid; grid-template-columns: 130px minmax(0, 1fr);
+  gap: 0; margin: 0;
+}
+.crm-shell .acv__dl dt {
+  padding: 11px 0; font-size: 14px; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--crm-taupe);
+  border-top: 1px solid var(--crm-border-dark);
+}
+.crm-shell .acv__dl dd {
+  padding: 11px 0; margin: 0; font-size: 18px; color: var(--crm-warm-white);
+  border-top: 1px solid var(--crm-border-dark);
+}
+
+.crm-shell .plist { list-style: none; margin: 0; padding: 0; }
+.crm-shell .plist__row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto 26px 26px;
+  align-items: center; gap: 14px;
+  border-bottom: 1px solid var(--crm-border-dark);
+}
+.crm-shell .plist__row:first-child { border-top: 1px solid var(--crm-border-dark); }
+.crm-shell .plist__row:hover { background: hsl(40 20% 97% / 0.03); }
+.crm-shell .plist__main {
+  display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  padding: 14px 0; background: none; border: none; cursor: pointer; text-align: left;
+}
+.crm-shell .plist__name {
+  font-family: var(--crm-font-serif); font-weight: 300; font-size: 21px;
+  color: var(--crm-warm-white); line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.crm-shell .plist__meta { font-size: 15px; color: var(--crm-taupe); }
+.crm-shell .plist__when { font-size: 15px; color: var(--crm-taupe); white-space: nowrap; }
+.crm-shell .plist__status {
+  font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+  background: hsl(40 20% 97% / 0.06); color: var(--crm-taupe);
+}
+.crm-shell .plist__status.is-done {
+  background: hsl(120 30% 50% / 0.15); color: hsl(120 60% 72%);
+}
+.crm-shell .plist__edit {
+  display: grid; place-items: center; width: 26px; height: 26px;
+  background: transparent; border: 1px solid transparent; border-radius: 4px;
+  color: var(--crm-taupe); cursor: pointer; opacity: 0;
+}
+.crm-shell .plist__row:hover .plist__edit { opacity: 1; }
+.crm-shell .plist__edit:hover { color: var(--crm-warm-white); border-color: var(--crm-border-dark); }
+
+@media (max-width: 720px) {
+  .crm-shell .plist__row { grid-template-columns: minmax(0, 1fr) auto 26px 26px; }
+  .crm-shell .plist__when { display: none; }
+}
