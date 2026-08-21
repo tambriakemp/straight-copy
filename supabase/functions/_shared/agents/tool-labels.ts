@@ -55,7 +55,8 @@ const ACTION_VERB: Record<string, string> = {
   flag_risk: "Flagging a risk",
   sync_client_to_surecontact: "Syncing to SureContact",
   create_client_project: "Creating a project",
-  draft_proposal: "Writing the proposal",
+  create_proposal_draft: "Starting the proposal",
+  write_proposal_section: "Writing a section",
   send_proposal: "Preparing to send the proposal",
   schedule_followup: "Scheduling a follow-up",
 };

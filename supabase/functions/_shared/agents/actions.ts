@@ -8,7 +8,7 @@ import { logProposalEvent } from "../proposal-events.ts";
 import { renderProposalPdf } from "../proposal-pdf.ts";
 import { logSureContactActivity, sendSureContactEmail } from "../surecontact-send.ts";
 import {
-  inferKind, missingEssentials, missingSections, PROJECT_TYPES, type ProposalContent,
+  PROJECT_TYPES, reviewProposal, type ProposalContent,
 } from "./proposal-spine.ts";
 
 // Mirrors the constants in send-transactional-email/index.ts so agent mail
@@ -19,6 +19,49 @@ const SENDER_DOMAIN = "notify.cre8visions.com";
 
 /** Same bucket proposal-sign reads from, so uploads and signing agree. */
 const PROPOSAL_BUCKET = "client-assets";
+
+/**
+ * Render a proposal to PDF and store it.
+ *
+ * The signing flow stamps a signature page onto a source PDF, so a proposal
+ * with no PDF cannot be signed — this is what makes an agent-written proposal
+ * a real one rather than a record only staff can read.
+ *
+ * Called lazily at send time rather than on every section write: a twelve
+ * section document would otherwise render twelve times, eleven of them thrown
+ * away.
+ */
+async function renderAndStoreProposalPdf(
+  sb: ActionClient,
+  proposalId: string,
+  clientId: string,
+  title: string,
+  content: ProposalContent,
+  agentName: string,
+): Promise<{ ok: true; path: string } | { ok: false; error: string }> {
+  try {
+    const pdf = await renderProposalPdf(title, content);
+    const path = `proposals/${clientId}/${proposalId}/source.pdf`;
+    const { error: upErr } = await sb.storage.from(PROPOSAL_BUCKET)
+      .upload(path, pdf, { contentType: "application/pdf", upsert: true, cacheControl: "3600" });
+    if (upErr) throw upErr;
+
+    await sb.from("client_proposals")
+      .update({ source_pdf_path: path, pdf_generated_at: new Date().toISOString() })
+      .eq("id", proposalId);
+
+    await logProposalEvent(sb, {
+      proposal_id: proposalId,
+      client_id: clientId,
+      event_type: "pdf_uploaded",
+      actor: agentName,
+      detail: { path, generated: true },
+    });
+    return { ok: true, path };
+  } catch (e) {
+    return { ok: false, error: String((e as Error).message || e) };
+  }
+}
 
 /**
  * project_tasks.priority is an enum: low | normal | high | urgent.
@@ -307,32 +350,31 @@ export async function executeAction(
         };
       }
 
-      case "draft_proposal": {
+      // A proposal is written the way a person writes one: create the
+      // document, then fill it a section at a time. The old draft_proposal
+      // took the WHOLE thing as one tool argument — ~6,000 tokens for a real
+      // Menovia-sized retainer, JSON-escaped, complete and valid in one shot.
+      // Truncate at section eleven and the JSON is malformed, so the entire
+      // call is lost; and a model facing that bet writes shorter sections to
+      // survive it. Both of those were observed. Small writes remove the bet.
+      case "create_proposal_draft": {
         const p = action.payload as {
           client_id?: string;
           client_project_id?: string;
           title?: string;
-          content?: ProposalContent;
+          kind?: string;
+          cover?: ProposalContent["cover"];
         };
         if (!p.client_id) return { ok: false, error: "No client_id supplied" };
         if (!p.client_project_id) {
           return { ok: false, error: "No client_project_id supplied; a proposal has to hang off a project" };
         }
-        if (!p.content) return { ok: false, error: "No proposal content supplied" };
 
-        // The spine is the house order, not a gate. Rejecting a finished draft
-        // for a section it folded into its neighbour put the agent in a loop it
-        // could not win, so only the sections a client would notice missing
-        // block — the rest are recorded as gaps and rendered as such.
-        const content: ProposalContent = { ...p.content, kind: inferKind(p.content) };
-        const blocking = missingEssentials(content);
-        if (blocking.length) {
-          return {
-            ok: false,
-            error: `Write these before filing the draft: ${blocking.join(", ")}. Everything else is optional.`,
-          };
-        }
-        const gaps = missingSections(content);
+        const content: ProposalContent = {
+          kind: p.kind,
+          cover: p.cover ?? {},
+          sections: [],
+        };
 
         const { data, error } = await sb.from("client_proposals").insert({
           client_id: p.client_id,
@@ -345,7 +387,6 @@ export async function executeAction(
         }).select("id, title").single();
         if (error) return { ok: false, error: error.message };
 
-
         await logProposalEvent(sb, {
           proposal_id: data.id,
           client_id: p.client_id,
@@ -354,30 +395,6 @@ export async function executeAction(
           detail: { title: data.title },
         });
 
-        // Render immediately. The signing flow stamps a signature page onto a
-        // source PDF, so a proposal with no PDF cannot be signed — generating it
-        // here is what makes an agent-written proposal a real one.
-        try {
-          const pdf = await renderProposalPdf(data.title, content);
-          const path = `proposals/${p.client_id}/${data.id}/source.pdf`;
-          const { error: upErr } = await sb.storage.from(PROPOSAL_BUCKET)
-            .upload(path, pdf, { contentType: "application/pdf", upsert: true, cacheControl: "3600" });
-          if (upErr) throw upErr;
-          await sb.from("client_proposals")
-            .update({ source_pdf_path: path, pdf_generated_at: new Date().toISOString() })
-            .eq("id", data.id);
-          await logProposalEvent(sb, {
-            proposal_id: data.id,
-            client_id: p.client_id,
-            event_type: "pdf_uploaded",
-            actor: agentName,
-            detail: { path, generated: true },
-          });
-        } catch (e) {
-          // The draft still exists and is readable; it just can't be sent for
-          // signature until a PDF lands. Say so rather than failing the draft.
-          console.error("[actions] proposal PDF render failed", String((e as Error).message || e));
-        }
         const { data: proj } = await sb.from("client_projects")
           .select("name").eq("id", p.client_project_id).maybeSingle();
         await logProposalEvent(sb, {
@@ -392,14 +409,78 @@ export async function executeAction(
           ok: true,
           result: {
             proposal_id: data.id,
-            client_id: p.client_id,
-            client_project_id: p.client_project_id,
             title: data.title,
-            kind: content.kind,
             status: "draft",
-            // Named so the reply can say what it left out rather than the agent
-            // guessing, and so nothing re-drafts to "fix" a deliberate omission.
-            gaps: gaps.length ? gaps : undefined,
+            sections: 0,
+            next: "Write each section with write_proposal_section, in reading order.",
+          },
+        };
+      }
+
+      case "write_proposal_section": {
+        const p = action.payload as {
+          proposal_id?: string;
+          heading?: string;
+          body?: string;
+          summary?: string;
+          /** Replace the section with this heading rather than appending. */
+          replace?: string;
+        };
+        if (!p.proposal_id) return { ok: false, error: "No proposal_id supplied" };
+        if (!p.heading?.trim()) return { ok: false, error: "A section needs a heading" };
+        if (!p.body?.trim()) return { ok: false, error: "A section needs a body" };
+
+        const { data: row, error: rErr } = await sb.from("client_proposals")
+          .select("id, title, content, status, client_id, content_version")
+          .eq("id", p.proposal_id).maybeSingle();
+        if (rErr) return { ok: false, error: rErr.message };
+        if (!row) return { ok: false, error: "Proposal not found" };
+        if (row.status === "signed") {
+          return { ok: false, error: "That proposal is signed. It cannot be rewritten." };
+        }
+
+        const content: ProposalContent = (row.content as ProposalContent) ?? { sections: [] };
+        const sections = [...(content.sections ?? [])];
+        const target = (p.replace ?? p.heading).trim().toLowerCase();
+        const at = sections.findIndex(
+          (s) => (s.heading ?? "").trim().toLowerCase() === target,
+        );
+
+        const written = {
+          heading: p.heading.trim(),
+          summary: p.summary?.trim() || undefined,
+          body: p.body.trim(),
+        };
+        // Replacing in place keeps document order stable — a revision must not
+        // move a section to the end just because it was rewritten.
+        if (at >= 0) sections[at] = written;
+        else sections.push(written);
+
+        const next: ProposalContent = { ...content, sections };
+        const review = reviewProposal(next);
+
+        const { error: uErr } = await sb.from("client_proposals").update({
+          content: next,
+          content_version: (row.content_version ?? 0) + 1,
+          // The stored PDF no longer matches the content. send_proposal
+          // regenerates from this signal rather than shipping a stale document.
+          pdf_generated_at: null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", row.id);
+        if (uErr) return { ok: false, error: uErr.message };
+
+        return {
+          ok: true,
+          result: {
+            proposal_id: row.id,
+            heading: written.heading,
+            action: at >= 0 ? "replaced" : "appended",
+            position: (at >= 0 ? at : sections.length - 1) + 1,
+            sections: sections.length,
+            body_chars: review.bodyChars,
+            // Reported every time, never blocking, so the agent can tell Bree
+            // what is still outstanding without being stopped from writing.
+            still_missing: review.missing.length ? review.missing : undefined,
           },
         };
       }
@@ -412,17 +493,27 @@ export async function executeAction(
         if (!p.subject || !p.body) return { ok: false, error: "Send is missing subject or body" };
 
         const { data: proposal, error: pErr } = await sb.from("client_proposals")
-          .select("id, title, client_id, client_project_id, status, followup_count, source_pdf_path")
+          .select("id, title, client_id, client_project_id, status, followup_count, source_pdf_path, pdf_generated_at, content")
           .eq("id", p.proposal_id).maybeSingle();
         if (pErr) return { ok: false, error: pErr.message };
         if (!proposal) return { ok: false, error: "Proposal not found" };
         if (proposal.status === "signed") {
           return { ok: false, error: "Proposal is already signed" };
         }
-        if (!proposal.source_pdf_path) {
-          // Sending a link to a proposal the client cannot sign wastes the one
-          // moment they were actually paying attention.
-          return { ok: false, error: "Proposal has no PDF yet, so it cannot be signed. Regenerate it first." };
+
+        // Sections are written one at a time, and each write clears
+        // pdf_generated_at. So the PDF is rendered HERE, once, from whatever
+        // the document finally says — rather than twelve times on the way in,
+        // or worse, sending the client a PDF that predates the last revision.
+        if (!proposal.source_pdf_path || !proposal.pdf_generated_at) {
+          const rendered = await renderAndStoreProposalPdf(
+            sb, proposal.id, proposal.client_id, proposal.title,
+            (proposal.content as ProposalContent) ?? {}, agentName,
+          );
+          if (!rendered.ok) {
+            return { ok: false, error: `Could not render the proposal PDF: ${rendered.error}` };
+          }
+          proposal.source_pdf_path = rendered.path;
         }
 
         const { data: client } = await sb.from("clients")

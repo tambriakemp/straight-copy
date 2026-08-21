@@ -9,113 +9,136 @@
 // Cover and Contents are chrome: the cover is rendered from structured fields,
 // the contents from this array. The fourteen sections below are the document.
 
-export interface ProposalSection {
-  key: string;
-  /** Printed heading. The eyebrow is "NN — HEADING" in caps. */
-  heading: string;
-  /** One line for the table of contents, and the brief for the model. */
-  purpose: string;
+/**
+ * A proposal is an ordered list of sections the AGENT decides on.
+ *
+ * There used to be two hardcoded spines here — a 14-section build and a
+ * 7-section retainer — and a `missingSections` gate that refused any draft not
+ * carrying every one of them. Two things were wrong with that.
+ *
+ * The spines did not match the documents Cre8 Visions actually sends. The real
+ * Menovia retainer has twelve sections, not seven, and different ones: The
+ * Opportunity, Engagement Summary, The Strategic Thesis, What We're Doing,
+ * Creative & Voice, The First 90 Days, Reporting & What You'll Know,
+ * Investment & Pass-Throughs, What's Included, What's Not Included, Terms &
+ * Next Steps, Acceptance. The agent was being asked to write a document the
+ * agency does not sell.
+ *
+ * And the gate never let anything through. On 20 Aug the agent tried four
+ * times to draft one proposal: rejected for missing eight build sections
+ * (it had written a retainer), rejected again for missing three retainer
+ * sections, then twice more on a NOT NULL column. Zero proposals have ever
+ * been created by an agent. A gate that blocks produced nothing for two weeks.
+ *
+ * Hardcoding the correct twelve would only move the problem to the next kind of
+ * proposal. So the structure is the agent's call, taken from the brief and from
+ * the real documents it can read. What stays is `reviewProposal` below, which
+ * reports rather than refuses.
+ */
+export interface ProposalContent {
+  /** Free text — "marketing retainer", "app build", whatever this is. */
+  kind?: string;
+  cover?: {
+    client_name?: string;
+    project_name?: string;
+    tagline?: string;
+    prepared_for?: string;
+    prepared_by?: string;
+    date?: string;
+    /** Retainer covers carry the price on the cover, builds do not. */
+    price_line?: string;
+  };
+  sections?: ProposalSectionContent[];
 }
 
-/** The build spine: fixed-scope project work, sold once. */
-export const BUILD_SECTIONS: ProposalSection[] = [
-  { key: "opportunity", heading: "The Opportunity", purpose: "Why this project exists — the client's world, their situation, the vision." },
-  { key: "summary", heading: "Project Summary", purpose: "Investment, timeline and installments up front, what they are receiving, engagement details." },
-  { key: "building", heading: "What We're Building", purpose: "The product itself, broken into surfaces and components, ending with the AI layer." },
-  { key: "approach", heading: "The Strategic Approach", purpose: "The thesis. The one strategic decision that is contrarian but right, and why." },
-  { key: "ai", heading: "AI in Development", purpose: "How AI compresses timeline and cost, where it is used, how its cost is handled." },
-  { key: "process", heading: "The Process", purpose: "Three phases. Each with what happens, deliverables, and review and sign-off." },
-  { key: "investment", heading: "Investment & Payment Schedule", purpose: "Pricing, the installment breakdown, payment methods, late payment terms." },
-  { key: "included", heading: "What's Included", purpose: "The full deliverables list, phase by phase." },
-  { key: "not_included", heading: "What's Not Included", purpose: "Scope carve-outs: operational costs, content and marketing, ongoing services, out-of-scope features." },
-  { key: "ownership", heading: "Ownership & IP", purpose: "What transfers on final payment, what Cre8 Visions retains, third-party components." },
-  { key: "revisions", heading: "Revisions & Change Orders", purpose: "Design-phase revisions, development-phase revisions, how change orders work." },
-  { key: "support", heading: "Post-Launch Support", purpose: "The 30-day warranty, and the options after it — retainer or marketing plan." },
-  { key: "terms", heading: "Terms & Conditions", purpose: "Confidentiality, data and privacy, cancellation, communication, liability, governing law." },
-  { key: "acceptance", heading: "Acceptance", purpose: "What signing means. The signature blocks themselves are added by the portal." },
-];
+export interface ProposalSectionContent {
+  heading?: string;
+  /** One line for the contents page, as the real documents carry. */
+  summary?: string;
+  body?: string;
+}
 
-/**
- * The retainer spine: ongoing marketing work, sold monthly.
- *
- * A retainer is a different document from a build, not a build with the
- * sections renamed. Nobody buying monthly marketing cares about phase sign-off
- * or IP transfer; they care what lands each month, what it costs, what is
- * passed through at cost, and what the first ninety days look like. Forcing it
- * into the build spine produced proposals with four empty sections and no
- * month-by-month, which is the part clients actually read.
- */
-export const RETAINER_SECTIONS: ProposalSection[] = [
-  { key: "overview", heading: "Overview", purpose: "What the client is building and why this work matters now. Ends by naming how the tactics compound into one outcome." },
-  { key: "goals", heading: "Goals & Objectives", purpose: "Five or six concrete outcomes this retainer is bought to produce. Each one measurable." },
-  { key: "services", heading: "Scope of Services", purpose: "Every service, numbered. Each opens with its budget and deliverable on one line, then a paragraph on what it is and why it works, then labelled detail rows." },
-  { key: "investment", heading: "Investment Summary", purpose: "The retainer table: service, monthly deliverable, investment. Pass-through costs stated separately, at cost, no markup." },
-  { key: "timeline", heading: "What to Expect — Month by Month", purpose: "Month 1 Foundation, Month 2 Momentum, Month 3 and beyond Growth. What actually happens, not what is promised." },
-  { key: "why_us", heading: "Why Cre8 Visions", purpose: "Why this agency for this work. Short. Ends on working in the client's voice, not the agency's." },
-  { key: "terms", heading: "Terms & Next Steps", purpose: "Retainer amount and billing date, pass-throughs, contract term, notice period, onboarding start, reporting cadence, and how to say yes." },
-];
-
-export type ProposalKind = "build" | "retainer";
-
-export const SPINES: Record<ProposalKind, ProposalSection[]> = {
-  build: BUILD_SECTIONS,
-  retainer: RETAINER_SECTIONS,
-};
-
-export function spineFor(kind: string | undefined | null): ProposalSection[] {
-  return SPINES[(kind as ProposalKind)] ?? BUILD_SECTIONS;
+/** Sections with something actually written in them, in document order. */
+export function writtenSections(content: ProposalContent): ProposalSectionContent[] {
+  return (content.sections ?? []).filter((s) => (s.body ?? "").trim().length > 0);
 }
 
 /**
- * Work out which document this is when the agent didn't say.
+ * What any document going to a client for signature needs, whatever it sells.
  *
- * A retainer submitted without `kind` was being judged against the build spine
- * and rejected for missing twelve sections it should never have had. Reading
- * the shape of what was actually written is more reliable than trusting a field
- * the model forgets.
+ * These are commercial and legal necessities, not structure imposed on the
+ * argument. A proposal with no pricing or no acceptance page is a real
+ * exposure; a proposal without a "Strategic Thesis" section is just a
+ * different proposal.
  */
-export function inferKind(content: ProposalContent): ProposalKind {
-  if (content.kind === "retainer" || content.kind === "build") return content.kind;
-  const keys = new Set((content.sections ?? []).map((s) => s.key));
-  const hit = (spine: ProposalSection[]) =>
-    spine.filter((s) => keys.has(s.key)).length / spine.length;
-  if (hit(RETAINER_SECTIONS) > hit(BUILD_SECTIONS)) return "retainer";
-  const text = [
-    content.cover?.price_line ?? "",
-    content.cover?.tagline ?? "",
-    ...(content.sections ?? []).map((s) => s.heading ?? ""),
-  ].join(" ");
-  if (/\/\s*mo\b|per month|monthly|retainer/i.test(text)) return "retainer";
-  return "build";
+export const NON_NEGOTIABLES = [
+  {
+    key: "price",
+    label: "what it costs and when it is paid",
+    match: /invest|pricing|price|payment|fee|retainer|cost|budget/i,
+  },
+  {
+    key: "included",
+    label: "what is included",
+    match: /included|deliverable|scope of (?:services|work)|what (?:we|you)/i,
+  },
+  {
+    key: "excluded",
+    label: "what is explicitly not included",
+    match: /not included|exclusion|out of scope|excluded/i,
+  },
+  { key: "terms", label: "terms", match: /terms|conditions|agreement/i },
+  {
+    key: "acceptance",
+    // Deliberately NOT matching "next steps". The real Menovia proposal has
+    // both a "Terms & Next Steps" section and a separate "Acceptance" one, so
+    // "next steps" would report the signature page as present on a document
+    // that has no signature page. On a review that only ever reports, a false
+    // pass costs an unsigned contract and a false flag costs one sentence.
+    label: "an acceptance or signature section",
+    match: /acceptance|signature|sign(?:ing|ed|[- ]?off)\b/i,
+  },
+] as const;
+
+export interface ProposalReview {
+  /** Non-negotiables with no section that looks like them. */
+  missing: string[];
+  /** Human-readable, for the agent to relay to Bree. */
+  notes: string[];
+  sectionCount: number;
+  bodyChars: number;
 }
 
 /**
- * The sections a draft cannot ship without.
+ * Look over a draft and say what is worth knowing. NEVER blocks a save.
  *
- * The full spine is the house style, not a gate. Rejecting a finished proposal
- * because one of fourteen sections was folded into another sent the agent round
- * a loop it could not win. Only the sections a client would notice missing —
- * what this is, what it costs — actually block.
+ * The agent surfaces this alongside the draft — "Twelve sections. Terms and
+ * Acceptance are in. Pass-through ad spend is a range rather than a number,
+ * confirm before this goes out." Bree signs off either way; the point is that
+ * she signs off on something complete rather than finding the hole after she
+ * has sent it.
  */
-export const ESSENTIAL_SECTIONS: Record<ProposalKind, string[]> = {
-  build: ["opportunity", "summary", "investment"],
-  retainer: ["overview", "services", "investment"],
-};
+export function reviewProposal(content: ProposalContent): ProposalReview {
+  const sections = writtenSections(content);
+  const haystack = sections
+    .map((s) => `${s.heading ?? ""}\n${s.summary ?? ""}\n${s.body ?? ""}`)
+    .join("\n");
 
-/** Essential sections with no body. Empty means the draft is shippable. */
-export function missingEssentials(content: ProposalContent): string[] {
-  const kind = inferKind(content);
-  const present = new Set(
-    (content.sections ?? [])
-      .filter((s) => (s.body ?? "").trim().length > 0)
-      .map((s) => s.key),
-  );
-  return ESSENTIAL_SECTIONS[kind].filter((k) => !present.has(k));
+  const missing = NON_NEGOTIABLES
+    .filter((n) => !n.match.test(haystack))
+    .map((n) => n.label);
+
+  const bodyChars = sections.reduce((n, s) => n + (s.body ?? "").trim().length, 0);
+  const notes: string[] = [];
+
+  if (!sections.length) notes.push("Nothing is written yet.");
+  for (const label of missing) notes.push(`No section covers ${label}.`);
+
+  const untitled = sections.filter((s) => !(s.heading ?? "").trim()).length;
+  if (untitled) notes.push(`${untitled} section(s) have no heading.`);
+
+  return { missing, notes, sectionCount: sections.length, bodyChars };
 }
-
-/** Back-compat alias. Existing callers that predate the retainer spine. */
-export const PROPOSAL_SECTIONS = BUILD_SECTIONS;
-
 
 export const PROJECT_TYPES = [
   "automation_build",
@@ -145,31 +168,38 @@ export const PALETTE = {
  */
 export const PROPOSAL_DNA = `## How a Cre8 Visions proposal is written
 
-### Pick the spine first
+### Decide the structure yourself
 
-Two shapes, and they are different documents — not one document with sections
-renamed.
+There is no fixed list of sections. Work out what this engagement needs from
+the brief, and write that.
 
-**BUILD** — fixed-scope project work, sold once, with a total and installments.
-An app, a site, an automation. Fourteen sections, in this order:
+Read a real proposal before you start — the reference documents are the
+authority on how these read, not this description. A marketing retainer and an
+app build are genuinely different documents, not one document with sections
+renamed, and a third kind of engagement may want a shape neither of them uses.
 
-${BUILD_SECTIONS.map((s, i) => `${String(i + 1).padStart(2, "0")}. ${s.heading} — ${s.purpose}`).join("\n")}
+Some guidance that holds across all of them. Open by establishing why this
+project exists in the client's world, not with your credentials. Put the money
+and the timeline near the front where they can be found. Make the argument
+once, properly, in its own section. End with what signing means.
 
-**RETAINER** — ongoing work, sold monthly. Marketing, social, content, ads,
-community. Seven sections:
+Anything with a monthly figure, a channel list or a per-month cadence is
+ongoing work; anything with a total and phases is a fixed-scope build. That
+changes what the document needs — phase sign-off and IP transfer matter to a
+build and mean nothing to a retainer, which instead wants a month-by-month and
+a pass-through policy.
 
-${RETAINER_SECTIONS.map((s, i) => `${String(i + 1).padStart(2, "0")}. ${s.heading} — ${s.purpose}`).join("\n")}
+### Five things every proposal needs
 
-Anything with a monthly figure, a channel list, or a per-month cadence is a
-retainer. Anything with a total and phases is a build. Set \`kind\` accordingly.
+Whatever it is selling, a document going to a client for signature has to
+cover: what it costs and when it is paid; what is included; what is explicitly
+NOT included; terms; and acceptance. Those are commercial and legal
+necessities. Everything else is your call.
 
-### The spine is the house order, not a gate
+If you cannot cover one of them because you do not have the information, write
+the section anyway and say plainly what is outstanding, then tell Bree. Do not
+silently omit it.
 
-Write all of it when the engagement warrants it — that order is what a Cre8
-Visions proposal looks like, and a client reading two of them should recognise
-the second. But a section that genuinely does not apply may be folded into its
-neighbour or left out, and a section the work needs that the list does not have
-may be added; write it with its own key and it renders after the rest.
 
 Only three sections actually block a draft, because a client would notice them
 missing: for a build, the opportunity, the summary and the investment; for a
@@ -266,32 +296,6 @@ bold, a paragraph, then bulleted detail rows with bold labels.
 For an Investment Summary, write the table as bulleted rows — service, monthly
 deliverable, investment — then the total, then the pass-through note.`;
 
-export interface ProposalContent {
-  /** Which spine this proposal follows. Defaults to build. */
-  kind?: ProposalKind;
-  cover?: {
-    client_name?: string;
-    project_name?: string;
-    tagline?: string;
-    prepared_for?: string;
-    prepared_by?: string;
-    date?: string;
-    /** Retainer covers carry the price on the cover, builds do not. */
-    price_line?: string;
-  };
-  sections?: Array<{ key?: string; heading?: string; body?: string }>;
-}
-
-/** Which sections of this proposal's spine are missing. Empty means intact. */
-export function missingSections(content: ProposalContent): string[] {
-  const present = new Set(
-    (content.sections ?? [])
-      .filter((s) => (s.body ?? "").trim().length > 0)
-      .map((s) => s.key),
-  );
-  return spineFor(inferKind(content)).filter((s) => !present.has(s.key)).map((s) => s.key);
-}
-
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
@@ -347,31 +351,17 @@ function mdToHtml(md: string): string {
  */
 export function renderProposalHtml(title: string, content: ProposalContent): string {
   const cover = content.cover ?? {};
-  const kind = inferKind(content);
-  const spine = spineFor(kind);
-  const byKey = new Map(
-    (content.sections ?? []).map((s) => [s.key ?? "", s]),
-  );
 
-  // Spine order first, then anything the agent wrote that the spine has no slot
-  // for. A section it invented for good reason is worth more than the house
-  // order, so it renders at the end rather than being silently dropped.
-  const spineKeys = new Set(spine.map((s) => s.key));
-  const extras = (content.sections ?? []).filter(
-    (s) => !spineKeys.has(s.key ?? "") && (s.body ?? "").trim().length > 0,
-  );
-  const ordered: Array<{ heading: string; purpose?: string; body: string }> = [
-    ...spine.map((s) => ({
-      heading: byKey.get(s.key)?.heading || s.heading,
-      purpose: s.purpose,
-      body: (byKey.get(s.key)?.body ?? "").trim(),
-      essential: ESSENTIAL_SECTIONS[kind].includes(s.key),
-      written: (byKey.get(s.key)?.body ?? "").trim().length > 0,
-    })).filter((s) => s.written || s.essential),
-    ...extras.map((s) => ({ heading: s.heading || "", body: (s.body ?? "").trim() })),
-  ];
+  // Document order, exactly as written. There is no spine to reorder against
+  // and nothing to slot into — the agent decided the structure, so the
+  // renderer's job is to present it, not to second-guess it.
+  const ordered = writtenSections(content).map((s) => ({
+    heading: (s.heading ?? "").trim() || "Untitled section",
+    purpose: (s.summary ?? "").trim(),
+    body: (s.body ?? "").trim(),
+  }));
 
-  const toc = ordered.map(
+const toc = ordered.map(
     (s, i) =>
       `<li><span class="num">${String(i + 1).padStart(2, "0")}</span><span class="h">${esc(s.heading)}</span><span class="p">${esc(s.purpose ?? "")}</span></li>`,
   ).join("");
