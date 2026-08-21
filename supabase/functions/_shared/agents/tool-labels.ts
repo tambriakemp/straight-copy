@@ -57,6 +57,7 @@ const ACTION_VERB: Record<string, string> = {
   create_client_project: "Creating a project",
   create_proposal_draft: "Starting the proposal",
   write_proposal_section: "Writing a section",
+  restore_proposal_version: "Putting the proposal back",
   send_proposal: "Preparing to send the proposal",
   schedule_followup: "Scheduling a follow-up",
 };

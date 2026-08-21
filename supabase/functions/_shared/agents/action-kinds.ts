@@ -97,6 +97,13 @@ export const ACTION_KINDS: Record<string, ActionKind> = {
     payload:
       "{proposal_id, heading, body, summary?, replace?}",
   },
+  restore_proposal_version: {
+    kind: "restore_proposal_version",
+    outward: false,
+    purpose:
+      "put a proposal back to how it read at an earlier version. Use when Bree says to undo a revision. Omit `version` to step back one.",
+    payload: "{proposal_id, version?}",
+  },
   send_proposal: {
     kind: "send_proposal",
     outward: true,

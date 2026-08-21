@@ -1035,6 +1035,47 @@ export type Database = {
           },
         ]
       }
+      client_proposal_versions: {
+        Row: {
+          changed_by: string | null
+          changed_by_agent: string | null
+          content: Json
+          created_at: string
+          id: string
+          note: string | null
+          proposal_id: string
+          version: number
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_by_agent?: string | null
+          content: Json
+          created_at?: string
+          id?: string
+          note?: string | null
+          proposal_id: string
+          version: number
+        }
+        Update: {
+          changed_by?: string | null
+          changed_by_agent?: string | null
+          content?: Json
+          created_at?: string
+          id?: string
+          note?: string | null
+          proposal_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_proposal_versions_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "client_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_proposals: {
         Row: {
           agency_countersigned_at: string | null

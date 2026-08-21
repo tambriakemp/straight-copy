@@ -24,6 +24,7 @@ export const ALLOWED_ACTIONS: Record<string, string[]> = {
     "create_client_project",
     "create_proposal_draft",
     "write_proposal_section",
+    "restore_proposal_version",
     "send_proposal",
     "schedule_followup",
     "create_task",

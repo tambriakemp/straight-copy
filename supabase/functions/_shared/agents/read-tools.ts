@@ -11,6 +11,7 @@
 //
 // Every safety property is enforced here and in table-access.ts, never in the
 // prompt: an instruction is a suggestion, and these run with the service role.
+import { exemplarIndex, findExemplar } from "./proposal-library.ts";
 import {
   clampLimit, FILTER_OPS, isFilterable, isReadable, projectionFor,
   READABLE, searchableEntities, tableForEntity, type FilterOp,
@@ -211,6 +212,24 @@ export function readToolDefinitions(): Array<Record<string, unknown>> {
         additionalProperties: false,
       },
     },
+    {
+      name: "read_example_proposal",
+      description:
+        "Read a real proposal Cre8 Visions has sent. Do this BEFORE writing one — these documents are " +
+        "the authority on how proposals read, and matching one is far easier than matching a description " +
+        "of one. Call with no argument for the list. Pass a kind (\"marketing retainer\", \"app build\") " +
+        "or a key to read one in full. Match the register and the specificity; never copy the content.",
+      input_schema: {
+        type: "object",
+        properties: {
+          which: {
+            type: "string",
+            description: "A kind or key from the list. Omit to see what is available.",
+          },
+        },
+        additionalProperties: false,
+      },
+    },
   ];
 }
 
@@ -246,6 +265,7 @@ async function dispatch(
   if (name === "query") return await runQuery(ctx, input);
   if (name === "get_record") return await runGetRecord(ctx, input);
   if (name === "read_proposal") return await runReadProposal(ctx, input);
+  if (name === "read_example_proposal") return runReadExample(input);
   return { ok: false, content: `No such tool: ${name}` };
 }
 
@@ -474,6 +494,55 @@ async function runReadProposal(
       heading: (s.heading ?? "").trim(),
       summary: (s.summary ?? "").trim() || undefined,
       body: (s.body ?? "").trim(),
+    }),
+  };
+}
+
+
+/**
+ * Read a real sent proposal.
+ *
+ * Deliberately NOT trimmed to MAX_RESULT_BYTES. An exemplar cut off at 8KB is
+ * a third of a document, which teaches the opening register and nothing about
+ * how the thing closes, prices itself or carves out scope — the parts that
+ * actually differ from generic proposal writing. It still counts against the
+ * turn budget in executeReadTool, so an agent that reads two of them has less
+ * room for everything else, which is the correct trade rather than a free pass.
+ */
+function runReadExample(input: Record<string, unknown>): ToolOutcome {
+  const which = String(input.which ?? "").trim();
+
+  if (!which) {
+    return {
+      ok: true,
+      content: JSON.stringify({
+        examples: exemplarIndex(),
+        note:
+          "Call read_example_proposal again with a kind or key to read one in full. " +
+          "If none of these match the engagement, read the closest and build the " +
+          "structure this one needs.",
+      }),
+    };
+  }
+
+  const found = findExemplar(which);
+  if (!found) {
+    return {
+      ok: false,
+      content:
+        `No example matching "${which}". Available: ` +
+        exemplarIndex().map((e) => `${e.key} (${e.kind})`).join("; "),
+    };
+  }
+
+  return {
+    ok: true,
+    content: JSON.stringify({
+      key: found.key,
+      name: found.name,
+      kind: found.kind,
+      summary: found.summary,
+      text: found.text,
     }),
   };
 }
