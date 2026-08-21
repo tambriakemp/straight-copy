@@ -123,3 +123,35 @@ describe("turnColumns", () => {
     }
   });
 });
+
+// The agent-run path, added after a real failure. On 21 Aug a Bria run spent
+// 6,682 output tokens across 12 tool calls and 8 iterations, ended cleanly on
+// end_turn, wrote no closing prose, and was recorded as "Run produced nothing"
+// with status failed. The work had happened; only the summary was missing.
+describe("a scheduled run that did the work but wrote no summary", () => {
+  it("is not a failure when it proposed actions", () => {
+    const out = resolveTurnOutcome({
+      text: "",
+      actionCount: 3,
+      stoppedBy: "end_turn",
+      toolLabels: ["Searching proposals", "Read proposal — Menovia"],
+    });
+    expect(out.status).toBe("complete");
+    expect(out.content).toContain("3");
+  });
+
+  it("still fails honestly when it did nothing at all", () => {
+    const out = resolveTurnOutcome({ text: "", actionCount: 0, stoppedBy: "end_turn" });
+    expect(out.status).toBe("failed");
+    expect(out.error).toContain("empty");
+  });
+
+  it("keeps the model's own summary when there is one", () => {
+    const out = resolveTurnOutcome({
+      text: "Two proposals need chasing.",
+      actionCount: 2,
+      stoppedBy: "end_turn",
+    });
+    expect(out.content).toBe("Two proposals need chasing.");
+  });
+});
