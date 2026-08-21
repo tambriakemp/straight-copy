@@ -13,11 +13,23 @@ import AgentSteps, { type AgentStep } from "./AgentSteps";
 import { elapsedSince, formatDuration } from "@/lib/duration";
 
 /**
- * The backend's own ceiling: `budgetMs: 240_000` in agent-chat, plus a little
- * room for the write that follows it. Past this a turn is overrunning, not
- * running.
+ * When a turn has been going long enough that it is not coming back.
+ *
+ * This was 250s — the loop's 240s budget plus a little for the write after it.
+ * That was wrong, and a real turn proved it: on 20 Aug at 23:18 Bria completed
+ * successfully in 265,480ms. The old threshold would have told Bree it was dead
+ * fifteen seconds before her answer arrived, which is the exact false alarm
+ * this component exists to prevent.
+ *
+ * The loop checks its deadline at the TOP of each iteration, so it can overshoot
+ * by a whole model call — and a long generation is a minute or more on its own.
+ * Legitimate worst case is roughly 240s budget + ~120s overshoot + persistence.
+ *
+ * So: 420s. Comfortably past anything that could still land, and still inside
+ * the 10-minute pg_cron reaper, which is the authoritative backstop for a turn
+ * whose backend genuinely died.
  */
-export const TURN_BUDGET_MS = 250_000;
+export const TURN_BUDGET_MS = 420_000;
 
 export default function AgentTurnProgress({
   agentName, startedAt, steps,
