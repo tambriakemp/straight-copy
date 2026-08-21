@@ -2211,12 +2211,23 @@ html { -webkit-text-size-adjust: 100%; }
   border-top: 1px solid var(--crm-border-dark);
 }
 .crm-shell .agent-card__line {
-  display: grid; grid-template-columns: 40px 12px 1fr; gap: 8px; align-items: baseline;
+  /* The timestamp column has to fit the widest thing relTime can return.
+     At 40px even "4m ago" wrapped to two lines, so every row in the log grew
+     taller than its neighbours and the list read as unevenly spaced. The
+     widest case is the past-7-days fallback, a full locale date like
+     "8/21/2026"; "just now" is the widest of the relative forms. */
+  display: grid; grid-template-columns: 64px 12px minmax(0, 1fr);
+  gap: 8px; align-items: baseline;
   padding: 7px 16px; background: transparent; border: none; cursor: pointer;
   text-align: left; color: inherit; font-size: 14.5px; width: 100%;
 }
 .crm-shell .agent-card__line:hover { background: var(--crm-ink); }
-.crm-shell .agent-card__ago { font-size: 12.5px; color: var(--crm-taupe); }
+/* nowrap as well as the wider column: a locale that formats dates longer than
+   en-US should push the column out of alignment rather than silently going back
+   to two lines and reintroducing the ragged spacing. */
+.crm-shell .agent-card__ago {
+  font-size: 12.5px; color: var(--crm-taupe); white-space: nowrap;
+}
 .crm-shell .agent-card__dot { font-size: 10px; }
 .crm-shell .agent-card__what {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--crm-warm-white);
@@ -2296,13 +2307,17 @@ html { -webkit-text-size-adjust: 100%; }
   border-top: 1px solid var(--crm-border-dark);
 }
 .crm-shell .upnext__row {
-  display: grid; grid-template-columns: 46px 1fr auto; gap: 10px; align-items: center;
+  /* Same defect as .agent-card__line had. whenLabel returns either a short date
+     ("Aug 21", ~41px) or a time, and a 12-hour locale formats that as
+     "03:45 PM" at ~56px — which wrapped inside a 46px column. */
+  display: grid; grid-template-columns: 60px 1fr auto; gap: 10px; align-items: center;
   width: 100%; padding: 8px 16px; background: transparent; border: none;
   cursor: pointer; text-align: left; color: var(--crm-warm-white);
 }
 .crm-shell .upnext__row:hover { background: var(--crm-ink); }
 .crm-shell .upnext__time {
   font-size: 13px; color: var(--crm-taupe); font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .crm-shell .upnext__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .crm-shell .upnext__title {
