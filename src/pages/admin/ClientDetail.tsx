@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import ClientCompaniesCard from "@/components/admin/ClientCompaniesCard";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Workflow, MonitorSmartphone, Copy, Check, ExternalLink, FolderOpen, FileSignature, Globe, Megaphone, Pencil, Star, Trash2 } from "lucide-react";
@@ -26,6 +27,7 @@ type Project = {
   type: "automation_build" | "site_preview" | "app_development" | "web_development" | "marketing";
   name: string;
   business_name: string | null;
+  company_id: string | null;
   status: string;
   notes: string | null;
   primary_contact_id: string | null;
@@ -79,16 +81,20 @@ export default function ClientDetail() {
   const [type, setType] = useState<Project["type"]>("automation_build");
   const [name, setName] = useState("");
   const [projectBusinessName, setProjectBusinessName] = useState("");
+  // The client's businesses, for the project pickers. Loaded once with the
+  // client rather than per dialog — both the create form and the edit dialog
+  // need the same list.
+  const [companies, setCompanies] = useState<{ id: string; name: string; is_primary: boolean }[]>([]);
+  const [projectCompanyId, setProjectCompanyId] = useState("");
   const [tier, setTier] = useState<"launch" | "growth">("launch");
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resourceProject, setResourceProject] = useState<Project | null>(null);
   const [openEdit, setOpenEdit] = useState(false);
-  const [editForm, setEditForm] = useState({ business_name: "" });
   const [editContacts, setEditContacts] = useState<ContactRow[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
-  const [projectEditForm, setProjectEditForm] = useState({ name: "", business_name: "", notes: "", primary_contact_id: "" });
+  const [projectEditForm, setProjectEditForm] = useState({ name: "", company_id: "", notes: "", primary_contact_id: "" });
   const [projectEditContacts, setProjectEditContacts] = useState<ContactOption[]>([]);
   const [savingProjectEdit, setSavingProjectEdit] = useState(false);
 
@@ -96,7 +102,7 @@ export default function ClientDetail() {
     e.stopPropagation();
     setProjectEditForm({
       name: p.name ?? "",
-      business_name: p.business_name ?? "",
+      company_id: p.company_id ?? "",
       notes: p.notes ?? "",
       primary_contact_id: p.primary_contact_id ?? "",
     });
@@ -115,7 +121,8 @@ export default function ClientDetail() {
     setSavingProjectEdit(true);
     const { error } = await supabase.from("client_projects").update({
       name: projectEditForm.name.trim() || editProject.name,
-      business_name: projectEditForm.business_name.trim() || null,
+      company_id: projectEditForm.company_id || null,
+      business_name: companies.find((c) => c.id === projectEditForm.company_id)?.name ?? null,
       notes: projectEditForm.notes.trim() || null,
       primary_contact_id: projectEditForm.primary_contact_id || null,
     }).eq("id", editProject.id);
@@ -128,7 +135,6 @@ export default function ClientDetail() {
 
   const openEditDialog = async () => {
     if (!client) return;
-    setEditForm({ business_name: client.business_name ?? "" });
     // Load existing contacts
     const { data: rows } = await supabase
       .from("client_contacts")
@@ -206,9 +212,13 @@ export default function ClientDetail() {
 
     setSavingEdit(true);
     try {
-      // 1) Update business_name + legacy mirror to primary
+      // 1) Mirror the primary contact onto the client.
+      //
+      // business_name is deliberately NOT written here any more. It is owned by
+      // the primary company now and kept in step by a database trigger, so
+      // writing a stale copy from this dialog would silently undo a rename made
+      // in the Companies card.
       const { error: clientErr } = await supabase.from("clients").update({
-        business_name: editForm.business_name.trim() || null,
         contact_name: primary?.name || null,
         contact_email: primary?.email || null,
         contact_phone: primary?.phone || null,
@@ -309,6 +319,23 @@ export default function ClientDetail() {
 
   useEffect(() => { load(); }, [id]);
 
+  const loadCompanies = useCallback(async () => {
+    if (!id) return;
+    const { data } = await supabase
+      .from("client_companies")
+      .select("id, name, is_primary")
+      .eq("client_id", id).eq("archived", false)
+      .order("is_primary", { ascending: false })
+      .order("order_index", { ascending: true });
+    const list = (data ?? []) as { id: string; name: string; is_primary: boolean }[];
+    setCompanies(list);
+    // Default a new project to the primary company, which is right far more
+    // often than blank and is the only value that cannot be wrong by omission.
+    setProjectCompanyId((cur) => cur || list.find((c) => c.is_primary)?.id || "");
+  }, [id]);
+
+  useEffect(() => { void loadCompanies(); }, [loadCompanies]);
+
   const create = async () => {
     if (!name.trim() || !id) return toast.error("Name required");
     setCreating(true);
@@ -316,7 +343,13 @@ export default function ClientDetail() {
       if (type === "app_development" || type === "web_development" || type === "marketing") {
         const { data: proj, error } = await supabase
           .from("client_projects")
-          .insert({ client_id: id, type, name: name.trim(), business_name: projectBusinessName.trim() || null })
+          .insert({
+            client_id: id, type, name: name.trim(),
+            company_id: projectCompanyId || null,
+            // Written alongside company_id only while the readers still expect
+            // it. company_id is the real answer; this is the bridge.
+            business_name: companies.find((c) => c.id === projectCompanyId)?.name ?? null,
+          })
           .select("*").single();
         if (error) throw error;
         toast.success(`${TYPE_LABEL[type]} project created`);
@@ -328,7 +361,13 @@ export default function ClientDetail() {
         }
         const { data: proj, error } = await supabase
           .from("client_projects")
-          .insert({ client_id: id, type, name: name.trim(), business_name: projectBusinessName.trim() || null })
+          .insert({
+            client_id: id, type, name: name.trim(),
+            company_id: projectCompanyId || null,
+            // Written alongside company_id only while the readers still expect
+            // it. company_id is the real answer; this is the bridge.
+            business_name: companies.find((c) => c.id === projectCompanyId)?.name ?? null,
+          })
           .select("*").single();
         if (error) throw error;
 
@@ -400,6 +439,10 @@ export default function ClientDetail() {
           <ClientPortalActions clientId={client.id} />
         </div>
 
+        {/* Above Projects on purpose: a project now picks a company, so the
+            companies have to exist first and be visible when they do not. */}
+        <ClientCompaniesCard clientId={id!} />
+
         <div className="roster__toolbar" style={{ marginTop: 24 }}>
           <div style={{ flex: 1, fontSize: 17, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
             Projects ({projects.length})
@@ -427,8 +470,22 @@ export default function ClientDetail() {
                   <input className="crm-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === "app_development" ? "Mobile app v1" : type === "web_development" ? "Website v1" : type === "marketing" ? "Campaign v1" : "Launch build"} />
                 </div>
                 <div>
-                  <label className="crm-label">Business name</label>
-                  <input className="crm-input" value={projectBusinessName} onChange={(e) => setProjectBusinessName(e.target.value)} placeholder="Which business this project is for" />
+                  <label className="crm-label">Company</label>
+                  {/* A picker, not free text. Typing the business name was how
+                      "Aviya Telemed" and "Menovia" became two spellings of the
+                      same field instead of two companies. */}
+                  <select
+                    className="crm-input"
+                    value={projectCompanyId}
+                    onChange={(e) => setProjectCompanyId(e.target.value)}
+                  >
+                    {companies.length === 0 && <option value="">No companies yet — add one first</option>}
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}{c.is_primary ? " (primary)" : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 {type === "automation_build" && (
                   <div>
@@ -629,10 +686,14 @@ export default function ClientDetail() {
             <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Edit client</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            <div>
-              <label className="crm-label">Business name</label>
-              <input className="crm-input" value={editForm.business_name} onChange={(e) => setEditForm({ ...editForm, business_name: e.target.value })} />
-            </div>
+            {/* The single "Business name" field is gone. It could only hold one
+                name, so a client running three businesses had to pick one and
+                everything beneath inherited it. Companies live in their own
+                card on the client page now. */}
+            <p style={{ fontSize: 15, color: "var(--crm-taupe)", margin: 0 }}>
+              Business names are managed under <strong>Companies</strong> on the
+              client page — a client can have more than one.
+            </p>
 
             <div style={{ marginTop: 18 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -742,8 +803,19 @@ export default function ClientDetail() {
               <input className="crm-input" value={projectEditForm.name} onChange={(e) => setProjectEditForm({ ...projectEditForm, name: e.target.value })} />
             </div>
             <div>
-              <label className="crm-label">Business name</label>
-              <input className="crm-input" value={projectEditForm.business_name} onChange={(e) => setProjectEditForm({ ...projectEditForm, business_name: e.target.value })} placeholder="Which business this project is for" />
+              <label className="crm-label">Company</label>
+              <select
+                className="crm-input"
+                value={projectEditForm.company_id}
+                onChange={(e) => setProjectEditForm({ ...projectEditForm, company_id: e.target.value })}
+              >
+                <option value="">— not assigned —</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.is_primary ? " (primary)" : ""}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="crm-label">Notes</label>
