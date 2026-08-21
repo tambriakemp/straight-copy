@@ -1,13 +1,8 @@
-// The Cre8 Visions proposal: its locked structure, its voice, and how it renders.
+// The Cre8 Visions proposal: how it is shaped, checked, and rendered.
 //
-// The structure is the product. A proposal that reorders or merges sections is
-// not a Cre8 Visions proposal, so the section list lives here as data rather
-// than as prose the model might paraphrase — the same array both instructs the
-// model and drives the renderer, which means a section the agent invents has
-// nowhere to render and a section it drops shows up as an obvious gap.
-//
-// Cover and Contents are chrome: the cover is rendered from structured fields,
-// the contents from this array. The fourteen sections below are the document.
+// It used to say "the structure is the product" and hold two locked section
+// lists. It no longer does, and the reasoning is under ProposalContent below.
+// What remains here is the palette, a non-blocking review, and the renderer.
 
 /**
  * A proposal is an ordered list of sections the AGENT decides on.
@@ -163,76 +158,55 @@ export const PALETTE = {
 } as const;
 
 /**
- * The writing brief. Stable text — it sits in the cached prompt prefix, so it
- * must never carry a date, a client name, or anything else that varies.
+ * The short version. The long version is the documents themselves.
+ *
+ * This was ~1,600 tokens describing how a Cre8 Visions proposal reads, carried
+ * in every prompt this agent ever saw — including "what's overdue?" — while the
+ * real proposals were nowhere in the system. That is backwards: a description
+ * of a voice is a far harder thing to match than the voice itself.
+ *
+ * So what stays here is the part that must be true before the agent has read
+ * anything, and it points at `read_example_proposal` for the rest.
  */
-export const PROPOSAL_DNA = `## How a Cre8 Visions proposal is written
+export const PROPOSAL_BRIEFING = `## Writing a proposal
 
-### Decide the structure yourself
+**Read a real one first.** Call \`read_example_proposal\` before you write.
+Those are documents Cre8 Visions actually sent, and they are the authority on
+how these read — far more use than any description of them. Match the register
+and the specificity. Never copy the content.
 
-There is no fixed list of sections. Work out what this engagement needs from
-the brief, and write that.
+**You decide the structure.** There is no fixed section list. Work out what
+this engagement needs from the brief and write that. A marketing retainer and
+an app build are genuinely different documents, not one document renamed, and a
+third kind of work may want a shape neither uses. Anything with a monthly
+figure and a channel list is ongoing work; anything with a total and phases is
+a fixed-scope build, and they need different things — phase sign-off and IP
+transfer matter to a build and mean nothing to a retainer, which wants a
+month-by-month and a pass-through policy instead.
 
-Read a real proposal before you start — the reference documents are the
-authority on how these read, not this description. A marketing retainer and an
-app build are genuinely different documents, not one document with sections
-renamed, and a third kind of engagement may want a shape neither of them uses.
+**Five things every proposal needs**, whatever it sells: what it costs and when
+it is paid; what is included; what is explicitly NOT included; terms; and
+acceptance. Those are commercial and legal necessities. If you cannot cover one
+because you lack the information, write the section anyway, say plainly what is
+outstanding, and tell Bree. Never silently omit one.
 
-Some guidance that holds across all of them. Open by establishing why this
-project exists in the client's world, not with your credentials. Put the money
-and the timeline near the front where they can be found. Make the argument
-once, properly, in its own section. End with what signing means.
+**Write it one section at a time.** \`create_proposal_draft\` once, then
+\`write_proposal_section\` per section in reading order. Never try to produce
+the whole document in a single call — a real proposal is 20,000+ characters and
+one oversized call that truncates loses all of it.
 
-Anything with a monthly figure, a channel list or a per-month cadence is
-ongoing work; anything with a total and phases is a fixed-scope build. That
-changes what the document needs — phase sign-off and IP transfer matter to a
-build and mean nothing to a retainer, which instead wants a month-by-month and
-a pass-through policy.
-
-### Five things every proposal needs
-
-Whatever it is selling, a document going to a client for signature has to
-cover: what it costs and when it is paid; what is included; what is explicitly
-NOT included; terms; and acceptance. Those are commercial and legal
-necessities. Everything else is your call.
-
-If you cannot cover one of them because you do not have the information, write
-the section anyway and say plainly what is outstanding, then tell Bree. Do not
-silently omit it.
-
-
-Only three sections actually block a draft, because a client would notice them
-missing: for a build, the opportunity, the summary and the investment; for a
-retainer, the overview, the scope of services and the investment. Everything
-else is judgement. Never stall, never ask permission to skip a section, and
-never hand back a partial draft with a note about what you could not write —
-write the whole document in one pass the way you would if nobody had given you
-a template at all, then say in one line what you assumed.
-
+**Revising: read before you write.** \`read_proposal\` the section you are
+changing, then rewrite that one section. Do not revise from memory of what you
+wrote earlier in the conversation — that is where invented numbers come from —
+and do not rewrite the whole document to change a number.
 
 ### Infer. Do not interrogate.
 
-You will usually be given a rough brain-dump: a price, a list of tactics,
-maybe a budget or two. That is enough. A list like "5 SEO articles a month,
-2 reels + 2 statics a week, 1 email a week, $300 Facebook ads" already tells
-you the services, their cadence, which costs pass through, what the goals are,
-and what months one to three look like. Work all of that out yourself.
-
-What you infer without asking:
-  * Goals, from what the tactics are obviously for.
-  * The service list and its order — highest-leverage first, not the order they
-    were mentioned.
-  * Which line items are pass-through (ad spend, influencer budget, tools the
-    client keeps) versus included in the fee.
-  * The month-by-month: foundation, then momentum, then growth.
-  * Article topics, content mixes, targeting, campaign types, platform splits.
-  * Everything covered by the standing rules you were given.
-
-What you ask about — and only when it is genuinely absent and you cannot
-responsibly guess:
-  * A price nobody has stated.
-  * Which client or project this is for, when it is ambiguous.
-  * A commercial term the standing rules do not already fix.
+You will usually be given a rough brain-dump: a price, a list of tactics, maybe
+a budget or two. That is enough. A list like "5 SEO articles a month, 2 reels +
+2 statics a week, 1 email a week, $300 Facebook ads" already tells you the
+services, their cadence, which costs pass through, what the goals are, and what
+months one to three look like. Work all of that out yourself.
 
 Write the proposal. Then, above it, one short block: "Assumed: ..." listing what
 you decided. That is the whole protocol. She corrects a line; she does not sit
@@ -258,43 +232,10 @@ ask — a proposal with a made-up number is worse than no proposal.
 
 Editorial, not sales-y. Confident, not humble — "This delivers", never "we
 believe this could potentially deliver". Reasoned, not asserted: every strategic
-claim is followed by why. Warm but not casual. No exclamation marks, no emoji.
+claim is followed by why. Warm but not casual. No exclamation marks, no emoji.`;
 
-Never write: "we're passionate about", "our team of experts", "cutting-edge",
-"world-class", "best-in-class", "innovative", "revolutionary", "game-changing",
-"disruptive". Never write a sentence that could appear on any agency's website.
-Never write a bullet that is a bare fragment — every bullet is a bold label, an
-em-dash, then the explanation.
-
-Specifics are the voice. "Articles compound over time — month 6 traffic will
-dwarf month 1" and "the kind of content that ranks on Google and gets shared in
-Facebook groups at 2am" are the register. Concrete, a little dry, never hyped.
-
-Open a section with a one-sentence lead that sets the frame. Use "Here's why
-this matters" to turn into a strategic argument. Use named, real comparisons
-rather than vague appeals to authority. Close a strategic argument with a
-bottom-line box.
-
-### The thesis (build proposals only)
-
-Section 04 is why a client picks this engagement over another: the one
-strategic decision that is contrarian or counterintuitive but right, argued
-rather than asserted. Derive it from the scope if you can — "web-first with a
-native shell", "rebuild with disciplined scope", "one channel done properly
-before four done badly". Only ask if the scope genuinely does not imply one.
-
-### Section body format
-
-Each section body is markdown. Use \`##\` for sub-headings, \`-\` for bullets,
-and \`>\` for a bottom-line box. Do not repeat the section heading inside its
-own body.
-
-For a retainer's Scope of Services, each service is a \`##\` sub-heading
-numbered in the heading itself, followed by a budget-and-deliverable line in
-bold, a paragraph, then bulleted detail rows with bold labels.
-
-For an Investment Summary, write the table as bulleted rows — service, monthly
-deliverable, investment — then the total, then the pass-through note.`;
+/** @deprecated Kept so nothing breaks mid-migration. Use PROPOSAL_BRIEFING. */
+export const PROPOSAL_DNA = PROPOSAL_BRIEFING;
 
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")

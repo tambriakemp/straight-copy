@@ -12,7 +12,7 @@ import {
   launchContext,
   revenueContext,
 } from "./context.ts";
-import { PROPOSAL_DNA } from "./proposal-spine.ts";
+import { PROPOSAL_BRIEFING } from "./proposal-spine.ts";
 import { allowedFor } from "./allowlists.ts";
 import type { AgentRow } from "./types.ts";
 
@@ -313,7 +313,7 @@ between meetings — a tap beats a paragraph. Open text is for figures nobody ha
 stated and nothing else. Never ask more than three questions in one turn, and
 never ask a second round when the first round's answers let you write.
 
-${PROPOSAL_DNA}`,
+${PROPOSAL_BRIEFING}`,
     allowedActions: allowedFor("client-engagement"),
     gather: (sb, cfg) => engagementContext(sb, cfg),
   },
