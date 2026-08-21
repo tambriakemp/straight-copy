@@ -47,11 +47,23 @@ describe("the exemplar library", () => {
   });
 });
 
+// Normalised the way proposal-defaults.test.ts does it: the briefing is
+// hard-wrapped prose, so a phrase that spans a line break would otherwise fail
+// a substring check for reasons that have nothing to do with its content.
+const briefing = PROPOSAL_BRIEFING.toLowerCase().replace(/\s+/g, " ");
+
 describe("the briefing", () => {
-  // It was ~1,600 tokens of description carried on every single turn, including
-  // turns that had nothing to do with proposals.
-  it("is far shorter than the description it replaced", () => {
-    expect(PROPOSAL_BRIEFING.length).toBeLessThan(4_500);
+  // Honest accounting. PROPOSAL_DNA was ~6,455 characters. The briefing came
+  // in at ~1,830 and then grew back to ~5,200 once the revision doctrine was
+  // added, because those rules have to be known BEFORE the agent decides to
+  // call read_proposal — they cannot be loaded on demand the way an exemplar
+  // can. So the per-turn saving is real but modest.
+  //
+  // The actual win was never the token count: it is that the agent now has the
+  // document instead of a description of it. This bound exists to stop the
+  // briefing drifting back into being a substitute for reading a real one.
+  it("stays smaller than the description it replaced", () => {
+    expect(PROPOSAL_BRIEFING.length).toBeLessThan(6_000);
   });
 
   it("sends the agent to a real document before it writes", () => {
@@ -59,11 +71,11 @@ describe("the briefing", () => {
   });
 
   it("states that the agent chooses the structure", () => {
-    expect(PROPOSAL_BRIEFING.toLowerCase()).toContain("no fixed section list");
+    expect(briefing).toContain("no fixed section list");
   });
 
   it("names the five non-negotiables", () => {
-    const b = PROPOSAL_BRIEFING.toLowerCase();
+    const b = briefing;
     for (const phrase of ["what it costs", "what is included", "not included", "terms", "acceptance"]) {
       expect(b).toContain(phrase);
     }
@@ -71,11 +83,33 @@ describe("the briefing", () => {
 
   it("tells the agent to write section by section, never in one call", () => {
     expect(PROPOSAL_BRIEFING).toContain("write_proposal_section");
-    expect(PROPOSAL_BRIEFING.toLowerCase()).toContain("one section at a time");
+    expect(briefing).toContain("one section at a time");
   });
 
   it("tells the agent to read a section before revising it", () => {
     expect(PROPOSAL_BRIEFING).toContain("read_proposal");
-    expect(PROPOSAL_BRIEFING.toLowerCase()).toContain("do not revise from memory");
+    expect(briefing).toContain("never revise from memory");
+  });
+
+  it("tells the agent to resolve a vague reference by looking, not by asking", () => {
+    const b = briefing;
+    expect(b).toContain("the second installment");
+    expect(b).toContain("only after looking");
+  });
+
+  it("tells the agent to change one section and report what moved", () => {
+    const b = briefing;
+    expect(b).toContain("change one section");
+    expect(b).toContain("say what moved, not what exists");
+  });
+
+  // The failure already in the transcripts: 1,637 characters describing a draft
+  // that did not exist, with empty action_ids.
+  it("forbids describing a revision that was never made", () => {
+    expect(briefing).toContain("never describe a revision you did not actually make");
+  });
+
+  it("points 'put it back' at the restore action", () => {
+    expect(PROPOSAL_BRIEFING).toContain("restore_proposal_version");
   });
 });

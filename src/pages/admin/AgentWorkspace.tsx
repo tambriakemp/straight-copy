@@ -11,6 +11,8 @@ import AgentAvatar from "@/components/admin/AgentAvatar";
 import AgentChatPanel from "@/components/admin/agent/AgentChatPanel";
 import AgentActivityPanel, { type ActivityRun } from "@/components/admin/agent/AgentActivityPanel";
 import AgentSettingsPanel from "@/components/admin/agent/AgentSettingsPanel";
+import AgentProposalPanel from "@/components/admin/agent/AgentProposalPanel";
+import { useFocusedProposal } from "@/components/admin/agent/useFocusedProposal";
 import { agentsApi, errMsg, type Agent } from "@/lib/agentsApi";
 import { capabilitiesFor } from "@/lib/agentCapabilities";
 
@@ -37,6 +39,19 @@ export default function AgentWorkspace() {
   const [running, setRunning] = useState(false);
   // Bumped after a run so the chat pane reloads and shows the brief it wrote.
   const [chatNonce, setChatNonce] = useState(0);
+  const [aside, setAside] = useState<"activity" | "document">("activity");
+
+  const { proposal, loading: proposalLoading } = useFocusedProposal(id ?? "", chatNonce);
+  const proposalSections = proposal?.content?.sections?.filter(
+    (sec) => (sec.body ?? "").trim().length > 0,
+  ).length ?? 0;
+
+  // Follow the work. When she asks for a proposal and sections start landing,
+  // the document should be what she is looking at — not something she has to
+  // know to go and click.
+  useEffect(() => {
+    if (proposalSections > 0) setAside("document");
+  }, [proposalSections]);
 
   const loadAgent = useCallback(async () => {
     if (!id) return;
@@ -193,8 +208,26 @@ export default function AgentWorkspace() {
           ? <AgentChatPanel agent={agent} onActivity={loadRuns} reloadNonce={chatNonce} />
           : <AgentSettingsPanel agent={agent} onChanged={loadAgent} />}
 
-        {/* ---------- activity ---------- */}
-        <AgentActivityPanel runs={runs} />
+        {/* ---------- activity / document ---------- */}
+        <aside className="ws__aside">
+          <div className="ws__aside-tabs">
+            <button
+              className={`ws__aside-tab${aside === "activity" ? " is-on" : ""}`}
+              onClick={() => setAside("activity")}
+            >
+              Activity
+            </button>
+            <button
+              className={`ws__aside-tab${aside === "document" ? " is-on" : ""}`}
+              onClick={() => setAside("document")}
+            >
+              Document{proposalSections ? ` · ${proposalSections}` : ""}
+            </button>
+          </div>
+          {aside === "activity"
+            ? <AgentActivityPanel runs={runs} />
+            : <AgentProposalPanel proposal={proposal} loading={proposalLoading} agentName={agent.name} />}
+        </aside>
       </div>
     </AdminLayout>
   );

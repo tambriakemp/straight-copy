@@ -2347,7 +2347,8 @@ html { -webkit-text-size-adjust: 100%; }
 }
 @media (max-width: 1240px) {
   .crm-shell .ws { grid-template-columns: 210px minmax(0, 1fr); }
-  .crm-shell .ws__activity { display: none; }
+  .crm-shell .ws__activity,
+  .crm-shell .ws__aside { display: none; }
 }
 
 /* ---------- rail ---------- */
@@ -2823,3 +2824,74 @@ html { -webkit-text-size-adjust: 100%; }
   .crm-shell .ws__reader-panel { max-height: 100vh; height: 100%; border-radius: 0; }
   .crm-shell .ws__reader-body { padding: 0 16px 24px; }
 }
+
+/* ---------- document beside the chat ---------- */
+/* A viewer, not an editor: Bree revises by talking to the agent, so there is
+   deliberately no editing affordance anywhere in here. */
+.crm-shell .ws__aside {
+  display: grid; grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0; border-left: 1px solid var(--crm-border-dark);
+  background: var(--crm-charcoal);
+}
+.crm-shell .ws__aside-tabs {
+  display: flex; gap: 2px; padding: 10px 14px 0;
+  border-bottom: 1px solid var(--crm-border-dark);
+}
+.crm-shell .ws__aside-tab {
+  font-family: inherit; font-size: 12.5px; letter-spacing: .04em;
+  padding: 7px 12px; border: 0; background: transparent; cursor: pointer;
+  color: var(--crm-taupe); border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.crm-shell .ws__aside-tab:hover { color: var(--crm-warm-white); }
+.crm-shell .ws__aside-tab.is-on {
+  color: var(--crm-warm-white); border-bottom-color: var(--crm-bronze, #8a7355);
+}
+.crm-shell .ws__aside > .ws__activity { border-left: 0; }
+
+.crm-shell .ws__doc { display: grid; grid-template-rows: auto auto minmax(0, 1fr); min-height: 0; }
+.crm-shell .ws__doc--empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; text-align: center; padding: 32px 24px; color: var(--crm-taupe);
+}
+.crm-shell .ws__doc--empty p { margin: 0; font-size: 13.5px; }
+.crm-shell .ws__doc-hint { font-size: 12.5px; color: var(--crm-soft-gray, #9a938a); }
+.crm-shell .ws__doc-spin { animation: ws-doc-spin 1s linear infinite; }
+@keyframes ws-doc-spin { to { transform: rotate(360deg); } }
+
+.crm-shell .ws__doc-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--crm-border-dark); }
+.crm-shell .ws__doc-title { margin: 0; font-size: 14.5px; color: var(--crm-warm-white); }
+.crm-shell .ws__doc-meta {
+  margin: 3px 0 0; font-size: 12px; color: var(--crm-taupe);
+  text-transform: capitalize; letter-spacing: .02em;
+}
+/* Reported, never enforced — she should know what is outstanding before she
+   sends it, not be stopped from reading it. */
+.crm-shell .ws__doc-gaps {
+  margin: 0; padding: 9px 16px; font-size: 12.5px;
+  color: var(--crm-warm-white); background: #8a735522;
+  border-bottom: 1px solid var(--crm-border-dark);
+}
+/* The document itself carries the Cre8 Visions palette, which is a different
+   system from the admin chrome around it. The white ground is deliberate: this
+   is what the client will see. */
+.crm-shell .ws__doc-body {
+  overflow-y: auto; min-height: 0; padding: 0 18px 40px;
+  background: var(--crm-warm-white, #FAFAF8);
+}
+.crm-shell .ws__doc-body .cv-proposal { font-size: 13.5px; }
+.crm-shell .ws__doc-body .cv-proposal h1 { font-size: 30px; }
+.crm-shell .ws__doc-body .cv-proposal h2 { font-size: 22px; }
+/* A proposal's investment table is wider than a side panel; give it its own
+   scroller rather than letting it stretch the column. */
+.crm-shell .ws__doc-body .cv-proposal table { display: block; overflow-x: auto; max-width: 100%; }
+.crm-shell .ws__doc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.crm-shell .ws__doc-dl {
+  display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+  font-family: inherit; font-size: 12px; padding: 5px 11px; border-radius: 999px;
+  background: transparent; border: 1px solid var(--crm-border-dark);
+  color: var(--crm-warm-white); cursor: pointer;
+}
+.crm-shell .ws__doc-dl:hover { border-color: var(--crm-bronze, #8a7355); }
+.crm-shell .ws__doc-dl--none { color: var(--crm-soft-gray, #9a938a); cursor: default; }
+.crm-shell .ws__doc-dl--none:hover { border-color: var(--crm-border-dark); }
