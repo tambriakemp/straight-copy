@@ -8,7 +8,7 @@ import { logProposalEvent } from "../proposal-events.ts";
 import { renderProposalPdf } from "../proposal-pdf.ts";
 import { logSureContactActivity, sendSureContactEmail } from "../surecontact-send.ts";
 import {
-  inferKind, missingEssentials, missingSections, PROJECT_TYPES, type ProposalContent,
+  PROJECT_TYPES, reviewProposal, type ProposalContent,
 } from "./proposal-spine.ts";
 
 // Mirrors the constants in send-transactional-email/index.ts so agent mail
@@ -320,19 +320,13 @@ export async function executeAction(
         }
         if (!p.content) return { ok: false, error: "No proposal content supplied" };
 
-        // The spine is the house order, not a gate. Rejecting a finished draft
-        // for a section it folded into its neighbour put the agent in a loop it
-        // could not win, so only the sections a client would notice missing
-        // block — the rest are recorded as gaps and rendered as such.
-        const content: ProposalContent = { ...p.content, kind: inferKind(p.content) };
-        const blocking = missingEssentials(content);
-        if (blocking.length) {
-          return {
-            ok: false,
-            error: `Write these before filing the draft: ${blocking.join(", ")}. Everything else is optional.`,
-          };
-        }
-        const gaps = missingSections(content);
+        // No spine to check against, and nothing blocks. The review reports
+        // what is worth knowing — a proposal with no pricing section, say —
+        // and the agent relays that to Bree alongside the draft. Refusing the
+        // save is what produced zero proposals in two weeks.
+        const content: ProposalContent = { ...p.content };
+        const review = reviewProposal(content);
+        const gaps = review.missing;
 
         const { data, error } = await sb.from("client_proposals").insert({
           client_id: p.client_id,

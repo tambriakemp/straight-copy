@@ -10,7 +10,7 @@
 // pdf-lib's standard fonts: Times for the Georgia display faces, Helvetica for
 // the Arial body. Not identical to the docx template, deliberately close.
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
-import { PROPOSAL_SECTIONS, type ProposalContent } from "./agents/proposal-spine.ts";
+import { writtenSections, type ProposalContent } from "./agents/proposal-spine.ts";
 
 const PAGE_W = 612;   // US Letter, 72dpi
 const PAGE_H = 792;
@@ -238,31 +238,33 @@ export async function renderProposalPdf(
   c.text("CONTENTS", { font: fonts.bodyBold, size: 8, color: BRONZE, lead: 20 });
   c.text("What's in this proposal", { font: fonts.display, size: 24, color: INK, lead: 30 });
   c.rule();
-  PROPOSAL_SECTIONS.forEach((s, idx) => {
+  const sections = writtenSections(content).map((s) => ({
+    heading: (s.heading ?? "").trim() || "Untitled section",
+    purpose: (s.summary ?? "").trim(),
+    body: (s.body ?? "").trim(),
+  }));
+
+  sections.forEach((s, idx) => {
     c.room(30);
     const n = String(idx + 1).padStart(2, "0");
     c.page.drawText(n, { x: MARGIN, y: c.y - 11, size: 9, font: fonts.bodyBold, color: BRONZE });
     c.page.drawText(s.heading, { x: MARGIN + 30, y: c.y - 11, size: 12, font: fonts.display, color: INK });
     c.y -= 16;
-    c.text(s.purpose, { font: fonts.body, size: 8.5, color: TAUPE, lead: 12, indent: 30 });
+    if (s.purpose) {
+      c.text(s.purpose, { font: fonts.body, size: 8.5, color: TAUPE, lead: 12, indent: 30 });
+    }
     c.gap(6);
   });
 
-  // --- the fourteen ---
-  const byKey = new Map((content.sections ?? []).map((s) => [s.key ?? "", s]));
-  PROPOSAL_SECTIONS.forEach((s, idx) => {
+  // --- the sections, in the order the agent wrote them ---
+  sections.forEach((s, idx) => {
     c.break();
-    const found = byKey.get(s.key);
     c.text(`${String(idx + 1).padStart(2, "0")} — ${s.heading.toUpperCase()}`, {
       font: fonts.bodyBold, size: 8, color: BRONZE, lead: 18,
     });
-    c.text(found?.heading || s.heading, { font: fonts.display, size: 24, color: INK, lead: 30 });
+    c.text(s.heading, { font: fonts.display, size: 24, color: INK, lead: 30 });
     c.rule();
-    const body = (found?.body ?? "").trim();
-    if (body) drawBody(c, body);
-    else c.text("This section has not been written yet.", {
-      font: fonts.displayItalic, size: 10, color: SOFT_GRAY, lead: 15,
-    });
+    drawBody(c, s.body);
   });
 
   // --- running header and footer, once the page count is known ---
