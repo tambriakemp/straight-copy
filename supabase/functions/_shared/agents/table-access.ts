@@ -77,6 +77,7 @@ export const READABLE: Record<string, TableAccess> = {
       "content", "sent_at", "sent_to", "first_opened_at", "first_viewed_at",
       "last_activity_at", "next_followup_at", "followup_count",
       "client_signature_name", "client_signed_at", "agency_countersigned_at",
+      "declined_at", "decline_reason",
       "source_pdf_path", "created_at", "updated_at",
     ],
     searchable: ["title", "description"],

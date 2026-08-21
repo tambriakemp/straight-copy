@@ -25,6 +25,7 @@ export type ProposalEventType =
   | "countersigned"
   | "followup_scheduled"
   | "followup_sent"
+  | "declined"
   | "voided";
 
 /** Ordered roughly as a proposal progresses, for rendering a lifecycle bar. */
@@ -100,6 +101,8 @@ export function describeProposalEvent(
     case "countersigned": return `Countersigned${d.name ? ` by ${d.name}` : ""}`;
     case "followup_scheduled": return `Follow-up set for ${d.due_date ?? "later"}`;
     case "followup_sent": return "Follow-up sent";
+    case "declined":
+      return `Client declined${d.reason ? ` — "${d.reason}"` : ""}`;
     case "voided": return "Voided";
     default: return e.event_type.replace(/_/g, " ");
   }

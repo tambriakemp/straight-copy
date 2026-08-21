@@ -8,9 +8,11 @@ type Proposal = {
   id: string;
   title: string;
   description: string | null;
-  status: "draft" | "sent" | "signed" | "voided";
+  status: "draft" | "sent" | "signed" | "voided" | "declined";
   client_signature_name: string | null;
   client_signed_at: string | null;
+  declined_at?: string | null;
+  decline_reason?: string | null;
   created_at: string;
   source_url?: string | null;
   signed_pdf_url?: string | null;
@@ -54,10 +56,14 @@ async function callFn(body: Record<string, unknown>) {
   return data;
 }
 
-function ProposalCard({ clientId, contactName, proposal, onSigned }: {
-  clientId: string; contactName: string | null; proposal: Proposal; onSigned: () => void;
+function ProposalCard({ clientId, contactName, proposal, onChanged }: {
+  clientId: string; contactName: string | null; proposal: Proposal; onChanged: () => void;
 }) {
-  const [open, setOpen] = useState(proposal.status !== "signed");
+  // A decided proposal — signed or declined — opens collapsed. The decision is
+  // in the header; the document is there if they want it.
+  const [open, setOpen] = useState(
+    proposal.status !== "signed" && proposal.status !== "declined",
+  );
   const [detail, setDetail] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(false);
   const [showSign, setShowSign] = useState(false);
@@ -65,6 +71,9 @@ function ProposalCard({ clientId, contactName, proposal, onSigned }: {
   const [typedName, setTypedName] = useState(contactName ?? "");
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showDecline, setShowDecline] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+  const [declining, setDeclining] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const lastRef = useRef<{ x: number; y: number } | null>(null);
@@ -72,6 +81,7 @@ function ProposalCard({ clientId, contactName, proposal, onSigned }: {
 
   const isSigned = proposal.status === "signed";
   const isVoided = proposal.status === "voided";
+  const isDeclined = proposal.status === "declined";
 
   const loadDetail = async () => {
     setLoading(true);
@@ -152,11 +162,33 @@ function ProposalCard({ clientId, contactName, proposal, onSigned }: {
       });
       toast.success("Proposal signed");
       setShowSign(false);
-      onSigned();
+      onChanged();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Signing failed");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Saying no is a first-class outcome, not a dead end in the UI. Without it
+  // the only way to decline is silence, and silence reads as "hasn't got to it
+  // yet" — so the client keeps getting nudged about a decision they have
+  // already made.
+  const decline = async () => {
+    if (declining) return;
+    setDeclining(true);
+    try {
+      await callFn({
+        action: "decline", clientId, proposalId: proposal.id,
+        reason: declineReason.trim() || undefined, confirm: true,
+      });
+      toast.success("Thanks for letting us know.");
+      setShowDecline(false);
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not record that");
+    } finally {
+      setDeclining(false);
     }
   };
 
@@ -169,6 +201,10 @@ function ProposalCard({ clientId, contactName, proposal, onSigned }: {
       toast.error(e instanceof Error ? e.message : "Download failed");
     }
   };
+
+  const declinedDate = proposal.declined_at
+    ? new Date(proposal.declined_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+    : null;
 
   const signedDate = proposal.client_signed_at
     ? new Date(proposal.client_signed_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
@@ -183,7 +219,13 @@ function ProposalCard({ clientId, contactName, proposal, onSigned }: {
         </div>
         <div className="portal-access__toggle-right">
           <span className={`portal-access__status ${isSigned ? "is-done" : ""}`}>
-            {isSigned ? `Signed ${signedDate}` : isVoided ? "Voided" : "Awaiting signature"}
+            {isSigned
+              ? `Signed ${signedDate}`
+              : isVoided
+                ? "Voided"
+                : isDeclined
+                  ? `Declined ${declinedDate ?? ""}`.trim()
+                  : "Awaiting signature"}
           </span>
           <span className={`portal-access__chev ${open ? "is-open" : ""}`}>›</span>
         </div>
@@ -203,12 +245,57 @@ function ProposalCard({ clientId, contactName, proposal, onSigned }: {
             />
           )}
 
+          {isDeclined && !loading && (
+            <p className="portal-access__intro" style={{ marginTop: 16 }}>
+              You let us know on {declinedDate} that this isn't the right fit
+              {proposal.decline_reason ? `: "${proposal.decline_reason}"` : ""}. Thank you —
+              nothing further is needed, and we won't follow up on it. If anything
+              changes, you can still sign it below.
+            </p>
+          )}
+
           {!isSigned && !isVoided && !loading && (
             <div style={{ marginTop: 16 }}>
-              {!showSign ? (
-                <button className="crm-btn crm-btn--primary" onClick={() => setShowSign(true)}>
-                  Sign this proposal
-                </button>
+              {!showSign && !showDecline ? (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <button className="crm-btn crm-btn--primary" onClick={() => setShowSign(true)}>
+                    {isDeclined ? "Actually, sign this proposal" : "Sign this proposal"}
+                  </button>
+                  {/* Deliberately quiet next to the primary action — offered,
+                      not urged. The point is that "no" is easy to say, not that
+                      it competes for the click. */}
+                  {!isDeclined && (
+                    <button className="crm-btn crm-btn--ghost" onClick={() => setShowDecline(true)}>
+                      I'm not moving forward
+                    </button>
+                  )}
+                </div>
+              ) : showDecline ? (
+                <div style={{ marginTop: 8, padding: 16, border: "1px solid var(--crm-border-dark)", borderRadius: 8 }}>
+                  <p className="portal-access__intro" style={{ marginTop: 0 }}>
+                    That's completely fine — letting us know just means we stop
+                    following up. Nothing is charged and nothing is committed.
+                  </p>
+                  <label className="crm-label" style={{ marginTop: 12 }}>
+                    Anything you'd like us to know? (optional)
+                  </label>
+                  <textarea
+                    className="crm-input"
+                    rows={3}
+                    value={declineReason}
+                    onChange={(e) => setDeclineReason(e.target.value)}
+                    placeholder="Timing, budget, went another direction — or leave this blank."
+                    style={{ resize: "vertical", minHeight: 72 }}
+                  />
+                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                    <button className="crm-btn crm-btn--ghost" onClick={() => setShowDecline(false)} disabled={declining}>
+                      Cancel
+                    </button>
+                    <button className="crm-btn crm-btn--primary" onClick={decline} disabled={declining}>
+                      {declining ? "Sending…" : "Confirm — not moving forward"}
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div style={{ marginTop: 8, padding: 16, border: "1px solid var(--crm-border-dark)", borderRadius: 8 }}>
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -295,7 +382,7 @@ export default function ProposalsSection({ clientId, contactName, projectId }: {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {visible.map((p) => (
-        <ProposalCard key={p.id} clientId={clientId} contactName={contactName} proposal={p} onSigned={load} />
+        <ProposalCard key={p.id} clientId={clientId} contactName={contactName} proposal={p} onChanged={load} />
       ))}
     </div>
   );

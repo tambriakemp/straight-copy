@@ -1100,6 +1100,8 @@ export type Database = {
           content_version: number
           created_at: string
           created_by_agent: string | null
+          decline_reason: string | null
+          declined_at: string | null
           description: string | null
           first_opened_at: string | null
           first_viewed_at: string | null
@@ -1134,6 +1136,8 @@ export type Database = {
           content_version?: number
           created_at?: string
           created_by_agent?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
           description?: string | null
           first_opened_at?: string | null
           first_viewed_at?: string | null
@@ -1168,6 +1172,8 @@ export type Database = {
           content_version?: number
           created_at?: string
           created_by_agent?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
           description?: string | null
           first_opened_at?: string | null
           first_viewed_at?: string | null

@@ -33,6 +33,8 @@ function describe(e: ProposalEvent): string {
     case "countersigned": return `Countersigned${d.name ? ` by ${d.name}` : ""}`;
     case "followup_scheduled": return `Follow-up set for ${d.due_date ?? "later"}`;
     case "followup_sent": return "Follow-up sent";
+    case "declined":
+      return `Client declined${d.reason ? ` — "${d.reason}"` : ""}`;
     case "voided": return "Voided";
     default: return e.event_type.replace(/_/g, " ");
   }
@@ -41,7 +43,7 @@ function describe(e: ProposalEvent): string {
 // Events the client caused are the ones worth noticing, so they carry the
 // accent. Everything we did ourselves stays quiet.
 const CLIENT_EVENTS = new Set([
-  "email_opened", "link_clicked", "viewed_in_portal", "signed",
+  "email_opened", "link_clicked", "viewed_in_portal", "signed", "declined",
 ]);
 
 function relTime(iso: string): string {

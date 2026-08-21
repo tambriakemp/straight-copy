@@ -32,7 +32,7 @@ const PROPOSAL_BUCKET = "client-assets";
  * away.
  */
 async function renderAndStoreProposalPdf(
-  sb: ActionClient,
+  sb: SupabaseClient,
   proposalId: string,
   clientId: string,
   title: string,
@@ -60,6 +60,25 @@ async function renderAndStoreProposalPdf(
     return { ok: true, path };
   } catch (e) {
     return { ok: false, error: String((e as Error).message || e) };
+  }
+}
+
+/**
+ * How many days after a send the first chase is due.
+ *
+ * Read from the agent's own config rather than hardcoded, so the follow-up
+ * window is one number in one place. It was 4 here and 4 in the gatherer, which
+ * meant changing it to Bree's 48 hours in the obvious place left the send path
+ * still scheduling four days out.
+ */
+async function followupWindowDays(sb: SupabaseClient, agentId: string): Promise<number> {
+  try {
+    const { data } = await sb.from("agents").select("config").eq("id", agentId).maybeSingle();
+    const cfg = (data?.config ?? {}) as Record<string, unknown>;
+    const n = Number(cfg.followup_after_days);
+    return Number.isFinite(n) && n > 0 ? n : 2;
+  } catch {
+    return 2;
   }
 }
 
@@ -628,7 +647,7 @@ export async function executeAction(
         });
         if (!sent.ok) return { ok: false, error: sent.error };
 
-        const followupDays = 4;
+        const followupDays = await followupWindowDays(sb, action.agent_id);
         const { error: uErr } = await sb.from("client_proposals").update({
           status: "sent",
           sent_at: new Date().toISOString(),
@@ -659,7 +678,9 @@ export async function executeAction(
           .select("id, client_id, client_project_id, title").eq("id", p.proposal_id).maybeSingle();
         if (!proposal) return { ok: false, error: "Proposal not found" };
 
-        const due = p.due_date ?? new Date(Date.now() + 4 * 86_400_000).toISOString().slice(0, 10);
+        const due = p.due_date ??
+          new Date(Date.now() + (await followupWindowDays(sb, action.agent_id)) * 86_400_000)
+            .toISOString().slice(0, 10);
         const { error } = await sb.from("client_proposals")
           .update({ next_followup_at: new Date(`${due}T09:00:00Z`).toISOString() })
           .eq("id", proposal.id);
@@ -669,15 +690,22 @@ export async function executeAction(
         // everything else a person is expected to do that day.
         let taskId: string | null = null;
         if (proposal.client_project_id) {
-          const { data: task } = await sb.from("project_tasks").insert({
+          const { data: task, error: tErr } = await sb.from("project_tasks").insert({
             client_project_id: proposal.client_project_id,
             name: `Follow up on proposal: ${proposal.title}`,
             description: `${p.note ?? action.description ?? ""}\n\n> Scheduled by ${agentName}.`.trim(),
             due_date: due,
-            priority: "medium",
+            // project_tasks.priority is an enum with no "medium" in it, and
+            // this insert used to send exactly that. The error was never
+            // destructured, so every scheduled follow-up silently failed to
+            // open its task and reported a null id as success.
+            priority: taskPriority("normal"),
             assignee_kind: "agency",
             status: "todo",
           }).select("id").maybeSingle();
+          if (tErr) {
+            console.error("[actions] follow-up task insert failed", tErr.message);
+          }
           taskId = task?.id ?? null;
         }
 
