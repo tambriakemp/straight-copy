@@ -645,6 +645,16 @@ Deno.serve(async (req) => {
       if (!row) return respond({ error: "Proposal not found" }, 404);
       if (row.status === "signed") return respond({ error: "Already signed" }, 409);
       if (row.status === "voided") return respond({ error: "Proposal voided" }, 409);
+      // A decline is final, and deliberately so. The price and the timeline in
+      // this document were quoted for a decision made then; letting someone
+      // sign it weeks later would bind us to numbers we may no longer be able
+      // to honour. Coming back is welcome — it just needs a fresh proposal.
+      if (row.status === "declined") {
+        return respond({
+          error: "This proposal was declined and can no longer be signed. " +
+            "Ask us for a new one and we will re-quote it.",
+        }, 409);
+      }
       if (input.signatureType === "drawn" && !input.signatureData.startsWith("data:image/png")) {
         return respond({ error: "Drawn signature must be a PNG data URL." }, 400);
       }
@@ -691,11 +701,6 @@ Deno.serve(async (req) => {
         agency_countersigned_at: now.toISOString(),
         signed_pdf_path: signedPath,
         pdf_generated_at: now.toISOString(),
-        // Signing after a decline is a change of mind, and the best outcome
-        // there is. Clear the decline rather than blocking the signature —
-        // "I said no last week" must not be a trap that costs the work.
-        declined_at: null,
-        decline_reason: null,
       }).eq("id", row.id);
       if (updErr) throw updErr;
 
