@@ -14,6 +14,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { definitionFor, systemPromptFor } from "../_shared/agents/registry.ts";
 import { runAgentModel } from "../_shared/agents/claude.ts";
 import { runToolLoop } from "../_shared/agents/loop.ts";
+import { resolveTurnOutcome } from "../_shared/agents/turn-outcome.ts";
 import { executeReadTool, readToolDefinitions } from "../_shared/agents/read-tools.ts";
 import { actionToolDefinition, executeActionTool, type ActionToolContext } from "../_shared/agents/action-tool.ts";
 import { stepLabel } from "../_shared/agents/tool-labels.ts";
@@ -184,21 +185,39 @@ Deno.serve(async (req) => {
         .select("status").in("id", actionCtx.actionIds.length ? actionCtx.actionIds : ["none"]);
       const waiting = (settled ?? []).filter((a) => a.status === "proposed").length;
 
-      await sb.from("agent_runs").update({
-        status: loop.text.trim() ? "succeeded" : "failed",
-        finished_at: new Date().toISOString(),
-        headline: loop.text.split("\n")[0].slice(0, 120) || "Run produced nothing",
-        summary: loop.text,
-        detail: { tool_calls: loop.calls.length, iterations: loop.iterations, stopped_by: loop.stoppedBy },
+      // The same resolver agent-chat uses, for the same reason. On 21 Aug a
+      // Bria run spent 6,682 output tokens across 12 tool calls and 8
+      // iterations, ended cleanly on end_turn, wrote no closing prose — and was
+      // recorded as "Run produced nothing", status failed. The work had
+      // happened; only the summary was missing, and marking that a failure
+      // hides real work behind a red dot.
+      const outcome = resolveTurnOutcome({
+        text: loop.text,
+        actionCount: actionCtx.actionIds.length,
+        stoppedBy: loop.stoppedBy,
         error: loop.error ?? null,
+        toolLabels: loop.calls.map((c) => stepLabel(c.name, c.input)),
+      });
+
+      await sb.from("agent_runs").update({
+        status: outcome.status === "complete" ? "succeeded" : "failed",
+        finished_at: new Date().toISOString(),
+        headline: outcome.content.split("\n")[0].slice(0, 120) || "Run produced nothing",
+        summary: outcome.content,
+        detail: {
+          tool_calls: loop.calls.length,
+          iterations: loop.iterations,
+          stopped_by: outcome.stoppedBy,
+        },
+        error: outcome.error,
         input_tokens: loop.usage.input,
         output_tokens: loop.usage.output,
         cache_read_tokens: loop.usage.cacheRead,
       }).eq("id", run.id);
 
       await deliverRun(sb, agent as AgentRow, run.id, {
-        headline: loop.text.split("\n")[0].slice(0, 120),
-        summary: loop.text,
+        headline: outcome.content.split("\n")[0].slice(0, 120),
+        summary: outcome.content,
         detail: {},
         actions: [],
       }, waiting);
