@@ -32,11 +32,14 @@ async function download(proposal: FocusedProposal) {
 }
 
 export default function AgentProposalPanel({
-  proposal, loading, agentName,
+  proposal, loading, agentName, pinned = false, onFollowLatest,
 }: {
   proposal: FocusedProposal | null;
   loading: boolean;
   agentName: string;
+  /** True when the panel is held on one proposal rather than following. */
+  pinned?: boolean;
+  onFollowLatest?: () => void;
 }) {
   const html = useMemo(
     () => (proposal?.content ? renderProposalHtml(proposal.title, proposal.content) : ""),
@@ -80,7 +83,7 @@ export default function AgentProposalPanel({
   }
 
   return (
-    <div className="ws__doc">
+    <div className="ws__doc ws__doc--pinnable">
       <header className="ws__doc-head">
         <div>
           <p className="ws__doc-title">{proposal.title}</p>
@@ -102,6 +105,16 @@ export default function AgentProposalPanel({
           </span>
         )}
       </header>
+
+      {/* Pinning is invisible otherwise, and an unexplained stale panel is
+          worse than no panel — say which mode this is in and offer the way
+          back. Unpinned, it follows whatever the agent touched last. */}
+      {pinned && onFollowLatest && (
+        <p className="ws__doc-pin">
+          Showing the proposal you picked.
+          <button className="ws__doc-pin-btn" onClick={onFollowLatest}>Follow the latest</button>
+        </p>
+      )}
 
       {/* What is outstanding, from the same non-blocking review the agent sees.
           Reported, never enforced — the point is that she knows before she

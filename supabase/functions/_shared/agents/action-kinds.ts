@@ -95,7 +95,9 @@ export const ACTION_KINDS: Record<string, ActionKind> = {
     purpose:
       "write ONE section into a proposal draft. Call it once per section, in the order the document should read. Pass an existing heading to replace that section instead of appending. This is how a long proposal gets written — never try to write the whole document in one call.",
     payload:
-      "{proposal_id, heading, body, summary?, replace?}",
+      "{proposal_id, heading, body, summary?, replace?} — `replace` is OPTIONAL and only for renaming: " +
+      "pass the OLD heading as a string to rewrite that section under a new name. To rewrite a section " +
+      "and keep its name, just pass its existing `heading` and omit `replace` entirely. Never pass true/false.",
   },
   restore_proposal_version: {
     kind: "restore_proposal_version",

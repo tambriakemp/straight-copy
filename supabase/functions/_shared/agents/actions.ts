@@ -423,8 +423,14 @@ export async function executeAction(
           heading?: string;
           body?: string;
           summary?: string;
-          /** Replace the section with this heading rather than appending. */
-          replace?: string;
+          /**
+           * Which existing section to overwrite. `true` means the one whose
+           * heading matches `heading`; a string names a different heading, so a
+           * section can be renamed in place. Typed loosely on purpose — the
+           * model supplies this and has sent a boolean where a string was
+           * declared.
+           */
+          replace?: string | boolean;
         };
         if (!p.proposal_id) return { ok: false, error: "No proposal_id supplied" };
         if (!p.heading?.trim()) return { ok: false, error: "A section needs a heading" };
@@ -441,7 +447,15 @@ export async function executeAction(
 
         const content: ProposalContent = (row.content as ProposalContent) ?? { sections: [] };
         const sections = [...(content.sections ?? [])];
-        const target = (p.replace ?? p.heading).trim().toLowerCase();
+        // Never call a string method on a payload field without checking.
+        // `replace?` in the tool schema read as a boolean flag, so the model
+        // sent `replace: true`, and `(p.replace ?? p.heading).trim()` threw
+        // "(p.replace ?? p.heading).trim is not a function" — failing every
+        // rewrite while the chat showed the error and nothing else.
+        const target = (typeof p.replace === "string" && p.replace.trim()
+          ? p.replace
+          : p.heading
+        ).trim().toLowerCase();
         const at = sections.findIndex(
           (s) => (s.heading ?? "").trim().toLowerCase() === target,
         );
