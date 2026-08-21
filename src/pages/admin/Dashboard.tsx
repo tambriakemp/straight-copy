@@ -1,83 +1,37 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
+import ClientsTable from "@/components/admin/ClientsTable";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 
-interface ClientRow {
-  id: string;
-  business_name: string | null;
-  contact_name: string | null;
-  contact_email: string | null;
-  created_at: string;
-}
-
-type SortKey = "business_name" | "created_at";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [clients, setClients] = useState<ClientRow[]>([]);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
-    key: "created_at",
-    dir: "desc",
-  });
+  // Bumped after a create so the table refetches. Cheaper than threading a
+  // reload handle out of it for the one event that changes the list.
+  const [reloadKey, setReloadKey] = useState(0);
   const [form, setForm] = useState({
     business_name: "",
     contact_name: "",
     contact_email: "",
   });
 
-  const load = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("clients")
-      .select("id,business_name,contact_name,contact_email,created_at")
-      .eq("archived", false)
-      .order("created_at", { ascending: false });
-    if (error) toast.error(error.message);
-    else setClients((data as ClientRow[]) || []);
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const filtered = useMemo(() => {
-    const f = clients.filter((r) => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return (
-        (r.business_name || "").toLowerCase().includes(q) ||
-        (r.contact_name || "").toLowerCase().includes(q) ||
-        (r.contact_email || "").toLowerCase().includes(q)
-      );
-    });
-    const dir = sort.dir === "asc" ? 1 : -1;
-    return [...f].sort((a, b) => {
-      const av = (a[sort.key] ?? "") as string;
-      const bv = (b[sort.key] ?? "") as string;
-      if (av < bv) return -1 * dir;
-      if (av > bv) return 1 * dir;
-      return 0;
-    });
-  }, [clients, search, sort]);
-
-  const toggleSort = (key: SortKey) =>
-    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
-
   const createClient = async () => {
-    if (!form.business_name.trim()) {
-      toast.error("Business name required");
+    if (!form.contact_name.trim()) {
+      toast.error("Client name required");
       return;
     }
+    const company = form.business_name.trim();
     const { data, error } = await supabase.from("clients").insert({
-      business_name: form.business_name.trim(),
-      contact_name: form.contact_name.trim() || null,
+      // The client is the person. business_name is deprecated and owned by the
+      // primary company, so it is left for that insert to set via its trigger
+      // rather than written here — two writers would race.
+      contact_name: form.contact_name.trim(),
       contact_email: form.contact_email.trim() || null,
       purchased_at: new Date().toISOString(),
     }).select("id").single();
@@ -85,11 +39,26 @@ export default function Dashboard() {
       toast.error(error.message);
       return;
     }
+
+    // A client created with no company would have nothing for a project to
+    // belong to, and the project form only offers a picker now. So the first
+    // company is created here when one was named.
+    if (data?.id && company) {
+      const { error: cErr } = await supabase.from("client_companies").insert({
+        client_id: data.id,
+        name: company,
+        email: form.contact_email.trim() || null,
+        is_primary: true,
+        order_index: 0,
+      });
+      if (cErr) toast.error(`Client created, but the company failed: ${cErr.message}`);
+    }
+
     toast.success("Client created");
     setOpen(false);
     setForm({ business_name: "", contact_name: "", contact_email: "" });
     if (data?.id) navigate(`/admin/clients/${data.id}`);
-    else load();
+    else setReloadKey((k) => k + 1);
   };
 
   return (
@@ -109,15 +78,7 @@ export default function Dashboard() {
         </div>
 
         <div className="roster__toolbar">
-          <div className="roster__search-wrap">
-            <input
-              className="roster__search"
-              placeholder="Search clients..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="roster__actions">
+        <div className="roster__actions">
             <button className="crm-btn crm-btn--ghost" onClick={() => navigate("/admin/invites")}>
               ✉ Invites
             </button>
@@ -131,19 +92,22 @@ export default function Dashboard() {
                 </DialogHeader>
                 <div className="space-y-4 mt-2">
                   <div>
-                    <label className="crm-label">Business name *</label>
-                    <input
-                      className="crm-input"
-                      value={form.business_name}
-                      onChange={(e) => setForm({ ...form, business_name: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="crm-label">Contact name</label>
+                    <label className="crm-label">Client name *</label>
                     <input
                       className="crm-input"
                       value={form.contact_name}
                       onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="crm-label">First company</label>
+                    <p style={{ fontSize: 14, color: "var(--crm-taupe)", margin: "0 0 6px" }}>
+                      Optional. A client can run several businesses — add the rest on their page.
+                    </p>
+                    <input
+                      className="crm-input"
+                      value={form.business_name}
+                      onChange={(e) => setForm({ ...form, business_name: e.target.value })}
                     />
                   </div>
                   <div>
@@ -166,59 +130,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {loading ? (
-          <p className="text-[hsl(30_8%_62%)] text-sm">Loading clients…</p>
-        ) : filtered.length === 0 ? (
-          <div className="crm-empty">
-            <div className="crm-empty__glyph">∅</div>
-            <div className="crm-empty__title">No <em>clients</em> yet.</div>
-            <div className="crm-empty__sub">
-              Send an invite or create a client to start tracking projects.
-            </div>
-            <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-              <button className="crm-btn crm-btn--ghost" onClick={() => navigate("/admin/invites")}>
-                ✉ Send Invite
-              </button>
-              <button className="crm-btn crm-btn--bronze" onClick={() => setOpen(true)}>
-                + New Client
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="roster__list" style={{ borderTop: "1px solid var(--crm-border-dark)" }}>
-            {filtered.map((r) => (
-              <div
-                key={r.id}
-                onClick={() => navigate(`/admin/clients/${r.id}`)}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 44px",
-                  alignItems: "center",
-                  gap: 24,
-                  padding: "24px 28px",
-                  background: "var(--crm-charcoal)",
-                  borderBottom: "1px solid var(--crm-border-dark)",
-                  cursor: "pointer",
-                  transition: "background 200ms",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "hsl(36 5% 20%)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "var(--crm-charcoal)"; }}
-              >
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-                  <div className="roster__name">{r.contact_name || "Untitled"}</div>
-                  <div className="roster__email">
-                    {[r.business_name, r.contact_email].filter(Boolean).join(" · ") || "—"}
-                  </div>
-                </div>
-                <div style={{ textAlign: "right", color: "var(--crm-taupe)", fontSize: 22 }}>→</div>
-              </div>
-            ))}
-            <div style={{ marginTop: 16, fontSize: 16, color: "var(--crm-taupe)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-              Sort: <button className="roster__col-h" style={{ marginLeft: 8 }} onClick={() => toggleSort("business_name")}>Name ↕</button>
-              <button className="roster__col-h" style={{ marginLeft: 8 }} onClick={() => toggleSort("created_at")}>Created ↕</button>
-            </div>
-          </div>
-        )}
+        {/* One table, used here and in the agent Workspace rail, so the two
+            can never drift into showing different clients. */}
+        <ClientsTable key={reloadKey} />
       </div>
     </AdminLayout>
   );

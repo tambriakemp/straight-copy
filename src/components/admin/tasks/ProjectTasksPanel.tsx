@@ -49,8 +49,10 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const [epics, setEpics] = useState<Epic[]>([]);
   const [projectLookup, setProjectLookup] = useState<ProjectLookup[]>([]);
   const [loading, setLoading] = useState(true);
-  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
-  const [view, setView] = useState<ViewMode>(isMobile ? "list" : "kanban");
+  // List is the default everywhere now, not just on a phone. The board is the
+  // better view for moving work along a pipeline; the list is the better view
+  // for "what is on my plate", which is what opening this is usually asking.
+  const [view, setView] = useState<ViewMode>("list");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [epicsOpen, setEpicsOpen] = useState(false);
