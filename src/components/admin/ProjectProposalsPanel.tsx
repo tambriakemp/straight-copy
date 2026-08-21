@@ -1,7 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, Download, Trash2, FileSignature, ExternalLink, Activity, Send } from "lucide-react";
+import { Upload, Download, Trash2, FileSignature, ExternalLink, Activity, Send, Eye } from "lucide-react";
 import ProposalActivityLog from "@/components/admin/ProposalActivityLog";
+import SidePanel from "@/components/admin/SidePanel";
+import {
+  renderProposalHtml, writtenSections,
+  type ProposalContent,
+} from "../../../supabase/functions/_shared/agents/proposal-spine";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -19,6 +24,8 @@ type Proposal = {
   sent_at?: string | null;
   sent_to?: string | null;
   source_pdf_path: string | null;
+  /** Agent-written proposals live here and have no PDF until they are sent. */
+  content: unknown;
   client_signature_name: string | null;
   client_signed_at: string | null;
   declined_at?: string | null;
@@ -153,6 +160,36 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
     }
   };
 
+  /**
+   * Read a proposal before sending it.
+   *
+   * Bree had two proposals on one project and no way to tell them apart —
+   * "Source" downloads a PDF, and an agent-written proposal has no PDF until
+   * it is sent, so for that one there was nothing to click at all. This shows
+   * whichever the proposal actually has: the stored PDF, or the content
+   * rendered through the same renderer the PDF and the client portal use, so
+   * what you read here is what the client will read.
+   */
+  const [preview, setPreview] = useState<{ p: Proposal; pdfUrl: string | null } | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
+
+  const openPreview = async (p: Proposal) => {
+    setPreviewing(p.id);
+    let pdfUrl: string | null = null;
+    if (p.source_pdf_path) {
+      try {
+        const data = await callFn({ action: "download", clientId, proposalId: p.id, variant: "source" });
+        pdfUrl = data.pdfUrl ?? null;
+      } catch {
+        // Fall through to the rendered content — a missing file should not
+        // stop you reading a proposal that has words in it.
+        pdfUrl = null;
+      }
+    }
+    setPreviewing(null);
+    setPreview({ p, pdfUrl });
+  };
+
   const removeProposal = async (p: Proposal) => {
     if (!confirm(`Delete proposal "${p.title}"? This cannot be undone.`)) return;
     try {
@@ -239,7 +276,20 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
                 </div>
 
                 <div style={{ fontSize: 17, color: "var(--crm-taupe)" }}>
-                  Uploaded {new Date(p.created_at).toLocaleDateString()}
+                  {/* What this proposal actually is, without opening it. Two
+                      proposals on one project looked identical here — same
+                      date line, same buttons — which is how you end up unsure
+                      which one is the real one. */}
+                  {(() => {
+                    const secs = p.content
+                      ? writtenSections(p.content as ProposalContent).length
+                      : 0;
+                    if (secs) return `Written · ${secs} section${secs === 1 ? "" : "s"}`;
+                    if (p.source_pdf_path) return "Uploaded PDF";
+                    return "Empty — nothing written yet";
+                  })()}
+                  {" · "}
+                  {new Date(p.created_at).toLocaleDateString()}
                   {p.client_signed_at && (
                     <> · Signed {new Date(p.client_signed_at).toLocaleDateString()} by {p.client_signature_name}</>
                   )}
@@ -258,9 +308,19 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
                 </div>
 
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-                  <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => downloadPdf(p, "source")}>
-                    <Download size={12} /> Source
+                  <button
+                    className="crm-btn crm-btn--ghost crm-btn--sm"
+                    onClick={() => void openPreview(p)}
+                    disabled={previewing === p.id}
+                    title="Read this proposal"
+                  >
+                    <Eye size={12} /> {previewing === p.id ? "Opening…" : "Preview"}
                   </button>
+                  {p.source_pdf_path && (
+                    <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => downloadPdf(p, "source")}>
+                      <Download size={12} /> Source
+                    </button>
+                  )}
                   {isSigned && (
                     <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => downloadPdf(p, "signed")}>
                       <Download size={12} /> Signed PDF
@@ -299,6 +359,42 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
         </div>
       )}
 
+      {/* Wide on purpose: a proposal read in a narrow column is a proposal you
+          skim instead of check, and checking is the whole point of opening it
+          before it goes to a client. */}
+      <SidePanel
+        open={!!preview}
+        title={preview?.p.title ?? "Proposal"}
+        subtitle={preview
+          ? `${preview.p.status}${preview.p.sent_at ? " · sent" : " · not sent yet"}`
+          : undefined}
+        width={860}
+        onClose={() => setPreview(null)}
+        footer={
+          preview ? (
+            <>
+              {!preview.p.client_signed_at && (
+                <button
+                  className="crm-btn crm-btn--ghost crm-btn--sm"
+                  onClick={() => { const p2 = preview.p; setPreview(null); void removeProposal(p2); }}
+                >
+                  <Trash2 size={12} /> Delete
+                </button>
+              )}
+              {preview.pdfUrl && (
+                <a className="crm-btn crm-btn--ghost crm-btn--sm"
+                  href={preview.pdfUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink size={12} /> Open PDF
+                </a>
+              )}
+              <button className="crm-btn crm-btn--ghost" onClick={() => setPreview(null)}>Close</button>
+            </>
+          ) : undefined
+        }
+      >
+        {preview && <ProposalPreviewBody p={preview.p} pdfUrl={preview.pdfUrl} />}
+      </SidePanel>
+
       <Dialog open={openUpload} onOpenChange={(v) => { if (!uploading) setOpenUpload(v); }}>
         <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md">
           <DialogHeader>
@@ -328,5 +424,51 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * What a proposal actually looks like.
+ *
+ * A PDF is shown as a PDF. Written content goes through renderProposalHtml —
+ * the same renderer the PDF path and the client portal use — so this is not a
+ * separate idea of what the document says. When there is neither, the panel
+ * says so plainly rather than showing an empty frame that reads as broken.
+ */
+function ProposalPreviewBody({ p, pdfUrl }: { p: Proposal; pdfUrl: string | null }) {
+  const content = (p.content ?? null) as ProposalContent | null;
+  const sections = content ? writtenSections(content).length : 0;
+
+  const html = useMemo(
+    () => (sections ? renderProposalHtml(p.title, content as ProposalContent) : ""),
+    [content, p.title, sections],
+  );
+
+  if (pdfUrl) {
+    return (
+      <iframe
+        src={pdfUrl}
+        title={p.title}
+        style={{ width: "100%", height: "72vh", border: "1px solid var(--crm-border-dark)", borderRadius: 8, background: "#fff" }}
+      />
+    );
+  }
+
+  if (sections) {
+    return (
+      <div
+        className="ws__doc-body"
+        // Same renderer as the PDF path. Content is escaped at the source (see
+        // `esc` in proposal-spine) rather than trusted here.
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  }
+
+  return (
+    <p style={{ color: "var(--crm-taupe)", fontSize: 16, fontStyle: "italic" }}>
+      Nothing written yet — this proposal has no PDF and no sections. It was
+      started but never filled in.
+    </p>
   );
 }
