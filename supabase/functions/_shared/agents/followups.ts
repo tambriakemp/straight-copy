@@ -174,12 +174,26 @@ export function classifyProposal(
   }
 
   // 2. Written but never sent. Not a client problem at all.
-  if (p.status === "draft" || !p.sent_at) {
+  if (p.status === "draft") {
     return {
       ...base, bucket: "not_sent", needs_human: true, nudge: null,
       headline: `${who} — drafted${
         quiet !== null ? ` ${plural(quiet, "day")} ago` : ""
       } and never sent.`,
+    };
+  }
+
+  // Marked sent with no send date. Live rows look like this — a proposal moved
+  // to 'sent' by hand, or a send that failed after the status was written. It
+  // cannot be chased, because every threshold here is measured from a date
+  // that does not exist, and reporting it as "never sent" next to a status
+  // that says sent is the kind of contradiction that makes a report untrusted.
+  if (!p.sent_at) {
+    return {
+      ...base, bucket: "not_sent", needs_human: true, nudge: null,
+      headline: `${who} — marked sent, but with no send date on record, so ` +
+        `there is nothing to measure a follow-up from. Worth checking it ` +
+        `actually went out.`,
     };
   }
 

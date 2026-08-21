@@ -110,6 +110,32 @@ describe("one proposal, one bucket", () => {
   });
 });
 
+// Live rows look like this: a proposal moved to 'sent' by hand, so the status
+// says sent and there is no date to measure a follow-up from.
+describe("marked sent with no send date", () => {
+  it("does not chase it, because there is nothing to measure from", () => {
+    const o = classifyProposal(
+      signal({ status: "sent", sent_at: null, last_activity_at: daysAgo(9) }), T, NOW,
+    );
+    expect(o.bucket).toBe("not_sent");
+    expect(o.nudge).toBeNull();
+    expect(o.needs_human).toBe(true);
+  });
+
+  it("does not contradict the status by calling it a draft", () => {
+    const o = classifyProposal(signal({ status: "sent", sent_at: null }), T, NOW);
+    expect(o.headline).toMatch(/marked sent/i);
+    expect(o.headline).not.toMatch(/drafted/i);
+  });
+
+  it("still calls an actual draft a draft", () => {
+    const o = classifyProposal(
+      signal({ status: "draft", sent_at: null, last_activity_at: daysAgo(3) }), T, NOW,
+    );
+    expect(o.headline).toMatch(/drafted 3 days ago and never sent/i);
+  });
+});
+
 describe("the ceiling", () => {
   it("flags a proposal at the cap for a human instead of chasing it", () => {
     const o = classifyProposal(signal({ followups_sent: 3 }), T, NOW);
