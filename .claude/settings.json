@@ -32,7 +32,41 @@
       "mcp__Claude_Code_Remote__list_triggers",
       "mcp__Claude_Code_Remote__get_session",
       "mcp__Claude_Code_Remote__list_sessions",
-      "mcp__Claude_Code_Remote__list_environments"
+      "mcp__Claude_Code_Remote__list_environments",
+      "mcp__Cre8_Visions__update_task",
+      "mcp__Cre8_Visions__move_task_status",
+      "mcp__Cre8_Visions__list_my_comments",
+      "mcp__Cre8_Visions__list_wiki_documents",
+      "mcp__Cre8_Visions__search_wiki_documents",
+      "mcp__Cre8_Visions__get_wiki_document",
+      "mcp__Cre8_Visions__list_project_links",
+      "mcp__Lovable__list_messages",
+      "mcp__Lovable__get_message",
+      "mcp__Lovable__list_edits",
+      "mcp__Lovable__get_project_knowledge",
+      "mcp__Lovable__list_workspaces",
+      "mcp__github__get_check_run",
+      "mcp__github__actions_get",
+      "mcp__github__search_pull_requests",
+      "mcp__github__list_issues",
+      "mcp__github__issue_read",
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(npx vitest run *)",
+      "Bash(npm run test *)",
+      "mcp__Lovable__query_database",
+      "mcp__Lovable__send_message",
+      "mcp__Lovable__deploy_project"
+    ],
+    "deny": [
+      "mcp__Cre8_Visions__delete_client",
+      "mcp__Cre8_Visions__delete_client_project",
+      "mcp__Cre8_Visions__archive_client",
+      "mcp__Cre8_Visions__delete_wiki_document",
+      "mcp__Cre8_Visions__delete_wiki_folder"
     ]
   }
 }
