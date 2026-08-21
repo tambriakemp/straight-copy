@@ -513,9 +513,13 @@ Deno.serve(async (req) => {
         ? `${PORTAL_BASE_URL}/portal/${input.clientId}/projects/${row.client_project_id}`
         : `${PORTAL_BASE_URL}/portal/${input.clientId}`;
 
-      // Same path every other transactional email takes, so this one lands in
-      // email_send_log and SureContact rather than being a second, invisible
-      // way for mail to leave the building.
+      // Same path every other transactional email takes: rendered here,
+      // enqueued, and dispatched by process-email-queue — which sends through
+      // SureContact when the key is configured, so this lands on the contact's
+      // timeline with opens and clicks rather than leaving the building
+      // untracked. It did not before; the dispatcher handed everything to
+      // Lovable's sender, which is why a delivered proposal was invisible in
+      // SureContact.
       const { error: sendErr } = await supabase.functions.invoke("send-transactional-email", {
         body: {
           templateName: "proposal-ready",
