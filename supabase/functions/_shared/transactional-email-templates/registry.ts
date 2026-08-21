@@ -15,6 +15,7 @@ import { template as onboardingInvite } from './onboarding-invite.tsx'
 import { template as brandKitNotification } from './brand-kit-notification.tsx'
 import { template as webDevDiscoveryNotification } from './web-dev-discovery-notification.tsx'
 import { template as invoicePaymentLink } from './invoice-payment-link.tsx'
+import { template as proposalReady } from './proposal-ready.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'contact-confirmation': contactConfirmation,
@@ -23,4 +24,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'brand-kit-notification': brandKitNotification,
   'web-dev-discovery-notification': webDevDiscoveryNotification,
   'invoice-payment-link': invoicePaymentLink,
+  'proposal-ready': proposalReady,
 }

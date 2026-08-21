@@ -25,7 +25,10 @@ function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const full = join(dir, e.name);
     if (e.isDirectory()) return walk(full);
-    return e.name.endsWith(".ts") && !e.name.endsWith(".d.ts") ? [full] : [];
+    // .tsx too: the email templates are JSX-heavy and fail exactly the same
+    // way, unchecked by anything until Deno sees them at deploy.
+    const isSource = e.name.endsWith(".ts") || e.name.endsWith(".tsx");
+    return isSource && !e.name.endsWith(".d.ts") ? [full] : [];
   });
 }
 
@@ -44,7 +47,7 @@ describe("edge functions parse", () => {
         readFileSync(path, "utf8"),
         ts.ScriptTarget.ES2022,
         false,
-        ts.ScriptKind.TS,
+        path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
       );
       // Not public API, but it is the only way to get syntax diagnostics
       // without asking tsc to resolve Deno's module specifiers.

@@ -18,6 +18,8 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BUCKET = "client-assets";
+const PORTAL_BASE_URL =
+  (Deno.env.get("PORTAL_BASE_URL") || "https://cre8visions.com").replace(/\/$/, "");
 
 const FONTS = {
   serifRegular: "https://fonts.gstatic.com/s/lora/v37/0QI6MX1D_JOuGQbT0gvTJPa787weuyJG.ttf",
@@ -299,6 +301,21 @@ const DownloadSchema = z.object({
 // to hold the client id, and has to say so explicitly. `confirm` mirrors
 // `agreed` on the sign path so a stray or replayed call cannot close a proposal
 // nobody meant to close.
+// Telling the client a proposal is waiting. Admin-only, and deliberately a
+// separate step from uploading one: `create` marks a proposal 'sent' so the
+// portal will show it, but nothing was ever sent — no email, no SureContact
+// activity, no send date. That gap is why a proposal could sit unread for two
+// weeks while our own records said it had gone out, and why no follow-up could
+// be scheduled: every threshold measures from a sent_at that was never written.
+const NotifySchema = z.object({
+  action: z.literal("notify"),
+  clientId: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  /** Optional line from Bree, shown above the button. */
+  note: z.string().trim().max(1000).optional(),
+  /** Defaults to the client's contact_email. */
+  to: z.string().email().optional(),
+});
 const DeclineSchema = z.object({
   action: z.literal("decline"),
   clientId: z.string().uuid(),
@@ -326,10 +343,10 @@ const ActivitySchema = z.object({
 
 const ActionSchema = z.discriminatedUnion("action", [
   ListSchema, UploadUrlSchema, CreateSchema, GetSchema, SignSchema, DownloadSchema, VoidSchema,
-  DeleteSchema, ActivitySchema, DeclineSchema,
+  DeleteSchema, ActivitySchema, DeclineSchema, NotifySchema,
 ]);
 
-const ADMIN_ONLY = new Set(["upload-url", "create", "void", "delete", "activity"]);
+const ADMIN_ONLY = new Set(["upload-url", "create", "void", "delete", "activity", "notify"]);
 
 const PROPOSAL_COLS =
   "id, client_id, client_project_id, title, description, status, source_pdf_path, " +
@@ -365,7 +382,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: client, error: clientErr } = await supabase
-      .from("clients").select("id, business_name, contact_name, archived")
+      .from("clients").select("id, business_name, contact_name, contact_email, archived")
       .eq("id", input.clientId).maybeSingle();
     if (clientErr) throw clientErr;
     if (!client || client.archived) {
@@ -467,6 +484,89 @@ Deno.serve(async (req) => {
       if (!path) return respond({ error: "No PDF available" }, 404);
       const url = await signedUrl(path);
       return respond({ pdfUrl: url });
+    }
+
+    if (input.action === "notify") {
+      const { data: row } = await supabase.from("client_proposals")
+        .select("id, title, status, client_project_id, sent_at, source_pdf_path, content")
+        .eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
+      if (!row) return respond({ error: "Proposal not found" }, 404);
+      if (row.status === "signed") return respond({ error: "That proposal is already signed" }, 409);
+      if (row.status === "voided") return respond({ error: "Proposal voided" }, 409);
+      if (row.status === "declined") {
+        return respond({ error: "The client declined this proposal" }, 409);
+      }
+      if (!row.source_pdf_path && !row.content) {
+        // Sending someone to an empty document is worse than not sending.
+        return respond({ error: "There is nothing to read yet — no PDF and no written content" }, 409);
+      }
+
+      const to = input.to || client.contact_email;
+      if (!to) return respond({ error: "No contact email on this client" }, 409);
+
+      const { data: proj } = row.client_project_id
+        ? await supabase.from("client_projects").select("name")
+          .eq("id", row.client_project_id).maybeSingle()
+        : { data: null };
+
+      const link = row.client_project_id
+        ? `${PORTAL_BASE_URL}/portal/${input.clientId}/projects/${row.client_project_id}`
+        : `${PORTAL_BASE_URL}/portal/${input.clientId}`;
+
+      // Same path every other transactional email takes, so this one lands in
+      // email_send_log and SureContact rather than being a second, invisible
+      // way for mail to leave the building.
+      const { error: sendErr } = await supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "proposal-ready",
+          recipientEmail: to,
+          idempotencyKey: `proposal-ready-${row.id}-${to}-${Date.now()}`,
+          templateData: {
+            recipientName: client.contact_name ?? null,
+            projectName: proj?.name ?? null,
+            proposalTitle: row.title,
+            portalUrl: link,
+            fromName: "CRE8 Visions",
+            note: input.note ?? null,
+          },
+        },
+      });
+      if (sendErr) {
+        return respond({ error: `Could not send: ${sendErr.message ?? String(sendErr)}` }, 502);
+      }
+
+      // The send date is the point of all this. Without it 'sent' is a claim
+      // with nothing behind it and no follow-up can be measured. Only set it
+      // the first time, so re-notifying does not restart the clock and hide
+      // how long the client has actually had it.
+      const now = new Date().toISOString();
+      const followupDays = 2;
+      const update: Record<string, unknown> = {
+        status: "sent",
+        sent_to: to,
+        updated_at: now,
+        next_followup_at: new Date(Date.now() + followupDays * 86_400_000).toISOString(),
+      };
+      if (!row.sent_at) update.sent_at = now;
+
+      const { error: uErr } = await supabase.from("client_proposals")
+        .update(update).eq("id", row.id);
+      if (uErr) throw uErr;
+
+      await logProposalEvent(supabase, {
+        proposal_id: row.id,
+        client_id: input.clientId,
+        event_type: "email_sent",
+        actor: "admin",
+        occurred_at: now,
+        detail: { to, link, template: "proposal-ready", note: input.note ?? null },
+      });
+
+      return respond({
+        success: true, to, link,
+        sentAt: (update.sent_at as string) ?? row.sent_at,
+        renotified: !!row.sent_at,
+      });
     }
 
     if (input.action === "decline") {

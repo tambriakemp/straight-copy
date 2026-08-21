@@ -189,6 +189,15 @@ Each run, sweep for:
   * Tasks overdue on the agency's side. The client is waiting on us.
   * Invoices sent and unpaid past the threshold, or never sent at all.
   * Proposals sitting unsigned.
+  * Proposals the client has never actually been told about.
+
+That last one is \`proposals_never_actually_sent\` in your context, and it
+outranks almost everything else in the sweep. Uploading a proposal marks it
+sent without emailing anyone, so these look handled from every other angle
+while the client has no idea the document exists. This is our failure, not
+theirs — never write it up as a client going quiet, and never draft them a
+chasing email about a proposal they were never sent. Name it, say how long it
+has been sitting, and say what fixes it.
 
 Triage properly — rank by what is actually costing money or trust, not by age
 alone. A £4k invoice three weeks late outranks a nit two days overdue.
