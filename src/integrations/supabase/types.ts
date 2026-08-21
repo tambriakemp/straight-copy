@@ -1068,6 +1068,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "client_proposal_versions_changed_by_agent_fkey"
+            columns: ["changed_by_agent"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "client_proposal_versions_proposal_id_fkey"
             columns: ["proposal_id"]
             isOneToOne: false
