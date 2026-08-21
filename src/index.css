@@ -2243,14 +2243,6 @@ html { -webkit-text-size-adjust: 100%; }
 }
 .crm-shell .agent-card__sched { flex: 1; }
 .crm-shell .agent-card__pending { color: #dbb172; }
-.crm-shell .agent-card__run {
-  border-radius: var(--crm-r-sm);
-  background: transparent; border: 1px solid var(--crm-border-dark);
-  color: var(--crm-warm-white); font-size: 12.5px; letter-spacing: 0.12em;
-  text-transform: uppercase; padding: 4px 9px; cursor: pointer;
-}
-.crm-shell .agent-card__run:hover:not(:disabled) { background: var(--crm-ink); }
-.crm-shell .agent-card__run:disabled { opacity: 0.5; cursor: default; }
 
 /* ---------- side rail ---------- */
 .crm-shell .dash__side { display: flex; flex-direction: column; gap: 14px; }

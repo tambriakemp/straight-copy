@@ -10,7 +10,7 @@ import { relTime } from "@/components/admin/DashboardPrimitives";
 import AgentAvatar from "@/components/admin/AgentAvatar";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  agentsApi, errMsg, describeCron, nextRunFromCron, cadenceOf,
+  errMsg, describeCron, nextRunFromCron, cadenceOf,
   pushStatus, subscribeToPush, unsubscribeFromPush,
 } from "@/lib/agentsApi";
 
@@ -86,7 +86,6 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
-  const [running, setRunning] = useState<string | null>(null);
   const [push, setPush] = useState<string>("unsupported");
 
   /**
@@ -232,21 +231,6 @@ export default function AdminDashboard() {
 
   useEffect(() => { load(); pushStatus().then(setPush); }, []);
 
-  const runNow = async (agent: AgentCard) => {
-    setRunning(agent.id);
-    try {
-      const res = await agentsApi<{ run_id: string; headline: string }>(
-        `/agents/${agent.id}/run`, { method: "POST" },
-      );
-      toast.success(res.headline || `${agent.name} finished`);
-      navigate(`/admin/agents/runs/${res.run_id}`);
-    } catch (e) {
-      toast.error(errMsg(e) || "Run failed");
-    } finally {
-      setRunning(null);
-    }
-  };
-
   const togglePush = async () => {
     try {
       if (push === "subscribed") {
@@ -319,10 +303,6 @@ export default function AdminDashboard() {
                     {a.pending_actions > 0 && (
                       <span className="agent-card__pending">{a.pending_actions} to approve</span>
                     )}
-                    <button className="agent-card__run" disabled={running === a.id}
-                      onClick={() => runNow(a)}>
-                      {running === a.id ? "Running…" : "Run now"}
-                    </button>
                   </div>
                 </div>
               ))}
