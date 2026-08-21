@@ -295,6 +295,18 @@ const DownloadSchema = z.object({
   proposalId: z.string().uuid(),
   variant: z.enum(["source", "signed"]).default("signed"),
 });
+// Declining is a portal action, guarded the same way signing is: the caller has
+// to hold the client id, and has to say so explicitly. `confirm` mirrors
+// `agreed` on the sign path so a stray or replayed call cannot close a proposal
+// nobody meant to close.
+const DeclineSchema = z.object({
+  action: z.literal("decline"),
+  clientId: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  // Optional on purpose. Requiring a reason to say no produces "n/a".
+  reason: z.string().trim().max(2000).optional(),
+  confirm: z.literal(true),
+});
 const VoidSchema = z.object({
   action: z.literal("void"),
   clientId: z.string().uuid(),
@@ -314,7 +326,7 @@ const ActivitySchema = z.object({
 
 const ActionSchema = z.discriminatedUnion("action", [
   ListSchema, UploadUrlSchema, CreateSchema, GetSchema, SignSchema, DownloadSchema, VoidSchema,
-  DeleteSchema, ActivitySchema,
+  DeleteSchema, ActivitySchema, DeclineSchema,
 ]);
 
 const ADMIN_ONLY = new Set(["upload-url", "create", "void", "delete", "activity"]);
@@ -323,6 +335,7 @@ const PROPOSAL_COLS =
   "id, client_id, client_project_id, title, description, status, source_pdf_path, " +
   "content, sent_at, sent_to, first_opened_at, first_viewed_at, last_activity_at, " +
   "next_followup_at, followup_count, " +
+  "declined_at, decline_reason, " +
   "client_signature_name, client_signature_type, client_signed_at, " +
   "agency_signer_name, agency_countersigned_at, signed_pdf_path, pdf_generated_at, " +
   "created_at, updated_at";
@@ -456,6 +469,48 @@ Deno.serve(async (req) => {
       return respond({ pdfUrl: url });
     }
 
+    if (input.action === "decline") {
+      const { data: row } = await supabase.from("client_proposals")
+        .select("id, status, title, client_project_id, declined_at")
+        .eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
+      if (!row) return respond({ error: "Proposal not found" }, 404);
+      if (row.status === "signed") return respond({ error: "That proposal is already signed" }, 409);
+      if (row.status === "voided") return respond({ error: "Proposal voided" }, 409);
+      // Declining twice is the outcome that was wanted, so it is not an error.
+      if (row.status === "declined") {
+        return respond({ success: true, alreadyDeclined: true, declinedAt: row.declined_at });
+      }
+
+      const declinedAt = new Date().toISOString();
+      const { error } = await supabase.from("client_proposals").update({
+        status: "declined",
+        declined_at: declinedAt,
+        decline_reason: input.reason?.trim() || null,
+        // A declined proposal is finished, so it drops out of every follow-up
+        // bucket immediately rather than waiting for the next sweep. Chasing
+        // someone for a decision they have already given is the exact failure
+        // this whole path exists to prevent.
+        next_followup_at: null,
+        updated_at: declinedAt,
+      }).eq("id", input.proposalId);
+      if (error) throw error;
+
+      await logProposalEvent(supabase, {
+        proposal_id: row.id,
+        client_id: input.clientId,
+        event_type: "declined",
+        actor: "client",
+        occurred_at: declinedAt,
+        detail: {
+          reason: input.reason?.trim() || null,
+          title: row.title,
+          user_agent: req.headers.get("user-agent"),
+        },
+      });
+
+      return respond({ success: true, status: "declined", declinedAt });
+    }
+
     if (input.action === "void") {
       const { data: row } = await supabase.from("client_proposals")
         .select("id, status").eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
@@ -536,6 +591,11 @@ Deno.serve(async (req) => {
         agency_countersigned_at: now.toISOString(),
         signed_pdf_path: signedPath,
         pdf_generated_at: now.toISOString(),
+        // Signing after a decline is a change of mind, and the best outcome
+        // there is. Clear the decline rather than blocking the signature —
+        // "I said no last week" must not be a trap that costs the work.
+        declined_at: null,
+        decline_reason: null,
       }).eq("id", row.id);
       if (updErr) throw updErr;
 

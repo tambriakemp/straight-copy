@@ -15,10 +15,12 @@ type Proposal = {
   client_project_id: string;
   title: string;
   description: string | null;
-  status: "draft" | "sent" | "signed" | "voided";
+  status: "draft" | "sent" | "signed" | "voided" | "declined";
   source_pdf_path: string | null;
   client_signature_name: string | null;
   client_signed_at: string | null;
+  declined_at?: string | null;
+  decline_reason?: string | null;
   signed_pdf_path: string | null;
   created_at: string;
 };
@@ -162,6 +164,11 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
           {proposals.map((p) => {
             const isSigned = p.status === "signed";
             const isVoided = p.status === "voided";
+            // Declined is not voided. Voided is us withdrawing the document;
+            // declined is the client turning it down, and it is the only
+            // number that says how often we lose work — so it gets its own
+            // colour rather than being folded in with the ones we pulled.
+            const isDeclined = p.status === "declined";
             return (
               <div key={p.id} style={{
                 background: "hsl(40 20% 97% / 0.03)",
@@ -184,8 +191,20 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
                   <span style={{
                     fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase",
                     padding: "4px 10px", borderRadius: 999,
-                    background: isSigned ? "hsl(120 30% 50% / 0.15)" : isVoided ? "hsl(0 30% 50% / 0.15)" : "hsl(40 20% 97% / 0.06)",
-                    color: isSigned ? "hsl(120 60% 70%)" : isVoided ? "hsl(0 60% 70%)" : "var(--crm-taupe)",
+                    background: isSigned
+                      ? "hsl(120 30% 50% / 0.15)"
+                      : isVoided
+                        ? "hsl(0 30% 50% / 0.15)"
+                        : isDeclined
+                          ? "hsl(28 45% 50% / 0.15)"
+                          : "hsl(40 20% 97% / 0.06)",
+                    color: isSigned
+                      ? "hsl(120 60% 70%)"
+                      : isVoided
+                        ? "hsl(0 60% 70%)"
+                        : isDeclined
+                          ? "hsl(28 70% 70%)"
+                          : "var(--crm-taupe)",
                     whiteSpace: "nowrap",
                   }}>{p.status}</span>
                 </div>
@@ -194,6 +213,10 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
                   Uploaded {new Date(p.created_at).toLocaleDateString()}
                   {p.client_signed_at && (
                     <> · Signed {new Date(p.client_signed_at).toLocaleDateString()} by {p.client_signature_name}</>
+                  )}
+                  {p.declined_at && !p.client_signed_at && (
+                    <> · Declined {new Date(p.declined_at).toLocaleDateString()}
+                      {p.decline_reason ? ` — "${p.decline_reason}"` : ""}</>
                   )}
                 </div>
 

@@ -5,6 +5,10 @@
 // reading the 20 that matter. Money always comes from revenue_ledger_v so an
 // agent and the dashboard can never disagree about a number.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+import {
+  buildFollowupAgenda, needingHuman, needingNudge, summariseAgenda,
+  type ProposalSignal,
+} from "./followups.ts";
 
 const DAY = 86_400_000;
 const iso = (msAgo: number) => new Date(Date.now() - msAgo).toISOString();
@@ -357,7 +361,10 @@ export async function developerContext(sb: SupabaseClient, cfg: Record<string, u
  * you can make from data.
  */
 export async function engagementContext(sb: SupabaseClient, cfg: Record<string, unknown>) {
-  const followupAfter = Number(cfg.followup_after_days ?? 4);
+  // Two days, not four. Bree asked for a 48-hour window; `agents.config`
+  // overrides it per agent, and the migration sets it explicitly there too so
+  // the live value does not depend on this fallback.
+  const followupAfter = Number(cfg.followup_after_days ?? 2);
   const maxFollowups = Number(cfg.max_followups ?? 3);
   const staleAfter = Number(cfg.stale_after_days ?? 21);
 
@@ -372,7 +379,7 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
         // boolean. `has_content` is derived from a separate id-only query.
         "id, title, client_id, client_project_id, status, created_at, sent_at, sent_to, " +
           "first_opened_at, first_viewed_at, last_activity_at, next_followup_at, followup_count, " +
-          "client_signed_at, source_pdf_path",
+          "client_signed_at, declined_at, decline_reason, source_pdf_path",
       )
       .neq("status", "voided").order("created_at", { ascending: false }).limit(40),
     sb.from("client_projects").select("id, client_id, name, type, status").limit(200),
@@ -451,6 +458,8 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
       opened: !!p.first_opened_at,
       viewed_in_portal: !!p.first_viewed_at,
       signed_at: p.client_signed_at,
+      declined_at: p.declined_at,
+      decline_reason: p.decline_reason,
       followups_sent: p.followup_count ?? 0,
       followup_due: !!p.next_followup_at && new Date(p.next_followup_at) <= new Date(),
       next_followup_at: p.next_followup_at,
@@ -463,7 +472,47 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
   const sent = inFlight.filter((p) => p.status === "sent");
   const ids = (list: typeof inFlight) => list.map((p) => p.id);
 
+  // The agenda is the answer to "what is outstanding", and it is computed
+  // rather than left to the model: one bucket per proposal, decided in a fixed
+  // order, each carrying the sentence that goes in the report and the brief for
+  // the email. The buckets below are kept for anything that wants to slice the
+  // list a different way, but they overlap and the agenda does not.
+  const signals: ProposalSignal[] = (proposals.data ?? []).map((p) => ({
+    id: p.id,
+    title: p.title,
+    status: p.status,
+    client: cName[p.client_id] ?? null,
+    client_id: p.client_id,
+    client_email: p.sent_to ?? cEmail[p.client_id] ?? null,
+    project: p.client_project_id ? projById[p.client_project_id]?.name ?? null : null,
+    sent_at: p.sent_at,
+    last_activity_at: p.last_activity_at,
+    first_opened_at: p.first_opened_at,
+    first_viewed_at: p.first_viewed_at,
+    client_signed_at: p.client_signed_at,
+    declined_at: p.declined_at ?? null,
+    followups_sent: p.followup_count ?? 0,
+  }));
+  const agenda = buildFollowupAgenda(signals, {
+    followupAfterDays: followupAfter,
+    maxFollowups: maxFollowups,
+    staleAfterDays: staleAfter,
+    meetingLink: (cfg.proposal_meeting_link as string) || null,
+  });
+
   return {
+    follow_up_agenda: {
+      summary: summariseAgenda(agenda),
+      // Draft one email per entry here, and no more. Each carries the brief for
+      // its own message — they differ by bucket and that difference is the point.
+      draft_a_nudge_for: needingNudge(agenda),
+      // These need Bree, not another email to the client.
+      needs_your_decision: needingHuman(agenda),
+      // Everything, including what is finished and what is still inside the
+      // window, so a run can say "Menovia signed on Tuesday" rather than
+      // silently omitting it.
+      all: agenda,
+    },
     clients_missing_from_surecontact: unsynced,
     proposals: inFlight,
     // Buckets are ID LISTS, not copies.
@@ -482,8 +531,14 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
       sent_never_opened: ids(sent.filter((p) => !p.opened && (p.days_since_sent ?? 0) >= followupAfter)),
       read_but_unsigned: ids(sent.filter((p) => (p.opened || p.viewed_in_portal) && !p.signed_at)),
       exhausted_followups: ids(sent.filter((p) => p.followups_sent >= maxFollowups)),
-      stale: ids(inFlight.filter((p) => (p.days_since_activity ?? 0) >= staleAfter && !p.signed_at)),
+      // A declined proposal is finished, so it is excluded here the same way a
+      // signed one is. Every other bucket is built from `sent`, and a decline
+      // moves the row off 'sent', so they drop out on their own.
+      stale: ids(inFlight.filter(
+        (p) => (p.days_since_activity ?? 0) >= staleAfter && !p.signed_at && !p.declined_at,
+      )),
       drafts_not_sent: ids(inFlight.filter((p) => p.status === "draft")),
+      declined: ids(inFlight.filter((p) => !!p.declined_at || p.status === "declined")),
     },
     project_types: ["automation_build", "site_preview", "app_development", "web_development", "marketing"],
     thresholds: {
