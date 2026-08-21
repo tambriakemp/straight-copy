@@ -251,25 +251,45 @@ Deno.serve(async (req) => {
       }
 
       try {
-        // SureContact first, for EVERY queued email.
+        // SureContact for client-facing mail; Lovable for everything else.
         //
         // Bree: "all emails need to go through surecontact so that i can see
-        // what is being sent." Until now only agent-sent mail took that path —
-        // deliverClientEmail in _shared/agents/actions.ts. Everything rendered
-        // through send-transactional-email (proposals, invoices, onboarding,
-        // brand kits) was enqueued here and handed straight to Lovable's
-        // sender, so it left the building with no trace on the contact's
-        // timeline and no opens or clicks. That is why a proposal could be
-        // genuinely delivered and still be invisible in SureContact.
+        // what is being sent" — then, on being told SureContact upserts a
+        // contact per recipient: "route only client facing email through it."
+        //
+        // Until now only agent-sent mail took the SureContact path
+        // (deliverClientEmail in _shared/agents/actions.ts). Everything
+        // rendered through send-transactional-email — proposals, invoices,
+        // onboarding, brand kits — was enqueued here and handed straight to
+        // Lovable's sender, so it left the building with no trace on the
+        // contact's timeline and no opens or clicks. That is why a proposal
+        // could be genuinely delivered and still be invisible in SureContact.
         //
         // This is the one dispatcher every queued message passes through, so
         // routing it here covers all eight callers rather than each of them
-        // remembering.
+        // remembering to.
+        //
+        // "Client-facing" is decided by the recipient, not by the template: a
+        // template name is a guess about who is reading, and the address is the
+        // fact. An address that matches a client contact or a company goes to
+        // SureContact; a team address does not, so internal notices stop
+        // creating contacts for ourselves.
         const scKey = Deno.env.get('SURECONTACT_API_KEY')
         let via = 'lovable'
 
+        const recipient = (payload.to || '').trim().toLowerCase()
+        let clientFacing = false
+        if (recipient) {
+          const [asClient, asContact, asCompany] = await Promise.all([
+            supabase.from('clients').select('id').ilike('contact_email', recipient).limit(1),
+            supabase.from('client_contacts').select('id').ilike('email', recipient).limit(1),
+            supabase.from('client_companies').select('id').ilike('email', recipient).limit(1),
+          ])
+          clientFacing = !!(asClient.data?.length || asContact.data?.length || asCompany.data?.length)
+        }
+
         let sent = false
-        if (scKey) {
+        if (scKey && clientFacing) {
           const result = await sendSureContactEmail(scKey, {
             to: payload.to,
             subject: payload.subject,
@@ -320,7 +340,9 @@ Deno.serve(async (req) => {
 
         // Log success, recording WHICH sender carried it. Without this the log
         // says "sent" for both paths and there is no way to tell from the data
-        // whether a message should be findable in SureContact.
+        // whether a message should be findable in SureContact — which is
+        // exactly the question that could not be answered about the proposal
+        // sent to Khadra.
         await supabase.from('email_send_log').insert({
           message_id: payload.message_id,
           template_name: payload.label || queue,
