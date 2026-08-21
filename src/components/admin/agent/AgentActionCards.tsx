@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { agentsApi, errMsg, ACTION_LABEL, type AgentAction } from "@/lib/agentsApi";
+import { collapseProposalWrites } from "./collapseProposalWrites";
 import AgentDeliverable from "@/components/admin/agent/AgentDeliverable";
 import { deliverableOf } from "@/components/admin/agent/deliverable";
 
@@ -75,6 +76,7 @@ export default function AgentActionCards({ actions, onSettled }: {
 
   if (!actions.length) return null;
 
+
   return (
     <div className="ws__acts">
       {pending.map((a) => {
@@ -113,7 +115,7 @@ export default function AgentActionCards({ actions, onSettled }: {
         );
       })}
 
-      {settled.map((a) => (
+      {collapseProposalWrites(settled).map((a) => (
         deliverableOf(a)
           // Something was actually produced — show the thing, not a log line.
           ? <AgentDeliverable key={a.id} action={a} />

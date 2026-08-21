@@ -10,7 +10,7 @@
 // pdf-lib's standard fonts: Times for the Georgia display faces, Helvetica for
 // the Arial body. Not identical to the docx template, deliberately close.
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
-import { writtenSections, type ProposalContent } from "./agents/proposal-spine.ts";
+import { liftThesis, stripSectionNumber, writtenSections, type ProposalContent } from "./agents/proposal-spine.ts";
 
 const PAGE_W = 612;   // US Letter, 72dpi
 const PAGE_H = 792;
@@ -238,11 +238,15 @@ export async function renderProposalPdf(
   c.text("CONTENTS", { font: fonts.bodyBold, size: 8, color: BRONZE, lead: 20 });
   c.text("What's in this proposal", { font: fonts.display, size: 24, color: INK, lead: 30 });
   c.rule();
-  const sections = writtenSections(content).map((s) => ({
-    heading: (s.heading ?? "").trim() || "Untitled section",
-    purpose: (s.summary ?? "").trim(),
-    body: (s.body ?? "").trim(),
-  }));
+  const sections = writtenSections(content).map((s) => {
+    const { thesis, rest } = liftThesis((s.body ?? "").trim());
+    return {
+      heading: stripSectionNumber((s.heading ?? "").trim()) || "Untitled section",
+      purpose: stripSectionNumber((s.summary ?? "").trim()),
+      thesis,
+      body: rest,
+    };
+  });
 
   sections.forEach((s, idx) => {
     c.room(30);
@@ -262,7 +266,7 @@ export async function renderProposalPdf(
     c.text(`${String(idx + 1).padStart(2, "0")} — ${s.heading.toUpperCase()}`, {
       font: fonts.bodyBold, size: 8, color: BRONZE, lead: 18,
     });
-    c.text(s.heading, { font: fonts.display, size: 24, color: INK, lead: 30 });
+    c.text(s.thesis || s.heading, { font: fonts.display, size: 24, color: INK, lead: 30 });
     c.rule();
     drawBody(c, s.body);
   });

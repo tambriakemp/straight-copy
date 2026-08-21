@@ -13,6 +13,7 @@ import AgentActivityPanel, { type ActivityRun } from "@/components/admin/agent/A
 import AgentSettingsPanel from "@/components/admin/agent/AgentSettingsPanel";
 import AgentProposalPanel from "@/components/admin/agent/AgentProposalPanel";
 import { useFocusedProposal } from "@/components/admin/agent/useFocusedProposal";
+import { useAsideWidth } from "@/components/admin/agent/useAsideWidth";
 import { agentsApi, errMsg, type Agent } from "@/lib/agentsApi";
 import { capabilitiesFor } from "@/lib/agentCapabilities";
 
@@ -40,6 +41,7 @@ export default function AgentWorkspace() {
   // Bumped after a run so the chat pane reloads and shows the brief it wrote.
   const [chatNonce, setChatNonce] = useState(0);
   const [aside, setAside] = useState<"activity" | "document">("activity");
+  const { width: asideWidth, dragging, startDrag } = useAsideWidth();
 
   const { proposal, loading: proposalLoading } = useFocusedProposal(id ?? "", chatNonce);
   const proposalSections = proposal?.content?.sections?.filter(
@@ -154,7 +156,7 @@ export default function AgentWorkspace() {
 
   return (
     <AdminLayout>
-      <div className="ws">
+      <div className="ws" style={{ gridTemplateColumns: `232px minmax(0, 1fr) ${asideWidth}px` }}>
         {/* ---------- rail ---------- */}
         <nav className="ws__rail">
           <div className="ws__portrait">
@@ -210,6 +212,17 @@ export default function AgentWorkspace() {
 
         {/* ---------- activity / document ---------- */}
         <aside className="ws__aside">
+          {/* A 24,000-character document in a 400px column is unreadable. Drag
+              to trade chat width for document width; the choice persists. */}
+          <div
+            className={`ws__aside-grip${dragging ? " is-dragging" : ""}`}
+            onMouseDown={startDrag}
+            onDoubleClick={() => startDrag(null)}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize the side panel"
+            title="Drag to resize · double-click to reset"
+          />
           <div className="ws__aside-tabs">
             <button
               className={`ws__aside-tab${aside === "activity" ? " is-on" : ""}`}
