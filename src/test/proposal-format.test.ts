@@ -4,7 +4,7 @@ import {
   renderProposalHtml,
   stripSectionNumber,
 } from "../../supabase/functions/_shared/agents/proposal-spine";
-import { collapseProposalWrites } from "../components/admin/agent/AgentActionCards";
+import { collapseProposalWrites } from "../components/admin/agent/collapseProposalWrites";
 import { ASIDE_MIN, ASIDE_MAX, clampAside, maxForViewport } from "../components/admin/agent/useAsideWidth";
 
 // Exactly what Bria wrote for the Menovia retainer, v13.
