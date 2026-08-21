@@ -2252,29 +2252,6 @@ html { -webkit-text-size-adjust: 100%; }
 .crm-shell .agent-card__run:hover:not(:disabled) { background: var(--crm-ink); }
 .crm-shell .agent-card__run:disabled { opacity: 0.5; cursor: default; }
 
-/* ---------- grow your team ---------- */
-.crm-shell .agent-card--new {
-  align-items: center; justify-content: center; gap: 16px;
-  padding: 22px 20px; cursor: pointer; text-align: center;
-  border-style: dashed;
-}
-.crm-shell .agent-card--new:hover { background: var(--crm-ink); }
-.crm-shell .agent-card--new__pill {
-  font-size: 11.5px; letter-spacing: 0.3em; text-transform: uppercase;
-  color: var(--crm-taupe); border: 1px solid var(--crm-border-dark);
-  border-radius: 999px; padding: 4px 12px;
-}
-.crm-shell .agent-card--new__row { display: flex; gap: 8px; align-items: center; }
-.crm-shell .agent-card--new__slot {
-  border-radius: var(--crm-r-sm);
-  width: 34px; height: 46px; display: grid; place-items: center;
-  background: var(--crm-ink); border: 1px solid var(--crm-border-dark);
-  color: var(--crm-taupe); font-size: 17px;
-}
-.crm-shell .agent-card--new__copy {
-  font-size: 14px; color: var(--crm-taupe); max-width: 260px; line-height: 1.5;
-}
-
 /* ---------- side rail ---------- */
 .crm-shell .dash__side { display: flex; flex-direction: column; gap: 14px; }
 .crm-shell .dash__stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

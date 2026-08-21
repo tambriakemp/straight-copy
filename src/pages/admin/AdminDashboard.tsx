@@ -326,21 +326,6 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               ))}
-
-              {/* Grow-your-team card, as in the reference. */}
-              {/* No create flow yet — agents are seeded by migration. Says so
-                  rather than linking somewhere that does not exist. */}
-              <div className="agent-card agent-card--new" style={{ cursor: "default" }}>
-                <span className="agent-card--new__pill">Grow your team</span>
-                <span className="agent-card--new__row">
-                  {["◐", "◓", "◑", "◒", "◐"].map((g, i) => (
-                    <span key={i} className="agent-card--new__slot" style={{ opacity: 0.25 + i * 0.15 }}>{g}</span>
-                  ))}
-                </span>
-                <span className="agent-card--new__copy">
-                  More agents, more handled — give another corner of the business its own owner.
-                </span>
-              </div>
             </div>
           )}
         </div>
