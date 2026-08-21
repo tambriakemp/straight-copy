@@ -11,6 +11,7 @@
 import { useState } from "react";
 import ClientsTable from "@/components/admin/ClientsTable";
 import AgentClientView from "@/components/admin/agent/AgentClientView";
+import ProjectDetail from "@/pages/admin/ProjectDetail";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import { WikiList } from "@/pages/admin/Wiki";
 
@@ -35,17 +36,46 @@ const TITLES: Record<WorkspaceView, { eyebrow: string; title: string; sub: strin
 };
 
 export default function AgentWorkspacePanel({ view }: { view: WorkspaceView }) {
-  // Which client is open, if any. Local rather than in the URL: it is a step
-  // inside the panel, and putting it in the address bar would make the browser
-  // back button fight the panel's own back button.
-  const [openClient, setOpenClient] = useState<string | null>(null);
+  /**
+   * Where you are inside the Clients panel.
+   *
+   * A stack, not a route. Every page opens here now — roster, then a client,
+   * then one of their projects — and each level has its own back control, so
+   * putting this in the address bar would make the browser back button fight
+   * the panel's. Changing rail view resets it, which is what leaving and
+   * coming back should do.
+   */
+  const [stack, setStack] = useState<
+    | { at: "list" }
+    | { at: "client"; clientId: string }
+    | { at: "project"; clientId: string; projectId: string }
+  >({ at: "list" });
+
   const meta = TITLES[view];
 
-  // The client view brings its own heading and back control.
-  if (view === "clients" && openClient) {
+  // Each of these brings its own heading and back control.
+  if (view === "clients" && stack.at === "client") {
     return (
       <section className="ws__work">
-        <AgentClientView clientId={openClient} onBack={() => setOpenClient(null)} />
+        <AgentClientView
+          clientId={stack.clientId}
+          onBack={() => setStack({ at: "list" })}
+          onOpenProject={(projectId) =>
+            setStack({ at: "project", clientId: stack.clientId, projectId })}
+        />
+      </section>
+    );
+  }
+
+  if (view === "clients" && stack.at === "project") {
+    return (
+      <section className="ws__work">
+        <ProjectDetail
+          clientId={stack.clientId}
+          projectId={stack.projectId}
+          embedded
+          onBack={() => setStack({ at: "client", clientId: stack.clientId })}
+        />
       </section>
     );
   }
@@ -62,7 +92,7 @@ export default function AgentWorkspacePanel({ view }: { view: WorkspaceView }) {
         {view === "clients" && (
           // Opens in place rather than navigating away, so looking a client up
           // mid-conversation does not cost you the conversation.
-          <ClientsTable onOpen={setOpenClient} />
+          <ClientsTable onOpen={(clientId) => setStack({ at: "client", clientId })} />
         )}
         {view === "tasks" && <ProjectTasksPanel />}
         {view === "knowledge" && <WikiList embedded />}

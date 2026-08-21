@@ -61,7 +61,7 @@ function fmtDate(iso: string) {
 }
 
 export default function AgentClientView({
-  clientId, onBack, headerExtra, hideFullPageLink = false,
+  clientId, onBack, headerExtra, hideFullPageLink = false, onOpenProject,
 }: {
   clientId: string;
   onBack: () => void;
@@ -69,6 +69,11 @@ export default function AgentClientView({
   headerExtra?: React.ReactNode;
   /** The full page is already the full page. */
   hideFullPageLink?: boolean;
+  /**
+   * Open a project without leaving. Supplied by the agent panel, which keeps
+   * its own stack; absent on the full page, where a project is a real route.
+   */
+  onOpenProject?: (projectId: string) => void;
 }) {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("projects");
@@ -193,6 +198,7 @@ export default function AgentClientView({
     setSaving(false);
     toast.success("Project created");
     setProjectDraft(null);
+    if (onOpenProject) { await load(); onOpenProject(proj.id); return; }
     navigate(`/admin/clients/${clientId}/projects/${proj.id}`);
   };
 
@@ -272,7 +278,9 @@ export default function AgentClientView({
                   <li key={p.id} className="plist__row">
                     <button
                       className="plist__main"
-                      onClick={() => navigate(`/admin/clients/${clientId}/projects/${p.id}`)}
+                      onClick={() => (onOpenProject
+                        ? onOpenProject(p.id)
+                        : navigate(`/admin/clients/${clientId}/projects/${p.id}`))}
                     >
                       <span className="plist__name">{p.name}</span>
                       <span className="plist__meta">
