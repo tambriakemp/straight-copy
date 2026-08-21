@@ -249,32 +249,50 @@ function ProposalCard({ clientId, contactName, proposal, onChanged }: {
             <p className="portal-access__intro" style={{ marginTop: 16 }}>
               You let us know on {declinedDate} that this isn't the right fit
               {proposal.decline_reason ? `: "${proposal.decline_reason}"` : ""}. Thank you —
-              nothing further is needed, and we won't follow up on it. If anything
-              changes, you can still sign it below.
+              nothing further is needed and we won't follow up on it. This
+              proposal is now closed; if anything changes and you'd like to
+              revisit it, just reply to us and we'll put a fresh one together.
             </p>
           )}
 
-          {!isSigned && !isVoided && !loading && (
+          {!isSigned && !isVoided && !isDeclined && !loading && (
             <div style={{ marginTop: 16 }}>
               {!showSign && !showDecline ? (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                   <button className="crm-btn crm-btn--primary" onClick={() => setShowSign(true)}>
-                    {isDeclined ? "Actually, sign this proposal" : "Sign this proposal"}
+                    Sign this proposal
                   </button>
                   {/* Deliberately quiet next to the primary action — offered,
                       not urged. The point is that "no" is easy to say, not that
                       it competes for the click. */}
-                  {!isDeclined && (
-                    <button className="crm-btn crm-btn--ghost" onClick={() => setShowDecline(true)}>
-                      I'm not moving forward
-                    </button>
-                  )}
+                  <button className="crm-btn crm-btn--ghost" onClick={() => setShowDecline(true)}>
+                    I'm not moving forward
+                  </button>
                 </div>
               ) : showDecline ? (
                 <div style={{ marginTop: 8, padding: 16, border: "1px solid var(--crm-border-dark)", borderRadius: 8 }}>
                   <p className="portal-access__intro" style={{ marginTop: 0 }}>
                     That's completely fine — letting us know just means we stop
                     following up. Nothing is charged and nothing is committed.
+                  </p>
+                  {/* Said before the click, not after. Declining closes this
+                      document for good: the price and dates in it were quoted
+                      for a decision made now, so picking it back up later means
+                      a fresh proposal at whatever the numbers are then. Someone
+                      who is merely undecided should close this panel instead —
+                      and can only know that if we tell them here. */}
+                  <p className="portal-access__intro" style={{
+                    padding: "12px 14px",
+                    border: "1px solid var(--crm-border-dark)",
+                    borderRadius: 6,
+                    background: "hsl(28 45% 50% / 0.08)",
+                  }}>
+                    <strong>This can't be undone.</strong> Once you decline, this
+                    proposal is closed and can no longer be signed. If you'd like
+                    to go ahead later we'd be glad to pick it up — it would just
+                    need a new proposal, and the pricing and timeline may have
+                    changed by then. If you're still deciding, leave this and take
+                    the time you need.
                   </p>
                   <label className="crm-label" style={{ marginTop: 12 }}>
                     Anything you'd like us to know? (optional)
@@ -287,12 +305,16 @@ function ProposalCard({ clientId, contactName, proposal, onChanged }: {
                     placeholder="Timing, budget, went another direction — or leave this blank."
                     style={{ resize: "vertical", minHeight: 72 }}
                   />
-                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                  {/* The way out comes first and is the easier click. This is
+                      the one irreversible thing a client can do in the portal,
+                      so the default gesture should be the one that costs
+                      nothing. */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
                     <button className="crm-btn crm-btn--ghost" onClick={() => setShowDecline(false)} disabled={declining}>
-                      Cancel
+                      I'm still deciding
                     </button>
                     <button className="crm-btn crm-btn--primary" onClick={decline} disabled={declining}>
-                      {declining ? "Sending…" : "Confirm — not moving forward"}
+                      {declining ? "Sending…" : "Yes, decline this proposal"}
                     </button>
                   </div>
                 </div>
