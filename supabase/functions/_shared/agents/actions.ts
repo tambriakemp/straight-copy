@@ -459,9 +459,23 @@ export async function executeAction(
         const next: ProposalContent = { ...content, sections };
         const review = reviewProposal(next);
 
+        const version = (row.content_version ?? 0) + 1;
+
+        // Snapshot BEFORE the update, so a failed write leaves no version row
+        // claiming a change that never landed. Append-only: restoring copies an
+        // old snapshot forward rather than deleting anything, which is what
+        // makes undoing an undo work.
+        await sb.from("client_proposal_versions").insert({
+          proposal_id: row.id,
+          version,
+          content: next,
+          changed_by_agent: action.agent_id,
+          note: at >= 0 ? `Rewrote ${written.heading}` : `Added ${written.heading}`,
+        });
+
         const { error: uErr } = await sb.from("client_proposals").update({
           content: next,
-          content_version: (row.content_version ?? 0) + 1,
+          content_version: version,
           // The stored PDF no longer matches the content. send_proposal
           // regenerates from this signal rather than shipping a stale document.
           pdf_generated_at: null,
@@ -481,6 +495,62 @@ export async function executeAction(
             // Reported every time, never blocking, so the agent can tell Bree
             // what is still outstanding without being stopped from writing.
             still_missing: review.missing.length ? review.missing : undefined,
+          },
+        };
+      }
+
+      case "restore_proposal_version": {
+        const p = action.payload as { proposal_id?: string; version?: number };
+        if (!p.proposal_id) return { ok: false, error: "No proposal_id supplied" };
+
+        const { data: row, error: rErr } = await sb.from("client_proposals")
+          .select("id, status, content_version, client_id")
+          .eq("id", p.proposal_id).maybeSingle();
+        if (rErr) return { ok: false, error: rErr.message };
+        if (!row) return { ok: false, error: "Proposal not found" };
+        if (row.status === "signed") {
+          return { ok: false, error: "That proposal is signed. It cannot be rewritten." };
+        }
+
+        // No version given means "undo the last thing" — the version before
+        // the current one, which is what "put it back" almost always means.
+        const wanted = p.version ?? (row.content_version ?? 1) - 1;
+        if (wanted < 1) return { ok: false, error: "There is nothing earlier to go back to." };
+
+        const { data: snap, error: sErr } = await sb.from("client_proposal_versions")
+          .select("version, content, note")
+          .eq("proposal_id", row.id).eq("version", wanted).maybeSingle();
+        if (sErr) return { ok: false, error: sErr.message };
+        if (!snap) return { ok: false, error: `No version ${wanted} of that proposal.` };
+
+        // Copy forward as a NEW version rather than rewinding the counter, so
+        // the history stays append-only and this restore can itself be undone.
+        const version = (row.content_version ?? 0) + 1;
+        await sb.from("client_proposal_versions").insert({
+          proposal_id: row.id,
+          version,
+          content: snap.content,
+          changed_by_agent: action.agent_id,
+          note: `Restored version ${snap.version}`,
+        });
+
+        const { error: uErr } = await sb.from("client_proposals").update({
+          content: snap.content,
+          content_version: version,
+          pdf_generated_at: null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", row.id);
+        if (uErr) return { ok: false, error: uErr.message };
+
+        const restored = reviewProposal(snap.content as ProposalContent);
+        return {
+          ok: true,
+          result: {
+            proposal_id: row.id,
+            restored_from: snap.version,
+            now_version: version,
+            sections: restored.sectionCount,
+            was: snap.note ?? undefined,
           },
         };
       }

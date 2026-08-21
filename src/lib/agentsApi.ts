@@ -103,6 +103,7 @@ export const ACTION_LABEL: Record<string, string> = {
   create_client_project: "Create a project",
   create_proposal_draft: "Start a proposal",
   write_proposal_section: "Write a proposal section",
+  restore_proposal_version: "Undo a proposal revision",
   send_proposal: "Send the proposal",
   schedule_followup: "Schedule a follow-up",
 };
