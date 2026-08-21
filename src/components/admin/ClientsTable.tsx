@@ -25,7 +25,14 @@ export interface ClientRow {
 type SortKey = "name" | "created_at" | "status";
 type Status = "active" | "inactive" | "all";
 
-const nameOf = (r: ClientRow) => r.business_name || r.contact_name || "Untitled";
+/**
+ * The client is the person, so the person's name is what a roster of clients
+ * shows. It read the business name first, which meant a client running three
+ * businesses appeared under whichever one happened to be primary — Menovia
+ * rather than Khadra Kahin. Businesses are companies now and have their own
+ * list; this column is who you are working with.
+ */
+const nameOf = (r: ClientRow) => r.contact_name || r.business_name || "Untitled";
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -133,7 +140,7 @@ export default function ClientsTable({
               <th>
                 <button onClick={() => toggleSort("name")}>Name{arrow("name")}</button>
               </th>
-              {!dense && <th className="ctbl__col-contact">Contact</th>}
+              {!dense && <th className="ctbl__col-contact">Company</th>}
               <th>
                 <button onClick={() => toggleSort("created_at")}>Created{arrow("created_at")}</button>
               </th>
@@ -159,7 +166,7 @@ export default function ClientsTable({
                 <td className="ctbl__name">{nameOf(r)}</td>
                 {!dense && (
                   <td className="ctbl__col-contact">
-                    {r.contact_name || r.contact_email || "—"}
+                    {r.business_name || r.contact_email || "—"}
                   </td>
                 )}
                 <td className="ctbl__when">{fmtDate(r.created_at)}</td>

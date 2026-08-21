@@ -41,6 +41,9 @@ export default function WorkspaceMenu() {
   const current = NAV.find((n) => !n.exact && loc.pathname.startsWith(n.to))
     ?? NAV.find((n) => n.exact && loc.pathname === n.to);
 
+  // Agents covers the dashboard and any single agent opened from it.
+  const onAgents = loc.pathname === "/admin" || loc.pathname.startsWith("/admin/agents");
+
   return (
     <div ref={ref} style={{ position: "relative", display: "flex", alignItems: "center", gap: 10 }}>
       <button
@@ -62,6 +65,23 @@ export default function WorkspaceMenu() {
         <span style={{ fontSize: 15, letterSpacing: "0.02em" }}>Cre8 Visions</span>
         <span style={{ fontSize: 11, color: "var(--crm-taupe)", transform: open ? "rotate(180deg)" : "none" }}>▾</span>
       </button>
+
+      {/* Agents is the home page, so it gets a tab rather than a menu row.
+          It is the thing you return to, and returning should not cost a click
+          into a menu first. */}
+      <Link
+        to="/admin"
+        style={{
+          padding: "6px 12px", fontSize: 15, letterSpacing: "0.02em",
+          border: "1px solid var(--crm-border-dark)", borderRadius: 2,
+          textDecoration: "none",
+          background: onAgents ? "var(--crm-charcoal)" : "transparent",
+          color: onAgents ? "var(--crm-warm-white)" : "var(--crm-taupe)",
+        }}
+        aria-current={onAgents ? "page" : undefined}
+      >
+        Agents
+      </Link>
 
       {/* Where you are now, so the bar still orients you with the links hidden. */}
       {current && current.to !== "/admin" && (

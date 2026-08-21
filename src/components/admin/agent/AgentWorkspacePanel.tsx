@@ -8,8 +8,9 @@
 // These are the SAME components the standalone pages render, not copies. A
 // second implementation of the client roster would drift from the first within
 // a week, and then two screens would disagree about who your clients are.
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import ClientsTable from "@/components/admin/ClientsTable";
+import AgentClientView from "@/components/admin/agent/AgentClientView";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import { WikiList } from "@/pages/admin/Wiki";
 
@@ -34,8 +35,20 @@ const TITLES: Record<WorkspaceView, { eyebrow: string; title: string; sub: strin
 };
 
 export default function AgentWorkspacePanel({ view }: { view: WorkspaceView }) {
-  const navigate = useNavigate();
+  // Which client is open, if any. Local rather than in the URL: it is a step
+  // inside the panel, and putting it in the address bar would make the browser
+  // back button fight the panel's own back button.
+  const [openClient, setOpenClient] = useState<string | null>(null);
   const meta = TITLES[view];
+
+  // The client view brings its own heading and back control.
+  if (view === "clients" && openClient) {
+    return (
+      <section className="ws__work">
+        <AgentClientView clientId={openClient} onBack={() => setOpenClient(null)} />
+      </section>
+    );
+  }
 
   return (
     <section className="ws__work">
@@ -47,9 +60,9 @@ export default function AgentWorkspacePanel({ view }: { view: WorkspaceView }) {
 
       <div className="ws__work-body">
         {view === "clients" && (
-          // Opening a client leaves the agent — a client page is a full page of
-          // its own, and squeezing it into this column would serve neither.
-          <ClientsTable dense onOpen={(id) => navigate(`/admin/clients/${id}`)} />
+          // Opens in place rather than navigating away, so looking a client up
+          // mid-conversation does not cost you the conversation.
+          <ClientsTable onOpen={setOpenClient} />
         )}
         {view === "tasks" && <ProjectTasksPanel />}
         {view === "knowledge" && <WikiList embedded />}
