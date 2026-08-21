@@ -34,7 +34,10 @@ export const ACTION_KINDS: Record<string, ActionKind> = {
     kind: "create_task",
     outward: false,
     purpose: "open real work for a person on a client project",
-    payload: "{name, client_project_id, due_date?, priority?}",
+    payload:
+      "{name, client_project_id, due_date?, " +
+      "priority?: 'low'|'normal'|'high'|'urgent', " +
+      "status?: 'backlog'|'ready_for_claude'|'in_progress'|'needs_review'|'blocked'|'complete'}",
   },
   complete_checklist_item: {
     kind: "complete_checklist_item",
@@ -45,8 +48,17 @@ export const ACTION_KINDS: Record<string, ActionKind> = {
   draft_email: {
     kind: "draft_email",
     outward: true,
-    purpose: "compose a message for a human to review before it sends",
-    payload: "{to, subject, body, client_id?}",
+    purpose:
+      "compose a message for a human to review before it sends. " +
+      "Always pass client_id when the recipient is a client: it adds a working " +
+      "portal button to the email, so a message asking them to review, approve " +
+      "or pay gives them the way to do it. Add client_project_id to deep-link " +
+      "one project, and portal_link_label to word the button for what you are " +
+      "asking ('Review the proposal' beats 'Open your client portal'). " +
+      "Never write a portal URL into the body yourself — it is built from the ids.",
+    payload:
+      "{to, subject, body, client_id?, client_project_id?, portal_link_label?, " +
+      "include_portal_link?: boolean (defaults true when client_id is given)}",
   },
   delete_record: {
     kind: "delete_record",

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Upload, Download, Trash2, FileSignature, ExternalLink, Activity } from "lucide-react";
+import { Upload, Download, Trash2, FileSignature, ExternalLink, Activity, Send } from "lucide-react";
 import ProposalActivityLog from "@/components/admin/ProposalActivityLog";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -16,6 +16,8 @@ type Proposal = {
   title: string;
   description: string | null;
   status: "draft" | "sent" | "signed" | "voided" | "declined";
+  sent_at?: string | null;
+  sent_to?: string | null;
   source_pdf_path: string | null;
   client_signature_name: string | null;
   client_signed_at: string | null;
@@ -47,6 +49,7 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
   // every log expanded at once buries the proposals themselves.
   const [openLog, setOpenLog] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [notifying, setNotifying] = useState<string | null>(null);
 
   const callFn = async (body: Record<string, unknown>) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -59,6 +62,32 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || "Request failed");
     return data;
+  };
+
+  /**
+   * Tell the client the proposal is waiting.
+   *
+   * Uploading one marks it 'sent' so the portal will show it — but nothing was
+   * ever sent. No email, no SureContact activity, and no send date, which is
+   * what every follow-up threshold measures from. So this is a separate,
+   * deliberate step, and it is the one that makes the status true.
+   */
+  const notifyClient = async (p: Proposal) => {
+    if (notifying) return;
+    setNotifying(p.id);
+    try {
+      const data = await callFn({ action: "notify", clientId, proposalId: p.id });
+      toast.success(
+        data.renotified
+          ? `Reminder sent to ${data.to}`
+          : `Sent to ${data.to} — follow-up clock started`,
+      );
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not send");
+    } finally {
+      setNotifying(null);
+    }
   };
 
   const load = async () => {
@@ -218,6 +247,14 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
                     <> · Declined {new Date(p.declined_at).toLocaleDateString()}
                       {p.decline_reason ? ` — "${p.decline_reason}"` : ""}</>
                   )}
+                  {/* The distinction that was invisible: a proposal can read
+                      'sent' and have gone to nobody, because uploading one sets
+                      that status without emailing anything. */}
+                  {p.sent_at
+                    ? <> · Sent to {p.sent_to ?? "the client"} on {new Date(p.sent_at).toLocaleDateString()}</>
+                    : !isSigned && !isVoided && (
+                      <> · <strong style={{ color: "hsl(28 70% 70%)" }}>Not sent to the client yet</strong></>
+                    )}
                 </div>
 
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
@@ -232,6 +269,21 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
                   {!isSigned && (
                     <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => removeProposal(p)} title="Delete">
                       <Trash2 size={12} /> Delete
+                    </button>
+                  )}
+                  {!isSigned && !isVoided && !isDeclined && (
+                    <button
+                      className={`crm-btn crm-btn--sm ${p.sent_at ? "crm-btn--ghost" : "crm-btn--bronze"}`}
+                      onClick={() => void notifyClient(p)}
+                      disabled={notifying === p.id}
+                      title={p.sent_at
+                        ? "Send the client another link to this proposal"
+                        : "Email the client a link to review and sign it, and start the follow-up clock"}
+                    >
+                      <Send size={12} />{" "}
+                      {notifying === p.id
+                        ? "Sending…"
+                        : p.sent_at ? "Resend link" : "Send to client"}
                     </button>
                   )}
                   <button className="crm-btn crm-btn--ghost crm-btn--sm"

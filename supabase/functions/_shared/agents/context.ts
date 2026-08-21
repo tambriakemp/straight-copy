@@ -183,8 +183,9 @@ export async function clientOpsContext(sb: SupabaseClient, cfg: Record<string, u
       .order("due_date", { ascending: true }).limit(40),
     sb.from("project_invoices").select("id, label, amount_cents, due_date, client_id, sent_at, status")
       .in("status", ["sent", "scheduled"]).order("due_date", { ascending: true }).limit(40),
-    sb.from("client_proposals").select("id, title, client_id, created_at").eq("status", "sent")
-      .lt("created_at", iso(proposalStaleDays * DAY)).limit(25),
+    sb.from("client_proposals")
+      .select("id, title, client_id, client_project_id, created_at, sent_at, sent_to, status")
+      .in("status", ["sent", "draft"]).limit(40),
     sb.from("preview_projects").select("id, name, client_id, updated_at").limit(40),
     sb.from("clients").select("id, business_name, contact_name, contact_email, pipeline_stage")
       .eq("archived", false),
@@ -229,13 +230,39 @@ export async function clientOpsContext(sb: SupabaseClient, cfg: Record<string, u
         sent: !!i.sent_at,
       }))
       .filter((i) => i.days_overdue === null || i.days_overdue >= invoiceOverdueDays || !i.sent),
-    stale_proposals: (proposals.data ?? []).map((p) => ({
-      id: p.id,
-      title: p.title,
-      client: cName[p.client_id] ?? null,
-      client_id: p.client_id,
-      days_waiting: daysPast(p.created_at),
-    })),
+    stale_proposals: (proposals.data ?? [])
+      .filter((p) => p.status === "sent" && !!p.sent_at &&
+        (daysPast(p.sent_at) ?? 0) >= proposalStaleDays)
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        client: cName[p.client_id] ?? null,
+        client_id: p.client_id,
+        days_waiting: daysPast(p.sent_at),
+      })),
+
+    // Written, sitting in the portal, and the client has never been told.
+    //
+    // Reported at ANY age, unlike stale_proposals — this is not a client who is
+    // slow, it is work of ours that never left the building, and a day of that
+    // is already worth saying. It exists because uploading a proposal sets the
+    // status to 'sent' without emailing anyone or writing a send date, so these
+    // rows look handled from every other angle.
+    proposals_never_actually_sent: (proposals.data ?? [])
+      .filter((p) => !p.sent_at)
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        client: cName[p.client_id] ?? null,
+        client_id: p.client_id,
+        client_email: cEmail[p.client_id] ?? null,
+        client_project_id: p.client_project_id,
+        status: p.status,
+        days_since_written: daysPast(p.created_at),
+        fix: p.status === "draft"
+          ? "Still a draft — it has to be finished before it can go out."
+          : "Marked sent but never emailed. Use the Send to client button on the proposal, which mails the client a portal link and starts the follow-up clock.",
+      })),
     active_previews: previews.data?.length ?? 0,
     thresholds: { invoice_overdue_days: invoiceOverdueDays, proposal_stale_days: proposalStaleDays },
   };

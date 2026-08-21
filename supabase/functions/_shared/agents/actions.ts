@@ -99,6 +99,33 @@ function taskPriority(raw: unknown): string {
 }
 
 /**
+ * project_tasks.status is an enum: backlog | ready_for_claude | in_progress |
+ * needs_review | blocked | complete.
+ *
+ * There is no "todo" — which is the word both this code and any model reach for
+ * first, and it failed every insert with "invalid input value for enum
+ * project_task_status". Every task an agent tried to open died on it, so a run
+ * that had done the thinking still produced nothing on the board.
+ *
+ * Same shape as taskPriority above, and for the same reason: the enum is the
+ * schema's vocabulary, not the caller's, so translate rather than reject.
+ */
+const TASK_STATUSES = new Set([
+  "backlog", "ready_for_claude", "in_progress", "needs_review", "blocked", "complete",
+]);
+function taskStatus(raw: unknown): string {
+  const v = String(raw ?? "").toLowerCase().trim().replace(/[\s-]+/g, "_");
+  if (TASK_STATUSES.has(v)) return v;
+  if (v === "todo" || v === "to_do" || v === "open" || v === "new" || v === "pending") {
+    return "backlog";
+  }
+  if (v === "doing" || v === "started" || v === "active") return "in_progress";
+  if (v === "review" || v === "in_review") return "needs_review";
+  if (v === "done" || v === "closed" || v === "finished") return "complete";
+  return "backlog";
+}
+
+/**
  * Rows an agent may delete, and how to describe one that is gone.
  *
  * An allowlist rather than a check for "is this a table": deleting a client or
@@ -117,6 +144,32 @@ const DELETABLE: Record<string, string> = {
 
 const PORTAL_BASE_URL =
   (Deno.env.get("PORTAL_BASE_URL") || "https://cre8visions.com").replace(/\/$/, "");
+
+/** Where a client goes to see this piece of work. */
+export function portalUrl(clientId: string, clientProjectId?: string | null): string {
+  return clientProjectId
+    ? `${PORTAL_BASE_URL}/portal/${clientId}/projects/${clientProjectId}`
+    : `${PORTAL_BASE_URL}/portal/${clientId}`;
+}
+
+/**
+ * The button, appended rather than trusted to what the model wrote.
+ *
+ * An email asking someone to review a proposal, approve a deliverable or pay an
+ * invoice is useless without the way in, and a model writing prose will
+ * sometimes describe the portal instead of linking it — or invent a URL. So the
+ * link is built from ids here, always, and the plain-text fallback is included
+ * because a button that does not render is the same as no link at all.
+ */
+export function withPortalLink(
+  html: string,
+  clientId: string,
+  clientProjectId?: string | null,
+  label = "Open your client portal",
+): string {
+  const link = portalUrl(clientId, clientProjectId);
+  return `${html}\n<p style="margin:24px 0"><a href="${link}" style="background:#8B7355;color:#FAFAF8;padding:12px 20px;border-radius:8px;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;display:inline-block">${label}</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#9A938A">Or paste this into your browser: ${link}</p>`;
+}
 
 /**
  * Deliver one client-facing email.
@@ -233,7 +286,7 @@ export async function executeAction(
       case "create_task": {
         const p = action.payload as {
           name?: string; client_project_id?: string; client_id?: string;
-          due_date?: string; priority?: string;
+          due_date?: string; priority?: string; status?: string;
         };
         let projectId = p.client_project_id ?? null;
 
@@ -264,7 +317,7 @@ export async function executeAction(
           due_date: p.due_date ?? null,
           priority: taskPriority(p.priority),
           assignee_kind: "agency",
-          status: "todo",
+          status: taskStatus(p.status),
         }).select("id").single();
         if (error) return { ok: false, error: error.message };
         return { ok: true, result: { task_id: data.id, client_project_id: projectId } };
@@ -285,6 +338,17 @@ export async function executeAction(
         // Executing here means a human already approved this exact text.
         const p = action.payload as {
           to?: string; subject?: string; body?: string; client_id?: string;
+          /** Deep-links the button to one project rather than the portal root. */
+          client_project_id?: string;
+          /**
+           * Whether the client has to go somewhere to act. Defaults to true
+           * whenever a client_id is known: an email that asks for something and
+           * gives no way to do it is the common failure, and a spare link at
+           * the bottom of one that does not costs nothing.
+           */
+          include_portal_link?: boolean;
+          /** Button wording, so "Review the proposal" beats "Open your portal". */
+          portal_link_label?: string;
         };
         if (!p.to || !p.subject || !p.body) {
           return { ok: false, error: "Draft is missing to, subject or body" };
@@ -299,10 +363,19 @@ export async function executeAction(
           company = c?.business_name ?? null;
         }
 
+        // Built from ids rather than left to the drafted prose, so the client
+        // always gets a working way in whatever the agent wrote.
+        const html = p.client_id && p.include_portal_link !== false
+          ? withPortalLink(
+            p.body, p.client_id, p.client_project_id ?? null,
+            p.portal_link_label || "Open your client portal",
+          )
+          : p.body;
+
         const sent = await deliverClientEmail(sb, {
           to: p.to,
           subject: p.subject,
-          html: p.body,
+          html,
           label: `agent-${action.kind}`,
           // One approval, one send: a double-click can't send it twice.
           idempotencyKey: `agent-action-${action.id}`,
@@ -625,13 +698,11 @@ export async function executeAction(
         const to = p.to || client?.contact_email;
         if (!to) return { ok: false, error: "No recipient email on the client" };
 
-        const link = proposal.client_project_id
-          ? `${PORTAL_BASE_URL}/portal/${proposal.client_id}/projects/${proposal.client_project_id}`
-          : `${PORTAL_BASE_URL}/portal/${proposal.client_id}`;
-
-        // The link is appended rather than trusted to the drafted body: the
-        // client must always get a working way in, whatever the agent wrote.
-        const html = `${p.body}\n<p style="margin:24px 0"><a href="${link}" style="background:#8B7355;color:#FAFAF8;padding:12px 20px;border-radius:8px;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;display:inline-block">Review and sign the proposal</a></p><p style="font-family:Arial,sans-serif;font-size:12px;color:#9A938A">Or paste this into your browser: ${link}</p>`;
+        const link = portalUrl(proposal.client_id, proposal.client_project_id);
+        const html = withPortalLink(
+          p.body, proposal.client_id, proposal.client_project_id,
+          "Review and sign the proposal",
+        );
 
         const sent = await deliverClientEmail(sb, {
           to,
@@ -701,7 +772,7 @@ export async function executeAction(
             // open its task and reported a null id as success.
             priority: taskPriority("normal"),
             assignee_kind: "agency",
-            status: "todo",
+            status: taskStatus(null),
           }).select("id").maybeSingle();
           if (tErr) {
             console.error("[actions] follow-up task insert failed", tErr.message);
