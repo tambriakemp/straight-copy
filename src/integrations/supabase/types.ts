@@ -713,9 +713,58 @@ export type Database = {
           },
         ]
       }
+      client_companies: {
+        Row: {
+          archived: boolean
+          client_id: string
+          created_at: string
+          email: string | null
+          id: string
+          is_primary: boolean
+          name: string
+          notes: string | null
+          order_index: number
+          phone: string | null
+          surecontact_company_uuid: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          archived?: boolean
+          client_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          name: string
+          notes?: string | null
+          order_index?: number
+          phone?: string | null
+          surecontact_company_uuid?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          archived?: boolean
+          client_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean
+          name?: string
+          notes?: string | null
+          order_index?: number
+          phone?: string | null
+          surecontact_company_uuid?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       client_contacts: {
         Row: {
           client_id: string
+          company_id: string | null
           created_at: string
           email: string | null
           id: string
@@ -729,6 +778,7 @@ export type Database = {
         }
         Insert: {
           client_id: string
+          company_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -742,6 +792,7 @@ export type Database = {
         }
         Update: {
           client_id?: string
+          company_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -950,6 +1001,7 @@ export type Database = {
           build_notes: string | null
           business_name: string | null
           client_id: string
+          company_id: string | null
           created_at: string
           deploy_project_id: string | null
           deploy_project_name: string | null
@@ -974,6 +1026,7 @@ export type Database = {
           build_notes?: string | null
           business_name?: string | null
           client_id: string
+          company_id?: string | null
           created_at?: string
           deploy_project_id?: string | null
           deploy_project_name?: string | null
@@ -998,6 +1051,7 @@ export type Database = {
           build_notes?: string | null
           business_name?: string | null
           client_id?: string
+          company_id?: string | null
           created_at?: string
           deploy_project_id?: string | null
           deploy_project_name?: string | null
