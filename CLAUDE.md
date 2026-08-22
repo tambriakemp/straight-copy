@@ -32,6 +32,18 @@ picks up. Claim a task with the `claim_task` RPC before working on it and
 release it on the way out — moving it to `in_progress` is not a claim, and two
 overlapping runs will otherwise both do the same work.
 
+The queue no longer waits for the next cron tick. A trigger on `project_tasks`
+fires the routine's API endpoint the moment a task lands in `ready_for_claude`
+(`20260822220000_queue_fires_on_ready.sql`). Two things about it: it is a no-op
+until the Vault secrets and a `queue_fire_routes` row exist, so it is safe to
+apply early; and it **debounces**, because moving five tasks to ready should
+start one run, not five racing sessions. `queue_fire_log` records every
+decision — `fired`, `debounced`, `no_secret`, `error` — which is the only way
+to tell a routine that never fired from one that fired and did nothing.
+
+Keep the cron schedule as a backstop. If a fire is dropped — token revoked,
+daily routine cap hit, network blip — nothing else will notice the task.
+
 Reached over MCP as the **Cre8 Visions** connector, which is `agency-mcp`
 (`supabase/functions/agency-mcp/index.ts`). It must be enabled for a chat before
 that chat can touch the board.
