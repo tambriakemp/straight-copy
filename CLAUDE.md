@@ -147,9 +147,24 @@ board calls under that name. Same for Lovable, which resolves as `Lovable` or
 The dialog title names the resolved connector — "Allow Claude to use list tasks
 (Cre8-Visions)?" is the rule that is missing, spelled out.
 
-Two things this file cannot do: it cannot grant a claude.ai connector its
-consent (per-account, in connector settings), and it cannot override the
-session's permission mode, which is chosen at session launch and is not
-settable from the repo. Note also that a fresh cloud container starts with
-`hasTrustDialogAccepted: false` for this project in `~/.claude.json`, which a
-local checkout does not — worth checking if rules that match still do not apply.
+**In `auto` permission mode this file is not the gate at all.** Auto mode
+judges each call with a classifier rather than the allow list, so a tool whose
+rule matches exactly still prompts — `mcp__Lovable__query_database` sits in
+`allow` and auto mode asks every single time, because arbitrary SQL against a
+production database is exactly what it is built to stop and wave through
+nothing. The same classifier refuses some `Bash` calls outright with "denied by
+the Claude Code auto mode classifier". Check the mode before blaming a rule:
+`get_session` on the Claude_Code_Remote connector returns
+`session_context.permission_mode`. The mode is chosen when the session is
+launched and cannot be set from this repo.
+
+Two other things this file cannot do: it cannot grant a claude.ai connector its
+consent (per-account, in connector settings), and it does not apply until the
+project is trusted — a fresh cloud container starts with
+`hasTrustDialogAccepted: false` and `allowedTools: []` for this project in
+`~/.claude.json`, where a local checkout has been trusted once and stays so.
+That is the local-versus-cloud difference.
+
+So the allow list earns its keep in local sessions and in routines, which run
+with no approval prompts. It will not quieten an interactive cloud session in
+auto mode.
