@@ -17,14 +17,17 @@
 -- the token is shown once and a failed paste means regenerating it.
 --
 --   DO $setup$
---   DECLARE sid uuid;
+--   DECLARE
+--     v_url   text := '<paste the fire URL from the API trigger modal>';
+--     v_token text := '<paste the generated token>';
+--     sid uuid;
 --   BEGIN
 --     SELECT id INTO sid FROM vault.secrets WHERE name = 'agency_queue_fire_url';
---     IF sid IS NULL THEN PERFORM vault.create_secret('<FIRE URL>', 'agency_queue_fire_url');
---     ELSE PERFORM vault.update_secret(sid, '<FIRE URL>'); END IF;
+--     IF sid IS NULL THEN PERFORM vault.create_secret(v_url, 'agency_queue_fire_url');
+--     ELSE PERFORM vault.update_secret(sid, v_url); END IF;
 --     SELECT id INTO sid FROM vault.secrets WHERE name = 'agency_queue_fire_token';
---     IF sid IS NULL THEN PERFORM vault.create_secret('<TOKEN>', 'agency_queue_fire_token');
---     ELSE PERFORM vault.update_secret(sid, '<TOKEN>'); END IF;
+--     IF sid IS NULL THEN PERFORM vault.create_secret(v_token, 'agency_queue_fire_token');
+--     ELSE PERFORM vault.update_secret(sid, v_token); END IF;
 --   END $setup$;
 --
 --   INSERT INTO public.queue_fire_routes (client_project_id, secret_prefix)
