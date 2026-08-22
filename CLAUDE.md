@@ -108,3 +108,20 @@ boundary, since these run as service role and bypass RLS).
 `canAutoExecute` in `types.ts` is the single gate on side effects: outward work
 needs approval unless the agent is fully autonomous, and destructive work always
 needs approval.
+
+## Permission prompts
+
+`.claude/settings.json` is the only permission config in this repo — there is no
+`.mcp.json`, no `settings.local.json`, and no user-level `~/.claude/settings.json`
+in the remote container. Its `allow` list carries a server-level
+`mcp__Cre8_Visions` rule plus every tool spelled out individually, so a new tool
+appearing on the connector does not silently start prompting again. `deny` wins
+over `allow`, which is what keeps the destructive board calls gated.
+
+**This file only governs Claude Code's own permission layer.** It cannot grant a
+claude.ai connector its consent — that is per-account, in claude.ai connector
+settings — and it cannot override the session's permission mode, which is chosen
+when the session is launched (claude.ai/code, or `permission_mode` on
+`create_session`) and is not settable from the repo. So a tool that is already in
+`allow` and still prompts is not a missing-rule problem, and editing this file
+will not fix it. Check the mode and the connector consent instead.
