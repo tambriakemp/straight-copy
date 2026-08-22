@@ -168,3 +168,18 @@ That is the local-versus-cloud difference.
 So the allow list earns its keep in local sessions and in routines, which run
 with no approval prompts. It will not quieten an interactive cloud session in
 auto mode.
+
+And no mode change fixes that either, because **a cloud session is only offered
+Accept edits, Plan and Auto**. `dontAsk` and `bypassPermissions` — the two modes
+that would actually stop the prompting — are unavailable on the web, and are
+"ignored silently" if set as `defaultMode` in a settings file. Auto is already
+the quietest option a cloud session has. Auto mode also **drops broad allow
+rules on entry** — `Bash` wildcards, `Agent`, `Monitor` — keeping only narrow
+ones like `Bash(npm test)`, so half the Bash list in this repo is inert there
+too.
+
+The lever is therefore *where the session runs*, not what is in this file. A
+local terminal session can use `dontAsk`, honours the allow list, and is the
+reason local chats never prompt. In the cloud, the only honest way to cut the
+prompts is to make fewer consequential calls — batch the SQL rather than firing
+five small queries.
