@@ -113,15 +113,31 @@ needs approval.
 
 `.claude/settings.json` is the only permission config in this repo — there is no
 `.mcp.json`, no `settings.local.json`, and no user-level `~/.claude/settings.json`
-in the remote container. Its `allow` list carries a server-level
-`mcp__Cre8_Visions` rule plus every tool spelled out individually, so a new tool
-appearing on the connector does not silently start prompting again. `deny` wins
-over `allow`, which is what keeps the destructive board calls gated.
+in the remote container.
 
-**This file only governs Claude Code's own permission layer.** It cannot grant a
-claude.ai connector its consent — that is per-account, in claude.ai connector
-settings — and it cannot override the session's permission mode, which is chosen
-when the session is launched (claude.ai/code, or `permission_mode` on
-`create_session`) and is not settable from the repo. So a tool that is already in
-`allow` and still prompts is not a missing-rule problem, and editing this file
-will not fix it. Check the mode and the connector consent instead.
+**The board connector resolves under three different names**, and a rule written
+for one does not match the others:
+
+| Where | Name it resolves as |
+|---|---|
+| most chats | `Cre8_Visions` |
+| the `cre8-agency-queue` routine | `Cre8-Visions` (hyphen) |
+| uuid fallback | `da963110-b18a-42dc-bf9c-f7c4356ca236` |
+
+So `mcp__Cre8_Visions__list_tasks` sat in `allow` for two days while the queue
+routine kept prompting on `mcp__Cre8-Visions__list_tasks`. The allow list now
+carries all three, server-level and per-tool, and — this is the part that must
+not be forgotten — **`deny` is mirrored across all three too**. Adding a name
+variant to `allow` without mirroring `deny` silently unlocks the destructive
+board calls under that name. Same for Lovable, which resolves as `Lovable` or
+`9d5eb1e3-cc71-4b41-8865-438fdc5bfb0f`.
+
+The dialog title names the resolved connector — "Allow Claude to use list tasks
+(Cre8-Visions)?" is the rule that is missing, spelled out.
+
+Two things this file cannot do: it cannot grant a claude.ai connector its
+consent (per-account, in connector settings), and it cannot override the
+session's permission mode, which is chosen at session launch and is not
+settable from the repo. Note also that a fresh cloud container starts with
+`hasTrustDialogAccepted: false` for this project in `~/.claude.json`, which a
+local checkout does not — worth checking if rules that match still do not apply.
