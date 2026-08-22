@@ -11,12 +11,22 @@
 -- migration is safe to apply before the routine has an API trigger at all.
 --
 -- One-time setup, once the API trigger exists (see the routine's edit form on
--- claude.ai/code/routines -> Select a trigger -> Add another trigger -> API):
+-- claude.ai/code/routines -> Select a trigger -> Add another trigger -> API).
+-- Run this AFTER the migration, not before: the INSERT needs the table below.
+-- Written so a second run updates rather than duplicating or erroring, because
+-- the token is shown once and a failed paste means regenerating it.
 --
---   SELECT vault.create_secret(
---     'https://api.anthropic.com/v1/claude_code/routines/<trig_id>/fire',
---     'agency_queue_fire_url');
---   SELECT vault.create_secret('<the generated token>', 'agency_queue_fire_token');
+--   DO $setup$
+--   DECLARE sid uuid;
+--   BEGIN
+--     SELECT id INTO sid FROM vault.secrets WHERE name = 'agency_queue_fire_url';
+--     IF sid IS NULL THEN PERFORM vault.create_secret('<FIRE URL>', 'agency_queue_fire_url');
+--     ELSE PERFORM vault.update_secret(sid, '<FIRE URL>'); END IF;
+--     SELECT id INTO sid FROM vault.secrets WHERE name = 'agency_queue_fire_token';
+--     IF sid IS NULL THEN PERFORM vault.create_secret('<TOKEN>', 'agency_queue_fire_token');
+--     ELSE PERFORM vault.update_secret(sid, '<TOKEN>'); END IF;
+--   END $setup$;
+--
 --   INSERT INTO public.queue_fire_routes (client_project_id, secret_prefix)
 --   VALUES ('b1700a2b-fe37-4fd8-ac08-2555218a9c2f', 'agency_queue')
 --   ON CONFLICT (client_project_id) DO NOTHING;
