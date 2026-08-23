@@ -3349,7 +3349,7 @@ export type Database = {
         Insert: {
           client_project_id?: string | null
           copost_post_id?: string | null
-          event?: string
+          event: string
           id?: number
           payload?: Json
           received_at?: string
@@ -3519,24 +3519,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "social_schedule_agent_action_id_fkey"
+            columns: ["agent_action_id"]
+            isOneToOne: false
+            referencedRelation: "agent_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_schedule_agent_action_id_fkey"
+            columns: ["agent_action_id"]
+            isOneToOne: false
+            referencedRelation: "agent_pending_actions_v"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "social_schedule_client_project_id_fkey"
             columns: ["client_project_id"]
             isOneToOne: false
             referencedRelation: "client_projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "social_schedule_social_post_id_fkey"
-            columns: ["social_post_id"]
-            isOneToOne: false
-            referencedRelation: "social_posts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "social_schedule_social_image_id_fkey"
-            columns: ["social_image_id"]
-            isOneToOne: false
-            referencedRelation: "social_images"
             referencedColumns: ["id"]
           },
           {
@@ -3547,10 +3547,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "social_schedule_agent_action_id_fkey"
-            columns: ["agent_action_id"]
+            foreignKeyName: "social_schedule_social_image_id_fkey"
+            columns: ["social_image_id"]
             isOneToOne: false
-            referencedRelation: "agent_actions"
+            referencedRelation: "social_images"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_schedule_social_post_id_fkey"
+            columns: ["social_post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
             referencedColumns: ["id"]
           },
         ]
@@ -4119,6 +4126,12 @@ export type Database = {
           status: string
           updated_at: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "social_schedule"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       claim_task: {
         Args: { _stale_after?: string; _task_id: string; _worker: string }
@@ -4176,6 +4189,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      fire_social_dispatch: { Args: never; Returns: undefined }
       fire_surecontact_sync: {
         Args: { _client_id: string }
         Returns: undefined
