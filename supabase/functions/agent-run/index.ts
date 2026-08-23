@@ -23,8 +23,8 @@ import { loadRules, renderRules, type RulesClient } from "../_shared/agents/rule
 import { clientDirectory, renderClientIndex } from "../_shared/agents/clients.ts";
 import { executeAndRecord, type ActionRow } from "../_shared/agents/actions.ts";
 import { deliverRun } from "../_shared/agents/delivery.ts";
-import { isDestructive } from "../_shared/agents/action-kinds.ts";
-import { canAutoExecute, type AgentRow } from "../_shared/agents/types.ts";
+import { alwaysApproves, isDestructive } from "../_shared/agents/action-kinds.ts";
+import { canAutoExecute, resolveAutonomy, type AgentRow } from "../_shared/agents/types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -109,10 +109,13 @@ Deno.serve(async (req) => {
   if (runErr || !run) return json({ error: runErr?.message ?? "Could not open run" }, 500);
 
   try {
-    const [context, rules, directory] = await Promise.all([
+    const [context, rules, directory, projectAutonomy] = await Promise.all([
       def.gather(sb, agent.config ?? {}),
       loadRules(sb as unknown as RulesClient, agent.id),
       clientDirectory(sb as unknown as RulesClient),
+      // Empty for every agent that does not declare it, which leaves the gate
+      // exactly where it was for the other five.
+      def.projectAutonomy?.(sb) ?? Promise.resolve({}),
     ]);
     // A scheduled run gets the same tools as a chat turn, so a brief is
     // researched rather than assembled from whatever the gatherer guessed at.
@@ -130,6 +133,7 @@ Deno.serve(async (req) => {
         actionIds: [],
         taken: new Map(),
         count: { n: 0 },
+        projectAutonomy,
       };
       const webSearch = (agent.config as Record<string, unknown> | null)?.web_search !== false;
 
@@ -246,7 +250,15 @@ Deno.serve(async (req) => {
 
     if (finding.actions.length) {
       const auto = finding.actions.map((a) =>
-        canAutoExecute(agent.autonomy, a.outward, isDestructive(a.kind)),
+        canAutoExecute(
+          resolveAutonomy(
+            agent.autonomy,
+            projectAutonomy[String(a.payload?.client_project_id ?? "")],
+          ),
+          a.outward,
+          isDestructive(a.kind),
+          alwaysApproves(a.kind),
+        ),
       );
       const { data: rows, error: actErr } = await sb.from("agent_actions").insert(
         finding.actions.map((a, i) => ({

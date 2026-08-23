@@ -19,6 +19,16 @@ export const ALLOWED_ACTIONS: Record<string, string[]> = {
   ],
   "client-triage": ["create_task", "draft_email", "flag_risk", "delete_record"],
   developer: ["create_task", "flag_risk", "delete_record"],
+  "social-media": [
+    "write_social_caption",
+    "schedule_social_post",
+    "cancel_social_post",
+    "request_client_photos",
+    "draft_client_message",
+    "create_task",
+    "flag_risk",
+    "delete_record",
+  ],
   "client-engagement": [
     "sync_client_to_surecontact",
     "create_client_project",

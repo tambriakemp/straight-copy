@@ -7,14 +7,24 @@
 // was nothing to catch the discrepancy.
 //
 // Now an action is a tool call like any other. Two outcomes, and which one you
-// get is decided by canAutoExecute — the same single gate as before, unchanged:
+// get is decided by canAutoExecute — still the single gate, and still the only
+// thing that decides:
 //
 //   * Permitted → it runs now and the real result comes back, so the next tool
 //     call can use the id it just created.
-//   * Outward or destructive → it is queued as a proposal and the model is told
-//     plainly that nothing happened, so it stops pretending it did.
-import { ACTION_KINDS, isDestructive, isOutward, kindDocFor, kindEnumFor } from "./action-kinds.ts";
-import { canAutoExecute, type Autonomy } from "./types.ts";
+//   * Outward, destructive, or always-approve → it is queued as a proposal and
+//     the model is told plainly that nothing happened, so it stops pretending
+//     it did.
+//
+// The one subtlety is WHICH autonomy the gate is asked about. An agent has a
+// level of its own, and a client project may override it in either direction,
+// so the level passed to the gate is resolved per action from the project named
+// in its payload. An action naming no project falls back to the agent's own
+// level, which means leaving the field out can never widen anything.
+import {
+  ACTION_KINDS, alwaysApproves, isDestructive, isOutward, kindDocFor, kindEnumFor,
+} from "./action-kinds.ts";
+import { canAutoExecute, resolveAutonomy, type Autonomy } from "./types.ts";
 
 /** Actions per turn. Past this it is looping, not working. */
 const MAX_ACTIONS = 8;
@@ -47,6 +57,14 @@ export interface ActionToolContext {
   /** Guards against a turn that proposes the same thing over and over. */
   taken: Map<string, string>;
   count: { n: number };
+  /**
+   * Per-project autonomy overrides, keyed by client_project_id.
+   *
+   * Absent for agents that do not honour them — which is every agent but the
+   * social media manager. Absent means the agent's own level decides, exactly
+   * as it always has.
+   */
+  projectAutonomy?: Record<string, string>;
 }
 
 export function actionToolDefinition(allowedActions: string[]): Record<string, unknown> {
@@ -120,7 +138,17 @@ export async function executeActionTool(
 
   const outward = isOutward(kind);
   const destructive = isDestructive(kind);
-  const auto = canAutoExecute(ctx.autonomy, outward, destructive);
+
+  // The autonomy that applies to THIS piece of work, which is not always the
+  // agent's own. A client project can widen or narrow it.
+  //
+  // Note what happens when the payload carries no client_project_id: the
+  // lookup misses, resolveAutonomy falls back to the agent's level, and the
+  // action is gated exactly as it would have been. An agent cannot widen
+  // itself by leaving the field out.
+  const projectId = String(payload.client_project_id ?? "");
+  const effective = resolveAutonomy(ctx.autonomy, ctx.projectAutonomy?.[projectId]);
+  const auto = canAutoExecute(effective, outward, destructive, alwaysApproves(kind));
 
   const { data: row, error } = await ctx.sb.from("agent_actions").insert({
     run_id: ctx.runId,
@@ -147,7 +175,11 @@ export async function executeActionTool(
       content: JSON.stringify({
         action_id: row.id,
         status: "awaiting_approval",
-        reason: destructive ? "this destroys a record" : "this reaches a person",
+        reason: destructive
+          ? "this destroys a record"
+          : alwaysApproves(kind)
+          ? "this always gets read before it goes"
+          : "this reaches a person",
         note:
           "NOTHING HAS HAPPENED YET. It is waiting for the owner to approve it. " +
           "Do not say it is done, and do not use an id you were not given.",

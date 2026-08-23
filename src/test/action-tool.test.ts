@@ -143,3 +143,132 @@ describe("actionToolDefinition", () => {
     expect(String(def.description)).toContain("Never describe work as done");
   });
 });
+
+describe("per-project autonomy at the gate", () => {
+  const social = (over: Partial<ActionToolContext> = {}) => ctx({
+    agentName: "Iris",
+    allowedActions: [
+      "write_social_caption", "schedule_social_post", "cancel_social_post",
+      "request_client_photos", "draft_client_message", "create_task",
+      "flag_risk", "delete_record",
+    ],
+    ...over,
+  });
+
+  const schedule = (projectId?: string) => ({
+    kind: "schedule_social_post",
+    title: "Book Tuesday's post for Menovia",
+    payload: {
+      ...(projectId ? { client_project_id: projectId } : {}),
+      target: "image", id: "img-1", scheduled_at: "2026-09-01T14:00:00Z",
+    },
+  });
+
+  it("posts unattended for a project marked autonomous", async () => {
+    const execute = vi.fn().mockResolvedValue({ ok: true, result: { schedule_id: "s1" } });
+    const out = await executeActionTool(
+      social({ projectAutonomy: { "proj-trusted": "autonomous" } }),
+      schedule("proj-trusted"),
+      execute,
+    );
+    expect(execute).toHaveBeenCalled();
+    expect(JSON.parse(out.content).status).toBe("done");
+  });
+
+  it("waits for a person on a project with no override", async () => {
+    const execute = vi.fn();
+    const out = await executeActionTool(
+      social({ projectAutonomy: { "proj-trusted": "autonomous" } }),
+      schedule("proj-new"),
+      execute,
+    );
+    expect(execute).not.toHaveBeenCalled();
+    expect(JSON.parse(out.content).status).toBe("awaiting_approval");
+  });
+
+  it("still waits when the payload names no project at all", async () => {
+    // Fail-closed. An agent must not be able to widen itself by leaving the
+    // field out of the payload it wrote.
+    const execute = vi.fn();
+    const out = await executeActionTool(
+      social({ projectAutonomy: { "proj-trusted": "autonomous" } }),
+      schedule(undefined),
+      execute,
+    );
+    expect(execute).not.toHaveBeenCalled();
+    expect(JSON.parse(out.content).status).toBe("awaiting_approval");
+  });
+
+  it("holds a new client even under a fully autonomous agent", async () => {
+    const execute = vi.fn();
+    const out = await executeActionTool(
+      social({ autonomy: "autonomous", projectAutonomy: { "proj-new": "act_in_app" } }),
+      schedule("proj-new"),
+      execute,
+    );
+    expect(execute).not.toHaveBeenCalled();
+    expect(JSON.parse(out.content).status).toBe("awaiting_approval");
+  });
+
+  it("holds an alwaysApprove kind for a trusted project under an autonomous agent", async () => {
+    // The "drafts sensitive" half. Nothing about being trusted makes a message
+    // about a client's numbers send itself.
+    const execute = vi.fn();
+    const out = await executeActionTool(
+      social({ autonomy: "autonomous", projectAutonomy: { "proj-trusted": "autonomous" } }),
+      {
+        kind: "draft_client_message",
+        title: "Explain the drop in reach to Menovia",
+        payload: { client_project_id: "proj-trusted", to: "a@b.com", subject: "s", body: "b" },
+      },
+      execute,
+    );
+    expect(execute).not.toHaveBeenCalled();
+    const body = JSON.parse(out.content);
+    expect(body.status).toBe("awaiting_approval");
+    expect(body.reason).toBe("this always gets read before it goes");
+  });
+
+  it("sends a routine client email unattended for a trusted project", async () => {
+    const execute = vi.fn().mockResolvedValue({ ok: true, result: { sent: true } });
+    const out = await executeActionTool(
+      social({ autonomy: "autonomous", projectAutonomy: { "proj-trusted": "autonomous" } }),
+      {
+        kind: "request_client_photos",
+        title: "Ask Menovia for more photos",
+        payload: { client_project_id: "proj-trusted", client_id: "c1", to: "a@b.com", subject: "s", body: "b" },
+      },
+      execute,
+    );
+    expect(execute).toHaveBeenCalled();
+    expect(JSON.parse(out.content).status).toBe("done");
+  });
+
+  it("never auto-deletes, however trusted the project", async () => {
+    const execute = vi.fn();
+    const out = await executeActionTool(
+      social({ autonomy: "autonomous", projectAutonomy: { "proj-trusted": "autonomous" } }),
+      {
+        kind: "delete_record", title: "Remove the duplicate",
+        payload: { client_project_id: "proj-trusted", table: "social_images", id: "x" },
+      },
+      execute,
+    );
+    expect(execute).not.toHaveBeenCalled();
+    expect(JSON.parse(out.content).reason).toBe("this destroys a record");
+  });
+
+  it("behaves exactly as before for an agent with no overrides", async () => {
+    // The regression pin for the five existing agents: projectAutonomy is
+    // undefined for all of them, and a client_project_id in the payload must
+    // not start meaning something.
+    const execute = vi.fn();
+    const out = await executeActionTool(
+      ctx(),
+      { kind: "draft_email", title: "Email the client", payload: { client_project_id: "proj-trusted", to: "a@b.com" } },
+      execute,
+    );
+    expect(execute).not.toHaveBeenCalled();
+    expect(JSON.parse(out.content).status).toBe("awaiting_approval");
+  });
+});

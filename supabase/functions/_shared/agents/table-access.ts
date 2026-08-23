@@ -64,7 +64,8 @@ export const READABLE: Record<string, TableAccess> = {
     columns: [
       "id", "client_id", "name", "type", "status", "notes",
       "repo_url", "repo_branch", "deploy_provider", "deploy_project_name",
-      "toolchain", "queue_enabled", "build_notes", "created_at", "updated_at",
+      "toolchain", "queue_enabled", "build_notes", "agent_autonomy",
+      "created_at", "updated_at",
     ],
     searchable: ["name", "type"],
     long: ["notes", "build_notes"],
@@ -251,6 +252,60 @@ export const READABLE: Record<string, TableAccess> = {
   latest_metric_snapshots_v: {
     columns: ["venture_id", "metric_key", "value", "captured_on"],
     maxLimit: 50,
+  },
+  social_posts: {
+    entity: "post",
+    columns: [
+      "id", "client_project_id", "batch_id", "format", "status", "caption",
+      "hashtags", "copost_post_id", "published_at", "error",
+      "created_at", "updated_at",
+    ],
+    searchable: ["caption"],
+    long: ["caption"],
+    maxLimit: 50,
+  },
+  social_images: {
+    entity: "photo",
+    columns: [
+      "id", "client_project_id", "storage_path", "caption", "hashtags",
+      "caption_status", "caption_error", "copost_status", "copost_sent_at",
+      "copost_error", "mime_type", "width", "height",
+      "created_at", "updated_at",
+    ],
+    searchable: ["caption"],
+    long: ["caption"],
+    maxLimit: 100,
+  },
+  social_post_batches: {
+    entity: "batch",
+    columns: [
+      "id", "client_project_id", "brief", "platform", "status",
+      "single_count", "carousel_count", "slides_per_carousel",
+      "created_at", "updated_at",
+    ],
+    searchable: ["brief", "platform"],
+    long: ["brief"],
+    maxLimit: 30,
+  },
+  social_schedule: {
+    entity: "scheduled post",
+    columns: [
+      "id", "client_project_id", "social_post_id", "social_image_id",
+      "scheduled_at", "status", "attempts", "max_attempts", "sent_at",
+      "copost_post_id", "last_error", "created_at", "updated_at",
+    ],
+    searchable: ["status", "last_error"],
+    long: ["last_error"],
+    maxLimit: 100,
+  },
+  social_follower_snapshots: {
+    entity: "follower count",
+    columns: [
+      "id", "client_project_id", "platform", "follower_count",
+      "captured_at", "source",
+    ],
+    searchable: ["platform"],
+    maxLimit: 200,
   },
 };
 

@@ -9,6 +9,7 @@ import {
   buildFollowupAgenda, needingHuman, needingNudge, summariseAgenda,
   type ProposalSignal,
 } from "./followups.ts";
+import { cadenceFor, isAuthFailure, runway } from "../social/schedule-policy.ts";
 
 const DAY = 86_400_000;
 const iso = (msAgo: number) => new Date(Date.now() - msAgo).toISOString();
@@ -575,4 +576,198 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
       proposal_meeting_link: (cfg.proposal_meeting_link as string) || null,
     },
   };
+}
+
+/**
+ * The read half of the social media manager.
+ *
+ * Scoped to marketing projects, because that is the only project type with
+ * anywhere to post to. Everything is precomputed here rather than left for the
+ * model to work out: which client is autonomous, how many days of photos are
+ * left, what is already booked. A model asked to divide photos by a posting
+ * rate will sometimes get it wrong, and a wrong runway figure in an email to a
+ * client is worse than none.
+ */
+export async function socialContext(sb: SupabaseClient, cfg: Record<string, unknown>) {
+  const postsPerWeek = Number(cfg.posts_per_week ?? 5);
+  const preferredHours = (cfg.preferred_hours_utc ?? [14, 17, 21]) as number[];
+  const minGapHours = Number(cfg.min_gap_hours ?? 6);
+  const horizonDays = Number(cfg.horizon_days ?? 14);
+  const lookbackDays = Number(cfg.lookback_days ?? 14);
+
+  const { data: projects } = await sb.from("client_projects")
+    .select("id, client_id, name, business_name, agent_autonomy, status")
+    .eq("type", "marketing").eq("status", "active");
+
+  const projectIds = (projects ?? []).map((p) => p.id);
+  if (!projectIds.length) {
+    return {
+      cadence: cadenceFor(new Date()),
+      projects: [],
+      note: "No active marketing projects. Nothing to post.",
+      thresholds: { postsPerWeek, preferredHours, minGapHours, horizonDays },
+    };
+  }
+
+  const since = iso(lookbackDays * DAY);
+  const [clients, secrets, images, posts, scheduled, followers] = await Promise.all([
+    sb.from("clients")
+      .select("id, contact_name, contact_email, business_name, brand_voice_content, brand_voice_approved")
+      .in("id", (projects ?? []).map((p) => p.client_id)),
+    // Key only. The value is a credential and never leaves the function that
+    // decrypts it — knowing whether one exists is all the agent needs.
+    sb.from("project_secrets")
+      .select("client_project_id, key").in("client_project_id", projectIds),
+    sb.from("social_images")
+      .select("id, client_project_id, caption, hashtags, caption_status, copost_status, created_at")
+      .in("client_project_id", projectIds).order("created_at").limit(200),
+    sb.from("social_posts")
+      .select("id, client_project_id, format, status, caption, hashtags, published_at, error")
+      .in("client_project_id", projectIds).order("created_at", { ascending: false }).limit(120),
+    sb.from("social_schedule")
+      .select("id, client_project_id, social_post_id, social_image_id, scheduled_at, status, attempts, last_error, sent_at")
+      .in("client_project_id", projectIds)
+      .or(`status.in.(pending,sending,failed),sent_at.gte.${since}`)
+      .order("scheduled_at").limit(200),
+    sb.from("social_follower_snapshots")
+      .select("client_project_id, platform, follower_count, captured_at")
+      .in("client_project_id", projectIds)
+      .order("captured_at", { ascending: false }).limit(300),
+  ]);
+
+  const clientById = new Map((clients ?? []).map((c) => [c.id, c]));
+  const configured = new Set(
+    (secrets ?? []).filter((s) => s.key === "copost_endpoint_url")
+      .map((s) => s.client_project_id),
+  );
+
+  const autonomyByProject: Record<string, string> = {};
+  for (const p of projects ?? []) {
+    if (p.agent_autonomy) autonomyByProject[p.id] = p.agent_autonomy;
+  }
+
+  const liveSchedule = (scheduled ?? []).filter((s) =>
+    s.status === "pending" || s.status === "sending"
+  );
+  const bookedIds = new Set(
+    liveSchedule.flatMap((s) => [s.social_image_id, s.social_post_id].filter(Boolean)),
+  );
+
+  const perProject = (projects ?? []).map((p) => {
+    const client = clientById.get(p.client_id);
+    const myImages = (images ?? []).filter((i) => i.client_project_id === p.id);
+    const myPosts = (posts ?? []).filter((x) => x.client_project_id === p.id);
+
+    // Unposted means: never sent, and not already booked. A photo waiting in
+    // the calendar is not runway you can spend twice.
+    const unposted = myImages.filter((i) =>
+      i.copost_status !== "sent" && !bookedIds.has(i.id)
+    );
+    const needCaption = [
+      ...myImages.filter((i) => !i.caption?.trim() && i.copost_status !== "sent")
+        .map((i) => ({ target: "image", id: i.id })),
+      ...myPosts.filter((x) => !x.caption?.trim() && x.status === "draft")
+        .map((x) => ({ target: "post", id: x.id })),
+    ];
+    const readyToSchedule = [
+      ...unposted.filter((i) => i.caption?.trim())
+        .map((i) => ({ target: "image", id: i.id, caption: (i.caption ?? "").slice(0, 90) })),
+      ...myPosts.filter((x) => x.caption?.trim() && x.status === "draft" && !bookedIds.has(x.id))
+        .map((x) => ({ target: "post", id: x.id, caption: (x.caption ?? "").slice(0, 90) })),
+    ];
+
+    const r = runway(unposted.length, postsPerWeek);
+    const mySnapshots = (followers ?? []).filter((f) => f.client_project_id === p.id);
+
+    return {
+      client_project_id: p.id,
+      client_id: p.client_id,
+      client: client?.business_name ?? client?.contact_name ?? p.name,
+      contact_email: client?.contact_email ?? null,
+      copost_configured: configured.has(p.id),
+      autonomy: p.agent_autonomy ?? "inherit",
+      posts_unattended: p.agent_autonomy === "autonomous",
+      brand_voice: client?.brand_voice_approved ? client.brand_voice_content : null,
+      photos_unposted: unposted.length,
+      runway_days: r.days === Infinity ? null : r.days,
+      runway: r.severity,
+      needs_a_caption: needCaption.slice(0, 20),
+      ready_to_schedule: readyToSchedule.slice(0, 20),
+      booked: liveSchedule.filter((s) => s.client_project_id === p.id)
+        .map((s) => ({
+          schedule_id: s.id,
+          target: s.social_image_id ? "image" : "post",
+          scheduled_at: s.scheduled_at,
+        })),
+      followers: summariseFollowers(mySnapshots),
+    };
+  });
+
+  const stillFailing = (scheduled ?? [])
+    .filter((s) => s.status === "failed")
+    .map((s) => {
+      const p = perProject.find((x) => x.client_project_id === s.client_project_id);
+      return {
+        schedule_id: s.id,
+        client: p?.client ?? s.client_project_id,
+        target: s.social_image_id ? "image" : "post",
+        attempts: s.attempts,
+        last_error: s.last_error,
+        // Whose problem it is. An expired token is the client's to fix and no
+        // amount of retrying or task-opening moves it.
+        client_must_reconnect: isAuthFailure(String(s.last_error ?? "")),
+      };
+    });
+
+  return {
+    cadence: cadenceFor(new Date()),
+    projects: perProject,
+    autonomy_by_project: autonomyByProject,
+    still_failing: stillFailing,
+    published_recently: (scheduled ?? []).filter((s) => s.status === "sent").length,
+    thresholds: { postsPerWeek, preferredHours, minGapHours, horizonDays, lookbackDays },
+  };
+}
+
+/** Latest count per platform, with the change since the first reading. */
+function summariseFollowers(
+  rows: { platform: string; follower_count: number; captured_at: string }[],
+) {
+  const byPlatform = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const list = byPlatform.get(r.platform) ?? [];
+    list.push(r);
+    byPlatform.set(r.platform, list);
+  }
+  return [...byPlatform.entries()].map(([platform, list]) => {
+    // Ordered newest first by the query.
+    const latest = list[0];
+    const baseline = list[list.length - 1];
+    return {
+      platform,
+      followers: latest.follower_count,
+      change_since: baseline.captured_at,
+      change: latest.follower_count - baseline.follower_count,
+    };
+  });
+}
+
+/**
+ * Per-project autonomy overrides, keyed by client_project_id.
+ *
+ * Only projects that actually set one, so the map stays a handful of rows and
+ * a missing key means "inherit" rather than "look it up again". Fed into the
+ * action tool's context, where it decides whether one client's post goes out
+ * unattended.
+ */
+export async function projectAutonomyMap(
+  sb: SupabaseClient,
+): Promise<Record<string, string>> {
+  const { data } = await sb.from("client_projects")
+    .select("id, agent_autonomy").not("agent_autonomy", "is", null);
+  const map: Record<string, string> = {};
+  for (const row of data ?? []) {
+    if (row.agent_autonomy) map[row.id] = row.agent_autonomy;
+  }
+  return map;
 }

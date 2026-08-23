@@ -23,6 +23,17 @@ export interface ActionKind {
    * wait for a person, even for a fully autonomous agent.
    */
   destructive?: boolean;
+  /**
+   * True when this always waits for a person, whatever the autonomy.
+   *
+   * A third category, because the first two do not cover it. This is work that
+   * destroys nothing and is not unusual, but where the wording is the whole
+   * risk — telling a client their numbers are down, apologising for a post
+   * that went wrong. A fully autonomous agent otherwise has no way to write
+   * something and ask for it to be read first, and the only alternative is
+   * dropping the whole agent back to approving everything.
+   */
+  alwaysApprove?: boolean;
   /** What this kind does — goes into the tool schema the model sees. */
   purpose: string;
   /** The payload shape, described for the model. */
@@ -132,6 +143,55 @@ export const ACTION_KINDS: Record<string, ActionKind> = {
       "set when to next chase an unsigned proposal. Opens a dated task; does not contact anyone.",
     payload: "{proposal_id, due_date, note?}",
   },
+  write_social_caption: {
+    kind: "write_social_caption",
+    outward: false,
+    purpose:
+      "write the caption and hashtags for a post or photo that has none. " +
+      "Nothing leaves the building — a draft nobody sends costs nothing, so " +
+      "write rather than ask. Never rewrites something already published.",
+    payload:
+      "{client_project_id, target: 'post'|'image', id, caption, hashtags: string[]}",
+  },
+  schedule_social_post: {
+    kind: "schedule_social_post",
+    outward: true,
+    purpose:
+      "book a post to go out on the client's social accounts at a given time. " +
+      "This is the moment a post becomes real, so say it is booked only once " +
+      "you are told it was.",
+    payload:
+      "{client_project_id, target: 'post'|'image', id, scheduled_at: ISO8601}",
+  },
+  cancel_social_post: {
+    kind: "cancel_social_post",
+    outward: false,
+    purpose:
+      "call off a post that has not gone out yet. Deliberately needs no " +
+      "approval — the brake must never wait for one.",
+    payload: "{client_project_id, schedule_id, reason?}",
+  },
+  request_client_photos: {
+    kind: "request_client_photos",
+    outward: true,
+    purpose:
+      "email the client asking for more photos, naming how many days of " +
+      "posting they have left. Routine, so it goes without approval when the " +
+      "client is set up for that.",
+    payload:
+      "{client_project_id, client_id, to, subject, body, days_of_runway?}",
+  },
+  draft_client_message: {
+    kind: "draft_client_message",
+    outward: true,
+    alwaysApprove: true,
+    purpose:
+      "write a client email that needs reading before it goes — anything " +
+      "about performance, money, scope, or apologising for a post that went " +
+      "wrong. Always waits for a person, whatever the autonomy setting.",
+    payload:
+      "{client_project_id, client_id, to, subject, body, portal_link_label?}",
+  },
 };
 
 /** Whether executing this kind reaches a real person. Unknown kinds are treated as outward. */
@@ -149,6 +209,17 @@ export function isOutward(kind: string): boolean {
 export function isDestructive(kind: string): boolean {
   const known = ACTION_KINDS[kind];
   return known ? known.destructive === true : true;
+}
+
+/**
+ * Whether this kind waits for a person no matter how autonomous the agent is.
+ *
+ * Unknown kinds always wait, for the same reason isDestructive assumes the
+ * worst: a kind added without being classified should fail closed.
+ */
+export function alwaysApproves(kind: string): boolean {
+  const known = ACTION_KINDS[kind];
+  return known ? known.alwaysApprove === true : true;
 }
 
 /** The `kind` enum for a tool schema, limited to what this agent may propose. */

@@ -130,3 +130,34 @@ describe("entities", () => {
     }
   });
 });
+
+describe("the social tables", () => {
+  it("opens the four an agent needs to plan a calendar", () => {
+    // Absent from READABLE they fail closed, which is correct but means the
+    // social agent can see none of its own work.
+    for (const t of [
+      "social_posts", "social_images", "social_post_batches",
+      "social_schedule", "social_follower_snapshots",
+    ]) {
+      expect(isReadable(t), t).toBe(true);
+      expect(READABLE[t].columns.length, t).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps the rendered slide blob out of the projection", () => {
+    // social_posts.slides is jsonb full of markup. Neither readable in a
+    // prompt nor useful in one, and it is most of the row by size.
+    expect(READABLE.social_posts.columns).not.toContain("slides");
+  });
+
+  it("still refuses project_secrets", () => {
+    // Where the CoPost credential lives. The agent is told whether one exists
+    // by its gatherer, which reads the key column and never the value.
+    expect(NEVER_READABLE).toContain("project_secrets");
+    expect(isReadable("project_secrets")).toBe(false);
+  });
+
+  it("lets an agent see which clients are cleared to post unattended", () => {
+    expect(READABLE.client_projects.columns).toContain("agent_autonomy");
+  });
+});

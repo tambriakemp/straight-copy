@@ -94,6 +94,11 @@ export const AUTONOMY_BLURB: Record<Autonomy, string> = {
 };
 
 export const ACTION_LABEL: Record<string, string> = {
+  write_social_caption: "Write a caption",
+  schedule_social_post: "Book a post",
+  cancel_social_post: "Call off a post",
+  request_client_photos: "Ask for more photos",
+  draft_client_message: "Write to a client",
   create_task: "Open a task",
   complete_checklist_item: "Tick a checklist item",
   draft_email: "Send an email",

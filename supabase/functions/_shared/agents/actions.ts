@@ -276,6 +276,98 @@ export interface ExecuteOutcome {
   error?: string;
 }
 
+/**
+ * Refuse when the row an action names does not belong to the project it claims.
+ *
+ * The approval gate keys off `payload.client_project_id`, and that value was
+ * written by the model. Without this check, an action could name a project the
+ * owner has marked autonomous while pointing at a post belonging to one she
+ * has not — and the gate would wave it straight through.
+ *
+ * Cheap, and load-bearing. The worst case with it in place is that the gate
+ * says "auto", the executor refuses, and nothing was posted.
+ */
+function assertProjectMatches(
+  actual: string | null | undefined,
+  claimed: string | null | undefined,
+): ExecuteOutcome | null {
+  if (!claimed) {
+    return { ok: false, error: "Missing client_project_id" };
+  }
+  if (actual !== claimed) {
+    return {
+      ok: false,
+      error: "That record belongs to a different client project",
+    };
+  }
+  return null;
+}
+
+/**
+ * Send a client email that an agent wrote.
+ *
+ * Shares everything with `draft_email` — SureContact-first delivery, the
+ * send log, idempotency on the action id, the portal button built from ids —
+ * because a second send path would be a second place for a client email to go
+ * missing. The only difference between the kinds using this is the approval
+ * gate in front of them: `request_client_photos` is routine and goes when the
+ * autonomy allows it, `draft_client_message` is marked alwaysApprove and never
+ * does.
+ */
+async function sendClientEmail(
+  sb: SupabaseClient,
+  action: ActionRow,
+  agentName: string,
+): Promise<ExecuteOutcome> {
+  const p = action.payload as {
+    to?: string; subject?: string; body?: string;
+    client_id?: string; client_project_id?: string;
+    portal_link_label?: string; include_portal_link?: boolean;
+  };
+  if (!p.to || !p.subject || !p.body) {
+    return { ok: false, error: "Email is missing to, subject or body" };
+  }
+
+  let name: string | null = null;
+  let company: string | null = null;
+  if (p.client_id) {
+    const { data: c } = await sb.from("clients")
+      .select("contact_name, business_name").eq("id", p.client_id).maybeSingle();
+    name = c?.contact_name ?? null;
+    company = c?.business_name ?? null;
+  }
+
+  const html = p.client_id && p.include_portal_link !== false
+    ? withPortalLink(
+      p.body, p.client_id, p.client_project_id ?? null,
+      p.portal_link_label || "Open your client portal",
+    )
+    : p.body;
+
+  const sent = await deliverClientEmail(sb, {
+    to: p.to,
+    subject: p.subject,
+    html,
+    label: `agent-${action.kind}`,
+    idempotencyKey: `agent-action-${action.id}`,
+    templateName: `agent:${action.kind}`,
+    name,
+    company,
+    reason: `${agentName}: ${action.title}`,
+  });
+  if (!sent.ok) return { ok: false, error: sent.error };
+  return {
+    ok: true,
+    result: {
+      sent: true,
+      via: sent.via,
+      message_id: sent.messageId,
+      to: p.to,
+      client_project_id: p.client_project_id ?? null,
+    },
+  };
+}
+
 export async function executeAction(
   sb: SupabaseClient,
   action: ActionRow,
@@ -823,6 +915,185 @@ export async function executeAction(
           },
         };
       }
+
+      // --- social ------------------------------------------------------------
+
+      case "write_social_caption": {
+        const p = action.payload as {
+          client_project_id?: string; target?: string; id?: string;
+          caption?: string; hashtags?: string[];
+        };
+        if (p.target !== "post" && p.target !== "image") {
+          return { ok: false, error: "target must be 'post' or 'image'" };
+        }
+        if (!p.id) return { ok: false, error: "Missing id" };
+        if (!p.caption?.trim()) return { ok: false, error: "Missing caption" };
+
+        const table = p.target === "post" ? "social_posts" : "social_images";
+        const { data: row } = await sb.from(table)
+          .select("id, client_project_id, status, copost_status")
+          .eq("id", p.id).maybeSingle();
+        if (!row) return { ok: false, error: `No ${p.target} with id ${p.id}` };
+
+        const guard = assertProjectMatches(row.client_project_id, p.client_project_id);
+        if (guard) return guard;
+
+        // Never rewrite what has already gone out. The caption on a published
+        // post is what the client's audience read; changing it here would make
+        // the record disagree with reality.
+        if (p.target === "post" && row.status !== "draft") {
+          return { ok: false, error: `Post is ${row.status}, not a draft` };
+        }
+        if (p.target === "image" && ["sending", "sent"].includes(row.copost_status)) {
+          return { ok: false, error: `Image is already ${row.copost_status}` };
+        }
+
+        const hashtags = (p.hashtags ?? [])
+          .map((h) => h.replace(/^#/, "").trim())
+          .filter(Boolean)
+          .slice(0, 15);
+
+        const patch: Record<string, unknown> = {
+          caption: p.caption.trim(),
+          hashtags,
+        };
+        if (p.target === "image") patch.caption_status = "ready";
+
+        const { error } = await sb.from(table).update(patch).eq("id", p.id);
+        if (error) return { ok: false, error: error.message };
+
+        return {
+          ok: true,
+          result: {
+            target: p.target,
+            id: p.id,
+            client_project_id: row.client_project_id,
+            hashtags: hashtags.length,
+          },
+        };
+      }
+
+      case "schedule_social_post": {
+        const p = action.payload as {
+          client_project_id?: string; target?: string; id?: string;
+          scheduled_at?: string;
+        };
+        if (p.target !== "post" && p.target !== "image") {
+          return { ok: false, error: "target must be 'post' or 'image'" };
+        }
+        if (!p.id) return { ok: false, error: "Missing id" };
+
+        const when = p.scheduled_at ? new Date(p.scheduled_at) : null;
+        if (!when || Number.isNaN(when.getTime())) {
+          return { ok: false, error: "scheduled_at is not a valid ISO 8601 time" };
+        }
+        const now = Date.now();
+        if (when.getTime() <= now) {
+          return { ok: false, error: "scheduled_at is in the past" };
+        }
+        if (when.getTime() > now + 90 * 86_400_000) {
+          return { ok: false, error: "scheduled_at is more than 90 days out" };
+        }
+
+        const table = p.target === "post" ? "social_posts" : "social_images";
+        const { data: row } = await sb.from(table)
+          .select("id, client_project_id, status, caption")
+          .eq("id", p.id).maybeSingle();
+        if (!row) return { ok: false, error: `No ${p.target} with id ${p.id}` };
+
+        const guard = assertProjectMatches(row.client_project_id, p.client_project_id);
+        if (guard) return guard;
+
+        const { data: project } = await sb.from("client_projects")
+          .select("id, type").eq("id", row.client_project_id).maybeSingle();
+        if (project?.type !== "marketing") {
+          return { ok: false, error: "That project is not a marketing project" };
+        }
+
+        // Existence only — the value is a credential and never leaves the
+        // decrypting function. A post booked against a project with nowhere to
+        // send it would sit pending until it timed out.
+        const { data: secret } = await sb.from("project_secrets")
+          .select("key").eq("client_project_id", row.client_project_id)
+          .eq("key", "copost_endpoint_url").maybeSingle();
+        if (!secret) {
+          return { ok: false, error: "No CoPost endpoint is configured for that project" };
+        }
+
+        if (!row.caption?.trim()) {
+          return { ok: false, error: "Write the caption before scheduling it" };
+        }
+
+        // Approving and scheduling are one step: booking a post IS the
+        // approval, so a second status to keep in step would only be a way for
+        // the two to disagree.
+        if (p.target === "post" && row.status === "draft") {
+          await sb.from("social_posts").update({ status: "approved" }).eq("id", p.id);
+        }
+
+        const { data: slot, error } = await sb.from("social_schedule").insert({
+          client_project_id: row.client_project_id,
+          social_post_id: p.target === "post" ? p.id : null,
+          social_image_id: p.target === "image" ? p.id : null,
+          scheduled_at: when.toISOString(),
+          created_by_agent: action.agent_id,
+          agent_action_id: action.id,
+        }).select("id").maybeSingle();
+
+        if (error) {
+          // The partial unique index doing its job. Say so plainly rather than
+          // throwing — a re-proposed action is a normal thing to happen, and
+          // the model should learn it is already booked, not that it broke.
+          if (/duplicate key|unique/i.test(error.message)) {
+            return { ok: false, error: "That post is already scheduled" };
+          }
+          return { ok: false, error: error.message };
+        }
+
+        return {
+          ok: true,
+          result: {
+            schedule_id: slot?.id,
+            target: p.target,
+            id: p.id,
+            client_project_id: row.client_project_id,
+            scheduled_at: when.toISOString(),
+          },
+        };
+      }
+
+      case "cancel_social_post": {
+        const p = action.payload as {
+          client_project_id?: string; schedule_id?: string; reason?: string;
+        };
+        if (!p.schedule_id) return { ok: false, error: "Missing schedule_id" };
+
+        const { data: row } = await sb.from("social_schedule")
+          .select("id, client_project_id, status").eq("id", p.schedule_id).maybeSingle();
+        if (!row) return { ok: false, error: `No scheduled post with id ${p.schedule_id}` };
+
+        const guard = assertProjectMatches(row.client_project_id, p.client_project_id);
+        if (guard) return guard;
+
+        const { data: updated } = await sb.from("social_schedule")
+          .update({
+            status: "cancelled",
+            last_error: p.reason ?? `Cancelled by ${agentName}.`,
+          })
+          .eq("id", p.schedule_id).eq("status", "pending")
+          .select("id");
+
+        // Zero rows means it is already sending or sent. Saying "cancelled"
+        // there would be a lie the model then repeats to a person.
+        if (!updated?.length) {
+          return { ok: false, error: `Too late — that post is ${row.status}` };
+        }
+        return { ok: true, result: { schedule_id: p.schedule_id, cancelled: true } };
+      }
+
+      case "request_client_photos":
+      case "draft_client_message":
+        return await sendClientEmail(sb, action, agentName);
 
       case "flag_risk":
         // Deliberately inert. A flag is the finding; the run record is the

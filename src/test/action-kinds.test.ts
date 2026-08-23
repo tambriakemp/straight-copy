@@ -3,7 +3,7 @@
 // outward, and an unknown kind must fail closed.
 import { describe, it, expect } from "vitest";
 import {
-  ACTION_KINDS, isDestructive, isOutward, kindEnumFor, kindDocFor,
+  ACTION_KINDS, alwaysApproves, isDestructive, isOutward, kindEnumFor, kindDocFor,
 } from "../../supabase/functions/_shared/agents/action-kinds";
 import {
   ALLOWED_ACTIONS, allowedFor,
@@ -139,6 +139,56 @@ describe("task priority mapping", () => {
   it("never returns a value outside the enum", () => {
     for (const raw of [undefined, null, "", "MEDIUM", "critical", "nonsense", 7]) {
       expect(PRIORITIES.has(map(raw)), String(raw)).toBe(true);
+    }
+  });
+});
+
+describe("the social kinds", () => {
+  it("classifies scheduling a post as outward", () => {
+    // This single flag IS the approval gate for social posting. Marked false,
+    // every act_in_app client would have posts booked to go public that nobody
+    // had read — which is the exact failure the gate exists to stop.
+    expect(isOutward("schedule_social_post")).toBe(true);
+  });
+
+  it("leaves writing and cancelling free", () => {
+    // A caption nobody sends costs nothing, so she should write rather than
+    // ask. And the brake must never wait for approval — a post you have
+    // decided to stop is a post you want stopped now.
+    expect(isOutward("write_social_caption")).toBe(false);
+    expect(isOutward("cancel_social_post")).toBe(false);
+  });
+
+  it("marks only the sensitive client message as always-approve", () => {
+    expect(alwaysApproves("draft_client_message")).toBe(true);
+    expect(alwaysApproves("request_client_photos")).toBe(false);
+    expect(alwaysApproves("schedule_social_post")).toBe(false);
+    expect(alwaysApproves("write_social_caption")).toBe(false);
+    expect(alwaysApproves("cancel_social_post")).toBe(false);
+  });
+
+  it("assumes an unclassified kind always needs approval", () => {
+    expect(alwaysApproves("post_something_unknown")).toBe(true);
+  });
+
+  it("does not make any of them destructive", () => {
+    // Cancelling un-commits a send; it destroys nothing. Marking it
+    // destructive would put the brake behind an approval.
+    for (const k of [
+      "write_social_caption", "schedule_social_post", "cancel_social_post",
+      "request_client_photos", "draft_client_message",
+    ]) {
+      expect(isDestructive(k), k).toBe(false);
+    }
+  });
+
+  it("leaves the existing kinds' classification alone", () => {
+    // Adding alwaysApprove must not have quietly made anything else wait.
+    for (const k of [
+      "create_task", "complete_checklist_item", "draft_email", "flag_risk",
+      "send_proposal", "schedule_followup", "create_client_project",
+    ]) {
+      expect(alwaysApproves(k), k).toBe(false);
     }
   });
 });

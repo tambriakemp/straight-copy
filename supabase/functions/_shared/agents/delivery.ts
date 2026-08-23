@@ -47,6 +47,7 @@ export async function deliverRun(
   runId: string,
   finding: AgentFinding,
   pendingApprovals: number,
+  opts?: { push?: boolean },
 ): Promise<Record<string, unknown>> {
   const delivery = agent.delivery ?? {};
   const outcome: Record<string, unknown> = {};
@@ -110,7 +111,13 @@ export async function deliverRun(
   }
 
   // --- push: only when something actually needs a person ---
-  if (delivery.push && pendingApprovals > 0) {
+  //
+  // `opts.push` exists for the one case that needs a person without anything
+  // being pending: a social post that failed its retry. The alternative was to
+  // pass pendingApprovals: 1 when nothing is pending, which would put a false
+  // "1 action waiting for approval" in the email body and the activity feed.
+  // Every existing caller omits opts and behaves exactly as before.
+  if (delivery.push && (opts?.push ?? pendingApprovals > 0)) {
     try {
       outcome.push = await sendPushToAll(sb);
     } catch (e) {

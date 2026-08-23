@@ -9,7 +9,9 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import Anthropic from "npm:@anthropic-ai/sdk@0.71.0";
 import { definitionFor, systemPromptFor } from "../_shared/agents/registry.ts";
 import { executeAndRecord, type ActionRow } from "../_shared/agents/actions.ts";
-import { isDestructive, isOutward, kindDocFor, kindEnumFor } from "../_shared/agents/action-kinds.ts";
+import {
+  alwaysApproves, isDestructive, isOutward, kindDocFor, kindEnumFor,
+} from "../_shared/agents/action-kinds.ts";
 import { loadRules, renderRules, type RulesClient } from "../_shared/agents/rules.ts";
 import { clientDirectory, renderClientIndex } from "../_shared/agents/clients.ts";
 import { describeTurnOutcome, normalizeTurns } from "../_shared/agents/history.ts";
@@ -19,7 +21,7 @@ import { executeReadTool, readToolDefinitions } from "../_shared/agents/read-too
 import { stepLabel } from "../_shared/agents/tool-labels.ts";
 import { actionToolDefinition, executeActionTool, type ActionToolContext } from "../_shared/agents/action-tool.ts";
 import { resolveTurnOutcome, turnColumns } from "../_shared/agents/turn-outcome.ts";
-import { canAutoExecute, type AgentRow } from "../_shared/agents/types.ts";
+import { canAutoExecute, resolveAutonomy, type AgentRow } from "../_shared/agents/types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -322,10 +324,14 @@ async function runTurn(args: {
       }),
     );
 
-    const [context, rules, directory] = await Promise.all([
+    const [context, rules, directory, projectAutonomy] = await Promise.all([
       def.gather(sb, agent.config ?? {}),
       loadRules(sb as unknown as RulesClient, agent.id),
       clientDirectory(sb as unknown as RulesClient),
+      // Empty for every agent that does not declare it. Chat and scheduled
+      // runs must resolve autonomy the same way, or the same action is gated
+      // differently depending on which one produced it.
+      def.projectAutonomy?.(sb) ?? Promise.resolve({}),
     ]);
     const rulesBlock = renderRules(rules);
     const directoryBlock = renderClientIndex(directory);
@@ -381,6 +387,7 @@ async function runTurn(args: {
         actionIds: [],
         taken: new Map(),
         count: { n: 0 },
+        projectAutonomy,
       };
 
       const webSearch = (agent.config as Record<string, unknown> | null)?.web_search !== false;
@@ -582,7 +589,18 @@ async function runTurn(args: {
             title: a.title,
             description: a.description ?? null,
             payload: a.payload ?? {},
-            status: canAutoExecute(agent.autonomy, outward, isDestructive(a.kind))
+            status: canAutoExecute(
+                resolveAutonomy(
+                  agent.autonomy,
+                  projectAutonomy[String(
+                    (a.payload as Record<string, unknown> | undefined)
+                      ?.client_project_id ?? "",
+                  )],
+                ),
+                outward,
+                isDestructive(a.kind),
+                alwaysApproves(a.kind),
+              )
               ? "approved"
               : "proposed",
           };

@@ -144,3 +144,13 @@ verify_jwt = false
 # Direct chat with an agent. Admin session JWT only.
 [functions.agent-chat]
 verify_jwt = false
+
+# CoPost calls this; it has no Supabase JWT to send. Authentication is the
+# HMAC over the raw body, checked inside the function.
+[functions.copost-webhook]
+verify_jwt = false
+
+# pg_cron calls this via pg_net with an x-agent-secret header, checked inside
+# the function — the same arrangement as dispatch-agent-runs.
+[functions.dispatch-social-schedule]
+verify_jwt = false
