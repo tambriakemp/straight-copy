@@ -2988,6 +2988,65 @@ export type Database = {
         }
         Relationships: []
       }
+      queue_fire_log: {
+        Row: {
+          client_project_id: string | null
+          detail: string | null
+          fired_at: string
+          id: number
+          outcome: string
+          task_id: string | null
+        }
+        Insert: {
+          client_project_id?: string | null
+          detail?: string | null
+          fired_at?: string
+          id?: number
+          outcome: string
+          task_id?: string | null
+        }
+        Update: {
+          client_project_id?: string | null
+          detail?: string | null
+          fired_at?: string
+          id?: number
+          outcome?: string
+          task_id?: string | null
+        }
+        Relationships: []
+      }
+      queue_fire_routes: {
+        Row: {
+          client_project_id: string
+          created_at: string
+          debounce_seconds: number
+          enabled: boolean
+          secret_prefix: string
+        }
+        Insert: {
+          client_project_id: string
+          created_at?: string
+          debounce_seconds?: number
+          enabled?: boolean
+          secret_prefix: string
+        }
+        Update: {
+          client_project_id?: string
+          created_at?: string
+          debounce_seconds?: number
+          enabled?: boolean
+          secret_prefix?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "queue_fire_routes_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: true
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       revenue_entries: {
         Row: {
           amount_cents: number
@@ -3906,6 +3965,14 @@ export type Database = {
         Returns: undefined
       }
       fire_kickoff_webhook: { Args: { _client_id: string }; Returns: undefined }
+      fire_queue_routine: {
+        Args: {
+          p_client_project_id: string
+          p_reason?: string
+          p_task_id?: string
+        }
+        Returns: undefined
+      }
       fire_surecontact_sync: {
         Args: { _client_id: string }
         Returns: undefined
