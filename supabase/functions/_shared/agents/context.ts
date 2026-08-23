@@ -610,7 +610,7 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
   }
 
   const since = iso(lookbackDays * DAY);
-  const [clients, secrets, images, posts, scheduled, followers] = await Promise.all([
+  const [clientsRes, secretsRes, imagesRes, postsRes, scheduledRes, followersRes] = await Promise.all([
     sb.from("clients")
       .select("id, contact_name, contact_email, business_name, brand_voice_content, brand_voice_approved")
       .in("id", (projects ?? []).map((p) => p.client_id)),
@@ -635,9 +635,21 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
       .order("captured_at", { ascending: false }).limit(300),
   ]);
 
-  const clientById = new Map((clients ?? []).map((c) => [c.id, c]));
+  // Promise.all resolves each query to its full PostgrestResponse — { data,
+  // error, count } — not to the rows. Unwrapped once here rather than reaching
+  // for .data at each of the eight use sites, because missing it at one of
+  // them is exactly how this shipped broken the first time: `.map is not a
+  // function`, at runtime, in front of someone asking a question.
+  const clients = clientsRes.data ?? [];
+  const secrets = secretsRes.data ?? [];
+  const images = imagesRes.data ?? [];
+  const posts = postsRes.data ?? [];
+  const scheduled = scheduledRes.data ?? [];
+  const followers = followersRes.data ?? [];
+
+  const clientById = new Map(clients.map((c) => [c.id, c]));
   const configured = new Set(
-    (secrets ?? []).filter((s) => s.key === "copost_endpoint_url")
+    secrets.filter((s) => s.key === "copost_endpoint_url")
       .map((s) => s.client_project_id),
   );
 
@@ -646,7 +658,7 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
     if (p.agent_autonomy) autonomyByProject[p.id] = p.agent_autonomy;
   }
 
-  const liveSchedule = (scheduled ?? []).filter((s) =>
+  const liveSchedule = scheduled.filter((s) =>
     s.status === "pending" || s.status === "sending"
   );
   const bookedIds = new Set(
@@ -655,8 +667,8 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
 
   const perProject = (projects ?? []).map((p) => {
     const client = clientById.get(p.client_id);
-    const myImages = (images ?? []).filter((i) => i.client_project_id === p.id);
-    const myPosts = (posts ?? []).filter((x) => x.client_project_id === p.id);
+    const myImages = images.filter((i) => i.client_project_id === p.id);
+    const myPosts = posts.filter((x) => x.client_project_id === p.id);
 
     // Unposted means: never sent, and not already booked. A photo waiting in
     // the calendar is not runway you can spend twice.
@@ -677,7 +689,7 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
     ];
 
     const r = runway(unposted.length, postsPerWeek);
-    const mySnapshots = (followers ?? []).filter((f) => f.client_project_id === p.id);
+    const mySnapshots = followers.filter((f) => f.client_project_id === p.id);
 
     return {
       client_project_id: p.id,
@@ -703,7 +715,7 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
     };
   });
 
-  const stillFailing = (scheduled ?? [])
+  const stillFailing = scheduled
     .filter((s) => s.status === "failed")
     .map((s) => {
       const p = perProject.find((x) => x.client_project_id === s.client_project_id);
@@ -724,7 +736,7 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
     projects: perProject,
     autonomy_by_project: autonomyByProject,
     still_failing: stillFailing,
-    published_recently: (scheduled ?? []).filter((s) => s.status === "sent").length,
+    published_recently: scheduled.filter((s) => s.status === "sent").length,
     thresholds: { postsPerWeek, preferredHours, minGapHours, horizonDays, lookbackDays },
   };
 }

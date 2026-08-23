@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
       clientDirectory(sb as unknown as RulesClient),
       // Empty for every agent that does not declare it, which leaves the gate
       // exactly where it was for the other five.
-      def.projectAutonomy?.(sb) ?? Promise.resolve({}),
+      def.projectAutonomy?.(sb) ?? Promise.resolve<Record<string, string>>({}),
     ]);
     // A scheduled run gets the same tools as a chat turn, so a brief is
     // researched rather than assembled from whatever the gatherer guessed at.

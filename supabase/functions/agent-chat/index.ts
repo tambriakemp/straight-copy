@@ -331,7 +331,7 @@ async function runTurn(args: {
       // Empty for every agent that does not declare it. Chat and scheduled
       // runs must resolve autonomy the same way, or the same action is gated
       // differently depending on which one produced it.
-      def.projectAutonomy?.(sb) ?? Promise.resolve({}),
+      def.projectAutonomy?.(sb) ?? Promise.resolve<Record<string, string>>({}),
     ]);
     const rulesBlock = renderRules(rules);
     const directoryBlock = renderClientIndex(directory);

@@ -41,7 +41,19 @@ const json = (b: unknown, s = 200) =>
 const SIGNED_URL_TTL = 60 * 60 * 24 * 30;
 const BATCH = 25;
 
-type Sb = ReturnType<typeof createClient>;
+/**
+ * Derived from a real call rather than written as ReturnType<typeof
+ * createClient>, which resolves to the generic defaults and does not match what
+ * an actual call produces.
+ */
+function serviceClient() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+}
+
+type Sb = ReturnType<typeof serviceClient>;
 
 interface ScheduleRow {
   id: string;
@@ -167,7 +179,7 @@ async function raiseTheAlarm(
       }).select("*").maybeSingle();
 
       if (taskAction) {
-        await executeAndRecord(sb, taskAction as ActionRow, agent.name);
+        await executeAndRecord(sb, taskAction as unknown as ActionRow, String(agent.name));
       }
     }
 
@@ -193,10 +205,7 @@ Deno.serve(async (req) => {
     new URL(req.url).searchParams.get("secret");
   if (!secret || supplied !== secret) return json({ error: "Unauthorized" }, 401);
 
-  const sb = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  const sb = serviceClient();
   const encKey = Deno.env.get("PROJECT_SECRETS_KEY");
   if (!encKey) return json({ error: "PROJECT_SECRETS_KEY is not configured" }, 500);
 

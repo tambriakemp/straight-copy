@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Written by `deno check` when typechecking the edge functions locally (see the
+# verification block in CLAUDE.md). Deliberately not committed: Deno is a local
+# tool here, nothing in the deploy path reads this, and a lockfile appearing in
+# the repo is a way to change what actually ships for no benefit.
+deno.lock

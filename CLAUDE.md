@@ -10,7 +10,29 @@ npx tsc --noEmit -p tsconfig.app.json   # must exit 0
 npm run test                            # must exit 0
 npm run build                           # must exit 0
 npm run lint                            # exits 1 on a clean tree — NOT a gate
+
+# Edge functions only. Not covered by any of the above.
+deno check --node-modules-dir=auto supabase/functions/<name>/index.ts
 ```
+
+**Those first three do not typecheck `supabase/functions/`.** `tsconfig.app.json`
+includes only `src`, so a shared module is checked only when a test imports it —
+and a module carrying an `npm:` specifier cannot be imported by a test at all
+(see the house-style note below). `edge-function-syntax.test.ts` parses for
+syntax and never types. So for most of that directory the first thing that ever
+typechecks it is production.
+
+That is not hypothetical: `socialContext` shipped destructuring `Promise.all`
+over Supabase query builders as if the results were rows. They are
+`PostgrestResponse` objects — `{ data, error, count }` — and Iris answered her
+first real question with `(clients ?? []).map is not a function`. `deno check`
+catches it in seconds.
+
+Run it on every function you touched before asking for a deploy, and on the
+whole path a change reaches. It reports pre-existing errors too — 52 in
+`agent-run`, 55 in `agent-chat`, almost all in `engagementContext` and `loop.ts`
+— so read the file and line and fix only what is yours. Deno is not in the
+deploy path; `deno.lock` is gitignored on purpose.
 
 `npm run lint` reports roughly 360 pre-existing problems and exits non-zero even
 with no changes at all. Treating it as a pass/fail gate blocks every task
