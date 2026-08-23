@@ -1013,6 +1013,7 @@ export type Database = {
       }
       client_projects: {
         Row: {
+          agent_autonomy: string | null
           build_notes: string | null
           business_name: string | null
           client_id: string
@@ -1038,6 +1039,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          agent_autonomy?: string | null
           build_notes?: string | null
           business_name?: string | null
           client_id: string
@@ -1063,6 +1065,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          agent_autonomy?: string | null
           build_notes?: string | null
           business_name?: string | null
           client_id?: string
@@ -3163,6 +3166,44 @@ export type Database = {
           },
         ]
       }
+      social_follower_snapshots: {
+        Row: {
+          captured_at: string
+          client_project_id: string
+          created_at: string
+          follower_count: number
+          id: string
+          platform: string
+          source: string
+        }
+        Insert: {
+          captured_at?: string
+          client_project_id: string
+          created_at?: string
+          follower_count: number
+          id?: string
+          platform: string
+          source?: string
+        }
+        Update: {
+          captured_at?: string
+          client_project_id?: string
+          created_at?: string
+          follower_count?: number
+          id?: string
+          platform?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_follower_snapshots_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_images: {
         Row: {
           caption: string | null
@@ -3294,6 +3335,54 @@ export type Database = {
           },
         ]
       }
+      social_post_events: {
+        Row: {
+          client_project_id: string | null
+          copost_post_id: string | null
+          event: string
+          id: number
+          payload: Json
+          received_at: string
+          schedule_id: string | null
+          signature_valid: boolean | null
+        }
+        Insert: {
+          client_project_id?: string | null
+          copost_post_id?: string | null
+          event: string
+          id?: number
+          payload?: Json
+          received_at?: string
+          schedule_id?: string | null
+          signature_valid?: boolean | null
+        }
+        Update: {
+          client_project_id?: string | null
+          copost_post_id?: string | null
+          event?: string
+          id?: number
+          payload?: Json
+          received_at?: string
+          schedule_id?: string | null
+          signature_valid?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_post_events_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_post_events_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "social_schedule"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_posts: {
         Row: {
           batch_id: string
@@ -3369,6 +3458,106 @@ export type Database = {
             columns: ["design_template_id"]
             isOneToOne: false
             referencedRelation: "social_design_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_schedule: {
+        Row: {
+          agent_action_id: string | null
+          attempts: number
+          claimed_at: string | null
+          client_project_id: string
+          copost_post_id: string | null
+          created_at: string
+          created_by_agent: string | null
+          id: string
+          last_error: string | null
+          max_attempts: number
+          scheduled_at: string
+          sent_at: string | null
+          social_image_id: string | null
+          social_post_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_action_id?: string | null
+          attempts?: number
+          claimed_at?: string | null
+          client_project_id: string
+          copost_post_id?: string | null
+          created_at?: string
+          created_by_agent?: string | null
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          scheduled_at: string
+          sent_at?: string | null
+          social_image_id?: string | null
+          social_post_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_action_id?: string | null
+          attempts?: number
+          claimed_at?: string | null
+          client_project_id?: string
+          copost_post_id?: string | null
+          created_at?: string
+          created_by_agent?: string | null
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          scheduled_at?: string
+          sent_at?: string | null
+          social_image_id?: string | null
+          social_post_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_schedule_agent_action_id_fkey"
+            columns: ["agent_action_id"]
+            isOneToOne: false
+            referencedRelation: "agent_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_schedule_agent_action_id_fkey"
+            columns: ["agent_action_id"]
+            isOneToOne: false
+            referencedRelation: "agent_pending_actions_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_schedule_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_schedule_created_by_agent_fkey"
+            columns: ["created_by_agent"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_schedule_social_image_id_fkey"
+            columns: ["social_image_id"]
+            isOneToOne: false
+            referencedRelation: "social_images"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_schedule_social_post_id_fkey"
+            columns: ["social_post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
             referencedColumns: ["id"]
           },
         ]
@@ -3917,6 +4106,33 @@ export type Database = {
       }
       automation_01_criteria_for: { Args: { _key: string }; Returns: Json }
       brain_setup_criteria_for: { Args: { _key: string }; Returns: Json }
+      claim_due_social_sends: {
+        Args: { _limit?: number }
+        Returns: {
+          agent_action_id: string | null
+          attempts: number
+          claimed_at: string | null
+          client_project_id: string
+          copost_post_id: string | null
+          created_at: string
+          created_by_agent: string | null
+          id: string
+          last_error: string | null
+          max_attempts: number
+          scheduled_at: string
+          sent_at: string | null
+          social_image_id: string | null
+          social_post_id: string | null
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "social_schedule"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_task: {
         Args: { _stale_after?: string; _task_id: string; _worker: string }
         Returns: {
@@ -4015,6 +4231,7 @@ export type Database = {
         }[]
       }
       reap_abandoned_agent_messages: { Args: never; Returns: number }
+      reap_stranded_social_sends: { Args: never; Returns: number }
       release_task: {
         Args: { _task_id: string; _worker: string }
         Returns: undefined
