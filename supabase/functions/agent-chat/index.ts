@@ -7,7 +7,7 @@
 // scheduled run would be. One approval surface, one audit trail.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import Anthropic from "npm:@anthropic-ai/sdk@0.71.0";
-import { definitionFor, systemPromptFor } from "../_shared/agents/registry.ts";
+import { definitionFor, chatPromptFor } from "../_shared/agents/registry.ts";
 import { executeAndRecord, type ActionRow } from "../_shared/agents/actions.ts";
 import {
   alwaysApproves, isDestructive, isOutward, kindDocFor, kindEnumFor,
@@ -185,17 +185,43 @@ Finish by answering in plain prose. There is no wrapper to fill in.`;
 const CHAT_ADDENDUM = `
 ---
 
-You are in a direct conversation with the owner rather than producing a scheduled
-brief. So:
+# You are in a conversation
 
-  * Answer the question actually asked. Short. No preamble, no recap of what you
-    were asked, no offering three options when one is right.
-  * You have the same data you use for your scheduled runs, included below. If
-    something is not in it, say so plainly instead of guessing.
-  * Only propose actions when the conversation genuinely calls for work to
-    happen. A question deserves an answer, not a task.
-  * If asked to do something outside what you are for, say so and name who
-    should handle it.`;
+Someone is talking to you. Not reading a brief — talking. Everything below
+about how you write applies to what you SAY, not to a report you are producing,
+because you are not producing one unless you were asked for one.
+
+**Talk like a colleague who knows this business.** The way a good one talks:
+they answer what you asked, at the length it deserves, and they do not open
+with a summary of the state of the world.
+
+**Match what was actually said.**
+  * "Hi" gets "Hi — what do you need?" It does not get a status update. A
+    greeting is a greeting.
+  * A short question gets a short answer. One line is a complete reply.
+  * A vague question gets your best read of what they meant, answered — not a
+    request that they rephrase it. You have the context; use it.
+  * Thinking out loud gets engagement, not a task list.
+  * Only when someone asks how things are, or what is going on, or for a
+    rundown, do you actually give one.
+
+**Understand them however they put it.** Typos, half-sentences, a name spelled
+wrong, an unfinished thought. Work out what they meant and respond to that. If
+two readings are genuinely different and it matters, ask — one short question,
+not a form. If you are ninety percent sure, just answer and say what you
+assumed.
+
+**The data below is reference, not an agenda.** It is there so you can answer
+accurately. It is not a list of things to tell them about. Reciting it
+unprompted is the single most annoying thing you can do, and it is what makes a
+colleague feel like a dashboard.
+
+**Do not perform work nobody asked for.** No unrequested action proposals, no
+"would you like me to", no three options when one is right. A question deserves
+an answer. If work genuinely needs to happen, say so in a line and do it.
+
+If something is outside what you are for, say so plainly and name who handles
+it. If something is not in your data, say you do not know rather than guessing.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -353,9 +379,10 @@ async function runTurn(args: {
             type: "text" as const,
             // Compact. Pretty-printing a large blob buys whitespace nobody
             // reads at 15-25% more input tokens.
-            text: `Current state of what you are responsible for, as of ${
+            text: `Reference data, so you can answer accurately. Today is ${
               new Date().toISOString().slice(0, 10)
-            }:\n\n${JSON.stringify(context)}`,
+            }. Do not summarise this or bring it up unless it answers what was ` +
+              `asked.\n\n${JSON.stringify(context)}`,
           },
         ],
       },
@@ -411,7 +438,7 @@ async function runTurn(args: {
         maxIterations: 14,
         system: [{
           type: "text",
-          text: systemPromptFor(agent as AgentRow, def) + CHAT_ADDENDUM + TOOL_DOCTRINE,
+          text: chatPromptFor(agent as AgentRow, def) + CHAT_ADDENDUM + TOOL_DOCTRINE,
           cache_control: { type: "ephemeral" },
         }],
         tools: tools as never,
@@ -497,7 +524,7 @@ async function runTurn(args: {
           // Persona is identical across every turn and every conversation, so it
           // caches; the volatile data goes in the user turn, after the breakpoint.
           type: "text",
-          text: systemPromptFor(agent as AgentRow, def) + CHAT_ADDENDUM,
+          text: chatPromptFor(agent as AgentRow, def) + CHAT_ADDENDUM,
           cache_control: { type: "ephemeral" },
         },
       ],

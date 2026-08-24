@@ -17,6 +17,7 @@ import {
 import { PROPOSAL_BRIEFING } from "./proposal-spine.ts";
 import { allowedFor } from "./allowlists.ts";
 import type { AgentRow } from "./types.ts";
+import { withoutSection } from "./mission-sections.ts";
 
 /** Prepended to every agent. Stable text — it sits in the cached prefix. */
 export const SHARED_PREAMBLE = `You are a working member of a small agency's operations team, not a chatbot.
@@ -502,4 +503,24 @@ export function definitionFor(agent: AgentRow): AgentDefinition | null {
 export function systemPromptFor(agent: AgentRow, def: AgentDefinition): string {
   const mission = agent.system_prompt?.trim() || def.mission;
   return `${SHARED_PREAMBLE}\n\n---\n\nYou are ${agent.name}, ${agent.role}.\n\n${mission}`;
+}
+
+/**
+ * The system prompt for a live conversation.
+ *
+ * Differs from a scheduled run in one specific way: the mission's "What a run
+ * produces" section is removed. That section exists to stop a run ending
+ * without naming a client and a number, and it opens by saying "a run is not a
+ * chat turn. Nobody asked you anything" — which is precisely wrong when
+ * somebody has just asked something. Leaving it in is why saying hello got a
+ * status report back.
+ *
+ * Everything else stays, including what the agent must never do. Those rules
+ * hold harder in conversation, not less: it is in chat that someone can ask
+ * for an email to go out right now.
+ */
+export function chatPromptFor(agent: AgentRow, def: AgentDefinition): string {
+  const mission = agent.system_prompt?.trim() || def.mission;
+  const conversational = withoutSection(mission, "## What a run produces");
+  return `${SHARED_PREAMBLE}\n\n---\n\nYou are ${agent.name}, ${agent.role}.\n\n${conversational}`;
 }
