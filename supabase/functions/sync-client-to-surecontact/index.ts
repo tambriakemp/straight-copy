@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     // Load client
     const { data: client, error: clientErr } = await supabase
       .from("clients")
-      .select("id, business_name, contact_name, contact_email, contact_phone, tier, archived, build_start_date, delivery_date, delivery_video_url, build_update_note")
+      .select("id, business_name, contact_name, contact_email, contact_phone, tier, archived, subscription_status, build_start_date, delivery_date, delivery_video_url, build_update_note")
       .eq("id", clientId)
       .maybeSingle();
 
@@ -99,6 +99,21 @@ Deno.serve(async (req) => {
     const stageLabel = activeNode?.label || "Complete";
     const currentStageTag = `Stage: ${stageLabel}`;
 
+    // Billing state as a tag, so a win-back sequence can target a lapsed
+    // client without querying the CRM. One survives per contact; the rest go
+    // out as removals, the same way stale stage tags do.
+    const BILLING_LABELS: Record<string, string> = {
+      active: "Active", trialing: "Trialing",
+      past_due: "Past Due", unpaid: "Past Due",
+      canceled: "Canceled", cancelled: "Canceled", incomplete_expired: "Canceled",
+    };
+    const billingLabel = client.subscription_status
+      ? (BILLING_LABELS[String(client.subscription_status)] ?? "Active")
+      : null;
+    const currentBillingTag = billingLabel ? `Billing: ${billingLabel}` : null;
+    const allBillingTags = ["Active", "Trialing", "Past Due", "Canceled"]
+      .map((l) => `Billing: ${l}`);
+
     const { firstName, lastName } = splitContactName(client.contact_name);
 
     const tags = [
@@ -108,12 +123,17 @@ Deno.serve(async (req) => {
       "Client Portal",
       `Tier: ${tierLabel}`,
       currentStageTag,
+      ...(currentBillingTag ? [currentBillingTag] : []),
     ];
 
-    // Every other known stage tag should be stripped on this sync.
-    const tagsToRemove = Array.from(allStageTags).filter(
-      (t) => t !== currentStageTag,
-    );
+    // Every other known stage tag should be stripped on this sync, and every
+    // other billing tag — but only once we know the billing state. A client
+    // with no subscription_status, which is every SureCart client, keeps
+    // whatever they have rather than being silently untagged.
+    const tagsToRemove = [
+      ...Array.from(allStageTags).filter((t) => t !== currentStageTag),
+      ...(currentBillingTag ? allBillingTags.filter((t) => t !== currentBillingTag) : []),
+    ];
 
     const result = await upsertSureContact(
       {
@@ -127,6 +147,7 @@ Deno.serve(async (req) => {
           contract_url: contractUrl,
           brand_kit_url: brandKitUrl,
           client_tier: tierLabel,
+          billing_status: billingLabel ?? "",
           journey_stage: stageLabel,
           journey_stage_key: activeNode?.key ?? "",
           client_id: clientId,

@@ -9,7 +9,9 @@ import {
   buildFollowupAgenda, needingHuman, needingNudge, summariseAgenda,
   type ProposalSignal,
 } from "./followups.ts";
-import { cadenceFor, isAuthFailure, runway } from "../social/schedule-policy.ts";
+import {
+  cadenceFor, isAuthFailure, runway, spreadSlots,
+} from "../social/schedule-policy.ts";
 
 const DAY = 86_400_000;
 const iso = (msAgo: number) => new Date(Date.now() - msAgo).toISOString();
@@ -596,7 +598,7 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
   const lookbackDays = Number(cfg.lookback_days ?? 14);
 
   const { data: projects } = await sb.from("client_projects")
-    .select("id, client_id, name, business_name, agent_autonomy, status")
+    .select("id, client_id, name, business_name, agent_autonomy, status, timezone, social_settings, subscription_status")
     .eq("type", "marketing").eq("status", "active");
 
   const projectIds = (projects ?? []).map((p) => p.id);
@@ -716,8 +718,38 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
         .map((x) => ({ target: "post", id: x.id, caption: (x.caption ?? "").slice(0, 90) })),
     ];
 
-    const r = runway(unposted.length, postsPerWeek);
+    // The client's own settings win over the agent's defaults. Collected at
+    // checkout and stored on the project; the agent config is only a fallback
+    // for projects that predate the plan.
+    const over = (p.social_settings ?? {}) as Record<string, unknown>;
+    const clientPostsPerWeek = Number(over.posts_per_week ?? postsPerWeek);
+    const clientHours = Array.isArray(over.preferred_hours)
+      ? over.preferred_hours as number[] : preferredHours;
+    const clientDays = Array.isArray(over.preferred_days)
+      ? over.preferred_days as string[] : [];
+    const zone = (p.timezone as string | null) ?? "UTC";
+
+    const r = runway(unposted.length, clientPostsPerWeek);
     const mySnapshots = followers.filter((f) => f.client_project_id === p.id);
+
+    // Times computed here rather than left to the model, for the same reason
+    // Bria's follow-up buckets are. Asking a model to convert 2pm in Los
+    // Angeles to a UTC instant across a daylight-saving boundary is asking it
+    // to be wrong occasionally, and a post an hour early is invisible until
+    // somebody complains.
+    const openSlots = spreadSlots({
+      from: new Date(),
+      horizonDays,
+      preferredHours: clientHours,
+      timeZone: zone,
+      preferredDays: clientDays,
+      postsPerWeek: clientPostsPerWeek,
+      minGapHours,
+      taken: liveSchedule
+        .filter((x) => x.client_project_id === p.id)
+        .map((x) => new Date(x.scheduled_at)),
+      count: readyToSchedule.length,
+    });
 
     return {
       client_project_id: p.id,
@@ -763,6 +795,23 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
           scheduled_at: s.scheduled_at,
         })),
       followers: summariseFollowers(mySnapshots),
+      timezone: zone,
+      // Posting is paused for this client. Nothing is broken and nothing is
+      // lost — they are not in good standing, so the dispatcher will not claim
+      // their sends.
+      paused: !!p.subscription_status &&
+        !["active", "trialing"].includes(String(p.subscription_status)),
+      settings: {
+        posts_per_week: clientPostsPerWeek,
+        preferred_days: clientDays,
+        promote: over.promote ?? null,
+        avoid: over.avoid ?? null,
+        channels: over.channels ?? [],
+      },
+      // Real UTC instants, already spread across this client's preferred days
+      // and hours in their own timezone, already inside their weekly cap and
+      // minimum gap. Use them as given.
+      available_slots: openSlots.map((d) => d.toISOString()),
     };
   });
 

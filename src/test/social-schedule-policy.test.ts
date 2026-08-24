@@ -3,6 +3,7 @@
 import { describe, it, expect } from "vitest";
 import {
   nextAttempt, isAuthFailure, sendability, runway, cadenceFor, spreadSlots,
+  zonedTimeToUtc, localParts,
 } from "../../supabase/functions/_shared/social/schedule-policy";
 
 const utc = (s: string) => new Date(`${s}Z`);
@@ -106,13 +107,50 @@ describe("cadenceFor", () => {
   });
 });
 
+describe("zonedTimeToUtc", () => {
+  it("resolves a local hour to the right instant", () => {
+    // 14:00 in Los Angeles during PDT is 21:00 UTC.
+    expect(zonedTimeToUtc(2026, 8, 15, 14, "America/Los_Angeles").toISOString())
+      .toBe("2026-09-15T21:00:00.000Z");
+    // And during PST it is 22:00 UTC.
+    expect(zonedTimeToUtc(2026, 11, 15, 14, "America/Los_Angeles").toISOString())
+      .toBe("2026-12-15T22:00:00.000Z");
+  });
+
+  it("is identity for UTC", () => {
+    expect(zonedTimeToUtc(2026, 8, 15, 14, "UTC").toISOString())
+      .toBe("2026-09-15T14:00:00.000Z");
+  });
+
+  it("gets the day after a DST change right", () => {
+    // The two-pass resolve exists for this. A single pass lands on the wrong
+    // side of the boundary and posts go out an hour early for a week, which is
+    // exactly the kind of thing nobody traces back to the scheduler.
+    // Month is 0-indexed: 9 is October, 10 is November. US DST ends 1 Nov 2026.
+    const before = zonedTimeToUtc(2026, 9, 30, 14, "America/New_York");  // EDT, UTC-4
+    const after = zonedTimeToUtc(2026, 10, 3, 14, "America/New_York");   // EST, UTC-5
+    expect(before.toISOString()).toBe("2026-10-30T18:00:00.000Z");
+    expect(after.toISOString()).toBe("2026-11-03T19:00:00.000Z");
+  });
+});
+
+describe("localParts", () => {
+  it("reads the calendar day as the client sees it, not as UTC does", () => {
+    // 02:00 UTC on the 16th is still the evening of the 15th in California.
+    const p = localParts(utc("2026-09-16T02:00:00"), "America/Los_Angeles");
+    expect(p.day).toBe(15);
+    expect(p.weekday).toBe("tue");
+  });
+});
+
 describe("spreadSlots", () => {
   const base = {
-    from: utc("2026-08-23T00:00:00"),
+    from: utc("2026-09-14T00:00:00"),
     horizonDays: 14,
-    preferredHoursUtc: [14, 17, 21],
+    preferredHours: [14, 17, 21],
+    timeZone: "UTC",
     postsPerWeek: 5,
-    minGapHours: 6,
+    minGapHours: 3,
     taken: [] as Date[],
     count: 3,
   };
@@ -120,66 +158,80 @@ describe("spreadSlots", () => {
   it("books at the preferred hours, in order", () => {
     const slots = spreadSlots(base);
     expect(slots).toHaveLength(3);
-    expect(slots[0].toISOString()).toBe("2026-08-23T14:00:00.000Z");
+    expect(slots[0].toISOString()).toBe("2026-09-14T14:00:00.000Z");
     expect(slots.every((s) => [14, 17, 21].includes(s.getUTCHours()))).toBe(true);
+  });
+
+  it("treats the preferred hours as LOCAL, not UTC", () => {
+    // The whole point of collecting a timezone. 14:00 for a Los Angeles client
+    // is 21:00 UTC — booking it at 14:00 UTC posts at 6am their time.
+    const slots = spreadSlots({
+      ...base, timeZone: "America/Los_Angeles", preferredHours: [14], count: 1,
+    });
+    expect(slots[0].toISOString()).toBe("2026-09-14T21:00:00.000Z");
+  });
+
+  it("honours preferred days in the client's own week", () => {
+    const slots = spreadSlots({
+      ...base, preferredDays: ["mon"], preferredHours: [14], count: 3,
+    });
+    expect(slots).toHaveLength(3);
+    for (const s of slots) expect(s.getUTCDay()).toBe(1);
+  });
+
+  it("falls back to UTC rather than throwing on a bad zone", () => {
+    const slots = spreadSlots({ ...base, timeZone: "Mars/Olympus", count: 1 });
+    expect(slots[0].toISOString()).toBe("2026-09-14T14:00:00.000Z");
   });
 
   it("never books two posts closer together than the minimum gap", () => {
     const slots = spreadSlots({ ...base, count: 8 });
     for (let i = 1; i < slots.length; i++) {
-      const gapHours =
-        (slots[i].getTime() - slots[i - 1].getTime()) / 3_600_000;
-      expect(gapHours).toBeGreaterThanOrEqual(6);
+      const gapHours = (slots[i].getTime() - slots[i - 1].getTime()) / 3_600_000;
+      expect(gapHours).toBeGreaterThanOrEqual(3);
     }
   });
 
   it("counts already-booked slots against both caps", () => {
-    // Topping up a calendar must not stack on top of a week that is full.
     const taken = [
-      utc("2026-08-23T14:00:00"), utc("2026-08-24T14:00:00"),
-      utc("2026-08-25T14:00:00"), utc("2026-08-26T14:00:00"),
-      utc("2026-08-27T14:00:00"),
+      utc("2026-09-14T14:00:00"), utc("2026-09-15T14:00:00"),
+      utc("2026-09-16T14:00:00"), utc("2026-09-17T14:00:00"),
+      utc("2026-09-18T14:00:00"),
     ];
-    const slots = spreadSlots({ ...base, taken, count: 3, horizonDays: 5 });
+    const slots = spreadSlots({ ...base, taken, count: 3, horizonDays: 4 });
     for (const s of slots) {
       const inWindow = [...taken, ...slots].filter(
-        (t) => t.getTime() > s.getTime() - 7 * 86_400_000 &&
-          t.getTime() <= s.getTime(),
+        (t) => t.getTime() > s.getTime() - 7 * 86_400_000 && t.getTime() <= s.getTime(),
       ).length;
       expect(inWindow).toBeLessThanOrEqual(5);
     }
   });
 
   it("fits at most a week's worth into a single week", () => {
-    // horizonDays 6 is days 0..6 — exactly seven days, so every slot shares
-    // one window and the total is the cap.
     const slots = spreadSlots({ ...base, count: 40, horizonDays: 6 });
     expect(slots.length).toBeLessThanOrEqual(5);
   });
 
   it("caps over any rolling seven days, not per calendar week", () => {
-    // Over a longer horizon the total legitimately exceeds the weekly cap —
-    // early slots fall out of the window. The invariant is per-window, so
-    // that is what gets asserted: no seven-day stretch holds more than five.
     const slots = spreadSlots({ ...base, count: 40, horizonDays: 21 });
     expect(slots.length).toBeGreaterThan(5);
     for (const s of slots) {
       const inWindow = slots.filter(
-        (t) => t.getTime() > s.getTime() - 7 * 86_400_000 &&
-          t.getTime() <= s.getTime(),
+        (t) => t.getTime() > s.getTime() - 7 * 86_400_000 && t.getTime() <= s.getTime(),
       ).length;
       expect(inWindow).toBeLessThanOrEqual(5);
     }
   });
 
   it("never books in the past", () => {
-    const slots = spreadSlots({ ...base, from: utc("2026-08-23T18:00:00") });
-    expect(slots[0].getTime()).toBeGreaterThan(utc("2026-08-23T18:00:00").getTime());
+    const slots = spreadSlots({ ...base, from: utc("2026-09-14T18:00:00") });
+    expect(slots[0].getTime()).toBeGreaterThan(utc("2026-09-14T18:00:00").getTime());
   });
 
   it("returns nothing rather than guessing when it has nothing to go on", () => {
     expect(spreadSlots({ ...base, count: 0 })).toEqual([]);
     expect(spreadSlots({ ...base, postsPerWeek: 0 })).toEqual([]);
-    expect(spreadSlots({ ...base, preferredHoursUtc: [] })).toEqual([]);
+    expect(spreadSlots({ ...base, preferredHours: [] })).toEqual([]);
+    expect(spreadSlots({ ...base, preferredHours: [99, -1] })).toEqual([]);
   });
 });

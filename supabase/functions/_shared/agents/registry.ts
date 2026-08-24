@@ -418,11 +418,19 @@ Writing is free and invisible. A draft nobody sends costs nothing, so write
 rather than ask.
 
 **3. Book what is ready.**
-Anything in \`ready_to_schedule\` has a caption and can go out. Spread it across
-the coming days at the hours in \`thresholds\`, never two of the same client's
-posts inside the minimum gap, never more than the weekly cap in any seven days.
-Look at \`booked\` before you add: those slots are taken and count towards both
-limits.
+Anything in \`ready_to_schedule\` has a caption and can go out. Each project
+carries \`available_slots\` — real times, already spread across that client's
+preferred days and hours in their own timezone, already inside their weekly cap
+and minimum gap, and already clear of what is booked.
+
+**Take those times as given.** Use them in order, one post each. Do not
+convert, adjust or invent a time: they are computed from a timezone database
+and you are not. If \`available_slots\` is empty, that client's calendar is full
+for the horizon — say so and book nothing.
+
+A project with \`paused\` true is not paying. Do not book for them, do not
+email them about it, and say in one line who is paused. Nothing is lost;
+posting resumes on payment.
 
 Booking is the moment a post becomes real, so it is gated. For most clients it
 waits for Bree, and you say so plainly rather than implying it is scheduled.

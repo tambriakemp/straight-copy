@@ -130,3 +130,45 @@ ON CONFLICT (tier, key) DO NOTHING;
 -- Client photos are deliberately NOT a checklist item. Posts are generated on
 -- our side from our own bucket; anything a client adds to their CoPost media
 -- library is theirs to manage and must not block onboarding.
+
+-- ---------------------------------------------------------------------------
+-- 7. Re-sync SureContact when a subscription changes.
+--
+--    The trigger fires on tier, email, business name, contact name and
+--    archived — but not on subscription_status. So a client who churned kept
+--    their "client" tag and their Tier tag forever, and every sequence keyed
+--    on those kept treating them as active. For a monthly plan that is the
+--    difference between a win-back sequence firing and never knowing they
+--    left.
+--
+--    Replaces the function from 20260425172735; the trigger itself is
+--    unchanged and still points at it.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.trg_clients_surecontact_sync()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.contact_email IS NOT NULL THEN
+      PERFORM public.fire_surecontact_sync(NEW.id);
+    END IF;
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF NEW.contact_email IS NOT NULL AND (
+      coalesce(NEW.tier, '')                is distinct from coalesce(OLD.tier, '')
+      OR coalesce(NEW.contact_email, '')    is distinct from coalesce(OLD.contact_email, '')
+      OR coalesce(NEW.business_name, '')    is distinct from coalesce(OLD.business_name, '')
+      OR coalesce(NEW.contact_name, '')     is distinct from coalesce(OLD.contact_name, '')
+      OR coalesce(NEW.archived, false)      is distinct from coalesce(OLD.archived, false)
+      -- The addition. A lapse or a win-back should reach the mailing list.
+      OR coalesce(NEW.subscription_status, '')
+           is distinct from coalesce(OLD.subscription_status, '')
+    ) THEN
+      PERFORM public.fire_surecontact_sync(NEW.id);
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;

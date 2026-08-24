@@ -175,6 +175,73 @@ export function cadenceFor(now: Date): Cadence {
 }
 
 // ---------------------------------------------------------------------------
+// Timezone
+// ---------------------------------------------------------------------------
+
+/**
+ * How far the given zone is from UTC at that instant, in milliseconds.
+ *
+ * Done by formatting the instant in the target zone and reading the wall clock
+ * back, because there is no other way without a timezone database — and
+ * shipping one for this would be absurd when Intl already has it.
+ */
+function zoneOffsetMs(instant: Date, timeZone: string): number {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  const parts: Record<string, string> = {};
+  for (const p of dtf.formatToParts(instant)) parts[p.type] = p.value;
+  const asIfUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    // Intl renders midnight as 24 in some locales/runtimes.
+    Number(parts.hour) % 24,
+    Number(parts.minute),
+    Number(parts.second),
+  );
+  return asIfUtc - instant.getTime();
+}
+
+/**
+ * The instant at which it is `hour` o'clock on that date, in that zone.
+ *
+ * Two passes on purpose. The offset depends on the instant, and the instant is
+ * what we are solving for, so the first guess can land on the wrong side of a
+ * daylight-saving boundary — which is exactly the week a client's posts would
+ * silently go out an hour early and nobody would connect the two.
+ */
+export function zonedTimeToUtc(
+  year: number, month: number, day: number, hour: number, timeZone: string,
+): Date {
+  const wallClock = Date.UTC(year, month, day, hour);
+  const first = wallClock - zoneOffsetMs(new Date(wallClock), timeZone);
+  const second = wallClock - zoneOffsetMs(new Date(first), timeZone);
+  return new Date(second);
+}
+
+/** Calendar date and weekday as seen in that zone, not in UTC. */
+export function localParts(
+  instant: Date, timeZone: string,
+): { year: number; month: number; day: number; weekday: string } {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric", month: "2-digit", day: "2-digit", weekday: "short",
+  });
+  const parts: Record<string, string> = {};
+  for (const p of dtf.formatToParts(instant)) parts[p.type] = p.value;
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month) - 1,
+    day: Number(parts.day),
+    weekday: (parts.weekday ?? "").toLowerCase().slice(0, 3),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Spreading posts across the horizon
 // ---------------------------------------------------------------------------
 
@@ -183,8 +250,17 @@ export interface SpreadOptions {
   from: Date;
   /** How far ahead to look. Two weeks, rolling, topped up each run. */
   horizonDays: number;
-  /** Hours of the day worth posting at, UTC. */
-  preferredHoursUtc: number[];
+  /**
+   * Hours of the day worth posting at, in the CLIENT'S timezone.
+   *
+   * Local, not UTC. A client in Los Angeles who wants 2pm means 2pm where they
+   * are; treating that as UTC posts to their audience at six in the morning.
+   */
+  preferredHours: number[];
+  /** IANA zone. Anything unrecognised falls back to UTC. */
+  timeZone: string;
+  /** Weekdays they want, as three-letter lowercase. Empty means any day. */
+  preferredDays?: string[];
   /** The client's cap. Counted over any rolling seven days, not per calendar week. */
   postsPerWeek: number;
   /** Never put two of a client's posts closer together than this. */
@@ -205,44 +281,47 @@ export interface SpreadOptions {
  * The rolling-seven-days cap is deliberate rather than a calendar week: a
  * calendar week lets a client get ten posts across Friday and Monday and still
  * be "within five a week", which is not what anyone means by it.
+ *
+ * Days and hours are both evaluated in the client's zone, so "Mondays at 2pm"
+ * means their Monday and their two o'clock.
  */
 export function spreadSlots(opts: SpreadOptions): Date[] {
   if (opts.count <= 0 || opts.postsPerWeek <= 0) return [];
 
-  const hours = [...new Set(opts.preferredHoursUtc)].sort((a, b) => a - b);
+  const hours = [...new Set(opts.preferredHours)]
+    .filter((h) => Number.isInteger(h) && h >= 0 && h <= 23)
+    .sort((a, b) => a - b);
   if (!hours.length) return [];
+
+  const zone = isValidZone(opts.timeZone) ? opts.timeZone : "UTC";
+  const days = new Set((opts.preferredDays ?? []).map((d) => d.toLowerCase().slice(0, 3)));
 
   const minGapMs = opts.minGapHours * 3_600_000;
   const weekMs = 7 * 86_400_000;
   const booked = [...opts.taken].sort((a, b) => a.getTime() - b.getTime());
   const chosen: Date[] = [];
 
-  const start = new Date(opts.from);
+  const startLocal = localParts(opts.from, zone);
+
   for (let day = 0; day <= opts.horizonDays && chosen.length < opts.count; day++) {
+    // Step the LOCAL calendar. Date.UTC normalises overflow, so day 40 of a
+    // month becomes the right date in the next one.
+    const probe = new Date(Date.UTC(startLocal.year, startLocal.month, startLocal.day + day, 12));
+    const dayLocal = localParts(probe, zone);
+    if (days.size && !days.has(dayLocal.weekday)) continue;
+
     for (const hour of hours) {
       if (chosen.length >= opts.count) break;
 
-      const slot = new Date(Date.UTC(
-        start.getUTCFullYear(),
-        start.getUTCMonth(),
-        start.getUTCDate() + day,
-        hour,
-        0,
-        0,
-        0,
-      ));
+      const slot = zonedTimeToUtc(dayLocal.year, dayLocal.month, dayLocal.day, hour, zone);
       if (slot.getTime() <= opts.from.getTime()) continue;
 
       const all = [...booked, ...chosen];
-      const tooClose = all.some(
-        (t) => Math.abs(t.getTime() - slot.getTime()) < minGapMs,
-      );
-      if (tooClose) continue;
+      if (all.some((t) => Math.abs(t.getTime() - slot.getTime()) < minGapMs)) continue;
 
       // The cap, over the seven days ending at this slot.
       const inWindow = all.filter(
-        (t) => t.getTime() > slot.getTime() - weekMs &&
-          t.getTime() <= slot.getTime(),
+        (t) => t.getTime() > slot.getTime() - weekMs && t.getTime() <= slot.getTime(),
       ).length;
       if (inWindow >= opts.postsPerWeek) continue;
 
@@ -251,4 +330,14 @@ export function spreadSlots(opts: SpreadOptions): Date[] {
   }
 
   return chosen;
+}
+
+function isValidZone(tz: string): boolean {
+  if (!tz) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
 }
