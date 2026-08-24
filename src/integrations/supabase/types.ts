@@ -1013,6 +1013,9 @@ export type Database = {
       }
       client_projects: {
         Row: {
+          social_settings: Json
+          subscription_status: string | null
+          timezone: string | null
           agent_autonomy: string | null
           build_notes: string | null
           business_name: string | null
@@ -1039,6 +1042,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          social_settings?: Json
+          subscription_status?: string | null
+          timezone?: string | null
           agent_autonomy?: string | null
           build_notes?: string | null
           business_name?: string | null
@@ -1065,6 +1071,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          social_settings?: Json
+          subscription_status?: string | null
+          timezone?: string | null
           agent_autonomy?: string | null
           build_notes?: string | null
           business_name?: string | null
@@ -1283,6 +1292,9 @@ export type Database = {
       }
       clients: {
         Row: {
+          payment_provider: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           archived: boolean
           brand_kit_conversation: Json
           brand_kit_intake: Json | null
@@ -1335,6 +1347,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          payment_provider?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           archived?: boolean
           brand_kit_conversation?: Json
           brand_kit_intake?: Json | null
@@ -1387,6 +1402,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          payment_provider?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           archived?: boolean
           brand_kit_conversation?: Json
           brand_kit_intake?: Json | null

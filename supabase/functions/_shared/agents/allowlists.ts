@@ -24,6 +24,7 @@ export const ALLOWED_ACTIONS: Record<string, string[]> = {
     "schedule_social_post",
     "cancel_social_post",
     "request_client_photos",
+    "request_client_setup",
     "draft_client_message",
     "create_task",
     "flag_risk",

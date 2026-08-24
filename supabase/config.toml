@@ -154,3 +154,12 @@ verify_jwt = false
 # the function — the same arrangement as dispatch-agent-runs.
 [functions.dispatch-social-schedule]
 verify_jwt = false
+
+# The social plan signup form. Public — this runs before anyone is a client.
+[functions.social-signup]
+verify_jwt = false
+
+# Stripe calls this with a signature header, not a Supabase JWT. Separate from
+# stripe-webhook (ventures) so the two carry different signing secrets.
+[functions.stripe-crm-webhook]
+verify_jwt = false

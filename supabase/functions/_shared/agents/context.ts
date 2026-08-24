@@ -610,9 +610,10 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
   }
 
   const since = iso(lookbackDays * DAY);
-  const [clientsRes, secretsRes, imagesRes, postsRes, scheduledRes, followersRes] = await Promise.all([
+  const [clientsRes, secretsRes, imagesRes, postsRes, scheduledRes, followersRes, nudgeRes] =
+    await Promise.all([
     sb.from("clients")
-      .select("id, contact_name, contact_email, business_name, brand_voice_content, brand_voice_approved")
+      .select("id, contact_name, contact_email, business_name, brand_voice_quick_ref, brand_voice_doc, brand_voice_content, brand_voice_approved")
       .in("id", (projects ?? []).map((p) => p.client_id)),
     // Key only. The value is a credential and never leaves the function that
     // decrypts it — knowing whether one exists is all the agent needs.
@@ -633,6 +634,13 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
       .select("client_project_id, platform, follower_count, captured_at")
       .in("client_project_id", projectIds)
       .order("captured_at", { ascending: false }).limit(300),
+    // How many times each client has already been chased. Counted from the
+    // actions themselves rather than a column, so there is one record of it
+    // and nothing to keep in step.
+    sb.from("agent_actions")
+      .select("kind, payload, created_at")
+      .eq("kind", "request_client_setup")
+      .order("created_at", { ascending: false }).limit(200),
   ]);
 
   // Promise.all resolves each query to its full PostgrestResponse — { data,
@@ -646,6 +654,13 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
   const posts = postsRes.data ?? [];
   const scheduled = scheduledRes.data ?? [];
   const followers = followersRes.data ?? [];
+  const nudges = nudgeRes.data ?? [];
+
+  const nudgeCount: Record<string, number> = {};
+  for (const n of nudges) {
+    const pid = String((n.payload as Record<string, unknown> | null)?.client_project_id ?? "");
+    if (pid) nudgeCount[pid] = (nudgeCount[pid] ?? 0) + 1;
+  }
 
   const clientById = new Map(clients.map((c) => [c.id, c]));
   const configured = new Set(
@@ -697,9 +712,28 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
       client: client?.business_name ?? client?.contact_name ?? p.name,
       contact_email: client?.contact_email ?? null,
       copost_configured: configured.has(p.id),
+      // Where this client is in setting up. `blocked` means nothing can post
+      // no matter how many photos arrive, because there is nowhere to send to.
+      onboarding: {
+        copost_ready: configured.has(p.id),
+        has_photos: myImages.length > 0,
+        blocked: !configured.has(p.id),
+        times_chased: nudgeCount[p.id] ?? 0,
+        // Three is the ceiling. Past that an email is not working and the
+        // problem needs a person, not another reminder.
+        may_chase: (nudgeCount[p.id] ?? 0) < 3,
+      },
       autonomy: p.agent_autonomy ?? "inherit",
       posts_unattended: p.agent_autonomy === "autonomous",
-      brand_voice: client?.brand_voice_approved ? client.brand_voice_content : null,
+      // Three columns, because they disagree. generate-brand-voice writes
+      // brand_voice_doc and brand_voice_quick_ref; brand_voice_content exists
+      // but only crm-api ever sets it. Reading only the last one meant Iris
+      // saw no voice for any client and wrote generically without anything
+      // saying so. Quick ref first: it is the condensed card, which is what a
+      // caption needs, and the full doc is mostly rationale.
+      brand_voice: client?.brand_voice_approved
+        ? (client.brand_voice_quick_ref ?? client.brand_voice_doc ?? client.brand_voice_content ?? null)
+        : null,
       photos_unposted: unposted.length,
       runway_days: r.days === Infinity ? null : r.days,
       runway: r.severity,

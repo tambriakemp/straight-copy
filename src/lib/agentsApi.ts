@@ -98,6 +98,7 @@ export const ACTION_LABEL: Record<string, string> = {
   schedule_social_post: "Book a post",
   cancel_social_post: "Call off a post",
   request_client_photos: "Ask for more photos",
+  request_client_setup: "Chase the setup",
   draft_client_message: "Write to a client",
   create_task: "Open a task",
   complete_checklist_item: "Tick a checklist item",

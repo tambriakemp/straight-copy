@@ -1092,6 +1092,7 @@ export async function executeAction(
       }
 
       case "request_client_photos":
+      case "request_client_setup":
       case "draft_client_message":
         return await sendClientEmail(sb, action, agentName);
 

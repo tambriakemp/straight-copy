@@ -13,6 +13,7 @@ const Index = lazy(() => import("./pages/Index.tsx"));
 const Services = lazy(() => import("./pages/Services.tsx"));
 const Philosophy = lazy(() => import("./pages/Philosophy.tsx"));
 const Contact = lazy(() => import("./pages/Contact.tsx"));
+const SocialSignup = lazy(() => import("./pages/SocialSignup.tsx"));
 const HowItWorks = lazy(() => import("./pages/HowItWorks.tsx"));
 const Privacy = lazy(() => import("./pages/Privacy.tsx"));
 const Unsubscribe = lazy(() => import("./pages/Unsubscribe.tsx"));
@@ -68,6 +69,7 @@ const App = () => (
             <Route path="/services" element={<Services />} />
             <Route path="/philosophy" element={<Philosophy />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/social" element={<SocialSignup />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />

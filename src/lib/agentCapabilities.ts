@@ -28,9 +28,9 @@ export const AGENT_CAPABILITIES: Record<string, string[]> = {
     "Summarises what came back and needs review",
   ],
   "social-media": [
+    "Chases a new client until CoPost is connected and photos are in",
     "Writes the caption and hashtags for every post still waiting on one",
     "Books the next two weeks to CoPost, unattended for cleared clients",
-    "Chases the client when their photos are about to run out",
   ],
   "client-engagement": [
     "Keeps every client in SureContact, tagged and current",

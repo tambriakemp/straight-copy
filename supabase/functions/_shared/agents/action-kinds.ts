@@ -171,6 +171,16 @@ export const ACTION_KINDS: Record<string, ActionKind> = {
       "approval — the brake must never wait for one.",
     payload: "{client_project_id, schedule_id, reason?}",
   },
+  request_client_setup: {
+    kind: "request_client_setup",
+    outward: true,
+    purpose:
+      "email a client who has not finished setting up — the CoPost invite not " +
+      "accepted, or no photos in their library yet. One outstanding thing per " +
+      "email, and stop once you have asked three times.",
+    payload:
+      "{client_project_id, client_id, to, subject, body, missing: 'copost'|'photos'}",
+  },
   request_client_photos: {
     kind: "request_client_photos",
     outward: true,
