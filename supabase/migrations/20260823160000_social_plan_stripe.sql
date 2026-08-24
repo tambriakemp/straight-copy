@@ -100,150 +100,33 @@ CREATE INDEX IF NOT EXISTS client_projects_subscription_status_idx
 -- ---------------------------------------------------------------------------
 INSERT INTO public.journey_templates (tier, order_index, key, label, description, checklist)
 VALUES
-  ('social', 0, 'intake', 'Setup', 'Accounts connected and content flowing',
+  ('social', 0, 'intake', 'Setup', 'Accounts connected and the first posts written',
    jsonb_build_array(
      jsonb_build_object('key','intake.welcome_email_sent','label','Welcome email sent','owner','auto','done',false),
-     jsonb_build_object('key','intake.portal_accessed','label','Portal opened','owner','client','done',false),
-     jsonb_build_object('key','intake.copost_provisioned','label','CoPost project created and invite sent','owner','auto','done',false),
-     jsonb_build_object('key','intake.copost_connected','label','CoPost invite accepted and Facebook, Instagram and TikTok connected','owner','client','done',false),
-     jsonb_build_object('key','intake.photos_uploaded','label','First photos added to the CoPost media library','owner','client','done',false)
+     jsonb_build_object('key','intake.copost_provisioned','label','CoPost project created, client invited, trigger URL saved','owner','agency','done',false),
+     jsonb_build_object('key','intake.copost_connected','label','Client accepted the CoPost invite and connected their accounts','owner','client','done',false),
+     jsonb_build_object('key','intake.first_posts_generated','label','First batch of posts written','owner','auto','done',false),
+     jsonb_build_object('key','intake.autonomy_released','label','First posts reviewed and the client cleared to post unattended','owner','agency','done',false)
    )),
   ('social', 1, 'brand_voice', 'Brand Voice', 'Voice written from the checkout answers',
    jsonb_build_array(
-     jsonb_build_object('key','brand_voice.document_generated','label','Brand voice written','owner','auto','auto_key','brand_voice_generated','done',false),
-     jsonb_build_object('key','brand_voice.sent_to_client','label','Brand voice sent to the client','owner','auto','done',false)
+     jsonb_build_object('key','brand_voice.document_generated','label','Brand voice written','owner','auto','auto_key','brand_voice_generated','done',false)
    )),
   ('social', 2, 'active', 'Posting', 'Iris is scheduling and publishing', '[]'::jsonb)
 ON CONFLICT (tier, key) DO NOTHING;
 
--- ---------------------------------------------------------------------------
--- 5. Signup answers, captured before payment.
+-- A note on the two 'agency' items above, because the launch and growth intakes
+-- deliberately avoid them.
 --
---    Stripe Checkout allows at most THREE custom fields, and the social plan
---    needs a dozen — timezone, cadence, channels, what to promote, what never
---    to say, consent. So the form is ours and runs before checkout, and the
---    session carries only a reference to the row it produced.
+-- auto_complete_journey_node only completes a node when every item is done, so
+-- an agency item that nobody ever ticks stalls the journey forever — which is
+-- exactly what summary_reviewed and social_audit do on the other tiers.
 --
---    Capturing before payment rather than after has a second benefit: an
---    abandoned checkout still leaves the answers here, so it is a lead rather
---    than nothing.
+-- These two are different: creating the CoPost project and releasing a client
+-- from the new-client hold are real work that actually gets done, and both are
+-- things a human must decide. Making them 'auto' would mean the board never
+-- showed the one manual step in the whole flow.
 --
---    This holds no card data and never will. Stripe sees the payment details;
---    we see an id.
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.social_signups (
-  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  email             text NOT NULL,
-  contact_name      text,
-  business_name     text,
-  phone             text,
-  timezone          text,
-  answers           jsonb NOT NULL DEFAULT '{}'::jsonb,
-  consented_at      timestamptz,
-  status            text NOT NULL DEFAULT 'pending',
-  stripe_session_id text,
-  client_id         uuid REFERENCES public.clients(id) ON DELETE SET NULL,
-  client_project_id uuid REFERENCES public.client_projects(id) ON DELETE SET NULL,
-  completed_at      timestamptz,
-  created_at        timestamptz NOT NULL DEFAULT now(),
-  updated_at        timestamptz NOT NULL DEFAULT now()
-);
-
-ALTER TABLE public.social_signups
-  ADD COLUMN IF NOT EXISTS email             text,
-  ADD COLUMN IF NOT EXISTS contact_name      text,
-  ADD COLUMN IF NOT EXISTS business_name     text,
-  ADD COLUMN IF NOT EXISTS phone             text,
-  ADD COLUMN IF NOT EXISTS timezone          text,
-  ADD COLUMN IF NOT EXISTS answers           jsonb NOT NULL DEFAULT '{}'::jsonb,
-  ADD COLUMN IF NOT EXISTS consented_at      timestamptz,
-  ADD COLUMN IF NOT EXISTS status            text NOT NULL DEFAULT 'pending',
-  ADD COLUMN IF NOT EXISTS stripe_session_id text,
-  ADD COLUMN IF NOT EXISTS client_id         uuid,
-  ADD COLUMN IF NOT EXISTS client_project_id uuid,
-  ADD COLUMN IF NOT EXISTS completed_at      timestamptz,
-  ADD COLUMN IF NOT EXISTS created_at        timestamptz NOT NULL DEFAULT now(),
-  ADD COLUMN IF NOT EXISTS updated_at        timestamptz NOT NULL DEFAULT now();
-
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'social_signups_status_chk') THEN
-    ALTER TABLE public.social_signups
-      ADD CONSTRAINT social_signups_status_chk
-      CHECK (status IN ('pending', 'paid', 'provisioned', 'abandoned'));
-  END IF;
-END $$;
-
--- One signup per Stripe session, so a redelivered webhook cannot provision twice.
-CREATE UNIQUE INDEX IF NOT EXISTS social_signups_session_idx
-  ON public.social_signups (stripe_session_id)
-  WHERE stripe_session_id IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS social_signups_pending_idx
-  ON public.social_signups (created_at DESC) WHERE status = 'pending';
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.social_signups TO authenticated;
-GRANT ALL ON public.social_signups TO service_role;
-
-ALTER TABLE public.social_signups ENABLE ROW LEVEL SECURITY;
-
--- Admins read; the signup function writes as service_role. Deliberately no
--- anon policy: the form posts to an edge function, never straight to the table,
--- so nothing can enumerate or edit other people's answers.
-DROP POLICY IF EXISTS "Admins read social_signups" ON public.social_signups;
-CREATE POLICY "Admins read social_signups"
-  ON public.social_signups FOR SELECT
-  TO authenticated
-  USING (public.is_admin(auth.uid()));
-
-DROP TRIGGER IF EXISTS set_updated_at_social_signups ON public.social_signups;
-CREATE TRIGGER set_updated_at_social_signups
-  BEFORE UPDATE ON public.social_signups
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
--- ---------------------------------------------------------------------------
--- 6. Do not post for a client who is not paying.
---
---    Replaces the version in 20260823120000 with one that skips projects out
---    of good standing.
---
---    The check belongs HERE rather than in the dispatcher, and that is not a
---    style preference. attempts is incremented at claim time, so a dispatcher
---    that claimed a past-due client's post and then declined to send it would
---    burn both attempts within ten minutes and fail the post permanently. A
---    row that is never claimed keeps its attempts and simply waits.
---
---    NULL means fine. Every marketing project that predates the social plan
---    has no subscription of its own, and those must keep posting.
--- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.claim_due_social_sends(_limit int DEFAULT 25)
-RETURNS SETOF public.social_schedule
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  RETURN QUERY
-  UPDATE public.social_schedule s
-     SET status     = 'sending',
-         claimed_at = now(),
-         attempts   = s.attempts + 1
-   WHERE s.id IN (
-     SELECT c.id
-       FROM public.social_schedule c
-       JOIN public.client_projects p ON p.id = c.client_project_id
-      WHERE c.status = 'pending'
-        AND c.scheduled_at <= now()
-        AND c.attempts < c.max_attempts
-        AND p.status = 'active'
-        AND (p.subscription_status IS NULL
-             OR p.subscription_status IN ('active', 'trialing'))
-      ORDER BY c.scheduled_at
-      FOR UPDATE OF c SKIP LOCKED
-      LIMIT _limit
-   )
-  RETURNING s.*;
-END $$;
-
-REVOKE ALL ON FUNCTION public.claim_due_social_sends(int) FROM public, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.claim_due_social_sends(int) TO service_role;
+-- Client photos are deliberately NOT a checklist item. Posts are generated on
+-- our side from our own bucket; anything a client adds to their CoPost media
+-- library is theirs to manage and must not block onboarding.

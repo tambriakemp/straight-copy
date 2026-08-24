@@ -656,11 +656,24 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
   const followers = followersRes.data ?? [];
   const nudges = nudgeRes.data ?? [];
 
+  // How many times each client has been chased, and how long ago the last one
+  // was. Both matter: the count is the ceiling, and the gap is what stops
+  // three reminders going out on three consecutive weekdays. She runs every
+  // weekday, so without the gap "three attempts" means "three days".
   const nudgeCount: Record<string, number> = {};
+  const lastNudge: Record<string, string> = {};
   for (const n of nudges) {
     const pid = String((n.payload as Record<string, unknown> | null)?.client_project_id ?? "");
-    if (pid) nudgeCount[pid] = (nudgeCount[pid] ?? 0) + 1;
+    if (!pid) continue;
+    nudgeCount[pid] = (nudgeCount[pid] ?? 0) + 1;
+    // Ordered newest first by the query, so the first one seen wins.
+    if (!lastNudge[pid]) lastNudge[pid] = String(n.created_at);
   }
+
+  const MIN_DAYS_BETWEEN_NUDGES = Number(cfg.days_between_nudges ?? 3);
+  const MAX_NUDGES = Number(cfg.max_nudges ?? 3);
+  const daysSince = (iso?: string) =>
+    iso ? (Date.now() - new Date(iso).getTime()) / DAY : Infinity;
 
   const clientById = new Map(clients.map((c) => [c.id, c]));
   const configured = new Set(
@@ -719,9 +732,13 @@ export async function socialContext(sb: SupabaseClient, cfg: Record<string, unkn
         has_photos: myImages.length > 0,
         blocked: !configured.has(p.id),
         times_chased: nudgeCount[p.id] ?? 0,
-        // Three is the ceiling. Past that an email is not working and the
-        // problem needs a person, not another reminder.
-        may_chase: (nudgeCount[p.id] ?? 0) < 3,
+        last_chased_days_ago: Math.floor(daysSince(lastNudge[p.id])),
+        // Three is the ceiling, and three days is the gap. Past the ceiling an
+        // email is not working and the problem needs a person, not another
+        // reminder; inside the gap she has already asked this week.
+        may_chase: (nudgeCount[p.id] ?? 0) < MAX_NUDGES &&
+          daysSince(lastNudge[p.id]) >= MIN_DAYS_BETWEEN_NUDGES,
+        chase_exhausted: (nudgeCount[p.id] ?? 0) >= MAX_NUDGES,
       },
       autonomy: p.agent_autonomy ?? "inherit",
       posts_unattended: p.agent_autonomy === "autonomous",

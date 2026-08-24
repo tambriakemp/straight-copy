@@ -191,20 +191,23 @@ async function provision(sb: Sb, session: Obj): Promise<Obj> {
     );
   }
 
-  // The one manual step in the whole flow. Everything either side is automatic.
-  await sb.from("project_tasks").insert({
-    client_project_id: projectId,
-    name: `Set up CoPost for ${s.business_name ?? s.contact_name ?? "this client"}`,
+  // The board. ensure_intake_tasks_for_project walks the intake node's
+  // checklist and creates one task per item, mapping owner -> assignee_kind —
+  // so the agency items land as 'agency' and the client's as 'client' without
+  // a second list to keep in step with the journey.
+  await sb.rpc("ensure_intake_tasks_for_project", { _client_project_id: projectId });
+
+  // One task needs context the checklist label cannot carry: which invite to
+  // send, and which accounts this client actually has.
+  await sb.from("project_tasks").update({
+    priority: "high",
     description:
       `Create the CoPost project, invite ${s.email}, create a trigger, and paste ` +
       `its URL into the project's Settings tab.\n\n` +
-      `Channels they said they have: ${s.channels.join(", ") || "none stated"}.\n\n` +
-      `Nothing can post until the trigger URL is saved — Iris will chase the ` +
-      `client once it is.`,
-    priority: "high",
-    status: "backlog",
-    assignee_kind: "admin",
-  });
+      `Accounts they said they have: ${s.channels.join(", ") || "none stated"}.\n\n` +
+      `Nothing can post until that URL is saved. Iris chases the client to accept ` +
+      `the invite once it is, and stops after three attempts.`,
+  }).eq("client_project_id", projectId).eq("journey_item_key", "intake.copost_provisioned");
 
   // Brand voice, fire-and-forget. It reads clients.intake_data, which was set
   // above, so it has something to work from.

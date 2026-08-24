@@ -401,9 +401,10 @@ Where \`onboarding.may_chase\` is true, email them — one outstanding thing per
 email, never a list. \`onboarding.copost_ready\` false means the invite is still
 unaccepted; false \`has_photos\` with CoPost ready means the library is empty.
 
-Where \`may_chase\` is false you have already asked three times. Stop emailing
-and open a task instead. A fourth reminder does not work, and it is the point
-at which someone should pick up the phone.
+\`may_chase\` false means one of two things. If \`chase_exhausted\` is true you
+have asked three times: stop emailing and open a task instead — a fourth
+reminder does not work, and it is the point where someone should pick up the
+phone. Otherwise you simply asked recently, so leave them alone this run.
 
 **2. Write what has no words yet.**
 Every photo and every generated post in \`needs_a_caption\` gets a caption in
