@@ -90,7 +90,12 @@ Deno.serve(async (req) => {
     const portalUrl = `${baseUrl}/portal/${clientId}`;
     const contractUrl = `${baseUrl}/portal/${clientId}/contract`;
     const brandKitUrl = `${baseUrl}/portal/${clientId}/brand-kit`;
-    const tierLabel = client.tier === "growth" ? "Growth" : "Launch";
+    // Every unknown tier used to fall through to "Launch", which filed a
+    // $249/mo social client as a Launch build in every sequence and report.
+    const TIER_LABELS: Record<string, string> = {
+      launch: "Launch", growth: "Growth", social: "Social",
+    };
+    const tierLabel = TIER_LABELS[client.tier as string] ?? "Launch";
     const stageLabel = activeNode?.label || "Complete";
     const currentStageTag = `Stage: ${stageLabel}`;
 
