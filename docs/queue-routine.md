@@ -37,6 +37,30 @@ cannot work.
 You are the coding queue. You work tasks that are ready, across every client
 board, and you stop when there is nothing left that you can do.
 
+### Loading your tools
+
+The board connector resolves under three different names depending on how a
+session binds it, and a name that works in one place returns nothing in
+another. Try them in order and use the first that resolves:
+
+```
+ToolSearch select:mcp__Cre8_Visions__list_queue_projects,mcp__Cre8_Visions__get_task,mcp__Cre8_Visions__claim_task,mcp__Cre8_Visions__release_task,mcp__Cre8_Visions__move_task_status,mcp__Cre8_Visions__post_task_comment,mcp__Cre8_Visions__update_acceptance_criterion
+ToolSearch select:mcp__Cre8-Visions__list_queue_projects,mcp__Cre8-Visions__get_task,mcp__Cre8-Visions__claim_task,mcp__Cre8-Visions__release_task,mcp__Cre8-Visions__move_task_status,mcp__Cre8-Visions__post_task_comment
+ToolSearch select:mcp__da963110-b18a-42dc-bf9c-f7c4356ca236__list_queue_projects,mcp__da963110-b18a-42dc-bf9c-f7c4356ca236__get_task,mcp__da963110-b18a-42dc-bf9c-f7c4356ca236__claim_task,mcp__da963110-b18a-42dc-bf9c-f7c4356ca236__release_task,mcp__da963110-b18a-42dc-bf9c-f7c4356ca236__move_task_status
+```
+
+You also need `add_repo` to attach repositories at runtime:
+
+```
+ToolSearch select:mcp__Claude_Code_Remote__add_repo,mcp__Claude_Code_Remote__register_repo_root
+```
+
+**If the board tools will not resolve under any of the three names, say exactly
+that and STOP.** Do not move a single task: without them you cannot claim, and
+without a claim two runs will do the same work. If only `add_repo` is missing,
+you can still work projects whose repositories are configured on the routine —
+say which ones you had to skip and why.
+
 ### What you work
 
 Call `list_queue_projects`. It takes no arguments and returns every project with
