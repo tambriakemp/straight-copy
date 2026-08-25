@@ -1013,9 +1013,6 @@ export type Database = {
       }
       client_projects: {
         Row: {
-          social_settings: Json
-          subscription_status: string | null
-          timezone: string | null
           agent_autonomy: string | null
           build_notes: string | null
           business_name: string | null
@@ -1035,16 +1032,16 @@ export type Database = {
           queue_enabled: boolean
           repo_branch: string
           repo_url: string | null
+          social_settings: Json
           source_order_id: string | null
           status: string
+          subscription_status: string | null
+          timezone: string | null
           toolchain: string
           type: string
           updated_at: string
         }
         Insert: {
-          social_settings?: Json
-          subscription_status?: string | null
-          timezone?: string | null
           agent_autonomy?: string | null
           build_notes?: string | null
           business_name?: string | null
@@ -1064,16 +1061,16 @@ export type Database = {
           queue_enabled?: boolean
           repo_branch?: string
           repo_url?: string | null
+          social_settings?: Json
           source_order_id?: string | null
           status?: string
+          subscription_status?: string | null
+          timezone?: string | null
           toolchain?: string
           type: string
           updated_at?: string
         }
         Update: {
-          social_settings?: Json
-          subscription_status?: string | null
-          timezone?: string | null
           agent_autonomy?: string | null
           build_notes?: string | null
           business_name?: string | null
@@ -1093,8 +1090,11 @@ export type Database = {
           queue_enabled?: boolean
           repo_branch?: string
           repo_url?: string | null
+          social_settings?: Json
           source_order_id?: string | null
           status?: string
+          subscription_status?: string | null
+          timezone?: string | null
           toolchain?: string
           type?: string
           updated_at?: string
@@ -1292,9 +1292,6 @@ export type Database = {
       }
       clients: {
         Row: {
-          payment_provider: string | null
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
           archived: boolean
           brand_kit_conversation: Json
           brand_kit_intake: Json | null
@@ -1333,8 +1330,11 @@ export type Database = {
           kickoff_webhook_fired_at: string | null
           notes: string | null
           onboarding_submission_id: string | null
+          payment_provider: string | null
           pipeline_stage: string
           purchased_at: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           subscription_cancel_at_period_end: boolean
           subscription_canceled_at: string | null
           subscription_current_period_end: string | null
@@ -1347,9 +1347,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          payment_provider?: string | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
           archived?: boolean
           brand_kit_conversation?: Json
           brand_kit_intake?: Json | null
@@ -1388,8 +1385,11 @@ export type Database = {
           kickoff_webhook_fired_at?: string | null
           notes?: string | null
           onboarding_submission_id?: string | null
+          payment_provider?: string | null
           pipeline_stage?: string
           purchased_at?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           subscription_cancel_at_period_end?: boolean
           subscription_canceled_at?: string | null
           subscription_current_period_end?: string | null
@@ -1402,9 +1402,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          payment_provider?: string | null
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
           archived?: boolean
           brand_kit_conversation?: Json
           brand_kit_intake?: Json | null
@@ -1443,8 +1440,11 @@ export type Database = {
           kickoff_webhook_fired_at?: string | null
           notes?: string | null
           onboarding_submission_id?: string | null
+          payment_provider?: string | null
           pipeline_stage?: string
           purchased_at?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           subscription_cancel_at_period_end?: boolean
           subscription_canceled_at?: string | null
           subscription_current_period_end?: string | null
@@ -3576,6 +3576,75 @@ export type Database = {
             columns: ["social_post_id"]
             isOneToOne: false
             referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_signups: {
+        Row: {
+          answers: Json
+          business_name: string | null
+          client_id: string | null
+          client_project_id: string | null
+          completed_at: string | null
+          consented_at: string | null
+          contact_name: string | null
+          created_at: string
+          email: string
+          id: string
+          phone: string | null
+          status: string
+          stripe_session_id: string | null
+          timezone: string | null
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          business_name?: string | null
+          client_id?: string | null
+          client_project_id?: string | null
+          completed_at?: string | null
+          consented_at?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          phone?: string | null
+          status?: string
+          stripe_session_id?: string | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          business_name?: string | null
+          client_id?: string | null
+          client_project_id?: string | null
+          completed_at?: string | null
+          consented_at?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          phone?: string | null
+          status?: string
+          stripe_session_id?: string | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_signups_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_signups_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
             referencedColumns: ["id"]
           },
         ]
