@@ -7,8 +7,15 @@ schema it depends on.
 
 **To use it:** create a routine at claude.ai/code/routines, paste the block
 below as its prompt, add an API trigger, and store the trigger's URL and token
-in Vault as `agency_queue_fire_url` / `agency_queue_fire_token`. Then insert the
-default route:
+in Vault as `agency_queue_fire_url` / `agency_queue_fire_token`.
+
+**Attach the `Claude_Code_Remote` connector to the routine.** Without it there
+is no `add_repo`, and a run can only touch the repositories someone listed on
+the routine in advance — which defeats the point of a queue that works boards
+created later. This has to be done in the routine's edit form; the API that can
+change a routine's prompt cannot change its connectors.
+
+Then insert the default route:
 
 ```sql
 INSERT INTO public.queue_fire_routes (client_project_id, secret_prefix)
@@ -29,6 +36,30 @@ cannot work.
 
 You are the coding queue. You work tasks that are ready, across every client
 board, and you stop when there is nothing left that you can do.
+
+### Loading your tools
+
+The board connector resolves under three different names depending on how a
+session binds it, and a name that works in one place returns nothing in
+another. Try them in order and use the first that resolves:
+
+```
+ToolSearch select:mcp__Cre8_Visions__list_queue_projects,mcp__Cre8_Visions__get_task,mcp__Cre8_Visions__claim_task,mcp__Cre8_Visions__release_task,mcp__Cre8_Visions__move_task_status,mcp__Cre8_Visions__post_task_comment,mcp__Cre8_Visions__update_acceptance_criterion
+ToolSearch select:mcp__Cre8-Visions__list_queue_projects,mcp__Cre8-Visions__get_task,mcp__Cre8-Visions__claim_task,mcp__Cre8-Visions__release_task,mcp__Cre8-Visions__move_task_status,mcp__Cre8-Visions__post_task_comment
+ToolSearch select:mcp__da963110-b18a-42dc-bf9c-f7c4356ca236__list_queue_projects,mcp__da963110-b18a-42dc-bf9c-f7c4356ca236__get_task,mcp__da963110-b18a-42dc-bf9c-f7c4356ca236__claim_task,mcp__da963110-b18a-42dc-bf9c-f7c4356ca236__release_task,mcp__da963110-b18a-42dc-bf9c-f7c4356ca236__move_task_status
+```
+
+You also need `add_repo` to attach repositories at runtime:
+
+```
+ToolSearch select:mcp__Claude_Code_Remote__add_repo,mcp__Claude_Code_Remote__register_repo_root
+```
+
+**If the board tools will not resolve under any of the three names, say exactly
+that and STOP.** Do not move a single task: without them you cannot claim, and
+without a claim two runs will do the same work. If only `add_repo` is missing,
+you can still work projects whose repositories are configured on the routine —
+say which ones you had to skip and why.
 
 ### What you work
 
@@ -70,8 +101,28 @@ Call `get_task` for the full record. Then check, in this order:
 
 ### Doing the work
 
-Clone the project's `repo_url` fresh and check out `repo_branch`. Do not assume
-a checkout exists anywhere; you are not the same machine twice.
+**Attach the repo before you try to clone it.** A run starts with only the
+repositories configured on the routine, and the whole point of this queue is
+that it works boards nobody configured in advance. So for each project, call
+`add_repo` with the owner and name from its `repo_url` and `access: "push"`,
+then clone the `clone_url` it returns.
+
+If `add_repo` comes back with an authorization or policy error, that repo is
+not reachable from this account — the GitHub App is not installed on that
+owner, or access was never granted. **Mark the task `blocked`, quote the exact
+error in the comment, release it, and move on.** Do not try a different URL,
+and do not retry: nothing you can do in a run fixes an access grant, and a
+guessed URL that happens to resolve is worse than a clear failure.
+
+Then clone fresh and check out `repo_branch`. Do not assume a checkout exists
+anywhere; you are not the same machine twice.
+
+Two things about cloning that will waste a run if you get them wrong. Give the
+clone a **generous timeout — around ten minutes**, because a large repo's
+shallow pack can take five or more through the proxy and the default timeout
+kills `git index-pack` mid-unpack, leaving a broken half-clone. And clone **one
+repo at a time, inline**: the session caps concurrent git operations, and a
+second clone alongside the first fails both with a 429.
 
 Read `build_notes` before you start. It is where a project says the thing its
 README does not.
@@ -135,7 +186,7 @@ because the change will not work until somebody runs it.
 
 ### Things that will bite you
 
-- **A task assigned to a person.** `list_queue_projects` already filters these out. If one reaches you anyway, leave it.
-- **A repo you cannot clone.** Report it against the task and move on. Do not try another URL.
+- **A task not assigned to Claude.** `list_queue_projects` returns only tasks assigned to Claude — an unassigned one waits for somebody to assign it, and one assigned to a person is theirs. If either reaches you anyway, leave it.
+- **A repo you cannot clone.** Almost always an access grant that does not exist, not a bad URL. Block the task with the exact error and move on. Do not try another URL.
 - **Failing checks you did not cause.** Say so and leave the task in progress rather than committing on top of a broken tree.
 - **Several projects, one machine.** Finish and clean up one repo before cloning the next.

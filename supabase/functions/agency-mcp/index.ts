@@ -90,9 +90,10 @@ mcp.tool("list_projects", {
 mcp.tool("list_queue_projects", {
   description:
     "Projects with ready_for_claude tasks waiting and a repo configured, in board order. " +
-    "Only unclaimed tasks meant for Claude — anything assigned to a person is left alone. " +
+    "Only unclaimed tasks assigned to Claude — an unassigned one is left alone until somebody assigns it. " +
     "Each carries everything a coding session needs: repo, branch, deploy target, toolchain, " +
-    "build notes, and delivery_mode — 'pr' means open a pull request, 'push' means commit to the branch. " +
+    "build notes, and delivery_mode — 'pr' opens a pull request and stops, 'pr_merge' opens and merges it, " +
+    "'push' commits straight to the branch. " +
     "Use this to drive a sweep across every board instead of naming one project.",
   inputSchema: { type: "object", properties: {} },
   handler: async () => {
@@ -111,17 +112,20 @@ mcp.tool("list_queue_projects", {
 
     // Unclaimed only: a task another run is holding is not waiting for this one.
     //
-    // And only work meant for Claude. The column is named ready_for_claude, so
-    // an unassigned task there is taken as intended for it — but a task
-    // explicitly assigned to a person is not. "Press Send to client on the
-    // proposal" was sitting in this queue assigned to `agency`, and a coding
-    // run waking for it would burn a session and do nothing.
+    // And assigned to Claude, strictly. This used to accept `unassigned` too,
+    // on the reasoning that a task sitting in a column called ready_for_claude
+    // must be meant for it. That guess is what put "Press Send to client on the
+    // proposal" — assigned to `agency` — in front of a coding run.
+    //
+    // This has to stay in step with on_task_ready_for_claude, which decides
+    // whether to fire a run at all. If the two disagree, a task either wakes a
+    // run that cannot see it, or is visible to a run nothing ever wakes.
     const { data: tasks, error: tErr } = await sb.from("project_tasks")
       .select("id, client_project_id, name, created_at, claimed_by, priority, order_index")
       .eq("status", "ready_for_claude")
       .in("client_project_id", ids)
       .is("claimed_by", null)
-      .in("assignee_kind", ["claude", "unassigned"])
+      .eq("assignee_kind", "claude")
       // Board order, which is how a person reading the column expects it
       // worked — not creation order.
       .order("order_index", { ascending: true })
