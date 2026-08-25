@@ -1013,13 +1013,13 @@ export type Database = {
       }
       client_projects: {
         Row: {
-          delivery_mode: string
           agent_autonomy: string | null
           build_notes: string | null
           business_name: string | null
           client_id: string
           company_id: string | null
           created_at: string
+          delivery_mode: string
           deploy_project_id: string | null
           deploy_project_name: string | null
           deploy_provider: string | null
@@ -1043,13 +1043,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          delivery_mode?: string
           agent_autonomy?: string | null
           build_notes?: string | null
           business_name?: string | null
           client_id: string
           company_id?: string | null
           created_at?: string
+          delivery_mode?: string
           deploy_project_id?: string | null
           deploy_project_name?: string | null
           deploy_provider?: string | null
@@ -1073,13 +1073,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          delivery_mode?: string
           agent_autonomy?: string | null
           build_notes?: string | null
           business_name?: string | null
           client_id?: string
           company_id?: string | null
           created_at?: string
+          delivery_mode?: string
           deploy_project_id?: string | null
           deploy_project_name?: string | null
           deploy_provider?: string | null
@@ -3014,64 +3014,64 @@ export type Database = {
       }
       queue_fire_log: {
         Row: {
-          route_id: string | null
           client_project_id: string | null
           detail: string | null
           fired_at: string
           id: number
           outcome: string
+          route_id: string | null
           task_id: string | null
         }
         Insert: {
-          route_id?: string | null
           client_project_id?: string | null
           detail?: string | null
           fired_at?: string
           id?: number
           outcome: string
+          route_id?: string | null
           task_id?: string | null
         }
         Update: {
-          route_id?: string | null
           client_project_id?: string | null
           detail?: string | null
           fired_at?: string
           id?: number
           outcome?: string
+          route_id?: string | null
           task_id?: string | null
         }
         Relationships: []
       }
       queue_fire_routes: {
         Row: {
-          id: string
-          client_project_id: string
+          client_project_id: string | null
           created_at: string
           debounce_seconds: number
           enabled: boolean
+          id: string
           secret_prefix: string
         }
         Insert: {
-          id?: string
-          client_project_id: string
+          client_project_id?: string | null
           created_at?: string
           debounce_seconds?: number
           enabled?: boolean
+          id?: string
           secret_prefix: string
         }
         Update: {
-          id?: string
-          client_project_id?: string
+          client_project_id?: string | null
           created_at?: string
           debounce_seconds?: number
           enabled?: boolean
+          id?: string
           secret_prefix?: string
         }
         Relationships: [
           {
             foreignKeyName: "queue_fire_routes_client_project_id_fkey"
             columns: ["client_project_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "client_projects"
             referencedColumns: ["id"]
           },
