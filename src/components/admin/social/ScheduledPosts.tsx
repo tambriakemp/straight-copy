@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAgentName } from "@/lib/useAgentName";
 
 interface Row {
   id: string;
@@ -35,6 +36,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function ScheduledPosts({ clientProjectId }: { clientProjectId: string }) {
+  const who = useAgentName("social-media", "your social media manager");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -78,13 +80,13 @@ export default function ScheduledPosts({ clientProjectId }: { clientProjectId: s
           The calendar
         </h3>
         <p style={{ fontSize: 16, color: "hsl(30 8% 50%)" }}>
-          What Iris has booked with CoPost, soonest first.
+          What {who} has booked with CoPost, soonest first.
         </p>
       </div>
 
       {!rows.length && (
         <p style={{ fontSize: 15, color: "hsl(30 8% 50%)" }}>
-          Nothing is booked. Iris books on her next run, once photos have captions.
+          Nothing is booked. {who} books on the next run, once photos have captions.
         </p>
       )}
 

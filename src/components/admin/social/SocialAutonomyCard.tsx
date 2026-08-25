@@ -1,4 +1,4 @@
-// How much rope Iris has on this client.
+// How much rope the social media manager has on this client.
 //
 // Lives here rather than in the agent settings panel on purpose: this is a
 // per-client decision, and the person making it is the person already looking
@@ -9,10 +9,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAgentName } from "@/lib/useAgentName";
 
 type Level = "inherit" | "propose" | "act_in_app" | "autonomous";
 
-const OPTIONS: { value: Level; label: string; blurb: string }[] = [
+const optionsFor = (who: string): { value: Level; label: string; blurb: string }[] => [
   {
     value: "act_in_app",
     label: "Hold for review",
@@ -35,11 +36,12 @@ const OPTIONS: { value: Level; label: string; blurb: string }[] = [
     value: "inherit",
     label: "Use her default",
     blurb:
-      "Whatever Iris's own autonomy setting says, which is currently to post unattended.",
+      `Whatever ${who}'s own autonomy setting says.`,
   },
 ];
 
 export default function SocialAutonomyCard({ clientProjectId }: { clientProjectId: string }) {
+  const who = useAgentName("social-media", "your social media manager");
   const [level, setLevel] = useState<Level>("inherit");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -83,7 +85,7 @@ export default function SocialAutonomyCard({ clientProjectId }: { clientProjectI
     <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
         <h3 style={{ fontSize: 20, fontWeight: 500, color: "hsl(30 12% 20%)", marginBottom: 4 }}>
-          What Iris may do for this client
+          What {who} may do for this client
         </h3>
         <p style={{ fontSize: 16, color: "hsl(30 8% 50%)" }}>
           New clients start held for review. Move this on once their captions
@@ -92,7 +94,7 @@ export default function SocialAutonomyCard({ clientProjectId }: { clientProjectI
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {OPTIONS.map((o) => {
+        {optionsFor(who).map((o) => {
           const selected = level === o.value;
           return (
             <button

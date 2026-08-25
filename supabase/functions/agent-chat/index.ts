@@ -1,6 +1,6 @@
 // Chatting with an agent.
 //
-// Same persona and the same read surface its scheduled runs use, so asking Rune
+// Same persona and the same read surface its scheduled runs use, so asking an agent
 // about a launch gets the answer its brief would have given. And the same
 // consequence model: if the conversation calls for something to happen, it is
 // written as an agent_action and gated by the agent's autonomy exactly as a

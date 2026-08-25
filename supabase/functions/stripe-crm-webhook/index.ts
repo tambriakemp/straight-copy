@@ -197,6 +197,14 @@ async function provision(sb: Sb, session: Obj): Promise<Obj> {
   // a second list to keep in step with the journey.
   await sb.rpc("ensure_intake_tasks_for_project", { _client_project_id: projectId });
 
+  // The agent's display name, read rather than written in: four of the six
+  // have been renamed, and a task that says "Iris chases the client" is wrong
+  // the moment she is called something else — silently, because it still
+  // renders.
+  const { data: socialAgent } = await sb.from("agents")
+    .select("name").eq("key", "social-media").maybeSingle();
+  const who = (socialAgent?.name as string | undefined) ?? "the social media manager";
+
   // One task needs context the checklist label cannot carry: which invite to
   // send, and which accounts this client actually has.
   await sb.from("project_tasks").update({
@@ -205,7 +213,7 @@ async function provision(sb: Sb, session: Obj): Promise<Obj> {
       `Create the CoPost project, invite ${s.email}, create a trigger, and paste ` +
       `its URL into the project's Settings tab.\n\n` +
       `Accounts they said they have: ${s.channels.join(", ") || "none stated"}.\n\n` +
-      `Nothing can post until that URL is saved. Iris chases the client to accept ` +
+      `Nothing can post until that URL is saved. ${who} chases the client to accept ` +
       `the invite once it is, and stops after three attempts.`,
   }).eq("client_project_id", projectId).eq("journey_item_key", "intake.copost_provisioned");
 

@@ -133,7 +133,7 @@ under the app's tsconfig. Declare the shape you need locally instead; see
 
 ## Agents
 
-`supabase/functions/_shared/agents/` — five agents defined in `registry.ts`,
+`supabase/functions/_shared/agents/` — six agents defined in `registry.ts`,
 each with a mission, an allowlist (`allowlists.ts`) and a context gatherer
 (`context.ts`). They run a real tool loop (`loop.ts`) with read tools over an
 allowlisted slice of the database (`table-access.ts` — this is the security
@@ -141,7 +141,23 @@ boundary, since these run as service role and bypass RLS).
 
 `canAutoExecute` in `types.ts` is the single gate on side effects: outward work
 needs approval unless the agent is fully autonomous, and destructive work always
-needs approval.
+needs approval. It takes the EFFECTIVE autonomy — a client project can override
+an agent's own level, so callers that honour that resolve it through
+`resolveAutonomy` first.
+
+**Agent names live on the row and get changed.** Four of the six have been
+renamed already. Nothing in the runtime cares, because every lookup is by `key`
+or `id` — but never write a name into UI text, an email, or a generated string.
+Read it: `useAgentName(key, fallback)` on the frontend, or select `name` from
+`agents` by `key` in an edge function. Comments are fine. Anything a person
+reads is not, because it keeps rendering perfectly after a rename and nothing
+tells you it went wrong.
+
+A run's mission and a chat turn's are not the same prompt. `chatPromptFor`
+strips the `## What a run produces` section, which opens "a run is not a chat
+turn, nobody asked you anything" — true of a scheduled run and precisely wrong
+when someone just said hello. That section is why saying "hi" used to return a
+status report.
 
 ## Permission prompts
 
