@@ -12,6 +12,7 @@ import ContractAuditPanel from "@/components/admin/ContractAuditPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
 import ProgressReportSettingsCard from "@/components/admin/ProgressReportSettingsCard";
 import CoPostSettingsCard from "@/components/admin/social/CoPostSettingsCard";
+import DeliveryTargetsCard from "@/components/admin/DeliveryTargetsCard";
 import SocialAutonomyCard from "@/components/admin/social/SocialAutonomyCard";
 import ScheduledPosts from "@/components/admin/social/ScheduledPosts";
 
@@ -169,6 +170,7 @@ export default function AppDevelopmentView({
           )}
 
           <ProjectTabsContent value="settings">
+            <DeliveryTargetsCard clientProjectId={projectId!} />
             {isMarketing && <CoPostSettingsCard clientProjectId={projectId!} />}
             {isMarketing && <SocialAutonomyCard clientProjectId={projectId!} />}
             <ProgressReportSettingsCard clientId={clientId!} clientProjectId={projectId!} />

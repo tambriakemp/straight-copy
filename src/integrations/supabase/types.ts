@@ -1013,6 +1013,7 @@ export type Database = {
       }
       client_projects: {
         Row: {
+          delivery_mode: string
           agent_autonomy: string | null
           build_notes: string | null
           business_name: string | null
@@ -1042,6 +1043,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          delivery_mode?: string
           agent_autonomy?: string | null
           build_notes?: string | null
           business_name?: string | null
@@ -1071,6 +1073,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          delivery_mode?: string
           agent_autonomy?: string | null
           build_notes?: string | null
           business_name?: string | null
@@ -3011,6 +3014,7 @@ export type Database = {
       }
       queue_fire_log: {
         Row: {
+          route_id: string | null
           client_project_id: string | null
           detail: string | null
           fired_at: string
@@ -3019,6 +3023,7 @@ export type Database = {
           task_id: string | null
         }
         Insert: {
+          route_id?: string | null
           client_project_id?: string | null
           detail?: string | null
           fired_at?: string
@@ -3027,6 +3032,7 @@ export type Database = {
           task_id?: string | null
         }
         Update: {
+          route_id?: string | null
           client_project_id?: string | null
           detail?: string | null
           fired_at?: string
@@ -3038,6 +3044,7 @@ export type Database = {
       }
       queue_fire_routes: {
         Row: {
+          id: string
           client_project_id: string
           created_at: string
           debounce_seconds: number
@@ -3045,6 +3052,7 @@ export type Database = {
           secret_prefix: string
         }
         Insert: {
+          id?: string
           client_project_id: string
           created_at?: string
           debounce_seconds?: number
@@ -3052,6 +3060,7 @@ export type Database = {
           secret_prefix: string
         }
         Update: {
+          id?: string
           client_project_id?: string
           created_at?: string
           debounce_seconds?: number

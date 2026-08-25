@@ -9,6 +9,7 @@ import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
 import AutomationSubscriptionPanel from "@/components/admin/AutomationSubscriptionPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
 import CoPostSettingsCard from "@/components/admin/social/CoPostSettingsCard";
+import DeliveryTargetsCard from "@/components/admin/DeliveryTargetsCard";
 import ProgressReportSettingsCard from "@/components/admin/ProgressReportSettingsCard";
 
 import {
@@ -471,6 +472,7 @@ export default function AutomationBuildView({
           <ProjectTabsContent value="settings">
             {projectId ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                <DeliveryTargetsCard clientProjectId={projectId} />
                 <ProgressReportSettingsCard clientId={client.id} clientProjectId={projectId} />
                 <ProjectSecretsPanel clientProjectId={projectId} />
                 <CoPostSettingsCard clientProjectId={projectId} />

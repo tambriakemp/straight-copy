@@ -89,16 +89,18 @@ mcp.tool("list_projects", {
  */
 mcp.tool("list_queue_projects", {
   description:
-    "Projects with ready_for_claude tasks waiting and a repo configured, newest work first. " +
-    "Each carries everything a coding session needs: repo, branch, deploy target, toolchain, build notes. " +
+    "Projects with ready_for_claude tasks waiting and a repo configured, in board order. " +
+    "Only unclaimed tasks meant for Claude — anything assigned to a person is left alone. " +
+    "Each carries everything a coding session needs: repo, branch, deploy target, toolchain, " +
+    "build notes, and delivery_mode — 'pr' means open a pull request, 'push' means commit to the branch. " +
     "Use this to drive a sweep across every board instead of naming one project.",
   inputSchema: { type: "object", properties: {} },
   handler: async () => {
     const { data: projects, error } = await sb.from("client_projects")
       .select(
         "id, name, type, status, repo_url, repo_branch, deploy_provider, " +
-          "deploy_project_id, deploy_project_name, toolchain, build_notes, " +
-          "client:clients(id, business_name)",
+          "deploy_project_id, deploy_project_name, toolchain, delivery_mode, " +
+          "build_notes, client:clients(id, business_name)",
       )
       .eq("queue_enabled", true)
       .neq("status", "complete");
@@ -108,18 +110,31 @@ mcp.tool("list_queue_projects", {
     if (!ids.length) return textResult({ projects: [] });
 
     // Unclaimed only: a task another run is holding is not waiting for this one.
+    //
+    // And only work meant for Claude. The column is named ready_for_claude, so
+    // an unassigned task there is taken as intended for it — but a task
+    // explicitly assigned to a person is not. "Press Send to client on the
+    // proposal" was sitting in this queue assigned to `agency`, and a coding
+    // run waking for it would burn a session and do nothing.
     const { data: tasks, error: tErr } = await sb.from("project_tasks")
-      .select("id, client_project_id, name, created_at, claimed_by")
+      .select("id, client_project_id, name, created_at, claimed_by, priority, order_index")
       .eq("status", "ready_for_claude")
       .in("client_project_id", ids)
       .is("claimed_by", null)
+      .in("assignee_kind", ["claude", "unassigned"])
+      // Board order, which is how a person reading the column expects it
+      // worked — not creation order.
+      .order("order_index", { ascending: true })
       .order("created_at", { ascending: true });
     if (tErr) throw new Error(tErr.message);
 
     const byProject = new Map<string, Array<Record<string, unknown>>>();
     for (const t of tasks ?? []) {
       const list = byProject.get(t.client_project_id) ?? [];
-      list.push({ id: t.id, name: t.name, created_at: t.created_at });
+      list.push({
+        id: t.id, name: t.name, created_at: t.created_at,
+        priority: t.priority, order_index: t.order_index,
+      });
       byProject.set(t.client_project_id, list);
     }
 
