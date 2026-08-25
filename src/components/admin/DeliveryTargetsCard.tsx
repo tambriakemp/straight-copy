@@ -39,6 +39,11 @@ const MODES: { value: string; label: string; blurb: string }[] = [
     blurb: "Work lands on a branch and waits for you. The right default for a client's repo.",
   },
   {
+    value: "pr_merge",
+    label: "Open a pull request and merge it",
+    blurb: "There is a reviewable record afterwards, but nobody gates it. For repos where that is the agreed way of working.",
+  },
+  {
     value: "push",
     label: "Push to the branch",
     blurb: "Commits go straight to the branch below. Fast, and only sensible on a repo you own.",

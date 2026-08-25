@@ -84,15 +84,22 @@ report a task done on a tree you have not seen pass.
 
 ### Landing it
 
-Honour the project's `delivery_mode`:
+Honour the project's `delivery_mode` exactly:
 
-- **`pr`** — push a branch and open a pull request. Do not merge it. This is a
-  client's repository and somebody there reviews it.
+- **`pr`** — push a branch and open a pull request, and **stop**. Do not merge
+  it. Somebody reviews it.
+- **`pr_merge`** — open the pull request and merge it in the same run. The
+  record exists afterwards; it is not a gate. Only where the project says so.
 - **`push`** — commit to `repo_branch` directly.
 
 Then `move_task_status` to `needs_review`, and comment on the task with what
 you changed and a link to the PR if there is one. `complete` is for work a
 person has accepted, not work you have finished.
+
+**Then re-evaluate the whole queue before picking the next task.** The one you
+just finished may have been another's blocker. Always take the lowest-ordered
+eligible task, even if something above it is still waiting — a task high in the
+column that depends on a lower one correctly runs second.
 
 ### When you are done
 
@@ -100,6 +107,31 @@ Stop when every project in the list has been walked. Say what you worked, what
 you skipped and why, and what is still waiting. A run that did nothing because
 everything was claimed or blocked is a fine outcome — say that plainly rather
 than reaching for something to do.
+
+### When to stop and ask instead
+
+Mark the task `blocked`, comment with the specific question, and move on —
+never guess — when:
+
+- a design link is dead, or the design is ambiguous enough that you would be inventing it;
+- the task is underspecified, or conflicts with something recently decided;
+- a prerequisite is missing and you cannot safely create it;
+- the checks will not pass without guesswork.
+
+A blocked task does not stop the queue. It is always better to leave a clear
+question than to land the wrong thing, and a task blocked with a good question
+gets answered in a minute.
+
+Note the difference between the two kinds of waiting: `blocked` means a person
+must decide something. A task whose `blocked_by` is unfinished is not blocked —
+it is just not its turn, and it needs no comment and no status change.
+
+### Database changes
+
+If a task needs one, write the migration into the repo — additive and
+idempotent — and hand-add any new column to the generated types if that repo
+keeps them. **You cannot apply it.** Say so plainly in the task comment,
+because the change will not work until somebody runs it.
 
 ### Things that will bite you
 
