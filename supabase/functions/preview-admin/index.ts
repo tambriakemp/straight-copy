@@ -366,13 +366,16 @@ Deno.serve(async (req) => {
         if (!proj || !files) return json({ missing: [] });
         const allPaths = new Set(files.map((f: any) => f.path));
         const allBasenames = new Set(files.map((f: any) => f.path.split("/").pop()?.toLowerCase()));
-        const htmls = files.filter((f: any) => /\.html?$/i.test(f.path));
+        const htmls = files.filter((f: any) => /\.html?$/i.test(f.path)).slice(0, 60);
         const missing: { ref: string; in_page: string }[] = [];
         const seen = new Set<string>();
+        const MAX_SCAN_BYTES = 2 * 1024 * 1024; // never hold more than 2MB of HTML at once
         for (const h of htmls) {
           const dl = await admin.storage.from("preview-sites").download(`${proj.storage_prefix}${h.path}`);
           if (dl.error || !dl.data) continue;
-          const text = await dl.data.text();
+          if (dl.data.size > MAX_SCAN_BYTES) continue; // oversized export: skip rather than OOM
+          let text: string | null = await dl.data.text();
+
           const refs: string[] = [];
           const re = /(?:src|href|poster|data-src)=["']([^"']+)["']|url\(\s*["']?([^)"']+)["']?\s*\)/gi;
           let m: RegExpExecArray | null;
