@@ -376,11 +376,13 @@ Deno.serve(async (req) => {
           if (dl.data.size > MAX_SCAN_BYTES) continue; // oversized export: skip rather than OOM
           let text: string | null = await dl.data.text();
 
-          const refs: string[] = [];
+          const refs = new Set<string>();
           const re = /(?:src|href|poster|data-src)=["']([^"']+)["']|url\(\s*["']?([^)"']+)["']?\s*\)/gi;
           let m: RegExpExecArray | null;
-          while ((m = re.exec(text))) refs.push(m[1] || m[2]);
+          while ((m = re.exec(text))) refs.add(m[1] || m[2]);
+          text = null; // let the page body be collected before the next download
           for (const r of refs) {
+
             if (/^(https?:|\/\/|data:|mailto:|tel:|#|javascript:|blob:)/i.test(r)) continue;
             const clean = r.replace(/[?#].*$/, "");
             if (!clean) continue;
