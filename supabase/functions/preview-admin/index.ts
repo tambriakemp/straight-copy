@@ -443,6 +443,30 @@ Deno.serve(async (req) => {
   }
 });
 
+/**
+ * Decode base64 into bytes in chunks. `Uint8Array.from(atob(s), ...)` builds an
+ * intermediate JS string plus a mapped array over the whole payload, which is
+ * what pushes the worker over its memory limit on larger uploads.
+ */
+function decodeBase64(b64: string): Uint8Array {
+  const clean = b64.includes(",") ? b64.slice(b64.indexOf(",") + 1) : b64;
+  const CHUNK = 64 * 1024; // multiple of 4 — safe base64 boundary
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  for (let i = 0; i < clean.length; i += CHUNK) {
+    const binStr = atob(clean.slice(i, i + CHUNK));
+    const arr = new Uint8Array(binStr.length);
+    for (let j = 0; j < binStr.length; j++) arr[j] = binStr.charCodeAt(j);
+    parts.push(arr);
+    total += arr.length;
+  }
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) { out.set(p, off); off += p.length; }
+  return out;
+}
+
+
 function genSlug(): string {
   const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
   const bytes = new Uint8Array(24);
