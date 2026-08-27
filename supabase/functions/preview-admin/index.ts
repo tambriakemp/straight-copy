@@ -191,6 +191,35 @@ Deno.serve(async (req) => {
         return json({ pages });
       }
 
+      case "file_meta": {
+        // Folder and client-visibility for an uploaded page.
+        //
+        // Separate from file_rename because it touches none of the things a
+        // rename does — no storage move, no path change — so it cannot orphan
+        // the approvals and comments that key on path.
+        const { project_id, path } = payload;
+        if (!project_id || !path) return json({ error: "missing fields" }, 400);
+
+        const patch: Record<string, unknown> = {};
+        if ("group_label" in payload) {
+          patch.group_label = payload.group_label
+            ? String(payload.group_label).slice(0, 120)
+            : null;
+        }
+        if ("visible_to_client" in payload) {
+          patch.visible_to_client = payload.visible_to_client !== false;
+        }
+        if (!Object.keys(patch).length) return json({ error: "nothing to change" }, 400);
+
+        const { error } = await admin
+          .from("preview_files")
+          .update(patch)
+          .eq("project_id", project_id)
+          .eq("path", path);
+        if (error) throw error;
+        return json({ ok: true });
+      }
+
       case "external_pages_set": {
         const { project_id, pages } = payload;
         if (!project_id || !Array.isArray(pages)) return json({ error: "missing fields" }, 400);

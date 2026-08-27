@@ -356,6 +356,68 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Special path: the embed for a site we built but do not serve.
+    //
+    // Everything above this assumes we own the HTML response — the widget gets
+    // injected because the bytes pass through here. A finished site does not,
+    // so it carries one script tag instead and gets the same widget.
+    //
+    // Tools like MarkUp.io solve this by proxying the page through their own
+    // origin. That works on any URL but re-serves somebody else's HTML: a
+    // dynamic app breaks, a logged-in page cannot be reached, and mobile does
+    // not work at all. Since these are sites we build, a script tag is both
+    // simpler and strictly better — the real page, on its real origin, with
+    // nothing rewritten.
+    //
+    // The page identity is location.pathname rather than a fixed value, so one
+    // tag on the whole site anchors comments to whichever page they were left
+    // on — and those paths line up with preview_external_pages.path.
+    if (path === "__pf_embed.js") {
+      if (!project.feedback_enabled) {
+        return new Response("/* feedback is switched off for this preview */", {
+          headers: { ...corsHeaders, "Content-Type": "application/javascript; charset=utf-8" },
+        });
+      }
+      let embedAuthor = "";
+      if (project.client_project_id) {
+        const { data: cp } = await admin
+          .from("client_projects").select("client_id").eq("id", project.client_project_id).maybeSingle();
+        if (cp?.client_id) {
+          const { data: c } = await admin
+            .from("clients").select("contact_name").eq("id", cp.client_id).maybeSingle();
+          embedAuthor = c?.contact_name || "";
+        }
+      }
+      const embed = `(() => {
+  if (window.__PF_EMBEDDED__) return;
+  window.__PF_EMBEDDED__ = true;
+  var norm = function (p) { return (p || "/").replace(/\/+$/, "") || "/"; };
+  window.__PREVIEW_SLUG__ = ${JSON.stringify(slug)};
+  window.__PREVIEW_PAGE__ = norm(window.location.pathname);
+  window.__PREVIEW_API__ = ${JSON.stringify(FN_BASE)};
+  window.__PREVIEW_AUTHOR__ = ${JSON.stringify(embedAuthor)};
+  window.__PREVIEW_WIDGET_SRC__ = ${JSON.stringify(`${FN_BASE}/preview-serve?slug=${slug}&path=__pf_widget.js`)};
+  var s = document.createElement("script");
+  s.src = window.__PREVIEW_WIDGET_SRC__;
+  (document.body || document.documentElement).appendChild(s);
+  // A single-page app changes the path without reloading, so the widget would
+  // otherwise keep filing comments against whichever page happened to load first.
+  var last = window.__PREVIEW_PAGE__;
+  setInterval(function () {
+    var now = norm(window.location.pathname);
+    if (now !== last) { last = now; window.__PREVIEW_PAGE__ = now; }
+  }, 500);
+})();`;
+      return new Response(embed, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/javascript; charset=utf-8",
+          // Short, because the author name and the enabled flag both live in it.
+          "Cache-Control": "public, max-age=60",
+        },
+      });
+    }
+
     // Reject path traversal
     if (path.includes("..")) return new Response("bad path", { status: 400, headers: corsHeaders });
 

@@ -208,6 +208,26 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
     toast.success("Entry page updated");
   };
 
+  // Folder and archive state for an uploaded page. These write straight to
+  // preview_files rather than going through the upload path, which only ever
+  // deals in storage objects.
+  const setFileFolder = async (path: string, group_label: string | null) => {
+    const { error } = await supabase.functions.invoke("preview-admin", {
+      body: { action: "file_meta", project_id: project.id, path, group_label },
+    });
+    if (error) { toast.error(error.message); return; }
+    await load();
+  };
+
+  const setFileVisibility = async (path: string, visible: boolean) => {
+    const { error } = await supabase.functions.invoke("preview-admin", {
+      body: { action: "file_meta", project_id: project.id, path, visible_to_client: visible },
+    });
+    if (error) { toast.error(error.message); return; }
+    await load();
+    toast.success(visible ? "Shown to the client" : "Archived — hidden from the client");
+  };
+
   const deleteFile = async (path: string) => {
     if (!confirm(`Delete "${path}"?`)) return;
     await supabase.functions.invoke("preview-admin", {
@@ -484,6 +504,8 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         <TabsContent value="pages">
       {isExternal && (
         <ExternalPagesPanel
+          slug={project.slug}
+          feedbackEnabled={project.feedback_enabled}
           baseUrl={project.external_base_url}
           pages={externalPages}
           onSave={saveExternalPages}
@@ -534,8 +556,31 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                       />
                       <div style={{ color: "var(--crm-taupe)", fontSize: 17, marginTop: 2 }}>
                         {isEntry ? "Entry page · " : ""}{Math.ceil((f.size_bytes ?? 0) / 1024)} KB
+                        {f.visible_to_client === false ? " · hidden from the client" : ""}
                       </div>
                     </div>
+                    {/* The folder this page sits in inside the client's portal.
+                        Blank groups it with everything else of its kind. */}
+                    <input
+                      className="crm-input"
+                      defaultValue={f.group_label ?? ""}
+                      placeholder="Folder"
+                      title="The folder this page appears under in the client's portal"
+                      style={{ width: 150, flexShrink: 0 }}
+                      onBlur={(e) => {
+                        const next = e.target.value.trim() || null;
+                        if (next !== (f.group_label ?? null)) void setFileFolder(f.path, next);
+                      }}
+                    />
+                    <button
+                      className="crm-btn crm-btn--ghost crm-btn--sm"
+                      onClick={() => void setFileVisibility(f.path, f.visible_to_client === false)}
+                      title={f.visible_to_client === false
+                        ? "Hidden from the client — click to show"
+                        : "Visible to the client — click to archive"}
+                    >
+                      {f.visible_to_client === false ? <EyeOff size={12} /> : <Eye size={12} />}
+                    </button>
                     {approval && (
                       <span
                         title={`Approved ${new Date(approval.approved_at).toLocaleString()}`}
@@ -1203,9 +1248,30 @@ function ApprovalActivity({ projectId }: { projectId: string }) {
   );
 }
 
+/**
+ * Every column the external-pages save round-trips.
+ *
+ * Anything missing here is a column the panel silently blanks on save — which
+ * is exactly what happened before the save became an upsert. At module scope
+ * because it is pure, and a new identity each render is a dependency the
+ * effect cannot honestly declare.
+ */
+function externalRowShape(p: {
+  path: string; label: string | null; group_label?: string | null; visible_to_client?: boolean;
+}) {
+  return {
+    path: p.path,
+    label: p.label || "",
+    group_label: p.group_label ?? "",
+    visible_to_client: p.visible_to_client !== false,
+  };
+}
+
 function ExternalPagesPanel({
-  baseUrl, pages, onSave, onCrawl, crawling, lastCrawledAt, approvalsByPath,
+  slug, feedbackEnabled, baseUrl, pages, onSave, onCrawl, crawling, lastCrawledAt, approvalsByPath,
 }: {
+  slug: string;
+  feedbackEnabled?: boolean;
   baseUrl: string | null;
   pages: Array<{ id: string; path: string; label: string | null; order_index: number; group_label?: string | null; visible_to_client?: boolean }>;
   onSave: (next: Array<{ path: string; label: string | null; group_label: string | null; visible_to_client: boolean }>) => Promise<void>;
@@ -1214,21 +1280,16 @@ function ExternalPagesPanel({
   lastCrawledAt?: string | null;
   approvalsByPath?: Record<string, { approver_name: string | null; approved_at: string }>;
 }) {
-  // Mirrors every column the save round-trips. Anything omitted here is a
-  // column the panel would silently blank on save.
-  const shape = (p: typeof pages[number]) => ({
-    path: p.path,
-    label: p.label || "",
-    group_label: p.group_label ?? "",
-    visible_to_client: p.visible_to_client !== false,
-  });
-  const [rows, setRows] = useState(pages.map(shape));
-  useEffect(() => { setRows(pages.map(shape)); }, [pages]);
-  const dirty = JSON.stringify(rows) !== JSON.stringify(pages.map(shape));
+  const [rows, setRows] = useState(pages.map(externalRowShape));
+  useEffect(() => { setRows(pages.map(externalRowShape)); }, [pages]);
+  const dirty = JSON.stringify(rows) !== JSON.stringify(pages.map(externalRowShape));
   const update = (i: number, k: "path" | "label" | "group_label" | "visible_to_client", v: string | boolean) =>
     setRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
   const remove = (i: number) => setRows((rs) => rs.filter((_, idx) => idx !== i));
   const add = () => setRows((rs) => [...rs, { path: "/", label: "", group_label: "", visible_to_client: true }]);
+
+  const embedSnippet =
+    `<script src="https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/preview-serve?slug=${slug}&path=__pf_embed.js"></script>`;
 
   return (
     <section style={{ marginBottom: 28 }}>
@@ -1241,6 +1302,45 @@ function ExternalPagesPanel({
           {crawling ? "Crawling…" : pages.length ? "Re-crawl pages" : "Crawl pages"}
         </button>
       </div>
+
+      {/*
+        The one line that turns the live site into something a client can pin
+        comments on. Without it they can only leave a per-page note here — the
+        widget has to run on the page itself to anchor to an element.
+      */}
+      {baseUrl && (
+        <div style={{
+          marginBottom: 14, padding: "12px 14px", borderRadius: 8,
+          border: "1px solid var(--crm-border-dark)", background: "hsl(40 20% 97% / 0.03)",
+        }}>
+          <div style={{ fontSize: 16, color: "var(--crm-warm-white)", marginBottom: 4 }}>
+            Pin comments on the live site
+          </div>
+          <div style={{ fontSize: 15, color: "var(--crm-taupe)", marginBottom: 8 }}>
+            {feedbackEnabled === false
+              ? "Feedback is switched off for this preview, so the snippet will do nothing until you turn it back on."
+              : "Paste this into the site's HTML, once, before </body>. The client then gets the same click-to-pin tool your uploaded previews have — on every page."}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <code style={{
+              flex: 1, minWidth: 0, fontSize: 14, fontFamily: "monospace",
+              color: "var(--crm-stone)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
+              {embedSnippet}
+            </code>
+            <button
+              className="crm-btn crm-btn--ghost crm-btn--sm"
+              onClick={() => {
+                void navigator.clipboard.writeText(embedSnippet)
+                  .then(() => toast.success("Snippet copied"))
+                  .catch(() => toast.error("Could not copy"));
+              }}
+            >
+              <Copy size={12} /> Copy
+            </button>
+          </div>
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--crm-taupe)", fontSize: 18, border: "1px dashed var(--crm-border-dark)", borderRadius: 10 }}>
