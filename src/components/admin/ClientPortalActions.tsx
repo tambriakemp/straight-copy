@@ -1,4 +1,4 @@
-import { Eye, Copy, RefreshCw, FileSignature, Pencil } from "lucide-react";
+import { Copy, RefreshCw, FileSignature, Pencil } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -8,6 +8,9 @@ type Props = {
   onEdit?: () => void;
 };
 
+// The secondary portal actions. Opening the portal itself is NOT here — it
+// moved next to the client's name in AgentClientView, because .acv__head is
+// space-between and these sit at the far edge of a wide screen.
 export default function ClientPortalActions({ clientId, onEdit }: Props) {
   const copy = async (path: string, label: string) => {
     try {
@@ -36,21 +39,6 @@ export default function ClientPortalActions({ clientId, onEdit }: Props) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <TooltipProvider delayDuration={150}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <a
-              className="detail__portal-btn detail__portal-btn--icon"
-              href={`/portal/${clientId}?as=admin`}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Open as client"
-            >
-              <Eye size={14} strokeWidth={1.5} />
-            </a>
-          </TooltipTrigger>
-          <TooltipContent>Open this client's portal as an admin preview</TooltipContent>
-        </Tooltip>
-
         {onEdit && (
           <Tooltip>
             <TooltipTrigger asChild>

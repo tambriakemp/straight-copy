@@ -12,7 +12,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, ExternalLink, FolderOpen, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, ExternalLink, Eye, FolderOpen, Pencil, Plus } from "lucide-react";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import SidePanel from "@/components/admin/SidePanel";
 import ClientCompaniesCard from "@/components/admin/ClientCompaniesCard";
@@ -216,7 +219,32 @@ export default function AgentClientView({
       <header className="acv__head">
         <div style={{ minWidth: 0 }}>
           <div className="ws__work-eyebrow">Client</div>
-          <h2 className="ws__work-title">{name}</h2>
+          {/*
+            The portal opener sits beside the name rather than with the other
+            actions at the far right of the header. It is the one you reach for
+            most — "what is this client actually seeing" — and .acv__head is
+            space-between, so anything in headerExtra ends up at the opposite
+            edge of a wide screen, far from the client it belongs to.
+          */}
+          <div className="acv__title-row">
+            <h2 className="ws__work-title">{name}</h2>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <a
+                    className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon acv__portal-link"
+                    href={`/portal/${client.id}?as=admin`}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Open ${name}'s portal`}
+                  >
+                    <Eye size={15} strokeWidth={1.5} />
+                  </a>
+                </TooltipTrigger>
+                <TooltipContent>View this client's portal</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <p className="ws__work-sub">
             {client.contact_email || "no email"}
             {client.contact_phone ? ` · ${client.contact_phone}` : ""}

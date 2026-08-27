@@ -3183,6 +3183,21 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
   gap: 16px; margin-bottom: 18px;
 }
 
+/* The name and the portal opener, on one line. The icon is nudged up a little
+   because .ws__work-title has a 6px bottom margin that would otherwise sit it
+   low against a 34px serif. */
+.crm-shell .acv__title-row {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  /* The h2 gives up its own bottom margin below, so the row carries it and the
+     email keeps the spacing it had. */
+  margin-bottom: 6px;
+}
+.crm-shell .acv__title-row .ws__work-title {
+  margin-bottom: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.crm-shell .acv__portal-link { flex-shrink: 0; }
+
 .crm-shell .acv__bar {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; margin: 16px 0 10px;
