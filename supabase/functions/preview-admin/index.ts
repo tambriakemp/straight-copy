@@ -366,18 +366,23 @@ Deno.serve(async (req) => {
         if (!proj || !files) return json({ missing: [] });
         const allPaths = new Set(files.map((f: any) => f.path));
         const allBasenames = new Set(files.map((f: any) => f.path.split("/").pop()?.toLowerCase()));
-        const htmls = files.filter((f: any) => /\.html?$/i.test(f.path));
+        const htmls = files.filter((f: any) => /\.html?$/i.test(f.path)).slice(0, 60);
         const missing: { ref: string; in_page: string }[] = [];
         const seen = new Set<string>();
+        const MAX_SCAN_BYTES = 2 * 1024 * 1024; // never hold more than 2MB of HTML at once
         for (const h of htmls) {
           const dl = await admin.storage.from("preview-sites").download(`${proj.storage_prefix}${h.path}`);
           if (dl.error || !dl.data) continue;
-          const text = await dl.data.text();
-          const refs: string[] = [];
+          if (dl.data.size > MAX_SCAN_BYTES) continue; // oversized export: skip rather than OOM
+          let text: string | null = await dl.data.text();
+
+          const refs = new Set<string>();
           const re = /(?:src|href|poster|data-src)=["']([^"']+)["']|url\(\s*["']?([^)"']+)["']?\s*\)/gi;
           let m: RegExpExecArray | null;
-          while ((m = re.exec(text))) refs.push(m[1] || m[2]);
+          while ((m = re.exec(text))) refs.add(m[1] || m[2]);
+          text = null; // let the page body be collected before the next download
           for (const r of refs) {
+
             if (/^(https?:|\/\/|data:|mailto:|tel:|#|javascript:|blob:)/i.test(r)) continue;
             const clean = r.replace(/[?#].*$/, "");
             if (!clean) continue;
@@ -410,7 +415,13 @@ Deno.serve(async (req) => {
         const { data: proj } = await admin
           .from("preview_projects").select("storage_prefix").eq("id", project_id).single();
         if (!proj) return json({ error: "project not found" }, 404);
-        const bin = Uint8Array.from(atob(content_base64), (c) => c.charCodeAt(0));
+        // Reject oversized payloads up front: base64 + binary + upload buffer all
+        // sit in memory at once and blow the worker's limit (WORKER_RESOURCE_LIMIT).
+        if (String(content_base64).length > 12 * 1024 * 1024) {
+          return json({ error: "file too large for single upload (max ~9MB)" }, 413);
+        }
+        const bin = decodeBase64(String(content_base64));
+
         const contentType = mime || "application/octet-stream";
         const up = await admin.storage.from("preview-sites").upload(
           `${proj.storage_prefix}${clean}`, bin,
@@ -431,6 +442,30 @@ Deno.serve(async (req) => {
     return json({ error: e?.message || String(e) }, 500);
   }
 });
+
+/**
+ * Decode base64 into bytes in chunks. `Uint8Array.from(atob(s), ...)` builds an
+ * intermediate JS string plus a mapped array over the whole payload, which is
+ * what pushes the worker over its memory limit on larger uploads.
+ */
+function decodeBase64(b64: string): Uint8Array {
+  const clean = b64.includes(",") ? b64.slice(b64.indexOf(",") + 1) : b64;
+  const CHUNK = 64 * 1024; // multiple of 4 — safe base64 boundary
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  for (let i = 0; i < clean.length; i += CHUNK) {
+    const binStr = atob(clean.slice(i, i + CHUNK));
+    const arr = new Uint8Array(binStr.length);
+    for (let j = 0; j < binStr.length; j++) arr[j] = binStr.charCodeAt(j);
+    parts.push(arr);
+    total += arr.length;
+  }
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) { out.set(p, off); off += p.length; }
+  return out;
+}
+
 
 function genSlug(): string {
   const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
