@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -2275,34 +2275,34 @@ export type Database = {
       }
       preview_external_pages: {
         Row: {
-          group_label: string | null
-          visible_to_client: boolean
           created_at: string
+          group_label: string | null
           id: string
           label: string | null
           order_index: number
           path: string
           project_id: string
+          visible_to_client: boolean
         }
         Insert: {
-          group_label?: string | null
-          visible_to_client?: boolean
           created_at?: string
+          group_label?: string | null
           id?: string
           label?: string | null
           order_index?: number
           path: string
           project_id: string
+          visible_to_client?: boolean
         }
         Update: {
-          group_label?: string | null
-          visible_to_client?: boolean
           created_at?: string
+          group_label?: string | null
           id?: string
           label?: string | null
           order_index?: number
           path?: string
           project_id?: string
+          visible_to_client?: boolean
         }
         Relationships: [
           {
@@ -2316,40 +2316,40 @@ export type Database = {
       }
       preview_files: {
         Row: {
-          label: string | null
-          order_index: number
-          group_label: string | null
-          visible_to_client: boolean
           content_type: string | null
           created_at: string
+          group_label: string | null
           id: string
+          label: string | null
+          order_index: number
           path: string
           project_id: string
           size_bytes: number | null
+          visible_to_client: boolean
         }
         Insert: {
-          label?: string | null
-          order_index?: number
-          group_label?: string | null
-          visible_to_client?: boolean
           content_type?: string | null
           created_at?: string
+          group_label?: string | null
           id?: string
+          label?: string | null
+          order_index?: number
           path: string
           project_id: string
           size_bytes?: number | null
+          visible_to_client?: boolean
         }
         Update: {
-          label?: string | null
-          order_index?: number
-          group_label?: string | null
-          visible_to_client?: boolean
           content_type?: string | null
           created_at?: string
+          group_label?: string | null
           id?: string
+          label?: string | null
+          order_index?: number
           path?: string
           project_id?: string
           size_bytes?: number | null
+          visible_to_client?: boolean
         }
         Relationships: [
           {
