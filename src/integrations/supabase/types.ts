@@ -2275,6 +2275,8 @@ export type Database = {
       }
       preview_external_pages: {
         Row: {
+          group_label: string | null
+          visible_to_client: boolean
           created_at: string
           id: string
           label: string | null
@@ -2283,6 +2285,8 @@ export type Database = {
           project_id: string
         }
         Insert: {
+          group_label?: string | null
+          visible_to_client?: boolean
           created_at?: string
           id?: string
           label?: string | null
@@ -2291,6 +2295,8 @@ export type Database = {
           project_id: string
         }
         Update: {
+          group_label?: string | null
+          visible_to_client?: boolean
           created_at?: string
           id?: string
           label?: string | null
@@ -2310,6 +2316,10 @@ export type Database = {
       }
       preview_files: {
         Row: {
+          label: string | null
+          order_index: number
+          group_label: string | null
+          visible_to_client: boolean
           content_type: string | null
           created_at: string
           id: string
@@ -2318,6 +2328,10 @@ export type Database = {
           size_bytes: number | null
         }
         Insert: {
+          label?: string | null
+          order_index?: number
+          group_label?: string | null
+          visible_to_client?: boolean
           content_type?: string | null
           created_at?: string
           id?: string
@@ -2326,6 +2340,10 @@ export type Database = {
           size_bytes?: number | null
         }
         Update: {
+          label?: string | null
+          order_index?: number
+          group_label?: string | null
+          visible_to_client?: boolean
           content_type?: string | null
           created_at?: string
           id?: string

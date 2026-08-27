@@ -55,18 +55,31 @@ Deno.serve(async (req) => {
       const pages: any[] = [];
       const assets: any[] = [];
 
+      // Retired pages are dropped HERE, not in the portal.
+      //
+      // A page the client should no longer see has to be genuinely
+      // unreachable rather than hidden one inspector-open away — and because
+      // approve/unapprove validates against these same tables, a retired page
+      // also stops being approvable. The admin passes include_hidden to see
+      // everything.
+      const forClient = payload.include_hidden !== true;
+
       // Uploaded files (always include if present)
       const { data: files } = await admin
         .from("preview_files")
-        .select("path")
+        .select("path, label, group_label, order_index, visible_to_client")
         .eq("project_id", project.id)
+        .order("order_index", { ascending: true })
         .order("path");
       for (const f of files ?? []) {
         const p = f.path as string;
+        if (forClient && f.visible_to_client === false) continue;
         if (isPagePath(p)) {
           pages.push({
-            path: p, label: null, isEntry: p === project.entry_path,
+            path: p, label: f.label ?? null, isEntry: p === project.entry_path,
             isExternal: false, viewUrl: null,
+            group: f.group_label ?? null,
+            visibleToClient: f.visible_to_client !== false,
             approval: approvalMap.get(`page:${p}`) ?? null,
           });
         } else {
@@ -78,13 +91,16 @@ Deno.serve(async (req) => {
       if (hasExternal) {
         const { data: extPages } = await admin
           .from("preview_external_pages")
-          .select("path, label, order_index")
+          .select("path, label, order_index, group_label, visible_to_client")
           .eq("project_id", project.id)
           .order("order_index", { ascending: true });
         for (const p of extPages ?? []) {
+          if (forClient && p.visible_to_client === false) continue;
           pages.push({
             path: p.path, label: p.label, isEntry: false,
             isExternal: true, viewUrl: `${extBase}${p.path}`,
+            group: p.group_label ?? null,
+            visibleToClient: p.visible_to_client !== false,
             approval: approvalMap.get(`page:${p.path}`) ?? null,
           });
         }
@@ -116,21 +132,27 @@ Deno.serve(async (req) => {
       if (!["page", "asset"].includes(kind)) return json({ error: "invalid kind" }, 400);
       if (!path) return json({ error: "path required" }, 400);
 
-      // Verify path exists: check external pages first, then uploaded files
+      // Verify the path exists AND is still shown to the client.
+      //
+      // Retiring a page has to remove the ability to approve it too, or an
+      // approval could still be recorded against something nobody can see —
+      // and this endpoint is public, so anyone holding the slug can post to it.
       let found = false;
+      let retired = false;
       if (kind === "page" && hasExternal) {
         const { data: ext } = await admin
           .from("preview_external_pages")
-          .select("path").eq("project_id", project.id).eq("path", path).maybeSingle();
-        if (ext) found = true;
+          .select("path, visible_to_client").eq("project_id", project.id).eq("path", path).maybeSingle();
+        if (ext) { found = true; retired = ext.visible_to_client === false; }
       }
       if (!found) {
         const { data: file } = await admin
           .from("preview_files")
-          .select("path").eq("project_id", project.id).eq("path", path).maybeSingle();
-        if (file) found = true;
+          .select("path, visible_to_client").eq("project_id", project.id).eq("path", path).maybeSingle();
+        if (file) { found = true; retired = file.visible_to_client === false; }
       }
       if (!found) return json({ error: "path not found" }, 404);
+      if (retired) return json({ error: "that page is no longer part of this review" }, 409);
 
 
       const approver_name = (payload.approver_name ? String(payload.approver_name).slice(0, 120) : null) || null;

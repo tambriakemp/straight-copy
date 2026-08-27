@@ -194,18 +194,50 @@ Deno.serve(async (req) => {
       case "external_pages_set": {
         const { project_id, pages } = payload;
         if (!project_id || !Array.isArray(pages)) return json({ error: "missing fields" }, 400);
-        await admin.from("preview_external_pages").delete().eq("project_id", project_id);
-        if (pages.length) {
-          const rows = pages.map((p: any, i: number) => ({
+
+        // Upsert on (project_id, path) rather than delete-then-insert.
+        //
+        // The old form wiped every row and rebuilt it from whatever the client
+        // sent, which meant any column the panel did not round-trip was
+        // silently lost on every save — now that folders and visibility live
+        // here, that would have thrown them away each time somebody renamed a
+        // page. It also regenerated row ids on every save, and left
+        // preview_page_comments.path and preview_approvals.path pointing at
+        // rows that no longer existed.
+        const rows = pages.map((p: any, i: number) => {
+          const path = String(p.path || "").replace(/\/+$/, "") || "/";
+          const row: Record<string, unknown> = {
             project_id,
-            path: String(p.path || "").replace(/\/+$/, "") || "/",
+            path,
             label: p.label ? String(p.label).slice(0, 120) : labelFromPath(String(p.path || "/")),
             order_index: i,
-          }));
-          // De-dupe by path
-          const seen = new Set<string>();
-          const unique = rows.filter((r) => (seen.has(r.path) ? false : (seen.add(r.path), true)));
-          const { error } = await admin.from("preview_external_pages").insert(unique);
+          };
+          // Only sent when the caller actually knows about them, so an older
+          // client cannot blank a folder just by not mentioning it.
+          if ("group_label" in p) {
+            row.group_label = p.group_label ? String(p.group_label).slice(0, 120) : null;
+          }
+          if ("visible_to_client" in p) row.visible_to_client = p.visible_to_client !== false;
+          return row;
+        });
+
+        // De-dupe by path
+        const seen = new Set<string>();
+        const unique = rows.filter((r) =>
+          seen.has(r.path as string) ? false : (seen.add(r.path as string), true)
+        );
+
+        // Anything the caller no longer lists is genuinely gone.
+        const keep = unique.map((r) => r.path as string);
+        const drop = admin.from("preview_external_pages").delete().eq("project_id", project_id);
+        await (keep.length
+          ? drop.not("path", "in", `(${keep.map((p) => `"${p}"`).join(",")})`)
+          : drop);
+
+        if (unique.length) {
+          const { error } = await admin
+            .from("preview_external_pages")
+            .upsert(unique, { onConflict: "project_id,path" });
           if (error) throw error;
         }
         const { data } = await admin.from("preview_external_pages").select("*").eq("project_id", project_id).order("order_index");

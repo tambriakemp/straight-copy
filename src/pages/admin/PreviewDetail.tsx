@@ -3,10 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Copy, Check, ExternalLink, Upload, Trash2, ArrowLeft, Star,
-  ChevronDown, ChevronRight, FileText, Image as ImageIcon, Code2, Box, AlertTriangle, Sparkles, Mail, Pencil, X,
-} from "lucide-react";
+import { AlertTriangle, ArrowLeft, Box, Check, ChevronDown, ChevronRight, Code2, Copy, ExternalLink, Eye, EyeOff, FileText, Image as ImageIcon, Mail, Pencil, Sparkles, Star, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import AiEditDialog from "@/components/admin/preview/AiEditDialog";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
@@ -1210,20 +1207,28 @@ function ExternalPagesPanel({
   baseUrl, pages, onSave, onCrawl, crawling, lastCrawledAt, approvalsByPath,
 }: {
   baseUrl: string | null;
-  pages: Array<{ id: string; path: string; label: string | null; order_index: number }>;
-  onSave: (next: Array<{ path: string; label: string | null }>) => Promise<void>;
+  pages: Array<{ id: string; path: string; label: string | null; order_index: number; group_label?: string | null; visible_to_client?: boolean }>;
+  onSave: (next: Array<{ path: string; label: string | null; group_label: string | null; visible_to_client: boolean }>) => Promise<void>;
   onCrawl: () => Promise<void>;
   crawling: boolean;
   lastCrawledAt?: string | null;
   approvalsByPath?: Record<string, { approver_name: string | null; approved_at: string }>;
 }) {
-  const [rows, setRows] = useState(pages.map((p) => ({ path: p.path, label: p.label || "" })));
-  useEffect(() => { setRows(pages.map((p) => ({ path: p.path, label: p.label || "" }))); }, [pages]);
-  const dirty = JSON.stringify(rows) !== JSON.stringify(pages.map((p) => ({ path: p.path, label: p.label || "" })));
-  const update = (i: number, k: "path" | "label", v: string) =>
+  // Mirrors every column the save round-trips. Anything omitted here is a
+  // column the panel would silently blank on save.
+  const shape = (p: typeof pages[number]) => ({
+    path: p.path,
+    label: p.label || "",
+    group_label: p.group_label ?? "",
+    visible_to_client: p.visible_to_client !== false,
+  });
+  const [rows, setRows] = useState(pages.map(shape));
+  useEffect(() => { setRows(pages.map(shape)); }, [pages]);
+  const dirty = JSON.stringify(rows) !== JSON.stringify(pages.map(shape));
+  const update = (i: number, k: "path" | "label" | "group_label" | "visible_to_client", v: string | boolean) =>
     setRows((rs) => rs.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
   const remove = (i: number) => setRows((rs) => rs.filter((_, idx) => idx !== i));
-  const add = () => setRows((rs) => [...rs, { path: "/", label: "" }]);
+  const add = () => setRows((rs) => [...rs, { path: "/", label: "", group_label: "", visible_to_client: true }]);
 
   return (
     <section style={{ marginBottom: 28 }}>
@@ -1247,11 +1252,30 @@ function ExternalPagesPanel({
             const approval = approvalsByPath?.[`page:${r.path}`];
             return (
             <div key={i} style={{
-              display: "grid", gridTemplateColumns: "1fr 1.5fr auto auto auto", gap: 8, alignItems: "center",
+              display: "grid", gridTemplateColumns: "1fr 1.3fr 1fr auto auto auto auto", gap: 8, alignItems: "center",
               padding: "10px 12px", background: "hsl(40 20% 97% / 0.03)", border: "1px solid var(--crm-border-dark)", borderRadius: 8,
+              opacity: r.visible_to_client === false ? 0.55 : 1,
             }}>
               <input className="crm-input" value={r.label} onChange={(e) => update(i, "label", e.target.value)} placeholder="Home" />
               <input className="crm-input" value={r.path} onChange={(e) => update(i, "path", e.target.value)} placeholder="/about" style={{ fontFamily: "monospace" }} />
+              <input
+                className="crm-input"
+                value={r.group_label ?? ""}
+                onChange={(e) => update(i, "group_label", e.target.value)}
+                placeholder="Folder"
+                title="The folder this page appears under in the client's portal"
+              />
+              {/* Retiring a page removes it from the portal entirely — it is
+                  filtered server-side and stops being approvable. */}
+              <button
+                className="crm-btn crm-btn--ghost crm-btn--sm"
+                onClick={() => update(i, "visible_to_client", r.visible_to_client === false)}
+                title={r.visible_to_client === false
+                  ? "Hidden from the client — click to show"
+                  : "Visible to the client — click to hide"}
+              >
+                {r.visible_to_client === false ? <EyeOff size={12} /> : <Eye size={12} />}
+              </button>
               {approval ? (
                 <span
                   title={`Approved ${new Date(approval.approved_at).toLocaleString()}`}
@@ -1281,7 +1305,12 @@ function ExternalPagesPanel({
         <button
           className="crm-btn crm-btn--primary crm-btn--sm"
           disabled={!dirty}
-          onClick={() => onSave(rows.map((r) => ({ path: r.path.trim() || "/", label: r.label.trim() || null })))}
+          onClick={() => onSave(rows.map((r) => ({
+            path: r.path.trim() || "/",
+            label: r.label.trim() || null,
+            group_label: (r.group_label ?? "").trim() || null,
+            visible_to_client: r.visible_to_client !== false,
+          })))}
           style={{ marginLeft: "auto" }}
         >
           {dirty ? "Save changes" : "Saved"}

@@ -664,7 +664,7 @@ export default function PortalProject() {
                 label: "Preview",
                 node: (
                   <div id="portal-preview" style={{ scrollMarginTop: 24 }}>
-                    <PortalProjectPreviewCard clientProjectId={currentProject.id} contactName={client.contact_name} />
+                    <PortalProjectPreviewCard clientProjectId={currentProject.id} contactName={client.contact_name} clientId={clientId} />
                   </div>
                 ),
               });

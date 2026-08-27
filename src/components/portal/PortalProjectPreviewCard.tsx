@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, ExternalLink, Loader2, MessageSquare, Send } from "lucide-react";
+import PortalFirstRunTip from "@/components/portal/PortalFirstRunTip";
 import { toast } from "sonner";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 type Approval = { approver_name: string | null; approved_at: string } | null;
-type PageRow = { path: string; label?: string | null; isEntry: boolean; isExternal?: boolean; viewUrl?: string | null; approval: Approval };
+type PageRow = { path: string; label?: string | null; isEntry: boolean; isExternal?: boolean; viewUrl?: string | null; group?: string | null; approval: Approval };
 type AssetRow = { path: string; approval: Approval };
 type ListResp = {
   project: { id: string; name: string; slug: string; entry_path: string; source_type?: string; external_base_url?: string | null; has_external?: boolean };
@@ -14,7 +15,7 @@ type ListResp = {
   assets: AssetRow[];
 };
 
-type Props = { clientProjectId: string; contactName?: string | null };
+type Props = { clientProjectId: string; contactName?: string | null; clientId?: string };
 
 async function call(body: Record<string, unknown>) {
   const r = await fetch(`${SUPABASE_URL}/functions/v1/preview-approvals`, {
@@ -25,7 +26,7 @@ async function call(body: Record<string, unknown>) {
   return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
 }
 
-export default function PortalProjectPreviewCard({ clientProjectId, contactName }: Props) {
+export default function PortalProjectPreviewCard({ clientProjectId, contactName, clientId }: Props) {
   const [list, setList] = useState<ListResp | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -102,6 +103,42 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
   const labelForPath = (p: string) =>
     p.replace(/\.html?$/i, "").split("/").pop() || p;
 
+  const hasExternalPages = externalPages.length > 0;
+  const hasUploadedPages = uploadedPages.length > 0;
+
+  /*
+   * Pages, in folders.
+   *
+   * The folder comes from the page's own group_label, so one project can hold
+   * three rounds of concepts and a finished website without them reading as
+   * one undifferentiated list. Falls back to the kind when a page has no
+   * folder yet, which is what every page looked like before this existed.
+   *
+   * Insertion order is preserved rather than sorted: the server already
+   * returns pages in order_index order, so the first folder a page appears in
+   * decides where that folder sits.
+   */
+  const pageFolders = (() => {
+    const byTitle = new Map<string, { title: string; note?: string; pages: typeof list.pages }>();
+    for (const p of list.pages) {
+      const title = p.group ||
+        (p.isExternal ? "Website pages" : "Design concepts");
+      const existing = byTitle.get(title);
+      if (existing) existing.pages.push(p);
+      else {
+        byTitle.set(title, {
+          title,
+          // Said once per folder rather than on every row.
+          note: p.isExternal
+            ? "These open on your live site. Leave feedback beside the page."
+            : undefined,
+          pages: [p],
+        });
+      }
+    }
+    return [...byTitle.values()];
+  })();
+
   return (
     <section className="portal-access is-open" style={{ scrollMarginTop: 24 }}>
       <div className="portal-access__toggle" style={{ cursor: "default" }}>
@@ -116,10 +153,35 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
         </div>
       </div>
       <div className="portal-access__body">
+        {/*
+          The old copy told every client to "use the in-page comment tools",
+          which only exist on pages we host — they are injected by
+          preview-serve. A client reviewing the live site followed that
+          instruction, found nothing, and reasonably concluded there was no way
+          to give feedback. So each kind now describes the way it actually
+          works.
+        */}
         <p className="portal-access__intro">
-          Open the latest preview in a new tab. Use the in-page comment tools to leave feedback,
-          and approve each page or asset below once it's good to go.
+          {hasExternalPages && hasUploadedPages
+            ? "Open any page in a new tab to look at it. Design concepts have commenting built in — on your live site, use Leave feedback beside the page. Approve each one below once it's right."
+            : hasExternalPages
+            ? "Open any page in a new tab to look at it, then use Leave feedback beside it to tell us what to change. Approve each one once it's right."
+            : "Open the preview in a new tab and use the commenting tools on the page itself. Approve each page or asset below once it's good to go."}
         </p>
+
+        {totalItems > 0 && clientId && (
+          <PortalFirstRunTip tipId="preview-feedback" clientId={clientId}>
+            {hasExternalPages
+              ? "New here? Open a page to look at it, then use Leave feedback beside it to tell us what to change — you don't need to write anything formal. Approve a page once you're happy with it."
+              : "New here? Open a page and you'll find a comment button on it — click anywhere to pin a note to that exact spot. Approve a page once you're happy with it."}
+          </PortalFirstRunTip>
+        )}
+
+        {totalItems === 0 && (
+          <p style={{ marginTop: 14, fontSize: 15, color: "hsl(30 8% 62%)" }}>
+            Nothing is ready to review just yet. We'll let you know the moment there is.
+          </p>
+        )}
 
         {totalItems > 0 && (
           <>
@@ -143,43 +205,28 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
               />
             </div>
 
-            {uploadedPages.length > 0 && (
+            {pageFolders.map((folder) => (
               <ApprovalGroup
-                title="Pages"
-                rows={uploadedPages.map((p) => ({
-                  key: p.path,
+                key={folder.title}
+                title={folder.title}
+                note={folder.note}
+                rows={folder.pages.map((p) => ({
+                  key: p.isExternal ? `ext:${p.path}` : p.path,
                   label: (p.label || labelForPath(p.path)) + (p.isEntry ? " · entry" : ""),
-                  sub: p.path,
                   viewUrl: pageUrl(p),
                   approval: p.approval,
                   onApprove: (v: boolean) => setApproval("page", p.path, v),
                   busy: busy === `page:${p.path}`,
-                  showComments: false,
+                  // An uploaded page carries the pin widget inside it; an
+                  // external one is somebody else's site, so the only place
+                  // feedback can live is here.
+                  showComments: p.isExternal,
                   slug: list.project.slug,
                   path: p.path,
                 }))}
                 fmtDate={fmtDate}
               />
-            )}
-
-            {externalPages.length > 0 && (
-              <ApprovalGroup
-                title="External pages"
-                rows={externalPages.map((p) => ({
-                  key: `ext:${p.path}`,
-                  label: p.label || labelForPath(p.path),
-                  sub: p.path,
-                  viewUrl: pageUrl(p),
-                  approval: p.approval,
-                  onApprove: (v: boolean) => setApproval("page", p.path, v),
-                  busy: busy === `page:${p.path}`,
-                  showComments: true,
-                  slug: list.project.slug,
-                  path: p.path,
-                }))}
-                fmtDate={fmtDate}
-              />
-            )}
+            ))}
 
             {list.assets.length > 0 && (
               <ApprovalGroup
@@ -187,7 +234,6 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
                 rows={list.assets.map((a) => ({
                   key: a.path,
                   label: a.path.split("/").pop() || a.path,
-                  sub: a.path,
                   viewUrl: assetUrl(a.path),
                   approval: a.approval,
                   onApprove: (v: boolean) => setApproval("asset", a.path, v),
@@ -206,7 +252,6 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName 
 type Row = {
   key: string;
   label: string;
-  sub: string;
   viewUrl: string;
   approval: Approval;
   onApprove: (v: boolean) => void;
@@ -216,12 +261,15 @@ type Row = {
   path?: string;
 };
 
-function ApprovalGroup({ title, rows, fmtDate }: { title: string; rows: Row[]; fmtDate: (s: string) => string }) {
+function ApprovalGroup({ title, note, rows, fmtDate }: { title: string; note?: string; rows: Row[]; fmtDate: (s: string) => string }) {
   return (
     <div style={{ marginTop: 18 }}>
-      <div style={{ fontSize: 14, letterSpacing: "0.18em", textTransform: "uppercase", color: "hsl(30 8% 62%)", marginBottom: 8 }}>
+      <div style={{ fontSize: 14, letterSpacing: "0.18em", textTransform: "uppercase", color: "hsl(30 8% 62%)", marginBottom: note ? 4 : 8 }}>
         {title}
       </div>
+      {note && (
+        <div style={{ fontSize: 14, color: "hsl(30 8% 55%)", marginBottom: 10 }}>{note}</div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {rows.map((r) => {
           const approved = !!r.approval;
@@ -242,9 +290,6 @@ function ApprovalGroup({ title, rows, fmtDate }: { title: string; rows: Row[]; f
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 16, color: "hsl(40 20% 97%)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.label}
-                  </div>
-                  <div style={{ fontSize: 13, color: "hsl(30 8% 55%)", marginTop: 3, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {r.sub}
                   </div>
                   {approved && r.approval && (
                     <div style={{ fontSize: 13, color: "hsl(140 30% 60%)", marginTop: 4, letterSpacing: "0.06em" }}>
@@ -319,13 +364,20 @@ function PageCommentThread({ slug, path, fmtDate }: { slug: string; path: string
 
   return (
     <div style={{ borderTop: "1px dashed hsl(30 8% 22%)", paddingTop: 10 }}>
+      {/*
+        "Comments" read as "look at the comments" — passive, easily taken for a
+        count. On a page we cannot inject the pin widget into, this button IS
+        the only way to give feedback, so it says so, and carries weight until
+        there is actually something in the thread.
+      */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="crm-btn crm-btn--ghost crm-btn--sm"
+        className={`crm-btn crm-btn--sm ${comments.length > 0 || open ? "crm-btn--ghost" : "crm-btn--bronze"}`}
         style={{ alignSelf: "flex-start" }}
       >
-        <MessageSquare size={12} /> {open ? "Hide" : "Comments"}{comments.length > 0 ? ` (${comments.length})` : ""}
+        <MessageSquare size={12} />{" "}
+        {open ? "Hide" : comments.length > 0 ? `Feedback (${comments.length})` : "Leave feedback"}
       </button>
       {open && (
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
