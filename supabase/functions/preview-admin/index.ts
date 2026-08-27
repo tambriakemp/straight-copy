@@ -415,7 +415,13 @@ Deno.serve(async (req) => {
         const { data: proj } = await admin
           .from("preview_projects").select("storage_prefix").eq("id", project_id).single();
         if (!proj) return json({ error: "project not found" }, 404);
-        const bin = Uint8Array.from(atob(content_base64), (c) => c.charCodeAt(0));
+        // Reject oversized payloads up front: base64 + binary + upload buffer all
+        // sit in memory at once and blow the worker's limit (WORKER_RESOURCE_LIMIT).
+        if (String(content_base64).length > 12 * 1024 * 1024) {
+          return json({ error: "file too large for single upload (max ~9MB)" }, 413);
+        }
+        const bin = decodeBase64(String(content_base64));
+
         const contentType = mime || "application/octet-stream";
         const up = await admin.storage.from("preview-sites").upload(
           `${proj.storage_prefix}${clean}`, bin,
