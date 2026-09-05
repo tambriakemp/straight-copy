@@ -24,6 +24,7 @@ import {
   diagnose,
   outcomeMeta,
   projectQueueState,
+  targetLabel,
   withinHours,
   type FireLogRow,
   type Finding,
@@ -99,7 +100,7 @@ export default function QueueHealth() {
         .limit(100),
       supabase
         .from("queue_fire_routes")
-        .select("id,client_project_id,secret_prefix,enabled,debounce_seconds")
+        .select("id,client_project_id,secret_prefix,enabled,debounce_seconds,target")
         .order("created_at", { ascending: true }),
       supabase
         .from("client_projects")
@@ -297,7 +298,8 @@ export default function QueueHealth() {
                       <>
                         <span style={code()}>{state.route.secret_prefix}</span>{" "}
                         {state.route.client_project_id === null ? "(default)" : "(this board only)"},
-                        debounce {state.route.debounce_seconds}s
+                        debounce {state.route.debounce_seconds}s, fires the{" "}
+                        {targetLabel(state.route.target)}
                       </>
                     ) : (
                       <span style={{ color: TONE_COLOR.bad }}>none — this board cannot fire</span>

@@ -25,6 +25,8 @@ export interface RouteRow {
   secret_prefix: string;
   enabled: boolean;
   debounce_seconds: number;
+  /** claude_routine (POST a routine trigger) or github_dispatch (fire a workflow). */
+  target: string;
 }
 
 export interface ProjectRow {
@@ -91,6 +93,15 @@ export const OUTCOME_META: Record<string, { label: string; tone: Tone; meaning: 
       "The task reached ready_for_claude but was not assigned to Claude, so the queue ignored it. Agent-created tasks did this until the assignee_kind fix shipped.",
   },
 };
+
+export const TARGET_LABEL: Record<string, string> = {
+  claude_routine: "claude.ai routine",
+  github_dispatch: "GitHub Actions worker",
+};
+
+export function targetLabel(target: string): string {
+  return TARGET_LABEL[target] ?? target;
+}
 
 export function outcomeMeta(outcome: string) {
   return (

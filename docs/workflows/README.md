@@ -31,3 +31,9 @@ apply.
 | File | Installs as | Needs secrets |
 |---|---|---|
 | `ci.yml` | `.github/workflows/ci.yml` | none |
+| `claude-queue-worker.yml` | `.github/workflows/claude-queue-worker.yml` | `CLAUDE_CODE_OAUTH_TOKEN`, `QUEUE_MCP_TOKEN`, `QUEUE_WORKER_GITHUB_TOKEN` |
+
+`claude-queue-worker.yml` also has to be **on the default branch** before it can
+be triggered at all: `repository_dispatch` silently returns 204 for a workflow
+that does not exist there. Its own header documents the secrets and the Vault
+route.
