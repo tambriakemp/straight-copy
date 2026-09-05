@@ -10,6 +10,7 @@ import { logSureContactActivity, sendSureContactEmail } from "../surecontact-sen
 import {
   PROJECT_TYPES, reviewProposal, type ProposalContent,
 } from "./proposal-spine.ts";
+import { assigneeKind, taskPriority, taskStatus } from "./task-fields.ts";
 
 // Mirrors the constants in send-transactional-email/index.ts so agent mail
 // leaves from the same identity as every other email the app sends.
@@ -82,48 +83,6 @@ async function followupWindowDays(sb: SupabaseClient, agentId: string): Promise<
   }
 }
 
-/**
- * project_tasks.priority is an enum: low | normal | high | urgent.
- *
- * There is no "medium" — which is the word any model reaches for first, and it
- * failed the insert with a raw Postgres enum error rather than doing the
- * obvious thing.
- */
-const TASK_PRIORITIES = new Set(["low", "normal", "high", "urgent"]);
-function taskPriority(raw: unknown): string {
-  const v = String(raw ?? "").toLowerCase();
-  if (TASK_PRIORITIES.has(v)) return v;
-  if (v === "medium" || v === "med" || v === "moderate") return "normal";
-  if (v === "critical" || v === "highest" || v === "p0") return "urgent";
-  return "normal";
-}
-
-/**
- * project_tasks.status is an enum: backlog | ready_for_claude | in_progress |
- * needs_review | blocked | complete.
- *
- * There is no "todo" — which is the word both this code and any model reach for
- * first, and it failed every insert with "invalid input value for enum
- * project_task_status". Every task an agent tried to open died on it, so a run
- * that had done the thinking still produced nothing on the board.
- *
- * Same shape as taskPriority above, and for the same reason: the enum is the
- * schema's vocabulary, not the caller's, so translate rather than reject.
- */
-const TASK_STATUSES = new Set([
-  "backlog", "ready_for_claude", "in_progress", "needs_review", "blocked", "complete",
-]);
-function taskStatus(raw: unknown): string {
-  const v = String(raw ?? "").toLowerCase().trim().replace(/[\s-]+/g, "_");
-  if (TASK_STATUSES.has(v)) return v;
-  if (v === "todo" || v === "to_do" || v === "open" || v === "new" || v === "pending") {
-    return "backlog";
-  }
-  if (v === "doing" || v === "started" || v === "active") return "in_progress";
-  if (v === "review" || v === "in_review") return "needs_review";
-  if (v === "done" || v === "closed" || v === "finished") return "complete";
-  return "backlog";
-}
 
 /**
  * Rows an agent may delete, and how to describe one that is gone.
@@ -379,6 +338,7 @@ export async function executeAction(
         const p = action.payload as {
           name?: string; client_project_id?: string; client_id?: string;
           due_date?: string; priority?: string; status?: string;
+          assignee_kind?: string;
         };
         let projectId = p.client_project_id ?? null;
 
@@ -400,6 +360,8 @@ export async function executeAction(
             error: "No client_project_id or client_id supplied; a task has to hang off a project",
           };
         }
+        const status = taskStatus(p.status);
+        const assignee = assigneeKind(p.assignee_kind, status);
         const { data, error } = await sb.from("project_tasks").insert({
           client_project_id: projectId,
           name: p.name ?? action.title,
@@ -408,11 +370,118 @@ export async function executeAction(
             : `> Opened by ${agentName}.`,
           due_date: p.due_date ?? null,
           priority: taskPriority(p.priority),
-          assignee_kind: "agency",
-          status: taskStatus(p.status),
+          assignee_kind: assignee,
+          status,
         }).select("id").single();
         if (error) return { ok: false, error: error.message };
-        return { ok: true, result: { task_id: data.id, client_project_id: projectId } };
+        return {
+          ok: true,
+          result: {
+            task_id: data.id,
+            client_project_id: projectId,
+            status,
+            assignee_kind: assignee,
+          },
+        };
+      }
+
+      case "move_task_status": {
+        const p = action.payload as { task_id?: string; status?: string };
+        if (!p.task_id) return { ok: false, error: "No task_id supplied" };
+        const status = taskStatus(p.status);
+
+        // Read first, for two reasons. The trigger only fires on a real
+        // transition, so re-asserting the status an agent already set is a
+        // no-op worth reporting rather than a silent success. And a task the
+        // queue is meant to pick up has to be assigned to Claude — the status
+        // alone is not enough (see assigneeKind in task-fields.ts), so moving work into
+        // ready_for_claude assigns it in the same update, or the move would
+        // land in a column where nothing ever collects it.
+        const { data: before, error: readErr } = await sb.from("project_tasks")
+          .select("id, name, status, assignee_kind, claimed_by")
+          .eq("id", p.task_id).maybeSingle();
+        if (readErr) return { ok: false, error: readErr.message };
+        if (!before) return { ok: false, error: `No task with id ${p.task_id}` };
+        if (before.status === status) {
+          return { ok: true, result: { task_id: p.task_id, status, unchanged: true } };
+        }
+
+        const patch: Record<string, unknown> = { status };
+        if (status === "ready_for_claude" && before.assignee_kind !== "claude") {
+          patch.assignee_kind = "claude";
+        }
+        const { error } = await sb.from("project_tasks").update(patch).eq("id", p.task_id);
+        if (error) return { ok: false, error: error.message };
+
+        return {
+          ok: true,
+          result: {
+            task_id: p.task_id,
+            name: before.name,
+            from: before.status,
+            status,
+            reassigned_to_claude: patch.assignee_kind === "claude",
+          },
+        };
+      }
+
+      case "post_task_comment": {
+        const p = action.payload as { task_id?: string; body?: string };
+        const body = String(p.body ?? action.description ?? "").trim();
+        if (!p.task_id) return { ok: false, error: "No task_id supplied" };
+        if (!body) return { ok: false, error: "No comment body supplied" };
+
+        // Same @mention extraction the MCP tool does, so a comment from an
+        // agent notifies exactly like a comment from a coding run.
+        const mentions = Array.from(new Set(
+          (body.match(/@([a-zA-Z0-9_-]+)/g) ?? []).map((m) => m.slice(1).toLowerCase()),
+        ));
+        const { data, error } = await sb.from("project_task_comments").insert({
+          task_id: p.task_id,
+          author_user_id: null,
+          author_name: agentName,
+          body,
+          mentions,
+        }).select("id").single();
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, result: { comment_id: data.id, task_id: p.task_id } };
+      }
+
+      case "add_acceptance_criteria": {
+        const p = action.payload as { task_id?: string; criteria?: unknown };
+        if (!p.task_id) return { ok: false, error: "No task_id supplied" };
+        const incoming = (Array.isArray(p.criteria) ? p.criteria : [p.criteria])
+          .map((c) => String(c ?? "").trim())
+          .filter(Boolean);
+        if (!incoming.length) return { ok: false, error: "No criteria supplied" };
+
+        // acceptance_criteria is a jsonb array on the task, not its own table,
+        // so this is read-modify-write. Append rather than replace: criteria a
+        // person wrote outlast any agent's opinion of the list.
+        const { data: task, error: readErr } = await sb.from("project_tasks")
+          .select("id, acceptance_criteria").eq("id", p.task_id).maybeSingle();
+        if (readErr) return { ok: false, error: readErr.message };
+        if (!task) return { ok: false, error: `No task with id ${p.task_id}` };
+
+        const existing = Array.isArray(task.acceptance_criteria)
+          ? task.acceptance_criteria as Array<{ id?: string; text?: string; done?: boolean }>
+          : [];
+        const seen = new Set(existing.map((c) => String(c.text ?? "").trim().toLowerCase()));
+        const added = incoming
+          .filter((text) => !seen.has(text.toLowerCase()))
+          .map((text) => ({ id: crypto.randomUUID(), text, done: false }));
+        if (!added.length) {
+          return { ok: true, result: { task_id: p.task_id, added: 0, reason: "all already present" } };
+        }
+
+        const { error } = await sb.from("project_tasks")
+          .update({ acceptance_criteria: [...existing, ...added] })
+          .eq("id", p.task_id);
+        if (error) return { ok: false, error: error.message };
+        return {
+          ok: true,
+          result: { task_id: p.task_id, added: added.length, total: existing.length + added.length },
+        };
       }
 
       case "complete_checklist_item": {

@@ -12,6 +12,7 @@ import {
 import {
   cadenceFor, isAuthFailure, runway, spreadSlots,
 } from "../social/schedule-policy.ts";
+import { projectQueueReady, willBePickedUp } from "./task-fields.ts";
 
 const DAY = 86_400_000;
 const iso = (msAgo: number) => new Date(Date.now() - msAgo).toISOString();
@@ -285,10 +286,16 @@ export async function developerContext(sb: SupabaseClient, cfg: Record<string, u
   const staleDays = Number(cfg.stale_after_days ?? 21);
   const maxDepth = Number(cfg.max_queue_depth ?? 15);
 
-  const [queued, inReview, inProgress, blocked, projects] = await Promise.all([
+  const [queued, backlog, inReview, inProgress, blocked, projects] = await Promise.all([
     sb.from("project_tasks")
-      .select("id, name, description, acceptance_criteria, client_project_id, priority, size, due_date, blocked_by, tags, url, design_url, created_at, updated_at, epic_id")
+      .select("id, name, description, acceptance_criteria, assignee_kind, claimed_by, client_project_id, priority, size, due_date, blocked_by, tags, url, design_url, created_at, updated_at, epic_id")
       .eq("status", queueStatus).order("order_index").limit(40),
+    // The candidates for promotion. Without these the agent could only ever
+    // judge what was already queued — it had no way to see the work that is
+    // ready to go in, which is the half of the job that keeps the queue fed.
+    sb.from("project_tasks")
+      .select("id, name, description, acceptance_criteria, assignee_kind, client_project_id, priority, size, due_date, blocked_by, tags, url, design_url, created_at, updated_at")
+      .eq("status", "backlog").order("order_index").limit(30),
     sb.from("project_tasks")
       .select("id, name, description, client_project_id, priority, updated_at, completed_at")
       .eq("status", reviewStatus).order("updated_at", { ascending: true }).limit(25),
@@ -298,11 +305,26 @@ export async function developerContext(sb: SupabaseClient, cfg: Record<string, u
     sb.from("project_tasks")
       .select("id, name, client_project_id, blocked_by, manual_prereqs")
       .eq("status", "blocked").limit(25),
-    sb.from("client_projects").select("id, client_id, name, status"),
+    // queue_enabled and repo_url matter here: they are two of the conditions
+    // trg_fire_queue_on_ready checks, so promoting a task on a project without
+    // them logs not_queue_work and nothing runs. The agent should be able to
+    // see that before it moves anything.
+    sb.from("client_projects")
+      .select("id, client_id, name, status, queue_enabled, repo_url, repo_branch, toolchain, delivery_mode"),
   ]);
 
-  const projMap: Record<string, { name: string | null; client_id: string }> = {};
-  for (const p of projects.data ?? []) projMap[p.id] = { name: p.name, client_id: p.client_id };
+  const projMap: Record<string, {
+    name: string | null;
+    client_id: string;
+    queue_ready: boolean;
+  }> = {};
+  for (const p of projects.data ?? []) {
+    projMap[p.id] = {
+      name: p.name,
+      client_id: p.client_id,
+      queue_ready: projectQueueReady(p),
+    };
+  }
 
   const clientIds = [...new Set(Object.values(projMap).map((p) => p.client_id))];
   const clientName: Record<string, string> = {};
@@ -316,7 +338,11 @@ export async function developerContext(sb: SupabaseClient, cfg: Record<string, u
     if (!projectId) return null;
     const p = projMap[projectId];
     if (!p) return null;
-    return { project: p.name, client: clientName[p.client_id] ?? null };
+    return {
+      project: p.name,
+      client: clientName[p.client_id] ?? null,
+      project_queue_ready: p.queue_ready,
+    };
   };
 
   const ageDays = (iso: string | null) =>
@@ -326,6 +352,7 @@ export async function developerContext(sb: SupabaseClient, cfg: Record<string, u
   // be spotted rather than taken at face value.
   const openIds = new Set([
     ...(queued.data ?? []).map((t) => t.id),
+    ...(backlog.data ?? []).map((t) => t.id),
     ...(inProgress.data ?? []).map((t) => t.id),
     ...(blocked.data ?? []).map((t) => t.id),
   ]);
@@ -354,6 +381,29 @@ export async function developerContext(sb: SupabaseClient, cfg: Record<string, u
       age_days: ageDays(t.created_at),
       days_since_touched: ageDays(t.updated_at),
       blocked_by: t.blocked_by ?? [],
+      blocked_by_still_open: (t.blocked_by ?? []).filter((id: string) => openIds.has(id)),
+      // A task sitting in ready_for_claude that is not assigned to claude will
+      // never be picked up, however well specified it is. It looks queued and
+      // is not, so name it rather than leaving it to be inferred.
+      assignee_kind: t.assignee_kind,
+      will_be_picked_up: willBePickedUp(t),
+      claimed: !!t.claimed_by,
+      ...label(t.client_project_id),
+    })),
+    backlog_candidates: (backlog.data ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      description_chars: (t.description ?? "").length,
+      description_preview: (t.description ?? "").slice(0, 200),
+      acceptance_criteria_count: Array.isArray(t.acceptance_criteria) ? t.acceptance_criteria.length : 0,
+      has_design: !!t.design_url,
+      has_url: !!t.url,
+      priority: t.priority,
+      size: t.size,
+      tags: t.tags ?? [],
+      due_date: t.due_date,
+      age_days: ageDays(t.created_at),
+      days_since_touched: ageDays(t.updated_at),
       blocked_by_still_open: (t.blocked_by ?? []).filter((id: string) => openIds.has(id)),
       ...label(t.client_project_id),
     })),

@@ -161,3 +161,21 @@ describe("the social tables", () => {
     expect(READABLE.client_projects.columns).toContain("agent_autonomy");
   });
 });
+
+describe("task comments are readable at all", () => {
+  // The projection is a literal PostgREST select list, and one wrong name
+  // fails the whole query — so `author` (the column is author_name) meant
+  // every read of task comments errored. That is the discussion on a task,
+  // which is exactly what the developer agent needs before judging whether
+  // the work is specified.
+  it("names the columns the table actually has", () => {
+    expect(READABLE.project_task_comments.columns).toContain("author_name");
+    expect(READABLE.project_task_comments.columns).not.toContain("author");
+  });
+
+  it("returns them in the default projection", () => {
+    const cols = projectionFor("project_task_comments");
+    expect(cols).toContain("body");
+    expect(cols).toContain("author_name");
+  });
+});
