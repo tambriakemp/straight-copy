@@ -1,0 +1,193 @@
+name: Coding queue worker
+
+# The coding worker, running here instead of as a claude.ai routine.
+#
+# Two things this buys:
+#
+#  1. Billing. Claude Code authenticated with a subscription OAuth token draws
+#     the Claude subscription's Agent SDK credit, not API credits. The in-app
+#     agents cannot do this — Claude Code is a binary and an edge function
+#     cannot run one — but a runner can.
+#
+#  2. No outside schedule. The board fires this directly through
+#     repository_dispatch, so nothing depends on a routine's own timetable.
+#
+# It does NOT replace the claude.ai routine on day one. Point one board's route
+# at it, watch a real task go through, and only then move the default route.
+#
+# ── Setup ────────────────────────────────────────────────────────────────────
+#
+# Repository secrets (Settings -> Secrets and variables -> Actions):
+#
+#   CLAUDE_CODE_OAUTH_TOKEN   from `claude setup-token` on a machine logged into
+#                             the Claude subscription. Lasts about a year. This
+#                             is what makes the run subscription-billed.
+#   QUEUE_MCP_TOKEN           an API token from /admin/tokens in the app. The
+#                             board's MCP endpoint accepts it as a bearer token.
+#   QUEUE_WORKER_GITHUB_TOKEN a GitHub token with repo scope on every repository
+#                             the queue may work. This is what clones and pushes.
+#
+# Then, in Vault, point a route at this repository:
+#
+#   select vault.create_secret(
+#     'https://api.github.com/repos/tambriakemp/straight-copy/dispatches',
+#     'gha_queue_fire_url');
+#   select vault.create_secret('<a token that can POST dispatches>',
+#     'gha_queue_fire_token');
+#
+#   insert into public.queue_fire_routes
+#     (client_project_id, secret_prefix, target, debounce_seconds)
+#   values ('<one project id>', 'gha_queue', 'github_dispatch', 300);
+#
+# repository_dispatch only reaches a workflow that exists on the default branch,
+# and GitHub returns 204 with no body whether or not anything listens. So a
+# route that logs `fired` and produces no run means this file is not on main
+# yet, not that the POST failed.
+
+on:
+  repository_dispatch:
+    types: [queue_ready]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why you are running it by hand'
+        default: 'Manual run'
+
+concurrency:
+  # Never two workers at once. Claims make that safe rather than correct, and
+  # two runners cloning the same repo is wasted money either way. Queued rather
+  # than cancelled: the second run has real work to find.
+  group: coding-queue-worker
+  cancel-in-progress: false
+
+jobs:
+  work-the-queue:
+    runs-on: ubuntu-latest
+    # Long enough for several tasks including installs and checks; short enough
+    # that a wedged run does not burn an hour of credit.
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out the app
+        # Not the repo being worked on — this checkout is only here for the
+        # prompt and the rules it reads.
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check the secrets exist
+        env:
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          MCP: ${{ secrets.QUEUE_MCP_TOKEN }}
+          GHT: ${{ secrets.QUEUE_WORKER_GITHUB_TOKEN }}
+        run: |
+          missing=""
+          [ -z "$OAUTH" ] && missing="$missing CLAUDE_CODE_OAUTH_TOKEN"
+          [ -z "$MCP" ] && missing="$missing QUEUE_MCP_TOKEN"
+          [ -z "$GHT" ] && missing="$missing QUEUE_WORKER_GITHUB_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing"
+            {
+              echo '## Cannot run'
+              echo
+              echo 'Missing repository secrets:'
+              for s in $missing; do echo "- \`$s\`"; done
+              echo
+              echo 'Setup is documented at the top of this workflow file.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Point it at the board
+        env:
+          MCP_TOKEN: ${{ secrets.QUEUE_MCP_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Project ref from config.toml, so this keeps working if the Supabase
+          # project is ever moved.
+          REF=$(grep -m1 '^project_id' supabase/config.toml | cut -d'"' -f2)
+          MCP_URL="https://$REF.supabase.co/functions/v1/agency-mcp"
+          echo "Board: $MCP_URL"
+
+          # Written with jq so the token is never interpolated into a shell
+          # string, and printed nowhere.
+          jq -n --arg url "$MCP_URL" --arg token "Bearer $MCP_TOKEN" \
+            '{mcpServers: {agency: {type: "http", url: $url,
+                                    headers: {Authorization: $token}}}}' \
+            > "$RUNNER_TEMP/mcp.json"
+
+      - name: Give it git and gh
+        env:
+          GH_TOKEN: ${{ secrets.QUEUE_WORKER_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config --global user.name  'straight-copy queue'
+          git config --global user.email 'queue@cre8visions.com'
+          # Credentials for every github.com clone in this job, including the
+          # ones Claude runs itself.
+          git config --global \
+            url."https://x-access-token:$GH_TOKEN@github.com/".insteadOf \
+            "https://github.com/"
+          mkdir -p "$RUNNER_TEMP/work"
+
+      - name: Work the queue
+        id: run
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ secrets.QUEUE_WORKER_GITHUB_TOKEN }}
+          FIRE_REASON: >-
+            ${{ github.event.client_payload.reason
+                || inputs.reason
+                || 'Scheduled sweep' }}
+        run: |
+          set -uo pipefail
+
+          # The prompt is the Actions-specific file; it tells Claude to read
+          # docs/queue-routine.md from this checkout for the rules themselves,
+          # so the two can never drift apart.
+          {
+            sed -n '/^## The prompt$/,$p' docs/queue-worker-prompt.md
+            echo
+            echo "Wake-up reason from the board: $FIRE_REASON"
+            echo "Worker string for claims: gha-${{ github.run_id }}"
+          } > "$RUNNER_TEMP/prompt.md"
+
+          # --dangerously-skip-permissions is what makes an unattended run
+          # possible: there is no human here to approve an edit. It is
+          # acceptable because the runner is disposable and the token's reach is
+          # limited to repositories deliberately granted to it.
+          claude -p "$(cat "$RUNNER_TEMP/prompt.md")" \
+            --mcp-config "$RUNNER_TEMP/mcp.json" \
+            --dangerously-skip-permissions \
+            --output-format text \
+            2>&1 | tee "$RUNNER_TEMP/run.log"
+
+          echo "exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo '## Coding queue run'
+            echo
+            echo "Triggered by \`${{ github.event_name }}\`."
+            echo
+            if [ -f "$RUNNER_TEMP/run.log" ]; then
+              echo '```'
+              tail -c 60000 "$RUNNER_TEMP/run.log"
+              echo '```'
+            else
+              echo 'The run produced no output, which means it failed before starting.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if the run failed
+        if: always() && steps.run.outputs.exit != '0'
+        run: |
+          echo "::error::claude exited ${{ steps.run.outputs.exit }} — see the summary."
+          exit 1

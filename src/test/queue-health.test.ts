@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CLAIM_TTL_MINUTES,
+  targetLabel,
   countOutcomes,
   diagnose,
   isClaimStale,
@@ -41,6 +42,7 @@ function route(over: Partial<RouteRow> = {}): RouteRow {
     secret_prefix: "agency_queue",
     enabled: true,
     debounce_seconds: 300,
+    target: "claude_routine",
     ...over,
   };
 }
@@ -88,6 +90,17 @@ describe("routeForProject", () => {
 
   it("returns null when no route covers the project", () => {
     expect(routeForProject("p9", [route({ client_project_id: "p1" })])).toBeNull();
+  });
+});
+
+describe("targetLabel", () => {
+  it("names both fire targets in words", () => {
+    expect(targetLabel("claude_routine")).toBe("claude.ai routine");
+    expect(targetLabel("github_dispatch")).toBe("GitHub Actions worker");
+  });
+
+  it("falls back to the raw value for a target added later", () => {
+    expect(targetLabel("carrier_pigeon")).toBe("carrier_pigeon");
   });
 });
 

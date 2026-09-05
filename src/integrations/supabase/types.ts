@@ -3068,6 +3068,7 @@ export type Database = {
           enabled: boolean
           id: string
           secret_prefix: string
+          target: string
         }
         Insert: {
           client_project_id?: string | null
@@ -3076,6 +3077,7 @@ export type Database = {
           enabled?: boolean
           id?: string
           secret_prefix: string
+          target?: string
         }
         Update: {
           client_project_id?: string | null
@@ -3084,6 +3086,7 @@ export type Database = {
           enabled?: boolean
           id?: string
           secret_prefix?: string
+          target?: string
         }
         Relationships: [
           {
