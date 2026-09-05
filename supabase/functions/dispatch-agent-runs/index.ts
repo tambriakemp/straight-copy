@@ -5,6 +5,12 @@
 // stays a plain 5-field string on the agents row that the UI can edit.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { isDue, nextRunAfter } from "../_shared/agents/schedule.ts";
+import {
+  dispatchAccepted,
+  dispatchRequest,
+  externalDispatchConfig,
+  runsExternally,
+} from "../_shared/agents/dispatch-target.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +33,7 @@ Deno.serve(async (req) => {
   );
 
   const { data: agents, error } = await sb.from("agents")
-    .select("id, key, schedule_cron, last_run_at")
+    .select("id, key, schedule_cron, last_run_at, run_via")
     .eq("enabled", true).not("schedule_cron", "is", null);
   if (error) return json({ error: error.message }, 500);
 
@@ -36,19 +42,60 @@ Deno.serve(async (req) => {
   if (!due.length) return json({ ok: true, checked: agents?.length ?? 0, fired: 0 });
 
   const base = Deno.env.get("SUPABASE_URL")!;
+  // Absent secrets mean no agent can run externally; every one falls back to the
+  // edge path it used before run_via existed.
+  const external = externalDispatchConfig(Deno.env);
+
   const fired = await Promise.all(due.map(async (a) => {
+    const schedule = { next_run_at: nextRunAfter(a.schedule_cron!, now)?.toISOString() ?? null };
+
+    if (external && runsExternally(a)) {
+      try {
+        const req = dispatchRequest({
+          config: external,
+          agent: a,
+          reason: `Scheduled run for ${a.key} (${a.schedule_cron}).`,
+        });
+        const res = await fetch(req.url, { method: "POST", headers: req.headers, body: req.body });
+
+        // last_run_at is written HERE, not by the worker. agent-run stamps it on
+        // the edge path, but a dispatched run stamps nothing until Claude Code
+        // gets there — and isDue() reads last_run_at, so leaving it alone would
+        // refire this agent on every 15-minute tick until the worker finished.
+        // Same class of bug as the tool-loop refire, in a new place.
+        await sb.from("agents")
+          .update({ ...schedule, last_run_at: now.toISOString() })
+          .eq("id", a.id);
+
+        // 204 only means GitHub accepted the event. It says nothing about a
+        // workflow existing to receive it, so this reports the status rather
+        // than claiming the agent ran.
+        return {
+          key: a.key,
+          via: "github_actions",
+          ok: dispatchAccepted(res.status),
+          status: res.status,
+        };
+      } catch (e) {
+        return {
+          key: a.key,
+          via: "github_actions",
+          ok: false,
+          error: String((e as Error).message || e),
+        };
+      }
+    }
+
     try {
       const res = await fetch(`${base}/functions/v1/agent-run`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-agent-secret": secret },
         body: JSON.stringify({ agent_id: a.id, trigger: "schedule" }),
       });
-      await sb.from("agents")
-        .update({ next_run_at: nextRunAfter(a.schedule_cron!, now)?.toISOString() ?? null })
-        .eq("id", a.id);
-      return { key: a.key, ok: res.ok, status: res.status };
+      await sb.from("agents").update(schedule).eq("id", a.id);
+      return { key: a.key, via: "edge", ok: res.ok, status: res.status };
     } catch (e) {
-      return { key: a.key, ok: false, error: String((e as Error).message || e) };
+      return { key: a.key, via: "edge", ok: false, error: String((e as Error).message || e) };
     }
   }));
 

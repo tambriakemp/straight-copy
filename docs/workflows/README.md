@@ -28,9 +28,14 @@ apply.
 
 ## Files
 
-Nothing is waiting right now — `ci.yml` and `claude-queue-worker.yml` were both
-installed in `7f0381a`. Do not look for them here; edit them under
-`.github/workflows/` like any other file.
+* `agent-worker.yml` — **waiting to be installed.** Runs a scheduled agent on
+  the Claude subscription instead of API credits. Setup, including the two edge
+  function secrets it needs, is documented at the top of the file. Nothing
+  happens until an agent is switched with
+  `update public.agents set run_via = 'github_actions' where key = '...';`
+
+`ci.yml` and `claude-queue-worker.yml` were installed in `7f0381a`. Do not look
+for them here; edit them under `.github/workflows/` like any other file.
 
 This folder stays because the App's restriction has not gone away: the next
 workflow I write will land here too, and this page explains why a file appears in

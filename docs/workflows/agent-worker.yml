@@ -1,0 +1,192 @@
+# Run a scheduled agent in GitHub Actions, on the Claude subscription.
+#
+# INSTALL: this file has to live at .github/workflows/agent-worker.yml. It sits
+# in docs/ because the GitHub App that opens these PRs is not allowed to write
+# workflow files. Move it once, by hand:
+#
+#   git mv docs/workflows/agent-worker.yml .github/workflows/agent-worker.yml
+#   git commit -m "Install the agent worker workflow" && git push
+#
+# WHY THIS EXISTS
+# An edge function can only call api.anthropic.com with an API key, so every
+# in-app agent run costs API credits. Claude Code can authenticate with a
+# subscription OAuth token instead — but it is a binary and needs a machine.
+# This is that machine. Same trade as claude-queue-worker.yml, applied to the
+# six scheduled agents rather than to coding tasks.
+#
+# HOW IT IS TRIGGERED
+# dispatch-agent-runs (pg_cron, every 15 min) finds agents whose schedule is
+# due. For an agent with run_via = 'github_actions' it POSTs a
+# repository_dispatch of type agent_run_ready instead of invoking agent-run.
+#
+# SETUP (once)
+#   1. Repository secrets — the queue worker's three already cover it:
+#        CLAUDE_CODE_OAUTH_TOKEN   from `claude setup-token`
+#        QUEUE_MCP_TOKEN           a crm_... token minted at /admin/tokens
+#      Set them with `gh secret set NAME --repo OWNER/REPO` so the value never
+#      lands in shell history or a chat log.
+#   2. Secrets on the dispatch-agent-runs edge function (ask Lovable to add):
+#        AGENT_DISPATCH_REPO   owner/repo  (e.g. tambriakemp/straight-copy)
+#        AGENT_DISPATCH_TOKEN  a GitHub token with repo scope
+#   3. Move one agent over and watch it before moving the rest:
+#        update public.agents set run_via = 'github_actions' where key = 'developer';
+#
+# Two traps worth knowing before you debug this:
+#   * repository_dispatch only matches a workflow that exists on the DEFAULT
+#     branch, and GitHub answers 204 whether or not anything is listening. A
+#     dispatch that "succeeded" with no run in the Actions tab means this file
+#     is not on main yet.
+#   * The OAuth token belongs to one person's subscription. Fine for internal
+#     agents; do not put client-facing usage behind it.
+
+name: Agent worker
+
+on:
+  repository_dispatch:
+    types: [agent_run_ready]
+  workflow_dispatch:
+    inputs:
+      agent_key:
+        description: 'Agent key, e.g. developer or client-triage'
+        required: true
+        type: string
+      reason:
+        description: 'Why this run is happening'
+        type: string
+        default: 'Manual run'
+
+concurrency:
+  # Per agent, so client-triage and the developer can run at the same time but
+  # one agent never runs twice concurrently. Queued rather than cancelled: a run
+  # already writing a report should finish.
+  group: agent-worker-${{ github.event.client_payload.agent_key || inputs.agent_key }}
+  cancel-in-progress: false
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Work out which agent this is
+        id: which
+        env:
+          FROM_DISPATCH: ${{ github.event.client_payload.agent_key }}
+          FROM_INPUT: ${{ inputs.agent_key }}
+        run: |
+          set -euo pipefail
+          key="${FROM_DISPATCH:-$FROM_INPUT}"
+          if [ -z "$key" ]; then
+            echo "No agent_key supplied." >&2
+            exit 1
+          fi
+          # The registry is the list of agents that exist. A key that is not in
+          # it is a typo or a stale dispatch, and failing here is cheaper than
+          # letting Claude improvise a mission for an agent that does not exist.
+          if ! grep -q "key: \"$key\"" supabase/functions/_shared/agents/registry.ts; then
+            echo "Unknown agent key: $key" >&2
+            echo "Known keys:" >&2
+            grep -o 'key: "[a-z-]*"' supabase/functions/_shared/agents/registry.ts >&2
+            exit 1
+          fi
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+          echo "Agent: $key"
+
+      - name: Check the secrets exist
+        env:
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          MCP: ${{ secrets.QUEUE_MCP_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=
+          [ -n "$OAUTH" ] || missing="$missing CLAUDE_CODE_OAUTH_TOKEN"
+          [ -n "$MCP" ]   || missing="$missing QUEUE_MCP_TOKEN"
+          if [ -n "$missing" ]; then
+            {
+              echo '## Setup incomplete'
+              echo
+              echo 'Missing repository secrets:'
+              for s in $missing; do echo "- \`$s\`"; done
+              echo
+              echo 'Setup is documented at the top of this workflow file.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Point it at the board
+        env:
+          MCP_TOKEN: ${{ secrets.QUEUE_MCP_TOKEN }}
+        run: |
+          set -euo pipefail
+          REF=$(grep -m1 '^project_id' supabase/config.toml | cut -d'"' -f2)
+          # jq, so the token is never interpolated into a shell string.
+          jq -n --arg url "https://$REF.supabase.co/functions/v1/agency-mcp" \
+                --arg token "Bearer $MCP_TOKEN" \
+            '{mcpServers: {agency: {type: "http", url: $url,
+                                    headers: {Authorization: $token}}}}' \
+            > "$RUNNER_TEMP/mcp.json"
+
+      - name: Run the agent
+        id: run
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          AGENT_KEY: ${{ steps.which.outputs.key }}
+          FIRE_REASON: >-
+            ${{ github.event.client_payload.reason
+                || inputs.reason
+                || 'Scheduled run' }}
+        run: |
+          set -uo pipefail
+          {
+            sed -n '/^## The prompt$/,$p' docs/agent-worker-prompt.md
+            echo
+            echo "The agent to run is: $AGENT_KEY"
+            echo "Why this run is happening: $FIRE_REASON"
+            echo "Run identifier for anything you record: gha-${{ github.run_id }}"
+          } > "$RUNNER_TEMP/prompt.md"
+
+          # No human here to approve a tool call; the runner is disposable and
+          # the MCP token's reach is limited to this board.
+          claude -p "$(cat "$RUNNER_TEMP/prompt.md")" \
+            --mcp-config "$RUNNER_TEMP/mcp.json" \
+            --dangerously-skip-permissions \
+            --output-format text \
+            2>&1 | tee "$RUNNER_TEMP/run.log"
+
+          echo "exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo "## Agent run: ${{ steps.which.outputs.key }}"
+            echo
+            echo "Triggered by \`${{ github.event_name }}\`."
+            echo
+            if [ -f "$RUNNER_TEMP/run.log" ]; then
+              echo '<details><summary>Output</summary>'
+              echo
+              echo '```'
+              tail -c 40000 "$RUNNER_TEMP/run.log"
+              echo '```'
+              echo
+              echo '</details>'
+            else
+              echo 'The agent never started. See the failing step above.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if the agent failed
+        if: always() && steps.run.outputs.exit != '0'
+        run: |
+          echo "Claude Code exited ${{ steps.run.outputs.exit }}." >&2
+          exit 1
