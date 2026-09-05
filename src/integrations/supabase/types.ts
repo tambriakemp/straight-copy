@@ -517,7 +517,6 @@ export type Database = {
           model: string
           name: string
           next_run_at: string | null
-          run_via: string
           role: string
           schedule_cron: string | null
           system_prompt: string | null
@@ -540,7 +539,6 @@ export type Database = {
           model?: string
           name: string
           next_run_at?: string | null
-          run_via?: string
           role: string
           schedule_cron?: string | null
           system_prompt?: string | null
@@ -563,7 +561,6 @@ export type Database = {
           model?: string
           name?: string
           next_run_at?: string | null
-          run_via?: string
           role?: string
           schedule_cron?: string | null
           system_prompt?: string | null
@@ -649,7 +646,6 @@ export type Database = {
           client_project_id?: string | null
           created_at?: string
           id?: string
-          run_via?: string
           name?: string
           notes?: string | null
           status?: string
