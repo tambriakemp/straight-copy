@@ -39,6 +39,7 @@ const Tokens = lazy(() => import("./pages/admin/Tokens.tsx"));
 const Invites = lazy(() => import("./pages/admin/Invites.tsx"));
 const ProjectDetail = lazy(() => import("./pages/admin/ProjectDetail.tsx"));
 const AllTasks = lazy(() => import("./pages/admin/AllTasks.tsx"));
+const QueueHealth = lazy(() => import("./pages/admin/QueueHealth.tsx"));
 const PreviewViewer = lazy(() => import("./pages/PreviewViewer.tsx"));
 const RequireAdmin = lazy(() => import("./components/admin/RequireAdmin.tsx"));
 const RequireWiki = lazy(() => import("./components/admin/RequireWiki.tsx"));
@@ -83,6 +84,7 @@ const App = () => (
             <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
             <Route path="/admin/clients" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
             <Route path="/admin/tasks" element={<RequireAdmin><AllTasks /></RequireAdmin>} />
+            <Route path="/admin/queue" element={<RequireAdmin><QueueHealth /></RequireAdmin>} />
             <Route path="/admin/profile" element={<RequireAdmin><Profile /></RequireAdmin>} />
             <Route path="/admin/clients/:id" element={<RequireAdmin><ClientDetail /></RequireAdmin>} />
             <Route path="/admin/ventures" element={<RequireAdmin><Ventures /></RequireAdmin>} />

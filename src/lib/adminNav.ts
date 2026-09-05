@@ -23,6 +23,7 @@ export const NAV_GROUPS = ["Business", "Account"] as const;
 export const NAV: NavItem[] = [
   { to: "/admin/ventures", label: "Ventures", glyph: "◈", group: "Business" },
   { to: "/admin/portfolio", label: "Portfolio", glyph: "◐", group: "Business" },
+  { to: "/admin/queue", label: "Coding queue", glyph: "⚡", group: "Business" },
   { to: "/admin/invites", label: "Invites", glyph: "✉", group: "Account" },
   { to: "/admin/tokens", label: "Settings", glyph: "⚙", group: "Account" },
   { to: "/admin/profile", label: "Profile", glyph: "☺", group: "Account" },
