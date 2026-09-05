@@ -1,0 +1,26 @@
+# Edge functions that do NOT pass `deno check` today.
+#
+# Everything not listed here is typechecked in CI and must stay clean. This
+# list is a debt ledger, not a permission slip: the errors in these files are
+# real (mostly the untyped Supabase client resolving its generics to `never`,
+# plus the Anthropic non-streaming/streaming response union). They were here
+# before CI was, and gating on them would have meant shipping a red build.
+#
+# The list should only ever get shorter. If you fix one, delete its line — CI
+# warns when an exempt file starts passing.
+agency-mcp/index.ts
+agent-chat/index.ts
+agent-run/index.ts
+analyze-social-image/index.ts
+contract-sign/index.ts
+generate-social-posts/index.ts
+mcp-oauth/index.ts
+parse-metrics-image/index.ts
+poll-email-status/index.ts
+project-invoices/index.ts
+project-tasks/index.ts
+proposal-sign/index.ts
+regenerate-social-post/index.ts
+send-preview-review-email/index.ts
+surecart-webhook/index.ts
+surecontact-webhook/index.ts
