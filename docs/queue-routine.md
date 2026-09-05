@@ -135,13 +135,21 @@ report a task done on a tree you have not seen pass.
 
 ### Landing it
 
-Honour the project's `delivery_mode` exactly:
+Honour the project's `delivery_mode` exactly. Most projects are `pr_merge`,
+because this app deploys from `main` and an unmerged branch is invisible in the
+product — work nobody can look at cannot be reviewed:
 
 - **`pr`** — push a branch and open a pull request, and **stop**. Do not merge
   it. Somebody reviews it.
 - **`pr_merge`** — open the pull request and merge it in the same run. The
   record exists afterwards; it is not a gate. Only where the project says so.
 - **`push`** — commit to `repo_branch` directly.
+
+If a criterion can only be checked by a person — a visual check, a real device,
+a judgement about whether it looks right — land the work anyway and say in your
+comment exactly what needs eyes on it. Do not hold delivery back waiting for a
+check you cannot perform: that leaves the change where nobody can see it, which
+makes the check harder rather than safer.
 
 Then `move_task_status` to `needs_review`, and comment on the task with what
 you changed and a link to the PR if there is one. `complete` is for work a
