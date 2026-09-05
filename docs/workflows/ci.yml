@@ -1,0 +1,66 @@
+name: CI
+
+# Until this existed, nothing in the repo was checked before it reached main.
+# The front end is typechecked by `vite build` in Lovable, but the 63 edge
+# functions were not typechecked anywhere: production was their first
+# typechecker, and a missing property on a context object surfaced as an agent
+# that quietly did nothing rather than as a red build.
+#
+# Three gates, all cheap:
+#   1. tsc on src        — the app compiles.
+#   2. vitest            — the pure agent logic still behaves.
+#   3. deno check        — every edge function that compiles today keeps
+#                          compiling. Files that do NOT compile today are
+#                          listed in supabase/functions/.deno-check-exempt so
+#                          the gate can be strict about everything else.
+#
+# Lint is deliberately absent: there are 300+ pre-existing eslint errors, so a
+# lint gate would fail on arrival and be switched off within a day. Ratchet
+# that separately once the backlog is down.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  # A new push to a PR supersedes the previous run; no point burning minutes on
+  # a commit nobody will merge.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: Typecheck and test the app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # `npm ci` needs package-lock.json to agree with package.json. It does
+      # today; if a dependency is ever added through bun only, this is the step
+      # that will say so.
+      - run: npm ci
+
+      - name: Typecheck (tsc)
+        run: npx tsc --noEmit -p tsconfig.app.json
+
+      - name: Unit tests (vitest)
+        run: npm run test
+
+  functions:
+    name: Typecheck edge functions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: deno check
+        run: ./scripts/deno-check-functions.sh
