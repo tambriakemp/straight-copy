@@ -5,7 +5,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag, Copy, ChevronDown, Upload, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag, Copy, ChevronDown, Upload, CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,6 +63,7 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [projectType, setProjectType] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const reload = async () => {
     try {
@@ -77,6 +78,15 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Realtime already reloads on any change, but that depends on the
+  // subscription still being alive — a manual refresh is the fallback for
+  // "I know something changed and don't want to reload the whole browser".
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    await reload();
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -230,6 +240,32 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     <div className="text-warm-white">
       {/* Toolbar */}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => void handleManualRefresh()}
+              disabled={refreshing}
+              aria-label="Refresh tasks"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: 6,
+                border: "1px solid hsl(var(--warm-white) / 0.12)",
+                background: "transparent",
+                color: "hsl(var(--warm-white))",
+                cursor: refreshing ? "default" : "pointer",
+                flexShrink: 0,
+              }}
+            >
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : undefined} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Refresh tasks</TooltipContent>
+        </Tooltip>
+
         <div className="hidden md:inline-flex" style={{ border: "1px solid hsl(var(--warm-white) / 0.12)", borderRadius: 6, overflow: "hidden" }}>
           <button onClick={() => setView("kanban")} style={tabBtnStyle(view === "kanban")}>
             <LayoutGrid size={14} style={{ marginRight: 6 }} /> Kanban
