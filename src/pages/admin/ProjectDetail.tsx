@@ -84,11 +84,14 @@ export default function ProjectDetail({
     );
   }
 
-  if (project.type === "app_development" || project.type === "web_development"
-    || project.type === "marketing") {
-    return <AppDevelopmentView {...pass} />;
-  }
-
-  if (embedded) return <div style={{ padding: 40 }}>Unknown project type.</div>;
-  return <Navigate to={`/admin/clients/${clientId}`} replace />;
+  // Everything that is not a preview gets the board view, including project
+  // types added later.
+  //
+  // It used to be an allowlist of three, and anything else rendered "Unknown
+  // project type" -- a dead end with no board and, more to the point, no
+  // delivery targets card. So the only way to give a new client's project a
+  // repository was to pick one of three type strings, and picking the wrong one
+  // meant the queue could never be switched on for it. A generic board is a
+  // better answer to an unfamiliar type than a shrug.
+  return <AppDevelopmentView {...pass} />;
 }
