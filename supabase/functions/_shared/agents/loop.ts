@@ -1,3 +1,4 @@
+import { requestTuning } from "./model-params.ts";
 // The agentic loop.
 //
 // This is the change that turns these from templated LLM calls into agents.
@@ -172,8 +173,14 @@ export async function runToolLoop(args: LoopArgs): Promise<LoopResult> {
       const stream = args.client.messages.stream({
         model: args.model,
         max_tokens: args.maxTokens ?? 32_000,
-        thinking: { type: "adaptive", display: "summarized" },
-        output_config: { effort: args.effort as "low" | "medium" | "high" | "xhigh" | "max" },
+        // tool_choice is auto or none here, never forced, so thinking is fine —
+        // in whichever shape this model accepts.
+        ...requestTuning({
+          model: args.model,
+          effort: args.effort,
+          maxTokens: args.maxTokens ?? 32_000,
+          display: "summarized",
+        }),
         system: args.system,
         tools: args.tools,
         tool_choice: finalPass ? { type: "none" } : { type: "auto" },
