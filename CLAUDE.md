@@ -131,6 +131,12 @@ imports must have **no `npm:` specifiers** — a Deno specifier does not resolve
 under the app's tsconfig. Declare the shape you need locally instead; see
 `_shared/agents/rules.ts` and `table-access.ts`.
 
+When logic inside a module that DOES reach `npm:` needs testing, move the pure
+part into a dependency-free module rather than pasting a copy into the test.
+`_shared/agents/task-fields.ts` exists for exactly that: the enum normalisers
+lived in `actions.ts` and were pinned by a duplicate inside two test files,
+which is a test that cannot fail when the real code changes.
+
 ## Agents
 
 `supabase/functions/_shared/agents/` — six agents defined in `registry.ts`,

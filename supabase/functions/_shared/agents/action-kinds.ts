@@ -48,7 +48,50 @@ export const ACTION_KINDS: Record<string, ActionKind> = {
     payload:
       "{name, client_project_id, due_date?, " +
       "priority?: 'low'|'normal'|'high'|'urgent', " +
-      "status?: 'backlog'|'ready_for_claude'|'in_progress'|'needs_review'|'blocked'|'complete'}",
+      "status?: 'backlog'|'ready_for_claude'|'in_progress'|'needs_review'|'blocked'|'complete', " +
+      "assignee_kind?: 'unassigned'|'admin'|'claude'|'auto'|'client'|'agency' " +
+      "(defaults to claude when status is ready_for_claude, otherwise agency)}",
+  },
+  // --- board actions ---
+  //
+  // The developer agent's whole job is judging what is ready and putting it in
+  // front of the coding queue in the right order. Until these existed it could
+  // only describe doing that, because create_task was the only board action in
+  // the table — so a run ended with a paragraph about a task that nobody moved.
+  //
+  // None of them reach a client and none destroy a row: a status change and a
+  // comment are both fully reversible by hand in the UI, which is why they are
+  // not outward and not destructive. Moving a task INTO ready_for_claude does
+  // start a coding run (trg_fire_queue_on_ready), and that is the point.
+  move_task_status: {
+    kind: "move_task_status",
+    outward: false,
+    purpose:
+      "move a task to another column on the board. Use ready_for_claude only " +
+      "for work that is specified well enough to be built without asking a " +
+      "question: it wakes a coding run, and a vague task burns one. Send " +
+      "underspecified work back to backlog with a comment saying what is missing.",
+    payload:
+      "{task_id, status: 'backlog'|'ready_for_claude'|'in_progress'|" +
+      "'needs_review'|'blocked'|'complete'}",
+  },
+  post_task_comment: {
+    kind: "post_task_comment",
+    outward: false,
+    purpose:
+      "leave a comment on a task — what is missing before it can be built, " +
+      "what you decided, what came back from a run. This is how you talk to " +
+      "the owner about one piece of work instead of burying it in a brief.",
+    payload: "{task_id, body}",
+  },
+  add_acceptance_criteria: {
+    kind: "add_acceptance_criteria",
+    outward: false,
+    purpose:
+      "append acceptance criteria to a task, so 'done' is a checkable list " +
+      "rather than an opinion. The single highest-leverage thing you can do " +
+      "to a task before it goes to the coding queue.",
+    payload: "{task_id, criteria: string[]}",
   },
   complete_checklist_item: {
     kind: "complete_checklist_item",

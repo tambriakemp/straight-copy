@@ -18,7 +18,19 @@ export const ALLOWED_ACTIONS: Record<string, string[]> = {
     "delete_record",
   ],
   "client-triage": ["create_task", "draft_email", "flag_risk", "delete_record"],
-  developer: ["create_task", "flag_risk", "delete_record"],
+  // The board actions are what make this one an agent rather than a
+  // commentator: without them it can judge a task's readiness and then do
+  // nothing about it. move_task_status is also the only way anything reaches
+  // the coding queue, since trg_fire_queue_on_ready fires on the transition
+  // into ready_for_claude.
+  developer: [
+    "create_task",
+    "move_task_status",
+    "post_task_comment",
+    "add_acceptance_criteria",
+    "flag_risk",
+    "delete_record",
+  ],
   "social-media": [
     "write_social_caption",
     "schedule_social_post",

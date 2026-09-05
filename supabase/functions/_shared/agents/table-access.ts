@@ -119,7 +119,11 @@ export const READABLE: Record<string, TableAccess> = {
     maxLimit: 50,
   },
   project_task_comments: {
-    columns: ["id", "task_id", "author", "body", "created_at"],
+    // author_name, not author: the column is author_name (plus author_user_id),
+    // and PostgREST rejects the whole select when one name is wrong — so every
+    // read of task comments failed, which is the discussion on a task the
+    // developer agent most needs to see before judging it.
+    columns: ["id", "task_id", "author_name", "body", "mentions", "created_at"],
     searchable: ["body"],
     long: ["body"],
     maxLimit: 50,

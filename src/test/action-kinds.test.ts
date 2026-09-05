@@ -9,6 +9,9 @@ import {
   ALLOWED_ACTIONS, allowedFor,
 } from "../../supabase/functions/_shared/agents/allowlists";
 import { canAutoExecute } from "../../supabase/functions/_shared/agents/types";
+import {
+  assigneeKind, taskPriority, taskStatus,
+} from "../../supabase/functions/_shared/agents/task-fields";
 
 describe("outward classification", () => {
   it("marks everything that reaches a client as outward", () => {
@@ -115,31 +118,109 @@ describe("agent allowlists", () => {
   });
 });
 
-describe("task priority mapping", () => {
-  // project_tasks.priority is an enum: low | normal | high | urgent. There is
-  // no "medium" — which is the word a model reaches for first, and it failed
-  // the insert with a raw Postgres enum error.
+describe("task field mapping", () => {
+  // These used to be a copy of the mapping pasted into this file, which could
+  // not fail when the real code changed. They now import the code that runs.
   const PRIORITIES = new Set(["low", "normal", "high", "urgent"]);
-  const map = (raw: unknown): string => {
-    const v = String(raw ?? "").toLowerCase();
-    if (PRIORITIES.has(v)) return v;
-    if (v === "medium" || v === "med" || v === "moderate") return "normal";
-    if (v === "critical" || v === "highest" || v === "p0") return "urgent";
-    return "normal";
-  };
+  const STATUSES = new Set([
+    "backlog", "ready_for_claude", "in_progress", "needs_review", "blocked", "complete",
+  ]);
+  const KINDS = new Set(["unassigned", "admin", "claude", "auto", "client", "agency"]);
 
   it("maps medium onto normal instead of failing the insert", () => {
-    expect(map("medium")).toBe("normal");
+    // project_tasks.priority has no "medium" — the word a model reaches for
+    // first, which failed the insert with a raw Postgres enum error.
+    expect(taskPriority("medium")).toBe("normal");
   });
 
-  it("passes real enum values through", () => {
-    for (const p of ["low", "normal", "high", "urgent"]) expect(map(p)).toBe(p);
+  it("passes real priority values through", () => {
+    for (const p of PRIORITIES) expect(taskPriority(p)).toBe(p);
   });
 
-  it("never returns a value outside the enum", () => {
+  it("never returns a priority outside the enum", () => {
     for (const raw of [undefined, null, "", "MEDIUM", "critical", "nonsense", 7]) {
-      expect(PRIORITIES.has(map(raw)), String(raw)).toBe(true);
+      expect(PRIORITIES.has(taskPriority(raw)), String(raw)).toBe(true);
     }
+  });
+
+  it("maps todo onto backlog", () => {
+    for (const raw of ["todo", "to do", "To-Do", "open", "new", "pending"]) {
+      expect(taskStatus(raw), raw).toBe("backlog");
+    }
+  });
+
+  it("never returns a status outside the enum", () => {
+    for (const raw of [undefined, null, "", "shipped", "nonsense", 7]) {
+      expect(STATUSES.has(taskStatus(raw)), String(raw)).toBe(true);
+    }
+  });
+
+  it("assigns queue-bound work to claude, so the queue can see it", () => {
+    // The bug this exists to stop: assignee_kind was hardcoded to 'agency', so
+    // trg_fire_queue_on_ready logged not_queue_work and an agent could never
+    // put anything in the coding queue.
+    expect(assigneeKind(undefined, "ready_for_claude")).toBe("claude");
+    expect(assigneeKind(null, "ready_for_claude")).toBe("claude");
+    expect(assigneeKind("", "ready_for_claude")).toBe("claude");
+  });
+
+  it("leaves work in every other column with the agency", () => {
+    for (const status of ["backlog", "in_progress", "needs_review", "blocked", "complete"]) {
+      expect(assigneeKind(undefined, status), status).toBe("agency");
+    }
+  });
+
+  it("lets an explicit assignee win over the default", () => {
+    expect(assigneeKind("admin", "ready_for_claude")).toBe("admin");
+    expect(assigneeKind("claude", "backlog")).toBe("claude");
+    expect(assigneeKind("CLIENT", "backlog")).toBe("client");
+  });
+
+  it("translates the words a model reaches for", () => {
+    for (const raw of ["ai", "agent", "claude_code"]) {
+      expect(assigneeKind(raw, "backlog"), raw).toBe("claude");
+    }
+  });
+
+  it("never returns an assignee outside the enum", () => {
+    for (const raw of [undefined, null, "", "robot", 7, {}]) {
+      expect(KINDS.has(assigneeKind(raw, "backlog")), String(raw)).toBe(true);
+      expect(KINDS.has(assigneeKind(raw, "ready_for_claude")), String(raw)).toBe(true);
+    }
+  });
+});
+
+describe("board actions", () => {
+  const BOARD = ["move_task_status", "post_task_comment", "add_acceptance_criteria"];
+
+  it("gives the developer agent the actions its mission describes", () => {
+    // Without these it could judge a task's readiness and then do nothing
+    // about it, which is what every developer run used to amount to.
+    for (const kind of BOARD) expect(allowedFor("developer"), kind).toContain(kind);
+  });
+
+  it("keeps them internal and non-destructive, so they can run unattended", () => {
+    for (const kind of BOARD) {
+      expect(isOutward(kind), kind).toBe(false);
+      expect(isDestructive(kind), kind).toBe(false);
+      expect(alwaysApproves(kind), kind).toBe(false);
+      expect(canAutoExecute("act_in_app", isOutward(kind), isDestructive(kind)), kind).toBe(true);
+    }
+  });
+
+  it("still holds every board action behind propose-only autonomy", () => {
+    for (const kind of BOARD) {
+      expect(canAutoExecute("propose", isOutward(kind)), kind).toBe(false);
+    }
+  });
+
+  it("tells the model that ready_for_claude starts a run", () => {
+    // The whole risk of this action: the transition spends a coding session.
+    // If the schema text stops saying so, the model stops knowing it.
+    const doc = kindDocFor(allowedFor("developer"));
+    expect(doc).toContain("move_task_status");
+    expect(doc).toContain("ready_for_claude");
+    expect(ACTION_KINDS.move_task_status.purpose).toMatch(/coding run/);
   });
 });
 

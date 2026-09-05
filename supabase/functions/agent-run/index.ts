@@ -226,6 +226,16 @@ Deno.serve(async (req) => {
         actions: [],
       }, waiting);
 
+      // Stamp the run, exactly as the legacy path below does.
+      //
+      // This branch used to return without it, and every agent has
+      // tool_loop: true (migration 20260821000000) — so last_run_at stayed
+      // null forever, isDue() in _shared/agents/schedule.ts kept finding the
+      // same passed slot, and every scheduled agent re-fired on every
+      // dispatcher tick for the rest of the day. Duplicate briefs, duplicate
+      // proposed actions, fifteen-minute token spend.
+      await sb.from("agents").update({ last_run_at: new Date().toISOString() }).eq("id", agent.id);
+
       return json({
         run_id: run.id,
         headline: loop.text.split("\n")[0].slice(0, 120),
