@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { agentState, boardPulse, claimRunUrl, pulseSentence, type AgentState, type AgentTone } from "@/lib/taskAgentState";
 import {
   tasksApi, TASK_STATUSES, STATUS_LABELS, STATUS_COLORS, PRIORITIES, PRIORITY_COLORS,
   TASK_SIZES, TASK_PLATFORMS, MENTIONABLE_HANDLES,
@@ -38,6 +39,55 @@ const ASSIGNEE_OPTIONS: AssigneeKind[] = ["unassigned", "auto", "client", "agenc
 interface Props { clientProjectId?: string }
 
 type ViewMode = "kanban" | "list" | "calendar";
+
+/**
+ * Agent status per task, computed once for the whole board.
+ *
+ * A context rather than props: the answer is needed on the card, in the list, and
+ * in the detail sheet, and threading it through four layers of component would
+ * mean four chances for one of them to be handed a stale copy.
+ */
+const AgentStatusContext = React.createContext<Map<string, AgentState>>(new Map());
+const BlockerNamesContext = React.createContext<Map<string, string[]>>(new Map());
+
+const TONE_COLORS: Record<AgentTone, string> = {
+  good: "hsl(150 45% 62%)",
+  warn: "hsl(38 85% 65%)",
+  bad: "hsl(6 75% 68%)",
+  muted: "hsl(var(--warm-white) / 0.55)",
+};
+
+function AgentStatusPill({ state, title }: { state: AgentState; title?: string }) {
+  if (!state.label) return null;
+  const color = TONE_COLORS[state.tone];
+  return (
+    <span
+      title={title ?? state.detail}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 5,
+        fontSize: 14, lineHeight: 1.2, color,
+        border: `1px solid ${color}`, borderRadius: 999, padding: "1px 7px",
+        whiteSpace: "nowrap", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis",
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          width: 6, height: 6, borderRadius: 999, background: color, flexShrink: 0,
+          // Only a live claim pulses. A stalled task should not look busy.
+          animation: state.key === "working" ? "tp-pulse 1.6s ease-in-out infinite" : undefined,
+        }}
+      />
+      {state.label}
+    </span>
+  );
+}
+
+function TaskAgentPill({ taskId }: { taskId: string }) {
+  const states = React.useContext(AgentStatusContext);
+  const state = states.get(taskId);
+  return state ? <AgentStatusPill state={state} /> : null;
+}
 
 const taskSurfaceClass = "bg-ink border-warm-white/15 !text-warm-white [&_*]:!text-warm-white [&_input]:!text-warm-white [&_textarea]:!text-warm-white [&_input::placeholder]:!text-taupe [&_textarea::placeholder]:!text-taupe";
 const taskInputClass = "bg-transparent border-warm-white/20 !text-warm-white placeholder:!text-taupe";
@@ -64,6 +114,13 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const [projectType, setProjectType] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // Claim ages are shown in minutes, so the clock has to move on its own — a
+  // "Claude working · 4m" badge that stays at 4m for an hour is worse than none.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const reload = async () => {
     try {
@@ -157,6 +214,48 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     return m;
   }, [tasks]);
 
+  // Blockers resolved to names. `blocked_by` holds UUIDs, and a card showing
+  // "blocked by 4f3a-…" is the reason a filled-in Blocked by field reads as
+  // alarming rather than informative. An id pointing at nothing is named as
+  // such: a dangling blocker still stops the queue firing, so it must not
+  // silently disappear from the count.
+  const openBlockerNames = useMemo(() => {
+    const byId = new Map(tasks.map((t) => [t.id, t]));
+    const m = new Map<string, string[]>();
+    for (const t of tasks) {
+      const names = (t.blocked_by ?? [])
+        .filter((id) => byId.get(id)?.status !== "complete")
+        .map((id) => byId.get(id)?.name ?? "a task that no longer exists");
+      if (names.length) m.set(t.id, names);
+    }
+    return m;
+  }, [tasks]);
+
+  const agentStates = useMemo(() => {
+    const m = new Map<string, AgentState>();
+    for (const t of tasks) {
+      m.set(t.id, agentState({
+        status: t.status,
+        assignee_kind: t.assignee_kind,
+        claimed_by: t.claimed_by ?? null,
+        claimed_at: t.claimed_at ?? null,
+        open_blockers: openBlockerNames.get(t.id) ?? [],
+      }, now));
+    }
+    return m;
+  }, [tasks, openBlockerNames, now]);
+
+  const pulse = useMemo(
+    () => boardPulse(tasks.map((t) => ({
+      status: t.status,
+      assignee_kind: t.assignee_kind,
+      claimed_by: t.claimed_by ?? null,
+      claimed_at: t.claimed_at ?? null,
+      open_blockers: openBlockerNames.get(t.id) ?? [],
+    })), now),
+    [tasks, openBlockerNames, now],
+  );
+
   const openTask = openTaskId ? tasks.find((t) => t.id === openTaskId) ?? null : null;
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -237,7 +336,11 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   }, [view, loading]);
 
   return (
+    <AgentStatusContext.Provider value={agentStates}>
+    <BlockerNamesContext.Provider value={openBlockerNames}>
     <div className="text-warm-white">
+      <style>{"@keyframes tp-pulse{0%,100%{opacity:1}50%{opacity:0.25}}"}</style>
+      <QueuePulseStrip pulse={pulse} loading={loading} />
       {/* Toolbar */}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
         <Tooltip>
@@ -428,6 +531,44 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         onChanged={reload}
       />
     </div>
+    </BlockerNamesContext.Provider>
+    </AgentStatusContext.Provider>
+  );
+}
+
+/**
+ * One line above the board answering "is anything happening?".
+ *
+ * It deliberately does not claim health when it is quiet. An idle queue and a
+ * queue that stopped firing look the same from here, and the difference is in
+ * queue_fire_log — so the strip links to /admin/queue instead of guessing.
+ */
+function QueuePulseStrip({ pulse, loading }: { pulse: ReturnType<typeof boardPulse>; loading: boolean }) {
+  if (loading) return null;
+  const { text, tone } = pulseSentence(pulse);
+  const color = TONE_COLORS[tone];
+  const needsAttention = pulse.stalled > 0 || pulse.orphaned > 0;
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+      border: `1px solid ${needsAttention ? color : "hsl(var(--warm-white) / 0.12)"}`,
+      borderRadius: 6, padding: "8px 12px", marginBottom: 12,
+      background: needsAttention ? "hsl(var(--warm-white) / 0.03)" : "transparent",
+    }}>
+      <span aria-hidden style={{
+        width: 7, height: 7, borderRadius: 999, background: color, flexShrink: 0,
+        animation: pulse.working > 0 && !needsAttention ? "tp-pulse 1.6s ease-in-out infinite" : undefined,
+      }} />
+      <span style={{ fontSize: 15, color: "hsl(var(--warm-white) / 0.85)" }}>{text}</span>
+      {pulse.stalled > 0 && (
+        <span style={{ fontSize: 14, color: TONE_COLORS.bad }}>
+          — a stalled task needs moving back to Ready for Claude to restart it
+        </span>
+      )}
+      <a href="/admin/queue" style={{ fontSize: 14, color: "hsl(var(--warm-white) / 0.6)", marginLeft: "auto", textDecoration: "underline" }}>
+        Coding queue health
+      </a>
+    </div>
   );
 }
 
@@ -591,6 +732,7 @@ function TaskCard({ task, epics, subtaskCount, dragging, projectsById }: {
         {task.name}
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <TaskAgentPill taskId={task.id} />
         <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 15, color: PRIORITY_COLORS[task.priority] }}>
           <Flag size={11} /> {task.priority}
         </span>
@@ -800,7 +942,10 @@ function ListView({ tasks, epics, subtasksByParent, onOpen, onChanged, projectsB
                               style={{ cursor: "pointer" }}
                             />
                           </td>
-                          <td style={td}>{t.name}</td>
+                          <td style={td}>
+                            <div>{t.name}</div>
+                            <div style={{ marginTop: 3 }}><TaskAgentPill taskId={t.id} /></div>
+                          </td>
                           {projectsById && (
                             <td style={{ ...td, color: "hsl(var(--warm-white) / 0.7)", fontSize: 15 }}>
                               {projectsById.get(t.client_project_id)?.client_name ?? "—"}
@@ -1373,6 +1518,7 @@ function TaskDetailSheet({
 
           {/* Body */}
           <div className="tp-body">
+            <AgentStatusBanner taskId={task.id} claimedBy={task.claimed_by ?? null} />
             {/* Hero */}
             <section className="tp-sec">
               <div className="tp-hero">
@@ -1576,6 +1722,7 @@ function TaskDetailSheet({
                     onChange={(e) => setDraft({ ...draft, blocked_by: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
                     onBlur={() => save({ blocked_by: draft.blocked_by ?? [] })}
                   />
+                  <BlockerNames taskId={task.id} />
                 </div>
                 <div className="tp-field tp-field--full">
                   <span className="tp-label">Tags</span>
@@ -1761,6 +1908,47 @@ function TaskDetailSheet({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * The status in full inside the sheet: what is happening and what to do about
+ * it. The card badge has room for three words; this has room for the reason.
+ */
+function AgentStatusBanner({ taskId, claimedBy }: { taskId: string; claimedBy: string | null }) {
+  const state = React.useContext(AgentStatusContext).get(taskId);
+  if (!state || !state.label) return null;
+  const color = TONE_COLORS[state.tone];
+  const runUrl = claimRunUrl(claimedBy);
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", gap: 6,
+      border: `1px solid ${color}`, borderLeftWidth: 3, borderRadius: 6,
+      padding: "10px 14px", marginBottom: 22,
+    }}>
+      <AgentStatusPill state={state} title="" />
+      <div style={{ fontSize: 15, lineHeight: 1.5, color: "hsl(var(--warm-white) / 0.8)" }}>
+        {state.detail}
+      </div>
+      {runUrl && (
+        <a href={runUrl} target="_blank" rel="noreferrer"
+          style={{ fontSize: 14, color, textDecoration: "underline", width: "fit-content" }}>
+          Open the GitHub Actions run
+        </a>
+      )}
+    </div>
+  );
+}
+
+/** The UUIDs in Blocked by, said out loud. */
+function BlockerNames({ taskId }: { taskId: string }) {
+  const names = React.useContext(BlockerNamesContext).get(taskId) ?? [];
+  if (names.length === 0) return null;
+  return (
+    <div style={{ marginTop: 6, fontSize: 14, color: "hsl(var(--warm-white) / 0.7)", lineHeight: 1.5 }}>
+      Still open: {names.join(", ")}. Until these are Complete, the queue logs this
+      task and skips it rather than starting a run for it.
+    </div>
   );
 }
 

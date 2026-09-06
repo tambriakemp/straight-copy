@@ -89,6 +89,9 @@ export interface Task {
   design_url: string | null;
   blocked_by: string[];
   manual_prereqs: string | null;
+  /** Set by a coding worker while it holds the task; expires after 90 minutes. */
+  claimed_by?: string | null;
+  claimed_at?: string | null;
   size: TaskSize | null;
   platform: TaskPlatform | null;
   attachments?: Attachment[];
