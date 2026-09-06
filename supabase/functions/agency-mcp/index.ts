@@ -1,7 +1,7 @@
 // Agency MCP server — unified MCP endpoint for projects, tasks, knowledge base,
 // clients, and client projects. Bearer token auth via api_tokens or mcp_oauth_tokens.
 import { Hono } from "hono";
-import { McpServer, StreamableHttpTransport } from "mcp-lite";
+import { McpServer, StreamableHttpTransport, RpcError, JSON_RPC_ERROR_CODES } from "mcp-lite";
 import {
   serviceClient, listTasks, createTask, updateTask, deleteTask,
   uploadTaskAttachment, listEpics, createEpic, TASK_STATUSES, TASK_PRIORITIES,
@@ -66,6 +66,31 @@ function base64ToBytes(value: string) {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
+}
+
+/**
+ * A bad task field — a made-up epic_id, a size outside S/M/L — reaches the
+ * database as a Postgres error (FK/check/type violation) rather than a schema
+ * rejection, because create_task/update_task accept free-form values and let
+ * the table's own constraints be the validator. mcp-lite turns any thrown
+ * non-RpcError into a blanket "Internal error" with the real reason buried in
+ * a data field most clients never show, which is what made three separate
+ * bad-value mistakes (a stale epic_id, an out-of-range size) look like "the
+ * tags/size/epic_id fields are broken" rather than three bad requests.
+ * Recognise Postgres codes for exactly this shape of failure and surface the
+ * real reason at the top level instead. Anything else is rethrown unchanged —
+ * a genuine internal error should still read as one.
+ */
+function taskWriteError(error: unknown): never {
+  const code = (error as { code?: string } | null)?.code;
+  const message = error instanceof Error ? error.message : String(error);
+  if (code === "23503") {
+    throw new RpcError(JSON_RPC_ERROR_CODES.INVALID_PARAMS, `Invalid reference: ${message}`);
+  }
+  if (code === "23514" || code === "22P02") {
+    throw new RpcError(JSON_RPC_ERROR_CODES.INVALID_PARAMS, `Invalid value: ${message}`);
+  }
+  throw error;
 }
 
 mcp.tool("list_projects", {
@@ -280,7 +305,13 @@ mcp.tool("create_task", {
     },
     required: ["client_project_id", "name"],
   },
-  handler: async (args: any) => textResult(await createTask(sb, args, null)),
+  handler: async (args: any) => {
+    try {
+      return textResult(await createTask(sb, args, null));
+    } catch (error) {
+      taskWriteError(error);
+    }
+  },
 });
 
 mcp.tool("update_task", {
@@ -306,7 +337,11 @@ mcp.tool("update_task", {
     const { task_id, id, ...rest } = args;
     const targetId = task_id ?? id;
     if (!targetId) throw new Error("task_id required");
-    return textResult(await updateTask(sb, targetId, rest));
+    try {
+      return textResult(await updateTask(sb, targetId, rest));
+    } catch (error) {
+      taskWriteError(error);
+    }
   },
 });
 
