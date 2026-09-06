@@ -82,8 +82,14 @@ function base64ToBytes(value: string) {
  * a genuine internal error should still read as one.
  */
 function taskWriteError(error: unknown): never {
-  const code = (error as { code?: string } | null)?.code;
-  const message = error instanceof Error ? error.message : String(error);
+  const err = error as { code?: string; message?: string; details?: string; hint?: string } | null;
+  const code = err?.code;
+  // A PostgREST error is a plain object, not an Error — String() on it yields
+  // "[object Object]", which is exactly as useless as the -32603 this replaces.
+  const message = error instanceof Error
+    ? error.message
+    : [err?.message, err?.details, err?.hint].filter(Boolean).join(" — ") || JSON.stringify(error);
+
   if (code === "23503") {
     throw new RpcError(JSON_RPC_ERROR_CODES.INVALID_PARAMS, `Invalid reference: ${message}`);
   }
