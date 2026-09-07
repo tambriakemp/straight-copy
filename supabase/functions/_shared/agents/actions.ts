@@ -10,7 +10,10 @@ import { logSureContactActivity, sendSureContactEmail } from "../surecontact-sen
 import {
   PROJECT_TYPES, reviewProposal, type ProposalContent,
 } from "./proposal-spine.ts";
-import { assigneeKind, taskPriority, taskStatus } from "./task-fields.ts";
+import {
+  assigneeKind, taskPlatform, taskPriority, taskSize, taskStatus,
+  TASK_PLATFORMS, TASK_SIZES,
+} from "./task-fields.ts";
 import { CLIENT_TIERS, PROJECT_STATUSES } from "./client-fields.ts";
 
 // Mirrors the constants in send-transactional-email/index.ts so agent mail
@@ -422,6 +425,171 @@ export async function executeAction(
             from: before.status,
             status,
             reassigned_to_claude: patch.assignee_kind === "claude",
+          },
+        };
+      }
+
+      // Editing a task, rather than opening a second one that says the same
+      // thing differently. Only the keys actually present in the payload are
+      // written: a partial update that quietly nulled every field it was not
+      // told about would erase a due date every time someone fixed a typo in a
+      // name, and the agent would report success.
+      //
+      // `null` is therefore meaningful and distinct from absent — it clears an
+      // optional field on purpose.
+      case "update_task": {
+        const p = action.payload as Record<string, unknown>;
+        const taskId = typeof p.task_id === "string" ? p.task_id : null;
+        if (!taskId) return { ok: false, error: "No task_id supplied" };
+
+        const { data: before, error: readErr } = await sb.from("project_tasks")
+          .select("id, name, status, assignee_kind").eq("id", taskId).maybeSingle();
+        if (readErr) return { ok: false, error: readErr.message };
+        if (!before) return { ok: false, error: `No task with id ${taskId}` };
+
+        const has = (k: string) => Object.prototype.hasOwnProperty.call(p, k);
+        const patch: Record<string, unknown> = {};
+
+        // Free text and dates: written through as given, cleared on null.
+        for (const k of ["name", "description", "due_date", "url", "design_url", "manual_prereqs", "epic_id"]) {
+          if (!has(k)) continue;
+          const v = p[k];
+          patch[k] = v === null || v === "" ? null : String(v);
+        }
+        if (has("name") && !patch.name) {
+          // NOT NULL, and a task with no name is unfindable on the board.
+          return { ok: false, error: "A task cannot be renamed to nothing" };
+        }
+
+        for (const k of ["tags", "blocked_by"]) {
+          if (!has(k)) continue;
+          const v = p[k];
+          patch[k] = Array.isArray(v) ? v.map((x) => String(x)).filter(Boolean) : [];
+        }
+
+        if (has("priority")) patch.priority = taskPriority(p.priority);
+
+        // Rejected rather than coerced: silently filing an L as an M is a
+        // wrong estimate nobody sees, where an error is one sentence.
+        if (has("size")) {
+          if (p.size === null) patch.size = null;
+          else {
+            const size = taskSize(p.size);
+            if (!size) return { ok: false, error: `Size must be one of: ${TASK_SIZES.join(", ")}` };
+            patch.size = size;
+          }
+        }
+        if (has("platform")) {
+          if (p.platform === null) patch.platform = null;
+          else {
+            const platform = taskPlatform(p.platform);
+            if (!platform) {
+              return { ok: false, error: `Platform must be one of: ${TASK_PLATFORMS.join(", ")}` };
+            }
+            patch.platform = platform;
+          }
+        }
+
+        // Status carries the same rule move_task_status enforces: work put in
+        // front of the queue has to be assigned to Claude or it lands in a
+        // column nothing collects from. Doing it here too means the shortcut
+        // of "just update the task" cannot quietly skip it.
+        const status = has("status") ? taskStatus(p.status) : null;
+        if (status && status !== before.status) patch.status = status;
+        if (has("assignee_kind")) {
+          patch.assignee_kind = assigneeKind(p.assignee_kind, status ?? before.status);
+        }
+        if (patch.status === "ready_for_claude" && !patch.assignee_kind
+            && before.assignee_kind !== "claude") {
+          patch.assignee_kind = "claude";
+        }
+
+        if (!Object.keys(patch).length) {
+          return { ok: true, result: { task_id: taskId, unchanged: true, reason: "nothing to change" } };
+        }
+
+        const { error } = await sb.from("project_tasks").update(patch).eq("id", taskId);
+        if (error) return { ok: false, error: error.message };
+        return {
+          ok: true,
+          result: {
+            task_id: taskId,
+            name: patch.name ?? before.name,
+            changed: Object.keys(patch),
+            ...(patch.status ? { from: before.status, status: patch.status } : {}),
+          },
+        };
+      }
+
+      // Ticking, rewording and removing criteria. Appending is
+      // add_acceptance_criteria — kept separate because appending is safe and
+      // these three are not: a tick is a claim that something is actually done,
+      // and a removal takes away a line someone may have written by hand.
+      case "update_acceptance_criteria": {
+        const p = action.payload as {
+          task_id?: string;
+          updates?: Array<{ id?: string; text?: string; done?: boolean }>;
+          remove?: unknown;
+        };
+        if (!p.task_id) return { ok: false, error: "No task_id supplied" };
+
+        const { data: task, error: readErr } = await sb.from("project_tasks")
+          .select("id, acceptance_criteria").eq("id", p.task_id).maybeSingle();
+        if (readErr) return { ok: false, error: readErr.message };
+        if (!task) return { ok: false, error: `No task with id ${p.task_id}` };
+
+        const existing = Array.isArray(task.acceptance_criteria)
+          ? task.acceptance_criteria as Array<{ id?: string; text?: string; done?: boolean }>
+          : [];
+        if (!existing.length) {
+          return { ok: false, error: "That task has no acceptance criteria yet — use add_acceptance_criteria" };
+        }
+
+        const removeIds = new Set(
+          (Array.isArray(p.remove) ? p.remove : p.remove ? [p.remove] : [])
+            .map((x) => String(x)),
+        );
+        const updates = new Map(
+          (Array.isArray(p.updates) ? p.updates : [])
+            .filter((u) => u && typeof u.id === "string")
+            .map((u) => [u.id as string, u]),
+        );
+
+        // Named ids that match nothing are reported rather than ignored. An
+        // agent working from a stale read would otherwise be told it ticked
+        // four criteria when it ticked none.
+        const known = new Set(existing.map((c) => String(c.id ?? "")));
+        const unknown = [...removeIds, ...updates.keys()].filter((id) => !known.has(id));
+        if (unknown.length) {
+          return { ok: false, error: `No criterion on that task with id: ${unknown.join(", ")}` };
+        }
+        if (!removeIds.size && !updates.size) {
+          return { ok: false, error: "Nothing to update — pass `updates`, `remove`, or both" };
+        }
+
+        let ticked = 0;
+        const next = existing
+          .filter((c) => !removeIds.has(String(c.id ?? "")))
+          .map((c) => {
+            const u = updates.get(String(c.id ?? ""));
+            if (!u) return c;
+            const text = typeof u.text === "string" && u.text.trim() ? u.text.trim() : c.text;
+            const done = typeof u.done === "boolean" ? u.done : c.done;
+            if (done && !c.done) ticked += 1;
+            return { ...c, text, done };
+          });
+
+        const { error } = await sb.from("project_tasks")
+          .update({ acceptance_criteria: next }).eq("id", p.task_id);
+        if (error) return { ok: false, error: error.message };
+        return {
+          ok: true,
+          result: {
+            task_id: p.task_id,
+            removed: removeIds.size,
+            updated: updates.size,
+            newly_ticked: ticked,
+            remaining: next.length,
           },
         };
       }

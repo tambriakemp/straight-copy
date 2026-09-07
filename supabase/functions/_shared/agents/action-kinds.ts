@@ -75,6 +75,34 @@ export const ACTION_KINDS: Record<string, ActionKind> = {
       "{task_id, status: 'backlog'|'ready_for_claude'|'in_progress'|" +
       "'needs_review'|'blocked'|'complete'}",
   },
+  update_task: {
+    kind: "update_task",
+    outward: false,
+    purpose:
+      "change any field on an existing task — rename it, rewrite the " +
+      "description, set a due date, size, priority, owner, epic or tags. " +
+      "Only the fields you pass are touched; everything you omit is left " +
+      "alone. Prefer this over opening a second task that says the same " +
+      "thing differently, which is how a board fills up with near-duplicates.",
+    payload:
+      "{task_id, name?, description?, due_date? (YYYY-MM-DD, or null to clear), " +
+      "priority?: 'low'|'normal'|'high'|'urgent', " +
+      "status?: 'backlog'|'ready_for_claude'|'in_progress'|'needs_review'|'blocked'|'complete', " +
+      "assignee_kind?: 'unassigned'|'admin'|'claude'|'auto'|'client'|'agency', " +
+      "size?: 'S'|'M'|'L', platform?: 'web'|'native'|'backend'|'all', " +
+      "epic_id?, tags?: string[], url?, design_url?, manual_prereqs?, " +
+      "blocked_by?: string[] (task ids)} — pass null to clear an optional field.",
+  },
+  update_acceptance_criteria: {
+    kind: "update_acceptance_criteria",
+    outward: false,
+    purpose:
+      "tick, reword or remove acceptance criteria already on a task. Use " +
+      "add_acceptance_criteria to append new ones. Ticking a criterion is a " +
+      "claim that it is actually met — check before you tick.",
+    payload:
+      "{task_id, updates?: [{id, text?, done?}], remove?: string[] (criterion ids)}",
+  },
   post_task_comment: {
     kind: "post_task_comment",
     outward: false,

@@ -100,3 +100,44 @@ export function willBePickedUp(
 ): boolean {
   return task.assignee_kind === "claude" && !task.claimed_by;
 }
+
+/**
+ * project_tasks.size — CHECK (size IS NULL OR size IN ('S','M','L')).
+ *
+ * Validated rather than coerced, unlike priority above, and the difference
+ * matters on an update. Coercing an unrecognised priority to "normal" writes a
+ * sensible value; coercing an unrecognised size to null WIPES a size someone
+ * set. On a partial update, "I did not understand that" and "set this to
+ * nothing" have to stay different answers.
+ */
+export const TASK_SIZES = ["S", "M", "L"];
+
+/** project_tasks.platform — CHECK (platform IS NULL OR platform IN (...)). */
+export const TASK_PLATFORMS = ["web", "native", "backend", "all"];
+
+/**
+ * Reads a size from what a model wrote, or null if it is not one.
+ *
+ * Accepts the words as well as the letters — "small" is what anyone types
+ * first, and failing an update over the spelling of a t-shirt size is a poor
+ * trade for strictness.
+ */
+export function taskSize(raw: unknown): string | null {
+  const v = String(raw ?? "").trim();
+  const upper = v.toUpperCase();
+  if (TASK_SIZES.includes(upper)) return upper;
+  const words: Record<string, string> = {
+    SMALL: "S", MEDIUM: "M", MED: "M", LARGE: "L", BIG: "L",
+  };
+  return words[upper] ?? null;
+}
+
+/** Reads a platform, or null if it is not one. */
+export function taskPlatform(raw: unknown): string | null {
+  const v = String(raw ?? "").trim().toLowerCase();
+  if (TASK_PLATFORMS.includes(v)) return v;
+  if (v === "frontend" || v === "site") return "web";
+  if (v === "mobile" || v === "ios" || v === "android") return "native";
+  if (v === "api" || v === "server" || v === "edge") return "backend";
+  return null;
+}

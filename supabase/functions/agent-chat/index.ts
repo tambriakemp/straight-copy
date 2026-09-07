@@ -343,9 +343,25 @@ async function runTurn(args: {
     // failed turn left two consecutive user messages, which the API rejects —
     // permanently, for that conversation. It also carries forward what each
     // turn produced, so the agent knows what it already proposed.
+    // What those actions actually came to. Without this the note below cannot
+    // tell an executed action from one still waiting, and told the agent every
+    // one of them was pending — see describeTurnOutcome.
+    const historyRows = (history ?? []).reverse();
+    const actionIdsInHistory = [...new Set(
+      historyRows.flatMap((m) => (m.action_ids as string[] | null) ?? []),
+    )];
+    let actionStatus: Record<string, string> = {};
+    if (actionIdsInHistory.length) {
+      const { data: statusRows } = await sb.from("agent_actions")
+        .select("id, status").in("id", actionIdsInHistory);
+      actionStatus = Object.fromEntries(
+        (statusRows ?? []).map((r) => [r.id as string, r.status as string]),
+      );
+    }
+
     const turns = normalizeTurns(
-      (history ?? []).reverse().map((m) => {
-        const note = m.role === "assistant" ? describeTurnOutcome(m) : "";
+      historyRows.map((m) => {
+        const note = m.role === "assistant" ? describeTurnOutcome(m, actionStatus) : "";
         return { role: m.role, content: note ? `${m.content}\n\n${note}` : m.content };
       }),
     );

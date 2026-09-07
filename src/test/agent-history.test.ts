@@ -83,8 +83,43 @@ describe("normalizeTurns", () => {
 
 describe("describeTurnOutcome", () => {
   it("records that actions are waiting, so the agent does not re-propose them", () => {
-    expect(describeTurnOutcome({ action_ids: ["a", "b"] }))
-      .toContain("2 actions proposed");
+    const note = describeTurnOutcome(
+      { action_ids: ["a", "b"] },
+      { a: "proposed", b: "approved" },
+    );
+    expect(note).toContain("2 actions waiting");
+    expect(note).toMatch(/NOT done/);
+  });
+
+  it("does not call an executed action pending", () => {
+    // The bug this replaced: every action a turn produced was reported as
+    // "awaiting the owner", executed ones included. The agent then told Bree
+    // six finished tasks were sitting in an approval queue, and she went
+    // looking for an approval screen for work that was already done.
+    const note = describeTurnOutcome(
+      { action_ids: ["a", "b"] },
+      { a: "executed", b: "executed" },
+    );
+    expect(note).toContain("2 actions carried out");
+    expect(note).not.toMatch(/waiting|approve/i);
+  });
+
+  it("splits a turn that did some and queued the rest", () => {
+    const note = describeTurnOutcome(
+      { action_ids: ["a", "b", "c"] },
+      { a: "executed", b: "proposed", c: "proposed" },
+    );
+    expect(note).toContain("1 action carried out");
+    expect(note).toContain("2 actions waiting");
+  });
+
+  it("counts an id it cannot resolve as done rather than pending", () => {
+    // Actions execute inline and the row is written before the turn ends, so
+    // an unresolvable id is far more likely to be an old row than a live
+    // approval. Claiming a phantom approval is the failure being avoided.
+    const note = describeTurnOutcome({ action_ids: ["gone"] }, {});
+    expect(note).toContain("1 action carried out");
+    expect(note).not.toMatch(/waiting/i);
   });
 
   it("records that questions were asked", () => {

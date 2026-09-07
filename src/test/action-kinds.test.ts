@@ -10,7 +10,8 @@ import {
 } from "../../supabase/functions/_shared/agents/allowlists";
 import { canAutoExecute } from "../../supabase/functions/_shared/agents/types";
 import {
-  assigneeKind, taskPriority, taskStatus,
+  assigneeKind, taskPriority, taskStatus, taskSize, taskPlatform,
+  TASK_SIZES, TASK_PLATFORMS,
 } from "../../supabase/functions/_shared/agents/task-fields";
 import {
   CLIENT_TIERS, PROJECT_STATUSES,
@@ -194,12 +195,36 @@ describe("task field mapping", () => {
 });
 
 describe("board actions", () => {
-  const BOARD = ["move_task_status", "post_task_comment", "add_acceptance_criteria"];
+  const BOARD = [
+    "create_task", "update_task", "move_task_status", "post_task_comment",
+    "add_acceptance_criteria", "update_acceptance_criteria",
+  ];
+  const EVERY_AGENT = Object.keys(ALLOWED_ACTIONS);
 
   it("gives the developer agent the actions its mission describes", () => {
     // Without these it could judge a task's readiness and then do nothing
     // about it, which is what every developer run used to amount to.
     for (const kind of BOARD) expect(allowedFor("developer"), kind).toContain(kind);
+  });
+
+  it("gives every agent the whole board, not just the engineering one", () => {
+    // The board is where all the agency's work lives. An agent that can see a
+    // task is misfiled or finished, and can only open a SECOND task saying so,
+    // fills the board with near-duplicates and gets the original actioned by
+    // nobody.
+    expect(EVERY_AGENT.length).toBe(6);
+    for (const key of EVERY_AGENT) {
+      for (const kind of BOARD) expect(allowedFor(key), `${key}/${kind}`).toContain(kind);
+    }
+  });
+
+  it("does not hand out task deletion with the rest of CRUD", () => {
+    // Delete is delete_record, which is destructive and therefore waits for a
+    // person at every autonomy level. If it ever became a board kind, a fully
+    // autonomous agent could clear a board unattended.
+    expect(BOARD).not.toContain("delete_record");
+    expect(isDestructive("delete_record")).toBe(true);
+    expect(canAutoExecute("autonomous", false, isDestructive("delete_record"))).toBe(false);
   });
 
   it("keeps them internal and non-destructive, so they can run unattended", () => {
@@ -344,5 +369,85 @@ describe("client field values", () => {
     // obvious right answer, so the executor sends it back with the list.
     expect(CLIENT_TIERS).toEqual(["launch", "growth", "social"]);
     expect(PROJECT_STATUSES).toEqual(["active", "paused", "complete", "archived"]);
+  });
+});
+
+describe("editing a task rather than replacing it", () => {
+  it("lets update_task reach every field the board shows", () => {
+    // Read/write asymmetry is the trap: a field an agent can write but not
+    // read gets edited blind. These are the ones the task sheet exposes.
+    const p = ACTION_KINDS.update_task.payload;
+    for (const field of [
+      "name", "description", "due_date", "priority", "status", "assignee_kind",
+      "size", "platform", "epic_id", "tags", "url", "design_url", "blocked_by",
+    ]) {
+      expect(p, field).toContain(field);
+    }
+  });
+
+  it("says that omitted fields are left alone and null clears", () => {
+    // The whole risk of a partial update. A model that thinks it must send
+    // every field will null a due date every time it fixes a typo in a name.
+    const p = ACTION_KINDS.update_task.payload;
+    expect(p).toMatch(/null to clear/);
+    expect(ACTION_KINDS.update_task.purpose).toMatch(/omit/i);
+  });
+
+  it("warns that promoting a task spends a coding run", () => {
+    // True of update_task now as well as move_task_status, since status is one
+    // of the fields it can set — and six agents hold that lever, not one.
+    expect(ACTION_KINDS.move_task_status.purpose).toMatch(/coding run/);
+    const doc = kindDocFor(allowedFor("social-media"));
+    expect(doc).toContain("ready_for_claude");
+  });
+
+  it("keeps the whole board internal and reversible", () => {
+    for (const kind of [
+      "create_task", "update_task", "move_task_status", "post_task_comment",
+      "add_acceptance_criteria", "update_acceptance_criteria",
+    ]) {
+      expect(isOutward(kind), kind).toBe(false);
+      expect(isDestructive(kind), kind).toBe(false);
+      expect(alwaysApproves(kind), kind).toBe(false);
+      expect(canAutoExecute("act_in_app", isOutward(kind), isDestructive(kind)), kind).toBe(true);
+      expect(canAutoExecute("propose", isOutward(kind)), kind).toBe(false);
+    }
+  });
+
+  it("separates appending criteria from ticking and removing them", () => {
+    // Appending is safe; a tick is a claim something is done and a removal
+    // takes away a line a person may have written by hand.
+    expect(ACTION_KINDS.add_acceptance_criteria.payload).toContain("criteria");
+    expect(ACTION_KINDS.update_acceptance_criteria.payload).toContain("remove");
+    expect(ACTION_KINDS.update_acceptance_criteria.payload).toContain("done");
+    expect(ACTION_KINDS.update_acceptance_criteria.purpose).toMatch(/check before you tick/i);
+  });
+});
+
+describe("task size and platform", () => {
+  it("reads the words people actually type", () => {
+    expect(taskSize("small")).toBe("S");
+    expect(taskSize("Medium")).toBe("M");
+    expect(taskSize("l")).toBe("L");
+    expect(taskPlatform("frontend")).toBe("web");
+    expect(taskPlatform("iOS")).toBe("native");
+    expect(taskPlatform("api")).toBe("backend");
+  });
+
+  it("returns null for anything else, rather than guessing", () => {
+    // Distinct from coercion on purpose. On a partial update, "I did not
+    // understand that" must not become "set this to nothing" — that silently
+    // wipes a size someone chose.
+    for (const raw of ["XL", "huge", "", null, undefined, 7]) {
+      expect(taskSize(raw), String(raw)).toBe(null);
+    }
+    for (const raw of ["desktop", "watch", "", null]) {
+      expect(taskPlatform(raw), String(raw)).toBe(null);
+    }
+  });
+
+  it("matches the CHECK constraints on project_tasks", () => {
+    expect(TASK_SIZES).toEqual(["S", "M", "L"]);
+    expect(TASK_PLATFORMS).toEqual(["web", "native", "backend", "all"]);
   });
 });

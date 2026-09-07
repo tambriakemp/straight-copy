@@ -75,11 +75,35 @@ export function normalizeTurns(rows: StoredTurn[]): ReplayTurn[] {
 export function describeTurnOutcome(turn: {
   action_ids?: string[] | null;
   questions?: unknown;
-}): string {
+}, statusById: Record<string, string> = {}): string {
   const notes: string[] = [];
-  const actions = turn.action_ids?.length ?? 0;
-  if (actions) {
-    notes.push(`[${actions} action${actions === 1 ? "" : "s"} proposed and awaiting the owner]`);
+  const ids = turn.action_ids ?? [];
+
+  // Split by what actually happened, rather than counting ids.
+  //
+  // This used to say "N actions proposed and awaiting the owner" for every
+  // action a turn produced, including ones that had already executed. The
+  // effect was worse than a wrong word: the agent read its own history, was
+  // told six completed tasks were still sitting in an approval queue, and told
+  // the owner her work was pending. She went looking for an approval screen
+  // for something that was already done.
+  //
+  // An id with no known status is counted as done — actions execute inline and
+  // the row is written before the turn ends, so an unresolvable id is far more
+  // likely to be an old row than a pending one, and claiming a phantom
+  // approval is the failure this exists to stop.
+  const pending = ids.filter((id) => {
+    const st = statusById[id];
+    return st === "proposed" || st === "approved";
+  }).length;
+  const settled = ids.length - pending;
+
+  if (settled) notes.push(`[${settled} action${settled === 1 ? "" : "s"} carried out]`);
+  if (pending) {
+    notes.push(
+      `[${pending} action${pending === 1 ? "" : "s"} waiting for the owner to approve — ` +
+      `NOT done, do not report as done]`,
+    );
   }
   if (Array.isArray(turn.questions) && turn.questions.length) {
     notes.push(`[${turn.questions.length} question${turn.questions.length === 1 ? "" : "s"} asked]`);

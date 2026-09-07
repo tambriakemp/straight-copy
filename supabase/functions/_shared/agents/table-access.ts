@@ -125,8 +125,9 @@ export const READABLE: Record<string, TableAccess> = {
     entity: "task",
     columns: [
       "id", "client_project_id", "epic_id", "name", "description",
-      "acceptance_criteria", "status", "priority", "size", "assignee_kind",
-      "due_date", "blocked_by", "tags", "url", "design_url",
+      "acceptance_criteria", "status", "priority", "size", "platform",
+      "assignee_kind", "due_date", "blocked_by", "tags", "url", "design_url",
+      "manual_prereqs", "parent_task_id", "order_index", "completed_at",
       "claimed_by", "claimed_at", "created_at", "updated_at",
     ],
     searchable: ["name", "description"],
