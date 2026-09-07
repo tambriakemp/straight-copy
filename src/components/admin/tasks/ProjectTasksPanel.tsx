@@ -5,7 +5,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag, Copy, ChevronDown, Upload, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutGrid, List, Plus, Trash2, X, ExternalLink, Paperclip, Calendar, Tag, Flag, Copy, ChevronDown, Upload, CalendarDays, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,6 +63,11 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [projectType, setProjectType] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
+  // Deliberately not `loading`. That one swaps the whole board for a
+  // "Loading tasks…" line, which is exactly what a refresh must not do —
+  // the point of the button is to keep your scroll position, your open
+  // filters and your place on the board while the rows underneath change.
+  const [refreshing, setRefreshing] = useState(false);
 
   const reload = async () => {
     try {
@@ -86,6 +91,14 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
       supabase.from("client_projects").select("type").eq("id", clientProjectId!).maybeSingle()
         .then(({ data }) => setProjectType(data?.type ?? null));
     }
+    // This subscription has not fired since 2026-06-11. That migration
+    // ("Remove admin-only tables from Realtime publication") dropped
+    // project_tasks and project_task_epics from `supabase_realtime` on purpose,
+    // because RLS does not gate broadcast payloads — anyone authenticated would
+    // otherwise receive every task row. It is left connected in case the tables
+    // are ever republished behind a safe channel, but the refresh button, not
+    // this, is what actually brings the board up to date today. Do not re-add
+    // the tables to the publication to "fix" it.
     const channelName = aggregated ? `project_tasks_all` : `project_tasks_${clientProjectId}`;
     const taskFilter = aggregated ? undefined : { filter: `client_project_id=eq.${clientProjectId}` };
     const ch = supabase.channel(channelName)
@@ -97,6 +110,16 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
     return () => { void supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientProjectId]);
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await reload();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleSeedWebDev = async () => {
     if (!clientProjectId) return;
@@ -297,6 +320,17 @@ export default function ProjectTasksPanel({ clientProjectId }: Props) {
         </Select>
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing || loading}
+            title="Refresh this board"
+            aria-label="Refresh this board"
+            className="bg-transparent border-warm-white/20 !text-warm-white hover:bg-warm-white/10 px-2.5"
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : undefined} />
+          </Button>
           {!aggregated && projectType === "web_development" && tasks.length === 0 && !loading && (
             <Button variant="outline" size="sm" onClick={handleSeedWebDev} disabled={seeding}
               className="bg-transparent border-accent/40 !text-accent hover:bg-accent/10">
