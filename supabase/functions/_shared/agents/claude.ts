@@ -1,11 +1,11 @@
 // The Claude call behind every agent run.
 //
-// Uses the official Anthropic SDK. A few Opus 5 specifics that are easy to get
-// wrong and fail with a 400:
+// Uses the official Anthropic SDK. A few things that fail with a 400:
 //   * `temperature` / `top_p` / `top_k` are REMOVED — never send them.
-//   * `budget_tokens` is REMOVED; depth is controlled by output_config.effort.
-//   * Thinking is on by default; `{type:"adaptive"}` is the explicit form.
 //   * Assistant prefill is rejected.
+//   * Thinking and effort are NOT the same shape on every model, and forced
+//     tool use forbids thinking entirely. Never hardcode them here — ask
+//     model-params.ts, which owns those rules.
 //
 // Output shape is pinned with a forced tool call rather than free text, so the
 // runtime always gets a validated object instead of parsing prose.
@@ -18,6 +18,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.71.0";
 import { isOutward, kindDocFor, kindEnumFor } from "./action-kinds.ts";
 import type { AgentFinding, ProposedAction } from "./types.ts";
+import { requestTuning } from "./model-params.ts";
 
 /**
  * The report tool, built per agent.
@@ -107,8 +108,13 @@ export async function runAgentModel(args: {
   const response = await client.messages.create({
     model: args.model,
     max_tokens: 16000,
-    thinking: { type: "adaptive" },
-    output_config: { effort: args.effort as "low" | "medium" | "high" | "xhigh" | "max" },
+    // Forced tool choice below, so no thinking on any model. See model-params.
+    ...requestTuning({
+      model: args.model,
+      effort: args.effort,
+      maxTokens: 16000,
+      forcedTool: true,
+    }),
     system: [
       {
         type: "text",

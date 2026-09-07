@@ -25,7 +25,7 @@ const EMPTY: Targets = {
   repo_url: "",
   repo_branch: "main",
   toolchain: "npm",
-  delivery_mode: "pr",
+  delivery_mode: "pr_merge",
   build_notes: "",
   queue_enabled: false,
 };
@@ -36,12 +36,12 @@ const MODES: { value: string; label: string; blurb: string }[] = [
   {
     value: "pr",
     label: "Open a pull request",
-    blurb: "Work lands on a branch and waits for you. The right default for a client's repo.",
+    blurb: "Work lands on a branch and waits for you. Nothing reaches the deployed site until you merge it.",
   },
   {
     value: "pr_merge",
     label: "Open a pull request and merge it",
-    blurb: "There is a reviewable record afterwards, but nobody gates it. For repos where that is the agreed way of working.",
+    blurb: "The default. The pull request stays as the record, and the change is live where you can look at it — revert if it is wrong.",
   },
   {
     value: "push",
@@ -92,7 +92,7 @@ export default function DeliveryTargetsCard({ clientProjectId }: { clientProject
           repo_url: data.repo_url ?? "",
           repo_branch: data.repo_branch ?? "main",
           toolchain: data.toolchain ?? "npm",
-          delivery_mode: data.delivery_mode ?? "pr",
+          delivery_mode: data.delivery_mode ?? "pr_merge",
           build_notes: data.build_notes ?? "",
           queue_enabled: data.queue_enabled ?? false,
         });

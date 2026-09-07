@@ -10,7 +10,7 @@
 -- dependency.
 --
 -- To put an individual agent back on Opus, this is the whole change:
---   update public.agents set model = 'claude-opus-5' where slug = 'developer';
+--   update public.agents set model = 'claude-opus-5' where key = 'developer';
 
 alter table public.agents
   alter column model set default 'claude-sonnet-4-5';

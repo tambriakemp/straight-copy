@@ -28,12 +28,15 @@ apply.
 
 ## Files
 
-| File | Installs as | Needs secrets |
-|---|---|---|
-| `ci.yml` | `.github/workflows/ci.yml` | none |
-| `claude-queue-worker.yml` | `.github/workflows/claude-queue-worker.yml` | `CLAUDE_CODE_OAUTH_TOKEN`, `QUEUE_MCP_TOKEN`, `QUEUE_WORKER_GITHUB_TOKEN` |
+* `agent-worker.yml` — **waiting to be installed.** Runs a scheduled agent on
+  the Claude subscription instead of API credits. Setup, including the two edge
+  function secrets it needs, is documented at the top of the file. Nothing
+  happens until an agent is switched with
+  `update public.agents set run_via = 'github_actions' where key = '...';`
 
-`claude-queue-worker.yml` also has to be **on the default branch** before it can
-be triggered at all: `repository_dispatch` silently returns 204 for a workflow
-that does not exist there. Its own header documents the secrets and the Vault
-route.
+`ci.yml` and `claude-queue-worker.yml` were installed in `7f0381a`. Do not look
+for them here; edit them under `.github/workflows/` like any other file.
+
+This folder stays because the App's restriction has not gone away: the next
+workflow I write will land here too, and this page explains why a file appears in
+a documentation directory instead of where it belongs.
