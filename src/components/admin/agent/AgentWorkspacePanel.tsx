@@ -13,9 +13,11 @@ import ClientsTable from "@/components/admin/ClientsTable";
 import AgentClientView from "@/components/admin/agent/AgentClientView";
 import ProjectDetail from "@/pages/admin/ProjectDetail";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
+import NewClientDialog from "@/components/admin/NewClientDialog";
+import QueueHealth from "@/pages/admin/QueueHealth";
 import { WikiList } from "@/pages/admin/Wiki";
 
-export type WorkspaceView = "clients" | "tasks" | "knowledge";
+export type WorkspaceView = "clients" | "tasks" | "knowledge" | "queue";
 
 const TITLES: Record<WorkspaceView, { eyebrow: string; title: string; sub: string }> = {
   clients: {
@@ -32,6 +34,14 @@ const TITLES: Record<WorkspaceView, { eyebrow: string; title: string; sub: strin
     eyebrow: "Workspace",
     title: "Knowledge Base",
     sub: "How the agency works, written down.",
+  },
+  // Only ever shown in the engineering queue lead's rail. The queue is that
+  // agent's whole job, so reading its health belongs beside the agent that
+  // acts on it rather than on a page you have to remember exists.
+  queue: {
+    eyebrow: "Workspace",
+    title: "Coding queue",
+    sub: "Whether the board is actually reaching Claude, and what is waiting.",
   },
 };
 
@@ -86,6 +96,14 @@ export default function AgentWorkspacePanel({ view }: { view: WorkspaceView }) {
         <div className="ws__work-eyebrow">{meta.eyebrow}</div>
         <h2 className="ws__work-title">{meta.title}</h2>
         <p className="ws__work-sub">{meta.sub}</p>
+        {view === "clients" && (
+          // The roster is reachable from every agent but was creatable from
+          // nowhere once /admin/clients left the nav. Same dialog the
+          // standalone page uses.
+          <div style={{ marginTop: 14 }}>
+            <NewClientDialog onCreated={(clientId) => setStack({ at: "client", clientId })} />
+          </div>
+        )}
       </header>
 
       <div className="ws__work-body">
@@ -96,6 +114,7 @@ export default function AgentWorkspacePanel({ view }: { view: WorkspaceView }) {
         )}
         {view === "tasks" && <ProjectTasksPanel />}
         {view === "knowledge" && <WikiList embedded />}
+        {view === "queue" && <QueueHealth embedded />}
       </div>
     </section>
   );

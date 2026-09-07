@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import { NAV, NAV_GROUPS, type NavItem } from "@/lib/adminNav";
+import { NAV, NAV_GROUPS, activeChip, type NavItem } from "@/lib/adminNav";
 
 
 
@@ -41,8 +41,27 @@ export default function WorkspaceMenu() {
   const current = NAV.find((n) => !n.exact && loc.pathname.startsWith(n.to))
     ?? NAV.find((n) => n.exact && loc.pathname === n.to);
 
-  // Agents covers the dashboard and any single agent opened from it.
-  const onAgents = loc.pathname === "/admin" || loc.pathname.startsWith("/admin/agents");
+  // Clients is a chip rather than a menu row because it is the other thing you
+  // are always in the middle of. It opens the client operations agent on its
+  // Clients view: the roster with the agent that triages it already in the
+  // room, rather than a roster on its own.
+  //
+  // Addressed by agent key, not id — ids are unguessable and names get changed,
+  // and a hardcoded name here would keep rendering perfectly after a rename
+  // while pointing at nothing.
+  // The two overlap on every agent URL, so which one is lit is decided in one
+  // tested place rather than by two conditions that can both be true.
+  const chipOn = activeChip(loc.pathname, loc.search);
+  const onClients = chipOn === "clients";
+  const onAgents = chipOn === "agents";
+
+  const chip = (on: boolean): React.CSSProperties => ({
+    padding: "6px 12px", fontSize: 15, letterSpacing: "0.02em",
+    border: "1px solid var(--crm-border-dark)", borderRadius: 2,
+    textDecoration: "none",
+    background: on ? "var(--crm-charcoal)" : "transparent",
+    color: on ? "var(--crm-warm-white)" : "var(--crm-taupe)",
+  });
 
   return (
     <div ref={ref} style={{ position: "relative", display: "flex", alignItems: "center", gap: 10 }}>
@@ -69,22 +88,20 @@ export default function WorkspaceMenu() {
       {/* Agents is the home page, so it gets a tab rather than a menu row.
           It is the thing you return to, and returning should not cost a click
           into a menu first. */}
-      <Link
-        to="/admin"
-        style={{
-          padding: "6px 12px", fontSize: 15, letterSpacing: "0.02em",
-          border: "1px solid var(--crm-border-dark)", borderRadius: 2,
-          textDecoration: "none",
-          background: onAgents ? "var(--crm-charcoal)" : "transparent",
-          color: onAgents ? "var(--crm-warm-white)" : "var(--crm-taupe)",
-        }}
-        aria-current={onAgents ? "page" : undefined}
-      >
+      <Link to="/admin" style={chip(onAgents)} aria-current={onAgents ? "page" : undefined}>
         Agents
       </Link>
 
+      <Link
+        to="/admin/agents/client-triage?view=clients"
+        style={chip(onClients)}
+        aria-current={onClients ? "page" : undefined}
+      >
+        Clients
+      </Link>
+
       {/* Where you are now, so the bar still orients you with the links hidden. */}
-      {current && current.to !== "/admin" && (
+      {current && current.to !== "/admin" && !onClients && (
         <>
           <span style={{ color: "var(--crm-border-dark)", fontSize: 14 }}>/</span>
           <span style={{ fontSize: 14, color: "var(--crm-taupe)", letterSpacing: "0.14em", textTransform: "uppercase" }}>

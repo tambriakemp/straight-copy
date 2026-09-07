@@ -140,13 +140,44 @@ export const ACTION_KINDS: Record<string, ActionKind> = {
       "push a client into SureContact so they exist there as a tagged contact. Safe to repeat — it upserts.",
     payload: "{client_id}",
   },
+  // --- taking someone on ---
+  //
+  // Onboarding was the one thing you still had to leave the conversation to do.
+  // You could ask the client operations agent who had gone quiet and it would
+  // tell you; ask it to add the client you just got off the phone with and it
+  // could only describe the form you would have to go and fill in.
+  //
+  // Not outward — it writes two rows in our own database and contacts nobody.
+  // Not destructive. So an act_in_app agent does it while you are talking to
+  // it, which is the point. What it deliberately does NOT set is
+  // pipeline_stage: the column has no constraint, so an invented stage lands a
+  // client in a stage no screen renders and nothing sweeps. The default is
+  // right for someone who has just come on.
+  create_client: {
+    kind: "create_client",
+    outward: false,
+    purpose:
+      "take on a new client. The client is the PERSON — contact_name is who you " +
+      "deal with, and the business goes in `company`, because one client can run " +
+      "several. Search clients first: a duplicate is worse than asking.",
+    payload:
+      "{contact_name, contact_email?, contact_phone?, notes?, " +
+      "tier?: 'launch'|'growth'|'social', " +
+      "company?: {name, website?, email?, phone?}}",
+  },
   create_client_project: {
     kind: "create_client_project",
     outward: false,
     purpose:
-      "create the project a proposal will hang off, when the client has none of the right type yet",
+      "create a project for a client — the thing tasks, previews and proposals " +
+      "hang off. Use it when taking on new work, or when a proposal needs a " +
+      "project of the right type and the client has none.",
     payload:
-      "{client_id, name, type: 'automation_build'|'site_preview'|'app_development'|'web_development'|'marketing'}",
+      "{client_id, name, " +
+      "type: 'automation_build'|'site_preview'|'app_development'|'web_development'|'marketing', " +
+      "status?: 'active'|'paused'|'complete'|'archived' (defaults to active), " +
+      "notes?, company_id? (when the client runs more than one business), " +
+      "timezone? (IANA, e.g. 'America/Chicago', for scheduling)}",
   },
   create_proposal_draft: {
     kind: "create_proposal_draft",

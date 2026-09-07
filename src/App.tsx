@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -39,7 +39,6 @@ const Tokens = lazy(() => import("./pages/admin/Tokens.tsx"));
 const Invites = lazy(() => import("./pages/admin/Invites.tsx"));
 const ProjectDetail = lazy(() => import("./pages/admin/ProjectDetail.tsx"));
 const AllTasks = lazy(() => import("./pages/admin/AllTasks.tsx"));
-const QueueHealth = lazy(() => import("./pages/admin/QueueHealth.tsx"));
 const PreviewViewer = lazy(() => import("./pages/PreviewViewer.tsx"));
 const RequireAdmin = lazy(() => import("./components/admin/RequireAdmin.tsx"));
 const RequireWiki = lazy(() => import("./components/admin/RequireWiki.tsx"));
@@ -84,7 +83,10 @@ const App = () => (
             <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
             <Route path="/admin/clients" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
             <Route path="/admin/tasks" element={<RequireAdmin><AllTasks /></RequireAdmin>} />
-            <Route path="/admin/queue" element={<RequireAdmin><QueueHealth /></RequireAdmin>} />
+            {/* The queue lives in the engineering queue lead's Workspace rail
+                now. Kept as a redirect so bookmarks and old links still arrive,
+                rather than as a second door to the same panel. */}
+            <Route path="/admin/queue" element={<Navigate to="/admin/agents/developer?view=queue" replace />} />
             <Route path="/admin/profile" element={<RequireAdmin><Profile /></RequireAdmin>} />
             <Route path="/admin/clients/:id" element={<RequireAdmin><ClientDetail /></RequireAdmin>} />
             <Route path="/admin/ventures" element={<RequireAdmin><Ventures /></RequireAdmin>} />

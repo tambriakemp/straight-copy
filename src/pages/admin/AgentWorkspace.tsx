@@ -18,7 +18,7 @@ import { useAsideWidth } from "@/components/admin/agent/useAsideWidth";
 import { agentsApi, errMsg, type Agent } from "@/lib/agentsApi";
 import { capabilitiesFor } from "@/lib/agentCapabilities";
 
-type View = "chat" | "agent" | "clients" | "tasks" | "knowledge";
+type View = "chat" | "agent" | "clients" | "tasks" | "knowledge" | "queue";
 
 const RAIL: Array<{ view: View; label: string; glyph: string }> = [
   { view: "chat", label: "Chat", glyph: "◍" },
@@ -32,22 +32,30 @@ const RAIL: Array<{ view: View; label: string; glyph: string }> = [
  * then looking that client up does not cost you the conversation. Same data and
  * same components as the standalone pages — these are not copies.
  */
-const WORKSPACE: Array<{ view: View; label: string; glyph: string }> = [
+const WORKSPACE: Array<{ view: View; label: string; glyph: string; onlyFor?: string }> = [
   { view: "clients", label: "Clients", glyph: "▦" },
   { view: "tasks", label: "Tasks", glyph: "✓" },
   { view: "knowledge", label: "Knowledge Base", glyph: "❒" },
+  // The queue belongs to the agent whose job it is. Every other agent's rail
+  // would be offering a panel about work it has no actions over, which is how
+  // a nav teaches people that a thing lives nowhere in particular.
+  { view: "queue", label: "Coding queue", glyph: "⚡", onlyFor: "developer" },
 ];
 
 // Shown greyed so the shape of what is coming is visible, without pretending
 // these work yet.
 const SOON = ["Profile", "Integrations", "Monitoring"];
 
+/** A route param is an id when it looks like one, and an agent key otherwise. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function AgentWorkspace() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const view = (params.get("view") as View) || "chat";
-  const isWorkspaceView = view === "clients" || view === "tasks" || view === "knowledge";
+  const isWorkspaceView = view === "clients" || view === "tasks"
+    || view === "knowledge" || view === "queue";
 
   const [agent, setAgent] = useState<Agent | null>(null);
   const [runs, setRuns] = useState<ActivityRun[]>([]);
@@ -58,7 +66,12 @@ export default function AgentWorkspace() {
   const [aside, setAside] = useState<"activity" | "document">("activity");
   const { width: asideWidth, dragging, startDrag } = useAsideWidth();
 
-  const { proposal, loading: proposalLoading, followLatest, pinned } = useFocusedProposal(id ?? "", chatNonce);
+  // Everything below wants the agent's uuid, but the route param may be a key.
+  // Null until the row loads, which every consumer already tolerates — they
+  // are all "no agent yet, nothing to fetch" paths.
+  const agentId = agent?.id ?? (id && UUID.test(id) ? id : null);
+
+  const { proposal, loading: proposalLoading, followLatest, pinned } = useFocusedProposal(agentId ?? "", chatNonce);
   const proposalSections = proposal?.content?.sections?.filter(
     (sec) => (sec.body ?? "").trim().length > 0,
   ).length ?? 0;
@@ -70,19 +83,24 @@ export default function AgentWorkspace() {
     if (proposalSections > 0) setAside("document");
   }, [proposalSections]);
 
+  // Accepts either a uuid or an agent `key`. Keys are the stable identifier —
+  // names get changed and ids are unguessable — so a link that means "the
+  // client operations agent" can say `client-triage` and keep working after a
+  // rename or a reseed.
   const loadAgent = useCallback(async () => {
     if (!id) return;
-    const { data } = await supabase.from("agents").select("*").eq("id", id).maybeSingle();
+    const column = UUID.test(id) ? "id" : "key";
+    const { data } = await supabase.from("agents").select("*").eq(column, id).maybeSingle();
     setAgent((data ?? null) as Agent | null);
   }, [id]);
 
   const loadRuns = useCallback(async () => {
-    if (!id) return;
+    if (!agentId) return;
     const { data } = await supabase.from("agent_runs")
       .select("id, status, trigger, headline, started_at")
-      .eq("agent_id", id).order("started_at", { ascending: false }).limit(60);
+      .eq("agent_id", agentId).order("started_at", { ascending: false }).limit(60);
     setRuns((data ?? []) as ActivityRun[]);
-  }, [id]);
+  }, [agentId]);
 
   useEffect(() => {
     (async () => {
@@ -220,7 +238,7 @@ export default function AgentWorkspace() {
 
           <div className="ws__rail-label">Workspace</div>
           <div className="ws__rail-group">
-            {WORKSPACE.map((r) => (
+            {WORKSPACE.filter((r) => !r.onlyFor || r.onlyFor === agent.key).map((r) => (
               <button key={r.view}
                 className={`ws__rail-item ${view === r.view ? "ws__rail-item--on" : ""}`}
                 onClick={() => setView(r.view)}>

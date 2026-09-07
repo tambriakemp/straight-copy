@@ -17,7 +17,18 @@ export const ALLOWED_ACTIONS: Record<string, string[]> = {
     "flag_risk",
     "delete_record",
   ],
-  "client-triage": ["create_task", "draft_email", "flag_risk", "delete_record"],
+  // Onboarding, not just chasing. Asked to take on the client you just got off
+  // the phone with, this used to be able to open a task reminding you to do it
+  // by hand. Both kinds are internal writes to our own tables, so an
+  // act_in_app agent completes the job inside the conversation.
+  "client-triage": [
+    "create_client",
+    "create_client_project",
+    "create_task",
+    "draft_email",
+    "flag_risk",
+    "delete_record",
+  ],
   // The board actions are what make this one an agent rather than a
   // commentator: without them it can judge a task's readiness and then do
   // nothing about it. move_task_status is also the only way anything reaches
@@ -44,6 +55,9 @@ export const ALLOWED_ACTIONS: Record<string, string[]> = {
   ],
   "client-engagement": [
     "sync_client_to_surecontact",
+    // It already created the project a proposal hangs off but could not create
+    // the client it hangs off, so a brand new prospect meant leaving the chat.
+    "create_client",
     "create_client_project",
     "create_proposal_draft",
     "write_proposal_section",

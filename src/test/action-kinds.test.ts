@@ -12,6 +12,9 @@ import { canAutoExecute } from "../../supabase/functions/_shared/agents/types";
 import {
   assigneeKind, taskPriority, taskStatus,
 } from "../../supabase/functions/_shared/agents/task-fields";
+import {
+  CLIENT_TIERS, PROJECT_STATUSES,
+} from "../../supabase/functions/_shared/agents/client-fields";
 
 describe("outward classification", () => {
   it("marks everything that reaches a client as outward", () => {
@@ -271,5 +274,75 @@ describe("the social kinds", () => {
     ]) {
       expect(alwaysApproves(k), k).toBe(false);
     }
+  });
+});
+
+describe("onboarding a client", () => {
+  const ONBOARD = ["create_client", "create_client_project"];
+
+  it("gives both client-facing agents the ability to take someone on", () => {
+    // The gap this closes: asked to add the client Bree just got off the phone
+    // with, these could only open a task reminding a person to do it by hand.
+    for (const key of ["client-triage", "client-engagement"]) {
+      for (const kind of ONBOARD) expect(allowedFor(key), `${key}/${kind}`).toContain(kind);
+    }
+  });
+
+  it("keeps onboarding internal, so it completes inside the conversation", () => {
+    // Both write rows in our own database and contact nobody. If either were
+    // ever marked outward, an act_in_app agent would stop being able to
+    // finish the job and would go back to describing the form to go and fill.
+    for (const kind of ONBOARD) {
+      expect(isOutward(kind), kind).toBe(false);
+      expect(isDestructive(kind), kind).toBe(false);
+      expect(alwaysApproves(kind), kind).toBe(false);
+      expect(canAutoExecute("act_in_app", isOutward(kind), isDestructive(kind)), kind).toBe(true);
+    }
+  });
+
+  it("still holds them behind propose-only autonomy", () => {
+    for (const kind of ONBOARD) {
+      expect(canAutoExecute("propose", isOutward(kind)), kind).toBe(false);
+    }
+  });
+
+  it("tells the model the client is the person, not the business", () => {
+    // clients.business_name is deprecated and owned by the primary company's
+    // trigger. A model that files the business under contact_name produces a
+    // roster listing companies where people should be — which is the exact
+    // confusion the company table was added to end.
+    const doc = kindDocFor(allowedFor("client-triage"));
+    expect(doc).toContain("create_client");
+    expect(ACTION_KINDS.create_client.purpose).toMatch(/PERSON/);
+    expect(ACTION_KINDS.create_client.payload).toContain("contact_name");
+    expect(ACTION_KINDS.create_client.payload).toContain("company");
+    // business_name must not be offered: writing it races the trigger.
+    expect(ACTION_KINDS.create_client.payload).not.toContain("business_name");
+  });
+
+  it("does not let an agent invent a pipeline stage", () => {
+    // The column has no CHECK, so an invented stage lands a client somewhere
+    // no screen renders and no sweep looks. The default is the only safe start.
+    expect(ACTION_KINDS.create_client.payload).not.toContain("pipeline_stage");
+  });
+
+  it("offers a project's real optional detail, and only valid values", () => {
+    const p = ACTION_KINDS.create_client_project.payload;
+    for (const field of ["status", "notes", "company_id", "timezone"]) {
+      expect(p, field).toContain(field);
+    }
+    for (const status of PROJECT_STATUSES) expect(p, status).toContain(status);
+    for (const tier of CLIENT_TIERS) {
+      expect(ACTION_KINDS.create_client.payload, tier).toContain(tier);
+    }
+  });
+});
+
+describe("client field values", () => {
+  it("matches the CHECK constraints the inserts have to satisfy", () => {
+    // These are asserted against, not coerced — a tier nobody sells has no
+    // obvious right answer, so the executor sends it back with the list.
+    expect(CLIENT_TIERS).toEqual(["launch", "growth", "social"]);
+    expect(PROJECT_STATUSES).toEqual(["active", "paused", "complete", "archived"]);
   });
 });

@@ -37,6 +37,14 @@ export function useFocusedProposal(agentId: string, nonce = 0) {
   const explicit = params.get("proposal");
 
   const load = useCallback(async () => {
+    // The workspace can render a frame before it has resolved a route key to
+    // an agent uuid. Querying `created_by_agent = ''` is not an empty result,
+    // it is a 22P02 invalid-uuid error, so wait rather than ask.
+    if (!explicit && !agentId) {
+      setProposal(null);
+      setLoading(false);
+      return;
+    }
 
     let q = supabase
       .from("client_proposals")

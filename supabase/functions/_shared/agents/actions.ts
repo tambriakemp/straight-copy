@@ -11,6 +11,7 @@ import {
   PROJECT_TYPES, reviewProposal, type ProposalContent,
 } from "./proposal-spine.ts";
 import { assigneeKind, taskPriority, taskStatus } from "./task-fields.ts";
+import { CLIENT_TIERS, PROJECT_STATUSES } from "./client-fields.ts";
 
 // Mirrors the constants in send-transactional-email/index.ts so agent mail
 // leaves from the same identity as every other email the app sends.
@@ -578,8 +579,77 @@ export async function executeAction(
         return { ok: true, result: { client_id: p.client_id, surecontact: body } };
       }
 
+      // Two writes, and the second is allowed to fail without losing the
+      // first. A client with no company is a usable record you can add a
+      // company to; a company insert that rolls the client back leaves the
+      // agent reporting success over nothing. Mirrors NewClientDialog on the
+      // frontend, deliberately — including leaving `business_name` alone,
+      // which the primary company's trigger owns. Two writers race there.
+      case "create_client": {
+        const p = action.payload as {
+          contact_name?: string;
+          contact_email?: string;
+          contact_phone?: string;
+          notes?: string;
+          tier?: string;
+          company?: { name?: string; website?: string; email?: string; phone?: string };
+        };
+        const name = (p.contact_name ?? "").trim();
+        if (!name) return { ok: false, error: "No contact_name supplied — the client is the person" };
+        if (p.tier && !CLIENT_TIERS.includes(p.tier)) {
+          return { ok: false, error: `Tier must be one of: ${CLIENT_TIERS.join(", ")}` };
+        }
+
+        const { data, error } = await sb.from("clients").insert({
+          contact_name: name,
+          contact_email: p.contact_email?.trim() || null,
+          contact_phone: p.contact_phone?.trim() || null,
+          notes: p.notes?.trim() || null,
+          ...(p.tier ? { tier: p.tier } : {}),
+          purchased_at: new Date().toISOString(),
+        }).select("id, contact_name").single();
+        if (error) return { ok: false, error: error.message };
+
+        const companyName = p.company?.name?.trim();
+        let companyId: string | null = null;
+        let companyWarning: string | null = null;
+        if (companyName) {
+          const { data: co, error: cErr } = await sb.from("client_companies").insert({
+            client_id: data.id,
+            name: companyName,
+            website: p.company?.website?.trim() || null,
+            email: p.company?.email?.trim() || p.contact_email?.trim() || null,
+            phone: p.company?.phone?.trim() || null,
+            is_primary: true,
+            order_index: 0,
+          }).select("id").single();
+          if (cErr) companyWarning = cErr.message;
+          else companyId = co.id;
+        }
+
+        return {
+          ok: true,
+          result: {
+            client_id: data.id,
+            contact_name: data.contact_name,
+            company_id: companyId,
+            ...(companyWarning
+              ? { warning: `Client created, but the company failed: ${companyWarning}` }
+              : {}),
+          },
+        };
+      }
+
       case "create_client_project": {
-        const p = action.payload as { client_id?: string; name?: string; type?: string };
+        const p = action.payload as {
+          client_id?: string;
+          name?: string;
+          type?: string;
+          status?: string;
+          notes?: string;
+          company_id?: string;
+          timezone?: string;
+        };
         if (!p.client_id) return { ok: false, error: "No client_id supplied" };
         if (!p.type || !(PROJECT_TYPES as readonly string[]).includes(p.type)) {
           // The type decides what the client sees in their portal, so an
@@ -589,16 +659,26 @@ export async function executeAction(
             error: `Project type must be one of: ${PROJECT_TYPES.join(", ")}`,
           };
         }
+        if (p.status && !PROJECT_STATUSES.includes(p.status)) {
+          return { ok: false, error: `Project status must be one of: ${PROJECT_STATUSES.join(", ")}` };
+        }
         const { data, error } = await sb.from("client_projects").insert({
           client_id: p.client_id,
           name: p.name ?? action.title,
           type: p.type,
-        }).select("id, name, type").single();
+          // Omitted rather than defaulted here, so the column's own default
+          // stays the single source of what a new project starts as.
+          ...(p.status ? { status: p.status } : {}),
+          ...(p.notes?.trim() ? { notes: p.notes.trim() } : {}),
+          ...(p.company_id ? { company_id: p.company_id } : {}),
+          ...(p.timezone?.trim() ? { timezone: p.timezone.trim() } : {}),
+        }).select("id, name, type, status").single();
         if (error) return { ok: false, error: error.message };
         return {
           ok: true,
           result: {
-            client_project_id: data.id, client_id: p.client_id, name: data.name, type: data.type,
+            client_project_id: data.id, client_id: p.client_id,
+            name: data.name, type: data.type, status: data.status,
           },
         };
       }

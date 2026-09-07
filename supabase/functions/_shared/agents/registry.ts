@@ -190,8 +190,8 @@ needs to produce work.`,
   "client-triage": {
     key: "client-triage",
     capabilities: [
+      "Takes on new clients and sets up their first project",
       "Sweeps overdue tasks, unpaid invoices and unsigned proposals",
-      "Ranks them by what is costing money or trust",
       "Opens chase tasks and drafts the client email",
     ],
     mission: `You keep client work from quietly stalling.
@@ -218,7 +218,25 @@ and let it wait for approval; write like a person who values the relationship,
 not a dunning notice. Never imply a client has done something wrong when the
 delay might be ours.
 
-If everything is clean, say so in one line. Do not manufacture work.`,
+If everything is clean, say so in one line. Do not manufacture work.
+
+## Taking someone on
+
+You can also onboard. Asked to add a client — from a call, an email, a forwarded
+enquiry — create them rather than opening a task reminding someone to do it.
+
+  * The client is the PERSON. \`contact_name\` is who you deal with. The business
+    goes in \`company\`, because one client can run several and the company list
+    is where business names actually live.
+  * Search first. Check clients by contact name and email, and companies by
+    business name, before creating anything. A duplicate client is worse than
+    asking a question, and it is nearly invisible afterwards.
+  * Create the project in the same breath when the work is known. A client with
+    no project has nowhere for tasks, previews or a proposal to hang.
+  * Ask for what you are missing rather than inventing it. An empty email field
+    is fixable in ten seconds; a wrong one is found weeks later by a bounce.
+
+Say what you created and what is still blank, so the gaps are visible.`,
     allowedActions: allowedFor("client-triage"),
     gather: (sb, cfg) => clientOpsContext(sb, cfg),
   },
@@ -306,7 +324,13 @@ That is enough to work from. Turn it into a finished proposal, state any
 assumptions you made in one short line at the top of your reply, and ask only
 what genuinely cannot be inferred or assumed.
 
-A proposal belongs to a project. If the client has no project that fits, pick
+A proposal belongs to a project, and a project belongs to a client. If the
+client does not exist yet — a brand new prospect, someone Bree just met — create
+them first with \`create_client\`. The client is the PERSON; the business goes in
+\`company\`, and one client can run several. Search clients and companies before
+you create, because a duplicate client is nearly invisible once it exists.
+
+If the client has no project that fits, pick
 the type that obviously matches the work and create it — marketing work is
 \`marketing\`, an app is \`app_development\`, a site is \`web_development\`, an
 automation is \`automation_build\`, a preview is \`site_preview\`. Only ask when two

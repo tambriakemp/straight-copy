@@ -81,7 +81,12 @@ function ago(iso: string): string {
   return `${formatDistanceToNowStrict(new Date(t))} ago`;
 }
 
-export default function QueueHealth() {
+/**
+ * @param embedded Render without AdminLayout and without the page heading, for
+ * the engineering queue lead's Workspace rail. The Refresh control survives —
+ * it is the whole point of the panel, not chrome.
+ */
+export default function QueueHealth({ embedded = false }: { embedded?: boolean } = {}) {
   const [log, setLog] = useState<FireLogRow[]>([]);
   const [routes, setRoutes] = useState<RouteRow[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
@@ -151,25 +156,36 @@ export default function QueueHealth() {
     load();
   };
 
+  const Shell = ({ children }: { children: React.ReactNode }) =>
+    embedded ? <>{children}</> : <AdminLayout>{children}</AdminLayout>;
+
   return (
-    <AdminLayout>
-      <div className="roster">
-        <div className="roster__head">
-          <div className="roster__title-block">
-            <div className="roster__eyebrow">Operations</div>
-            <h1 className="roster__title">
-              Coding <em>queue</em>
-            </h1>
-            <hr className="roster__rule" />
-            <p className="roster__sub">
-              Whether the board is reaching the coding worker, and what it said when it tried.
-              Every fire attempt is logged, including the ones that were suppressed.
-            </p>
+    <Shell>
+      <div className={embedded ? undefined : "roster"}>
+        {embedded ? (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={load} disabled={loading}>
+              <RefreshCw className="h-3 w-3" /> {loading ? "Loading…" : "Refresh"}
+            </button>
           </div>
-          <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={load} disabled={loading}>
-            <RefreshCw className="h-3 w-3" /> {loading ? "Loading…" : "Refresh"}
-          </button>
-        </div>
+        ) : (
+          <div className="roster__head">
+            <div className="roster__title-block">
+              <div className="roster__eyebrow">Operations</div>
+              <h1 className="roster__title">
+                Coding <em>queue</em>
+              </h1>
+              <hr className="roster__rule" />
+              <p className="roster__sub">
+                Whether the board is reaching the coding worker, and what it said when it tried.
+                Every fire attempt is logged, including the ones that were suppressed.
+              </p>
+            </div>
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={load} disabled={loading}>
+              <RefreshCw className="h-3 w-3" /> {loading ? "Loading…" : "Refresh"}
+            </button>
+          </div>
+        )}
 
         {/* ── Diagnosis ── */}
         <div style={PANEL}>
@@ -367,7 +383,7 @@ export default function QueueHealth() {
           )}
         </div>
       </div>
-    </AdminLayout>
+    </Shell>
   );
 }
 

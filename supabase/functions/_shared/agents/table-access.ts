@@ -53,6 +53,21 @@ export const READABLE: Record<string, TableAccess> = {
     long: ["notes", "intake_summary"],
     maxLimit: 50,
   },
+  // A client is a person and can run several businesses, so the company list
+  // is where the business names actually live. Unreadable until now, which
+  // meant an agent asked to take on "Menovia" could not tell whether we
+  // already had them — it could only search clients, where that name is a
+  // deprecated column nothing maintains.
+  client_companies: {
+    entity: "company",
+    columns: [
+      "id", "client_id", "name", "email", "phone", "website", "notes",
+      "is_primary", "order_index", "archived", "created_at", "updated_at",
+    ],
+    searchable: ["name", "email", "website"],
+    long: ["notes"],
+    maxLimit: 50,
+  },
   client_contacts: {
     entity: "contact",
     columns: ["id", "client_id", "name", "email", "phone", "role", "created_at"],

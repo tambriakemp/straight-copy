@@ -18,8 +18,8 @@ export const AGENT_CAPABILITIES: Record<string, string[]> = {
     "Drafts the cart-closing reminder for your approval",
   ],
   "client-triage": [
+    "Takes on new clients and sets up their first project",
     "Sweeps overdue tasks, unpaid invoices and unsigned proposals",
-    "Ranks them by what is costing money or trust",
     "Opens chase tasks and drafts the client email",
   ],
   developer: [
