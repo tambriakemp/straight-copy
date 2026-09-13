@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
       .from("project_tasks")
       .select("id, name, description, epic_id, updated_at, status")
       .eq("client_project_id", projectId)
-      .in("status", ["in_progress", "needs_review", "blocked"])
+      .in("status", ["in_progress", "needs_review"])
       .order("updated_at", { ascending: false })
       .limit(12);
 
@@ -112,9 +112,21 @@ Deno.serve(async (req) => {
       .order("order_index", { ascending: true })
       .limit(10);
 
+    // Blocked tasks are surfaced separately as client action items rather
+    // than lumped into "in progress" — they're stuck on something, usually
+    // input/decision/access from the client, not active dev work.
+    const { data: blockedRows } = await sb
+      .from("project_tasks")
+      .select("id, name, description, epic_id, updated_at, status")
+      .eq("client_project_id", projectId)
+      .eq("status", "blocked")
+      .order("updated_at", { ascending: false })
+      .limit(10);
+
     const completed = completedRows ?? [];
     const inProgress = inProgressRows ?? [];
     const next = nextRows ?? [];
+    const blocked = blockedRows ?? [];
 
     if (completed.length === 0 && !isPreview) {
       await sb.from("project_progress_reports").insert({
@@ -131,7 +143,7 @@ Deno.serve(async (req) => {
     // Epic name lookup across all
     const epicIds = Array.from(
       new Set(
-        [...completed, ...inProgress, ...next]
+        [...completed, ...inProgress, ...next, ...blocked]
           .map((t) => (t as any).epic_id)
           .filter(Boolean),
       ),
@@ -173,6 +185,7 @@ Deno.serve(async (req) => {
         completedTasks: shape(completed),
         inProgressTasks: shape(inProgress),
         nextTasks: shape(next),
+        blockedTasks: shape(blocked),
       });
     } catch (e) {
       const err = e instanceof Error ? e.message : String(e);
