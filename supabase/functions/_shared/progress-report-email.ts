@@ -28,6 +28,7 @@ export interface ProgressReportData {
   report_next: string;            // HTML <ul> of next-up items
   report_current_phase: string;   // e.g. "Phase 4 — Development"
   report_progress: string;        // e.g. "On track — 60% complete"
+  report_action_items: string;    // HTML <ul> of items needing the client's input/decision
   portal_url: string;
   project_name: string;
   business_name: string;
@@ -149,6 +150,8 @@ export async function generateProgressReportData(args: {
   completedTasks: TaskForSummary[];
   inProgressTasks: TaskForSummary[];
   nextTasks: TaskForSummary[];
+  /** Tasks stuck on something (status "blocked") — surfaced as items needing the client's input/decision. */
+  blockedTasks?: TaskForSummary[];
 }): Promise<ProgressReportData> {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
@@ -162,6 +165,8 @@ export async function generateProgressReportData(args: {
               `- [${t.epic_name || "General"}] ${t.name}${t.description ? ` — ${t.description.slice(0, 240)}` : ""}`,
           )
           .join("\n");
+
+  const blockedTasks = args.blockedTasks ?? [];
 
   const systemPrompt = `You are an account manager at a high-end design and development agency writing this week's progress report email for a client. Synthesize the work — do not list every task verbatim. Be warm, confident, concise. Never invent work that isn't in the lists. Output strictly valid JSON.`;
 
@@ -178,6 +183,9 @@ ${fmtTaskList(args.inProgressTasks)}
 COMING UP NEXT (${args.nextTasks.length}):
 ${fmtTaskList(args.nextTasks)}
 
+BLOCKED / STUCK (${blockedTasks.length}):
+${fmtTaskList(blockedTasks)}
+
 Produce a JSON object with these exact string fields:
 - "intro": 1-2 sentence warm opening that frames the week.
 - "current_phase": short phase label, e.g. "Phase 4 — Development" or "Discovery", inferred from the work. Keep it crisp.
@@ -185,6 +193,7 @@ Produce a JSON object with these exact string fields:
 - "completed_bullets": array of 1-6 strings. Each string is a single sentence summarizing a meaningful completed item (group related tasks). No markdown.
 - "in_progress_bullets": array of 0-5 strings, same style. Empty array if nothing is in progress.
 - "next_bullets": array of 0-5 strings, same style. Empty array if nothing is queued.
+- "action_items_bullets": array of 0-5 strings. Only from the BLOCKED / STUCK list above — each string is a single clear sentence telling the client exactly what input, decision, asset, or access they need to provide to unblock the item. Never invent an action item that isn't backed by a blocked task. Empty array if nothing is blocked.
 
 Return ONLY the JSON, no markdown fence.`;
 
@@ -239,6 +248,9 @@ Return ONLY the JSON, no markdown fence.`;
   const completedBullets = toStringArr(parsed.completed_bullets);
   const inProgressBullets = toStringArr(parsed.in_progress_bullets);
   const nextBullets = toStringArr(parsed.next_bullets);
+  // Action items are only ever drawn from real blocked tasks — if none are
+  // blocked, ignore whatever the model returned rather than trusting it.
+  const actionItemsBullets = blockedTasks.length > 0 ? toStringArr(parsed.action_items_bullets) : [];
 
   return {
     report_week: args.weekOf,
@@ -246,6 +258,7 @@ Return ONLY the JSON, no markdown fence.`;
     report_completed: renderBulletList(completedBullets, "green"),
     report_in_progress: renderBulletList(inProgressBullets, "gold"),
     report_next: renderBulletList(nextBullets, "blue"),
+    report_action_items: renderBulletList(actionItemsBullets, "red", "Nothing needs your input this week."),
     report_current_phase: String(parsed.current_phase || "").trim() || "In Progress",
     report_progress: String(parsed.progress || "").trim() || "On track.",
     portal_url: args.portalUrl,
@@ -255,13 +268,18 @@ Return ONLY the JSON, no markdown fence.`;
   };
 }
 
-function renderBulletList(items: string[], accent: "green" | "gold" | "blue"): string {
+function renderBulletList(
+  items: string[],
+  accent: "green" | "gold" | "blue" | "red",
+  emptyText = "Nothing to report this week.",
+): string {
   const color =
     accent === "green" ? "#3f7a4a" :
     accent === "gold" ? "#b48a2a" :
+    accent === "red" ? "#a8452f" :
     "#3b6fa0";
   if (items.length === 0) {
-    return `<p style="margin:0;padding:0 0 0 12px;border-left:3px solid ${color};font-family:'Karla',Arial,sans-serif;font-size:15px;line-height:1.6;color:#7a6a55;font-style:italic;">Nothing to report this week.</p>`;
+    return `<p style="margin:0;padding:0 0 0 12px;border-left:3px solid ${color};font-family:'Karla',Arial,sans-serif;font-size:15px;line-height:1.6;color:#7a6a55;font-style:italic;">${escapeHtml(emptyText)}</p>`;
   }
   const lis = items
     .map(
@@ -309,6 +327,7 @@ export function renderProgressReportPreviewHtml(data: ProgressReportData): strin
         ${section("Completed this week", data.report_completed)}
         ${section("In progress", data.report_in_progress)}
         ${section("Coming up next", data.report_next)}
+        ${section("Needed from you — Action items", data.report_action_items)}
         <tr><td style="padding:28px 40px 36px 40px;">
           <a href="${escapeAttr(data.portal_url)}" style="display:inline-block;font-family:'Karla',Arial,sans-serif;font-size:12px;letter-spacing:0.25em;text-transform:uppercase;color:#2b2722;text-decoration:none;border:1px solid #2b2722;padding:12px 22px;border-radius:2px;">View in client portal</a>
         </td></tr>
