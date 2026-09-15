@@ -311,17 +311,28 @@ Deno.serve(async (req) => {
       if (!res.ok) throw new Error(`CoPost ${res.status}: ${body.slice(0, 400)}`);
 
       const sentAt = new Date().toISOString();
+      // Keep the id CoPost hands back: the webhook correlates its callbacks by
+      // it, and without it every callback falls through unmatched.
+      const copostPostId = extractCopostPostId(body);
       await sb.from("social_schedule").update({
-        status: "sent", sent_at: sentAt, claimed_at: null, last_error: null,
+        status: "sent",
+        sent_at: sentAt,
+        claimed_at: null,
+        last_error: null,
+        copost_post_id: copostPostId,
       }).eq("id", row.id);
 
       if (isImage) {
+        // social_images has no copost_post_id column; the schedule row carries it.
         await sb.from("social_images").update({
           copost_status: "sent", copost_sent_at: sentAt, copost_error: null,
         }).eq("id", row.social_image_id);
       } else {
         await sb.from("social_posts").update({
-          status: "published", published_at: sentAt, error: null,
+          status: "published",
+          published_at: sentAt,
+          error: null,
+          copost_post_id: copostPostId,
         }).eq("id", row.social_post_id);
       }
 
