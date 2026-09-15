@@ -15,6 +15,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import {
   copostPayload,
+  extractCopostPostId,
   isValidCopostEndpoint,
   withImageExtension,
 } from "../_shared/social/copost.ts";
