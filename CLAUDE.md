@@ -91,11 +91,18 @@ or the Lovable MCP `send_message`) naming the functions and saying explicitly
 licence to edit. It deploys `_shared/` alongside them, which matters because
 `agent-chat` and `agent-run` import from there and a stale copy fails to boot.
 
-`.github/workflows/deploy-edge-functions.yml` exists and is correct, but it
-cannot authenticate on Cloud. It is dead weight unless this project is ever
-moved onto a Supabase account we own. It does at least fail loudly now rather
-than reporting success while deploying nothing, which is how the tool loop sat
-merged and undeployed for a full day.
+**There is no deploy workflow, on purpose.**
+`.github/workflows/deploy-edge-functions.yml` used to live here. It was correct,
+and on Cloud it could never authenticate, so it failed on every single push to
+main from 2026-09-05 until it was removed — ten consecutive red runs that meant
+nothing. A check that is always red is worse than no check: it costs a real
+failure its only chance of being noticed. Deleted rather than left failing.
+
+If this project is ever moved onto a Supabase account we own, restore it from
+git history and add a `SUPABASE_ACCESS_TOKEN` repository secret. Until then,
+asking Lovable is the only route, and nothing in CI will remind you — so a PR
+that changes `supabase/functions/**` is not finished when it merges. It is
+finished when someone has asked Lovable to deploy it.
 
 **How to tell whether a deploy actually landed** — never trust a green check
 or the agent's own summary. Send one chat message to any agent, then:
