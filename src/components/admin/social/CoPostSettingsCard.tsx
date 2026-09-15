@@ -38,7 +38,12 @@ export default function CoPostSettingsCard({ clientProjectId }: { clientProjectI
       try {
         const u = new URL(value);
         if (u.protocol !== "https:") { toast.error("URL must use https://"); return; }
-        if (!u.host.endsWith("copost.io")) { toast.error("URL must be on the copost.io domain"); return; }
+        const host = u.hostname.toLowerCase();
+        // Exact host or a real subdomain. `endsWith("copost.io")` also
+        // accepts "evilcopost.io", which is the same hole the sender had.
+        if (host !== "copost.io" && !host.endsWith(".copost.io")) {
+          toast.error("URL must be on the copost.io domain"); return;
+        }
       } catch {
         toast.error("Enter a valid URL (e.g. https://api.copost.io/triggers/…)");
         return;
@@ -69,10 +74,10 @@ export default function CoPostSettingsCard({ clientProjectId }: { clientProjectI
   return (
     <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 24 }}>
       <div>
-        <h3 style={{ fontSize: 20, fontWeight: 500, color: "hsl(30 12% 20%)", marginBottom: 4 }}>
+        <h3 style={{ fontSize: 20, fontWeight: 500, color: "var(--crm-warm-white)", marginBottom: 4 }}>
           CoPost credentials
         </h3>
-        <p style={{ fontSize: 16, color: "hsl(30 8% 50%)" }}>
+        <p style={{ fontSize: 16, color: "var(--crm-taupe)" }}>
           Used by the Social tab to publish approved posts and carousels to the client's CoPost account.
         </p>
       </div>
@@ -81,7 +86,7 @@ export default function CoPostSettingsCard({ clientProjectId }: { clientProjectI
         return (
           <div key={f.key} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <Label>{f.label}</Label>
-            <p style={{ fontSize: 15, color: "hsl(30 8% 50%)" }}>{f.description}</p>
+            <p style={{ fontSize: 15, color: "var(--crm-taupe)" }}>{f.description}</p>
             <div style={{ display: "flex", gap: 8 }}>
               <Input
                 type={f.isSecret ? "password" : "text"}
@@ -94,7 +99,7 @@ export default function CoPostSettingsCard({ clientProjectId }: { clientProjectI
               </Button>
             </div>
             {saved && (
-              <span style={{ fontSize: 14, color: "hsl(30 8% 50%)" }}>
+              <span style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
                 Last updated {new Date(saved.updated_at).toLocaleString()}
               </span>
             )}

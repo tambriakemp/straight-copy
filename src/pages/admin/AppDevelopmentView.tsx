@@ -11,10 +11,7 @@ import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import ContractAuditPanel from "@/components/admin/ContractAuditPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
 import ProgressReportSettingsCard from "@/components/admin/ProgressReportSettingsCard";
-import CoPostSettingsCard from "@/components/admin/social/CoPostSettingsCard";
 import DeliveryTargetsCard from "@/components/admin/DeliveryTargetsCard";
-import SocialAutonomyCard from "@/components/admin/social/SocialAutonomyCard";
-import ScheduledPosts from "@/components/admin/social/ScheduledPosts";
 
 
 import {
@@ -164,15 +161,15 @@ export default function AppDevelopmentView({
 
           {isMarketing && (
             <ProjectTabsContent value="social">
+              {/* SocialTab owns the whole workflow now, including the CoPost
+                  credential and the autonomy gate. They used to sit in Settings,
+                  a tab away from the thing they gate. */}
               <SocialTab clientProjectId={projectId!} />
-              <ScheduledPosts clientProjectId={projectId!} />
             </ProjectTabsContent>
           )}
 
           <ProjectTabsContent value="settings">
             <DeliveryTargetsCard clientProjectId={projectId!} />
-            {isMarketing && <CoPostSettingsCard clientProjectId={projectId!} />}
-            {isMarketing && <SocialAutonomyCard clientProjectId={projectId!} />}
             <ProgressReportSettingsCard clientId={clientId!} clientProjectId={projectId!} />
           </ProjectTabsContent>
         </ProjectTabs>
