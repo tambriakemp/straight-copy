@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 
 export interface SlideData {
@@ -41,8 +42,58 @@ export default function PostCard({
   const [slideIdx, setSlideIdx] = useState(0);
   useEffect(() => { setSlideIdx(0); }, [post.id]);
 
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [imgStatus, setImgStatus] = useState<"resolving" | "error" | "ready">("resolving");
+  const retryCount = useRef(0);
+  const currentPathRef = useRef<string | null | undefined>(null);
+
   const slide = post.slides[slideIdx];
   const total = post.slides.length;
+
+  useEffect(() => {
+    currentPathRef.current = slide?.image_path;
+    retryCount.current = 0;
+    let active = true;
+    setSignedUrl(null);
+    setImgStatus("resolving");
+    const path = slide?.image_path;
+    if (!path) {
+      if (active) setImgStatus("error");
+      return;
+    }
+    (async () => {
+      const { data, error } = await supabase.storage.from("social-posts").createSignedUrl(path, 3600);
+      if (!active) return;
+      if (error || !data?.signedUrl) {
+        setImgStatus("error");
+        return;
+      }
+      setSignedUrl(data.signedUrl);
+      setImgStatus("ready");
+    })();
+    return () => { active = false; };
+  }, [slide?.image_path]);
+
+  const handleImageError = async () => {
+    if (retryCount.current >= 1) {
+      setImgStatus("error");
+      return;
+    }
+    const path = currentPathRef.current;
+    if (!path) {
+      setImgStatus("error");
+      return;
+    }
+    retryCount.current += 1;
+    const { data, error } = await supabase.storage.from("social-posts").createSignedUrl(path, 3600);
+    if (path !== currentPathRef.current) return;
+    if (error || !data?.signedUrl) {
+      setImgStatus("error");
+      return;
+    }
+    setSignedUrl(data.signedUrl);
+    setImgStatus("ready");
+  };
 
   const statusColor = post.status === "approved"
     ? "hsl(120 50% 75%)"
@@ -59,15 +110,15 @@ export default function PostCard({
       overflow: "hidden", display: "flex", flexDirection: "column",
     }}>
       <div style={{ position: "relative", background: "hsl(0 0% 0% / 0.4)", aspectRatio: "1080/1350" }}>
-        {slide?.image_url ? (
-          <img src={slide.image_url} alt={`slide ${slideIdx + 1}`}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        {imgStatus === "ready" && signedUrl ? (
+          <img src={signedUrl} alt={`slide ${slideIdx + 1}`} onError={handleImageError}
+            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
         ) : (
           <div style={{
             position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
             color: "var(--crm-taupe)", fontSize: 15, padding: 16, textAlign: "center",
           }}>
-            {slide?.error ? `Render failed: ${slide.error}` : "No image"}
+            {imgStatus === "resolving" ? "Loading…" : slide?.error ? `Render failed: ${slide.error}` : "No image"}
           </div>
         )}
 
@@ -149,4 +200,3 @@ function navBtn(left: boolean): React.CSSProperties {
   };
   return left ? { ...base, left: 8 } : { ...base, right: 8 };
 }
-
