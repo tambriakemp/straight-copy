@@ -2,6 +2,10 @@
 // Spec: POST https://api.copost.io/triggers/<id> with JSON { postText, images?, tags? }.
 // No API key — auth is the URL itself.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  extractCopostPostId,
+  isValidCopostEndpoint,
+} from "../_shared/social/copost.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
