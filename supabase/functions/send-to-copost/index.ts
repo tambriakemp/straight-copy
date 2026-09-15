@@ -66,14 +66,10 @@ Deno.serve(async (req) => {
   });
   if (!endpointUrl) return json({ error: "CoPost endpoint URL not configured for this project" }, 400);
 
-  // Validate the endpoint shape
-  try {
-    const u = new URL(String(endpointUrl));
-    if (u.protocol !== "https:" || !u.host.endsWith("copost.io")) {
-      return json({ error: "Stored CoPost URL is invalid" }, 400);
-    }
-  } catch {
-    return json({ error: "Stored CoPost URL is malformed" }, 400);
+  // Validate the endpoint shape. Shared helper: the old inline
+  // host.endsWith("copost.io") test also accepts "evilcopost.io".
+  if (!isValidCopostEndpoint(String(endpointUrl))) {
+    return json({ error: "Stored CoPost URL is invalid" }, 400);
   }
 
   // Load approved posts
