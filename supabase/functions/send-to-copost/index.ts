@@ -123,10 +123,12 @@ Deno.serve(async (req) => {
       const respText = await res.text();
       if (!res.ok) throw new Error(`CoPost ${res.status}: ${respText.slice(0, 400)}`);
 
+      // The id CoPost returns is how the webhook matches its callbacks.
       await admin.from("social_posts").update({
         status: "published",
         published_at: new Date().toISOString(),
         error: null,
+        copost_post_id: extractCopostPostId(respText),
       }).eq("id", post.id);
 
       results.push({ post_id: post.id, ok: true });
