@@ -5,7 +5,8 @@
 // at that client's photos and captions. Burying it in the agent's own settings
 // would mean deciding it for a client whose work is not on screen.
 //
-// Styled to match CoPostSettingsCard, which it sits directly beneath.
+// Styled for the dark admin shell (.crm-shell is --crm-ink), same as
+// CoPostSettingsCard. Both used to paint near-black text on it.
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -84,10 +85,10 @@ export default function SocialAutonomyCard({ clientProjectId }: { clientProjectI
   return (
     <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
-        <h3 style={{ fontSize: 20, fontWeight: 500, color: "hsl(30 12% 20%)", marginBottom: 4 }}>
+        <h3 style={{ fontSize: 20, fontWeight: 500, color: "var(--crm-warm-white)", marginBottom: 4 }}>
           What {who} may do for this client
         </h3>
-        <p style={{ fontSize: 16, color: "hsl(30 8% 50%)" }}>
+        <p style={{ fontSize: 16, color: "var(--crm-taupe)" }}>
           New clients start held for review. Move this on once their captions
           read the way they should.
         </p>
@@ -108,15 +109,15 @@ export default function SocialAutonomyCard({ clientProjectId }: { clientProjectI
                 borderRadius: 8,
                 cursor: saving ? "default" : "pointer",
                 border: selected
-                  ? "1px solid hsl(30 20% 40%)"
-                  : "1px solid hsl(30 12% 88%)",
-                background: selected ? "hsl(30 30% 97%)" : "transparent",
+                  ? "1px solid var(--crm-accent)"
+                  : "1px solid var(--crm-border-dark)",
+                background: selected ? "hsl(40 20% 97% / 0.06)" : "transparent",
               }}
             >
-              <div style={{ fontSize: 16, fontWeight: 500, color: "hsl(30 12% 20%)" }}>
+              <div style={{ fontSize: 16, fontWeight: 500, color: "var(--crm-warm-white)" }}>
                 {o.label}
               </div>
-              <div style={{ fontSize: 15, color: "hsl(30 8% 50%)", marginTop: 2 }}>
+              <div style={{ fontSize: 15, color: "var(--crm-taupe)", marginTop: 2 }}>
                 {o.blurb}
               </div>
             </button>
@@ -127,7 +128,7 @@ export default function SocialAutonomyCard({ clientProjectId }: { clientProjectI
       {/* Said plainly rather than as a subtitle under the option. Someone
           skimming should not be able to turn this on without reading it. */}
       {level === "autonomous" && (
-        <p style={{ fontSize: 15, color: "hsl(0 45% 40%)" }}>
+        <p style={{ fontSize: 15, color: "hsl(0 70% 78%)" }}>
           Posts for this client will go out without you seeing them.
         </p>
       )}
