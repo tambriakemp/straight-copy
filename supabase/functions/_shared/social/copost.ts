@@ -123,6 +123,32 @@ export function copostPayload(input: {
  * a platform where someone else decides when to deploy is a change that
  * half-lands.
  */
+/**
+ * The post id CoPost returns from a successful trigger POST.
+ *
+ * Verified against the live trigger: a success responds
+ * `{"success":true,"postId":"ccfef5e2-0071-45e0-a983-9f715138a9bb"}`.
+ * `post_id` and `id` are accepted too, in case the shape drifts.
+ *
+ * Never throws. The post has already gone out by the time this runs, so an
+ * unreadable body must cost us the correlation id and nothing else.
+ */
+export function extractCopostPostId(bodyText: string): string | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const obj = parsed as Record<string, unknown>;
+  for (const key of ["postId", "post_id", "id"]) {
+    const v = obj[key];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return null;
+}
+
 export function isValidCopostEndpoint(url: string): boolean {
   let u: URL;
   try {

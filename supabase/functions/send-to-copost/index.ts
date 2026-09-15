@@ -2,6 +2,10 @@
 // Spec: POST https://api.copost.io/triggers/<id> with JSON { postText, images?, tags? }.
 // No API key — auth is the URL itself.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  extractCopostPostId,
+  isValidCopostEndpoint,
+} from "../_shared/social/copost.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,14 +66,10 @@ Deno.serve(async (req) => {
   });
   if (!endpointUrl) return json({ error: "CoPost endpoint URL not configured for this project" }, 400);
 
-  // Validate the endpoint shape
-  try {
-    const u = new URL(String(endpointUrl));
-    if (u.protocol !== "https:" || !u.host.endsWith("copost.io")) {
-      return json({ error: "Stored CoPost URL is invalid" }, 400);
-    }
-  } catch {
-    return json({ error: "Stored CoPost URL is malformed" }, 400);
+  // Validate the endpoint shape. Shared helper: the old inline
+  // host.endsWith("copost.io") test also accepts "evilcopost.io".
+  if (!isValidCopostEndpoint(String(endpointUrl))) {
+    return json({ error: "Stored CoPost URL is invalid" }, 400);
   }
 
   // Load approved posts
@@ -123,10 +123,12 @@ Deno.serve(async (req) => {
       const respText = await res.text();
       if (!res.ok) throw new Error(`CoPost ${res.status}: ${respText.slice(0, 400)}`);
 
+      // The id CoPost returns is how the webhook matches its callbacks.
       await admin.from("social_posts").update({
         status: "published",
         published_at: new Date().toISOString(),
         error: null,
+        copost_post_id: extractCopostPostId(respText),
       }).eq("id", post.id);
 
       results.push({ post_id: post.id, ok: true });
