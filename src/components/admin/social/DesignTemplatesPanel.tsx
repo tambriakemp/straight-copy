@@ -16,7 +16,14 @@ export interface DesignTemplate {
   created_at: string;
 }
 
-export default function DesignTemplatesPanel({ clientProjectId }: { clientProjectId: string }) {
+/**
+ * @param embedded Drops the heading and narrows the grids, for the Sources side
+ * panel — where the tab already says "Templates" and a four-column form does
+ * not fit in 560px.
+ */
+export default function DesignTemplatesPanel(
+  { clientProjectId, embedded = false }: { clientProjectId: string; embedded?: boolean },
+) {
   const [templates, setTemplates] = useState<DesignTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -85,11 +92,13 @@ export default function DesignTemplatesPanel({ clientProjectId }: { clientProjec
   };
 
   return (
-    <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ padding: embedded ? 0 : 16, display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
-        <h3 style={{ fontSize: 20, fontWeight: 500, color: "var(--crm-warm-white)", marginBottom: 4 }}>
-          Design templates
-        </h3>
+        {!embedded && (
+          <h3 style={{ fontSize: 20, fontWeight: 500, color: "var(--crm-warm-white)", marginBottom: 4 }}>
+            Design templates
+          </h3>
+        )}
         <p style={{ fontSize: 15, color: "var(--crm-taupe)" }}>
           Upload HTML files that define the visual style of this client's posts and carousels.
           The generator uses your template as the design skeleton and fills in fresh copy on each slide.
@@ -99,7 +108,9 @@ export default function DesignTemplatesPanel({ clientProjectId }: { clientProjec
       </div>
 
       <div style={{
-        display: "grid", gridTemplateColumns: "1fr 180px 180px auto", gap: 8, alignItems: "end",
+        display: "grid",
+        gridTemplateColumns: embedded ? "1fr" : "1fr 180px 180px auto",
+        gap: embedded ? 12 : 8, alignItems: "end",
         padding: 12, border: "1px solid var(--crm-border-dark)", borderRadius: 8,
       }}>
         <div>
@@ -137,7 +148,13 @@ export default function DesignTemplatesPanel({ clientProjectId }: { clientProjec
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {templates.map((t) => (
             <div key={t.id} style={{
-              display: "grid", gridTemplateColumns: "1fr 110px 100px 90px 36px", gap: 12, alignItems: "center",
+              display: "grid",
+              // Five cells either way — dropping one to fit would leave the
+              // remaining cells silently mis-columned.
+              gridTemplateColumns: embedded
+                ? "1fr 62px 58px 68px 24px"
+                : "1fr 110px 100px 90px 36px",
+              gap: embedded ? 8 : 12, alignItems: "center",
               padding: "8px 12px", border: "1px solid var(--crm-border-dark)", borderRadius: 6,
             }}>
               <div style={{ color: "var(--crm-warm-white)", fontSize: 15 }}>{t.name}</div>

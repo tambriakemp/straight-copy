@@ -6,24 +6,28 @@
 // Five surfaces for one job, and opening a batch left the calendar dangling
 // below it.
 //
-// Now: what is connected, what needs you, what went wrong, and — folded away —
-// where work comes from. Sources is collapsed because feeding the pipeline is
-// occasional and reviewing it is daily.
+// Now: what is connected, what needs you, what went wrong, then the batch
+// archive under a fold. The things you CONSULT rather than work through —
+// photos, templates, the brand voice, and starting a batch — open in a side
+// panel, so looking one up does not take the queue off the screen.
+//
+// Side panels rather than dialogs throughout, which is what the rest of this
+// admin uses: a centred box over the queue hides the very posts it is about.
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import NewBatchDialog from "./NewBatchDialog";
+import SidePanel from "@/components/admin/SidePanel";
+import { useAgentName } from "@/lib/useAgentName";
+import NewBatchPanel from "./NewBatchPanel";
+import SourcesPanel from "./SourcesPanel";
 import BatchList from "./BatchList";
 import BatchDetail from "./BatchDetail";
-import DesignTemplatesPanel from "./DesignTemplatesPanel";
-import ImagesPanel from "./ImagesPanel";
 import ReviewQueue from "./ReviewQueue";
 import SendProblems from "./SendProblems";
 import CoPostSettingsCard from "./CoPostSettingsCard";
 import SocialAutonomyCard from "./SocialAutonomyCard";
+import { autonomyPill, postsUnattended, type AutonomyLevel } from "./socialStatus";
 
 export interface SocialBatch {
   id: string;
@@ -38,25 +42,29 @@ export interface SocialBatch {
   updated_at: string;
 }
 
-const AUTONOMY_LABEL: Record<string, string> = {
-  act_in_app: "Holding for review",
-  autonomous: "Posting unattended",
-  propose: "Paused",
-};
-
-type Source = "batches" | "images" | "templates";
+function barBtn(primary: boolean): React.CSSProperties {
+  return {
+    fontSize: 14, borderRadius: 4, cursor: "pointer",
+    padding: primary ? "8px 16px" : "8px 14px",
+    border: primary ? "none" : "1px solid var(--crm-border-dark)",
+    background: primary ? "var(--crm-warm-white)" : "transparent",
+    color: primary ? "var(--crm-ink)" : "var(--crm-warm-white)",
+    fontWeight: primary ? 500 : 400,
+  };
+}
 
 export default function SocialTab({ clientProjectId }: { clientProjectId: string }) {
+  const who = useAgentName("social-media", "your social media manager");
   const [batches, setBatches] = useState<SocialBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [newOpen, setNewOpen] = useState(false);
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  const [source, setSource] = useState<Source>("batches");
   const [settingsOpen, setSettingsOpen] = useState<null | "copost" | "autonomy">(null);
 
   const [connected, setConnected] = useState<boolean | null>(null);
   const [autonomy, setAutonomy] = useState<string | null>(null);
+  const [lastRun, setLastRun] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -79,6 +87,16 @@ export default function SocialTab({ clientProjectId }: { clientProjectId: string
     ]);
     setConnected(!!secret.data);
     setAutonomy((project.data?.agent_autonomy as string | null) ?? null);
+
+    // Two steps because runs are keyed by the agent's uuid while the row is
+    // found by `key` — the stable identifier, since these get renamed.
+    const { data: agent } = await supabase.from("agents")
+      .select("id").eq("key", "social-media").maybeSingle();
+    if (!agent?.id) return;
+    const { data: run } = await supabase.from("agent_runs")
+      .select("started_at").eq("agent_id", agent.id)
+      .order("started_at", { ascending: false }).limit(1).maybeSingle();
+    setLastRun(run?.started_at ?? null);
   }, [clientProjectId]);
 
   useEffect(() => {
@@ -124,84 +142,66 @@ export default function SocialTab({ clientProjectId }: { clientProjectId: string
         />
         <StatusBit
           label="Autonomy"
-          value={autonomy ? AUTONOMY_LABEL[autonomy] ?? autonomy : "Her default"}
-          tone={autonomy === "autonomous" ? "warn" : "normal"}
+          value={autonomyPill(autonomy as AutonomyLevel | null, who)}
+          tone={postsUnattended(autonomy as AutonomyLevel | null) ? "warn" : "normal"}
           onEdit={() => setSettingsOpen("autonomy")}
         />
+        {lastRun && (
+          <span style={{ fontSize: 14, color: "var(--crm-taupe)" }}>
+            Last run {formatDistanceToNow(new Date(lastRun), { addSuffix: true })}
+          </span>
+        )}
         {connected === false && (
           <span style={{ fontSize: 14, color: "hsl(0 70% 78%)" }}>
             Nothing can post until the trigger URL is saved.
           </span>
         )}
+
+        {/* Both open a side panel. The sources switcher that used to live down
+            the page is gone: it swapped the whole tab, so checking which
+            template was active cost you your place in the queue. */}
+        <div style={{ display: "flex", gap: 10, marginLeft: "auto", flexWrap: "wrap" }}>
+          <button type="button" onClick={() => setSourcesOpen(true)} style={barBtn(false)}>
+            Manage sources
+          </button>
+          <button type="button" onClick={() => setNewOpen(true)} style={barBtn(true)}>
+            New batch
+          </button>
+        </div>
       </div>
 
       <ReviewQueue clientProjectId={clientProjectId} />
 
       <SendProblems clientProjectId={clientProjectId} />
 
-      {/* Where work comes from. Folded: you feed this occasionally. */}
-      <section>
-        <button
-          type="button"
-          onClick={() => setSourcesOpen((o) => !o)}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 8,
-            background: "transparent", border: "none", padding: 0, cursor: "pointer",
-            color: "var(--crm-taupe)", fontSize: 13,
-            letterSpacing: "0.22em", textTransform: "uppercase",
-          }}
-        >
-          {sourcesOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          Sources
-        </button>
+      <BatchList batches={batches} loading={loading} onOpen={(id) => setActiveBatchId(id)} />
 
-        {sourcesOpen && (
-          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {(["batches", "images", "templates"] as const).map((v) => (
-                <Button key={v} onClick={() => setSource(v)}
-                  className={source === v
-                    ? "bg-warm-white text-ink hover:bg-warm-white/90"
-                    : "bg-transparent border border-warm-white/25 text-warm-white hover:bg-warm-white/10"}>
-                  {v === "batches" ? "Batches" : v === "images" ? "Images" : "Templates"}
-                </Button>
-              ))}
-              {source === "batches" && (
-                <Button onClick={() => setNewOpen(true)}
-                  className="bg-transparent border border-warm-white/25 text-warm-white hover:bg-warm-white/10">
-                  New batch
-                </Button>
-              )}
-            </div>
-
-            {source === "batches" && (
-              <BatchList batches={batches} loading={loading} onOpen={(id) => setActiveBatchId(id)} />
-            )}
-            {source === "images" && <ImagesPanel clientProjectId={clientProjectId} />}
-            {source === "templates" && <DesignTemplatesPanel clientProjectId={clientProjectId} />}
-          </div>
-        )}
-      </section>
-
-      <NewBatchDialog
+      <NewBatchPanel
         open={newOpen}
-        onOpenChange={setNewOpen}
+        onClose={() => setNewOpen(false)}
         clientProjectId={clientProjectId}
         onCreated={(id) => { setNewOpen(false); setActiveBatchId(id); void load(); }}
       />
 
-      <Dialog
+      <SourcesPanel
+        open={sourcesOpen}
+        onClose={() => setSourcesOpen(false)}
+        clientProjectId={clientProjectId}
+      />
+
+      {/* Reloads the strip on close, because both of these change what it says. */}
+      <SidePanel
         open={settingsOpen !== null}
-        onOpenChange={(o) => { if (!o) { setSettingsOpen(null); void loadHeader(); } }}
+        onClose={() => { setSettingsOpen(null); void loadHeader(); }}
+        title={settingsOpen === "copost" ? "CoPost" : "Autonomy"}
+        subtitle={settingsOpen === "copost"
+          ? "Where approved posts are sent."
+          : `What ${who} may do for this client.`}
+        width={470}
       >
-        <DialogContent className="max-w-lg">
-          <DialogTitle className="sr-only">
-            {settingsOpen === "copost" ? "CoPost credentials" : "Autonomy"}
-          </DialogTitle>
-          {settingsOpen === "copost" && <CoPostSettingsCard clientProjectId={clientProjectId} />}
-          {settingsOpen === "autonomy" && <SocialAutonomyCard clientProjectId={clientProjectId} />}
-        </DialogContent>
-      </Dialog>
+        {settingsOpen === "copost" && <CoPostSettingsCard clientProjectId={clientProjectId} />}
+        {settingsOpen === "autonomy" && <SocialAutonomyCard clientProjectId={clientProjectId} />}
+      </SidePanel>
     </div>
   );
 }
