@@ -8,6 +8,12 @@ import {
   TASK_SIZES, TASK_PLATFORMS,
   addAcceptanceCriterion, updateAcceptanceCriterion, deleteAcceptanceCriterion,
 } from "../_shared/project-tasks.ts";
+import { executeAction, type ActionRow } from "../_shared/agents/actions.ts";
+import { executeReadTool } from "../_shared/agents/read-tools.ts";
+import { logProposalEvent } from "../_shared/proposal-events.ts";
+import {
+  editBlockedReason, MCP_PROPOSAL_ACTOR, proposalListItem, type ProposalListRow,
+} from "../_shared/agents/proposal-mcp.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const PROJECT_ORIGIN = new URL(SUPABASE_URL).origin;
@@ -1418,6 +1424,253 @@ mcp.tool("delete_project_link", {
   },
 });
 
+// ============================================================
+// Proposals — DRAFT ONLY.
+//
+// These reuse the same executors the in-app agent runs (actions.ts and
+// read-tools.ts), so a proposal written over MCP is indistinguishable from one
+// written in a chat: same content shape, same version snapshots, same events.
+// What is deliberately NOT here: sending, follow-ups, decline, void, sign,
+// delete, or any status change. A draft becomes visible to the client only
+// when Bree presses "Send to client" in the portal.
+// ============================================================
+
+/**
+ * Run one shared proposal action as the MCP.
+ *
+ * The synthetic ActionRow exists because executeAction is shaped around the
+ * agent_actions ledger. No ledger row is written here — the audit trail for a
+ * proposal is proposal_events and client_proposal_versions, which these
+ * executors write themselves. `agent_id` is null because the MCP has no
+ * agents row: created_by_agent/changed_by_agent are nullable FKs, and the
+ * writer's identity travels as proposal_events.actor instead.
+ */
+async function runProposalAction(
+  kind: string,
+  title: string,
+  payload: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const action: ActionRow = {
+    id: crypto.randomUUID(),
+    run_id: "",
+    agent_id: null as unknown as string,
+    kind,
+    outward: false,
+    title,
+    description: null,
+    payload,
+  };
+  const outcome = await executeAction(sb, action, MCP_PROPOSAL_ACTOR);
+  if (!outcome.ok) {
+    throw new RpcError(JSON_RPC_ERROR_CODES.INVALID_PARAMS, outcome.error ?? "Action failed");
+  }
+  return outcome.result ?? {};
+}
+
+/**
+ * The MCP's own gate, stricter than the executor's: the shared code refuses
+ * only `signed`, so the in-app chat can amend a sent proposal. Over MCP,
+ * anything past draft is refused — see editBlockedReason.
+ */
+async function requireDraftProposal(proposalId: string): Promise<{ id: string; client_id: string }> {
+  const { data, error } = await sb.from("client_proposals")
+    .select("id, status, client_id").eq("id", proposalId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new RpcError(JSON_RPC_ERROR_CODES.INVALID_PARAMS, "Proposal not found");
+  const blocked = editBlockedReason(data.status);
+  if (blocked) throw new RpcError(JSON_RPC_ERROR_CODES.INVALID_PARAMS, blocked);
+  return { id: data.id, client_id: data.client_id };
+}
+
+/** Read tools share the same budget-aware executor the in-app loop uses. */
+async function runProposalRead(name: string, input: Record<string, unknown>) {
+  const outcome = await executeReadTool({ sb: sb as never, spent: { bytes: 0 } }, name, input);
+  if (!outcome.ok) throw new RpcError(JSON_RPC_ERROR_CODES.INVALID_PARAMS, outcome.content);
+  // outcome.content is already compact JSON, so it goes out as-is rather than
+  // being parsed and re-stringified.
+  return { content: [{ type: "text" as const, text: outcome.content }] };
+}
+
+mcp.tool("create_proposal_draft", {
+  description:
+    "Create an empty proposal DRAFT on a client project and get its proposal_id back. " +
+    "Drafts are invisible to the client until Bree presses 'Send to client' in the portal — " +
+    "this MCP cannot send, sign, void, or delete a proposal, and never changes its status. " +
+    "Call read_example_proposal before writing, then fill the document with write_proposal_section, " +
+    "one section per call in reading order.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      client_id: { type: "string", description: "clients.id" },
+      client_project_id: { type: "string", description: "client_projects.id the proposal hangs off." },
+      title: { type: "string" },
+      kind: { type: "string", description: "Free text — 'marketing retainer', 'app build'." },
+      description: { type: "string", description: "One line on what this proposal covers." },
+      cover: {
+        type: "object",
+        description: "Cover page fields. Retainer covers carry price_line; builds do not.",
+        properties: {
+          client_name: { type: "string" },
+          project_name: { type: "string" },
+          tagline: { type: "string" },
+          prepared_for: { type: "string" },
+          prepared_by: { type: "string" },
+          date: { type: "string" },
+          price_line: { type: "string" },
+        },
+      },
+    },
+    required: ["client_id", "client_project_id", "title"],
+  },
+  handler: async (args: {
+    client_id: string; client_project_id: string; title: string;
+    kind?: string; description?: string; cover?: Record<string, string>;
+  }) => {
+    const { title, description, ...payload } = args;
+    const action: ActionRow = {
+      id: crypto.randomUUID(),
+      run_id: "",
+      agent_id: null as unknown as string,
+      kind: "create_proposal_draft",
+      outward: false,
+      title,
+      description: description ?? null,
+      payload: { ...payload, title },
+    };
+    const outcome = await executeAction(sb, action, MCP_PROPOSAL_ACTOR);
+    if (!outcome.ok) {
+      throw new RpcError(JSON_RPC_ERROR_CODES.INVALID_PARAMS, outcome.error ?? "Action failed");
+    }
+    return textResult(outcome.result ?? {});
+  },
+});
+
+mcp.tool("write_proposal_section", {
+  description:
+    "Write or rewrite ONE section of a draft proposal. A heading that already exists is replaced " +
+    "in place; a new heading is appended. Open the body with a one-line bold thesis, no numbers in " +
+    "headings. Always read_proposal the section before rewriting it. Each write snapshots a version, " +
+    "so restore_proposal_version can undo it. Refused for anything past draft.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      proposal_id: { type: "string" },
+      heading: { type: "string", description: "Section heading, no number — 'Investment & Pass-Throughs'." },
+      summary: { type: "string", description: "One line for the contents page." },
+      body: { type: "string", description: "Markdown: paragraphs, **bold**, '## ' subheads, - lists, > blockquotes." },
+      replace: { type: "string", description: "Heading of the section to overwrite, when renaming it in place." },
+    },
+    required: ["proposal_id", "heading", "body"],
+  },
+  handler: async (args: {
+    proposal_id: string; heading: string; body: string; summary?: string; replace?: string;
+  }) => {
+    const { client_id } = await requireDraftProposal(args.proposal_id);
+    const result = await runProposalAction("write_proposal_section", `Write ${args.heading}`, args);
+    // The shared executor snapshots the version but only logs events on
+    // create, because in-app the run itself is the audit trail. Over MCP there
+    // is no run, so the write lands on the timeline here — same actor field,
+    // same table, never blocking the write it describes.
+    await logProposalEvent(sb, {
+      proposal_id: args.proposal_id,
+      client_id,
+      event_type: "updated",
+      actor: MCP_PROPOSAL_ACTOR,
+      detail: { heading: result.heading, action: result.action },
+    });
+    return textResult(result);
+  },
+});
+
+mcp.tool("read_proposal", {
+  description:
+    "Read a proposal you are writing. Without `heading` you get the section list — headings and " +
+    "lengths only, cheap. With `heading` you get that ONE section in full. Read a section before " +
+    "rewriting it; never pull the whole document back when you need one part.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      proposal_id: { type: "string" },
+      heading: { type: "string", description: "Exact or partial section heading. Omit for the section list." },
+    },
+    required: ["proposal_id"],
+  },
+  handler: (args: { proposal_id: string; heading?: string }) =>
+    runProposalRead("read_proposal", args),
+});
+
+mcp.tool("read_example_proposal", {
+  description:
+    "Read a real proposal Cre8 Visions has sent. Do this BEFORE writing one — these documents are " +
+    "the authority on how proposals read. Call with no argument for the list; pass a kind " +
+    "('marketing retainer', 'app build') or a key to read one in full. Match the register and " +
+    "specificity; never copy the content.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      which: { type: "string", description: "A kind or key from the list. Omit to see what is available." },
+    },
+  },
+  handler: (args: { which?: string } | undefined) =>
+    runProposalRead("read_example_proposal", args ?? {}),
+});
+
+mcp.tool("restore_proposal_version", {
+  description:
+    "Roll a draft proposal back to an earlier version. Without `version` it steps back one, which is " +
+    "what 'put it back' almost always means. History is append-only — restoring copies the old " +
+    "snapshot forward as a new version, so a restore can itself be undone. Refused past draft.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      proposal_id: { type: "string" },
+      version: { type: "number", description: "client_proposal_versions.version to restore. Omit to undo the last write." },
+    },
+    required: ["proposal_id"],
+  },
+  handler: async (args: { proposal_id: string; version?: number }) => {
+    const { client_id } = await requireDraftProposal(args.proposal_id);
+    const result = await runProposalAction("restore_proposal_version", "Restore proposal version", args);
+    await logProposalEvent(sb, {
+      proposal_id: args.proposal_id,
+      client_id,
+      event_type: "updated",
+      actor: MCP_PROPOSAL_ACTOR,
+      detail: { restored_from: result.restored_from, now_version: result.now_version },
+    });
+    return textResult(result);
+  },
+});
+
+mcp.tool("list_proposals", {
+  description:
+    "List proposals for a client or a project: id, title, status, sections written, version, sent_at. " +
+    "Content is omitted — use read_proposal to page through a document.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      client_id: { type: "string", description: "clients.id" },
+      client_project_id: { type: "string", description: "client_projects.id" },
+      status: { type: "string", enum: ["draft", "sent", "signed", "declined", "voided"] },
+    },
+  },
+  handler: async ({ client_id, client_project_id, status }: {
+    client_id?: string; client_project_id?: string; status?: string;
+  }) => {
+    if (!client_id && !client_project_id) {
+      throw new RpcError(JSON_RPC_ERROR_CODES.INVALID_PARAMS, "Provide client_id or client_project_id");
+    }
+    let q = sb.from("client_proposals")
+      .select("id, title, status, content, content_version, sent_at, client_id, client_project_id, created_at, updated_at")
+      .order("updated_at", { ascending: false });
+    if (client_id) q = q.eq("client_id", client_id);
+    if (client_project_id) q = q.eq("client_project_id", client_project_id);
+    if (status) q = q.eq("status", status);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    return textResult((data ?? []).map((row) => proposalListItem(row as unknown as ProposalListRow)));
+  },
+});
 
 
 const app = new Hono().basePath("/agency-mcp");
