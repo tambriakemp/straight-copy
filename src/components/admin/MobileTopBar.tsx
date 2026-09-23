@@ -3,7 +3,11 @@ import { ChevronLeft, LogOut } from "lucide-react";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 const TITLE_MAP: Array<[RegExp, string]> = [
-  [/^\/admin\/?$/, "Dashboard"],
+  [/^\/admin\/?$/, "Clients"],
+  [/^\/admin\/payments/, "Payments"],
+  [/^\/admin\/proposals/, "Proposals"],
+  [/^\/admin\/social/, "Social"],
+  [/^\/admin\/agents\/?$/, "Agents"],
   [/^\/admin\/clients\/?$/, "Clients"],
   [/^\/admin\/clients\/[^/]+\/projects\/[^/]+/, "Project"],
   [/^\/admin\/clients\/[^/]+\/?$/, "Client"],
@@ -21,7 +25,7 @@ const TITLE_MAP: Array<[RegExp, string]> = [
   [/^\/admin\/profile/, "Profile"],
 ];
 
-const TOP_LEVEL = new Set(["/admin", "/admin/clients", "/admin/tasks", "/admin/wiki", "/admin/profile"]);
+const TOP_LEVEL = new Set(["/admin", "/admin/payments", "/admin/proposals", "/admin/social", "/admin/profile"]);
 
 export default function MobileTopBar() {
   const loc = useLocation();

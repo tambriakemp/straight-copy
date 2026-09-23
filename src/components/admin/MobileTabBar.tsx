@@ -1,11 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, CheckSquare, Briefcase, User } from "lucide-react";
+import { Home, CreditCard, FileSignature, Megaphone, User } from "lucide-react";
 
 const tabs = [
-  { to: "/admin", label: "Home", icon: LayoutDashboard, exact: true },
-  { to: "/admin/clients", label: "Clients", icon: Users },
-  { to: "/admin/tasks", label: "Tasks", icon: CheckSquare },
-  { to: "/admin/ventures", label: "Ventures", icon: Briefcase },
+  { to: "/admin", label: "Home", icon: Home, exact: true },
+  { to: "/admin/payments", label: "Payments", icon: CreditCard },
+  { to: "/admin/proposals", label: "Proposals", icon: FileSignature },
+  { to: "/admin/social", label: "Social", icon: Megaphone },
   { to: "/admin/profile", label: "Profile", icon: User },
 ];
 
