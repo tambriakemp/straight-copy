@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import AiEditDialog from "@/components/admin/preview/AiEditDialog";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
-import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 
@@ -491,9 +490,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           <TabsTrigger value="activity" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>Activity</TabsTrigger>
           {!embedded && project.client_id && project.client_project_id && (
             <>
-              <TabsTrigger value="proposals" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>Proposals</TabsTrigger>
-              <TabsTrigger value="schedule" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>Payment Schedule</TabsTrigger>
-              <TabsTrigger value="tasks" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>Tasks</TabsTrigger>
+              <TabsTrigger value="proposals" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>Proposals &amp; Payments</TabsTrigger>
             </>
           )}
         </TabsList>
@@ -887,16 +884,14 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
                 clientProjectId={project.client_project_id}
                 portalUrl={`${base}/portal/${project.client_id}`}
               />
-            </TabsContent>
-            <TabsContent value="schedule">
+              <hr style={{
+                border: 0, borderTop: "1px solid var(--crm-border-dark)", margin: "26px 0 22px",
+              }} />
               <ProjectInvoicesCard
                 clientId={project.client_id}
                 clientProjectId={project.client_project_id}
                 embedded
               />
-            </TabsContent>
-            <TabsContent value="tasks">
-              <ProjectTasksPanel clientProjectId={project.client_project_id} />
             </TabsContent>
           </>
         )}

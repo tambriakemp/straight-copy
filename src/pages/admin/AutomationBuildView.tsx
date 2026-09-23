@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import AdminContractSection from "@/components/admin/AdminContractSection";
 
-import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
 import AutomationSubscriptionPanel from "@/components/admin/AutomationSubscriptionPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
@@ -368,16 +367,15 @@ export default function AutomationBuildView({
             <h1 className="roster__title">{projectName ?? client.business_name ?? "Automation Build"}</h1>
             <hr className="roster__rule" />
             <p className="roster__sub">
-              Manage the build journey, contract, subscription, and tasks for this project.
+              Manage the build journey, contract and subscription for this project.
             </p>
           </div>
 
           
         </div>
 
-        <ProjectTabs defaultValue={projectId ? "tasks" : "journey"} className="mt-8">
+        <ProjectTabs defaultValue="journey" className="mt-8">
           <ProjectTabsList>
-            {projectId && <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>}
             <ProjectTabsTrigger value="journey">Journey</ProjectTabsTrigger>
             <ProjectTabsTrigger value="subscription">Subscription</ProjectTabsTrigger>
             <ProjectTabsTrigger value="contract">Contract</ProjectTabsTrigger>
@@ -485,12 +483,6 @@ export default function AutomationBuildView({
           </ProjectTabsContent>
 
 
-
-          {projectId && (
-            <ProjectTabsContent value="tasks">
-              <ProjectTasksPanel clientProjectId={projectId} />
-            </ProjectTabsContent>
-          )}
 
           {projectId && (
             <ProjectTabsContent value="social">

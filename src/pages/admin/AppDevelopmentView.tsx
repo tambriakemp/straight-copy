@@ -7,7 +7,6 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
 import ProjectPreviewCard from "@/components/admin/ProjectPreviewCard";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
-import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import ContractAuditPanel from "@/components/admin/ContractAuditPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
 import ProgressReportSettingsCard from "@/components/admin/ProgressReportSettingsCard";
@@ -49,7 +48,11 @@ export default function AppDevelopmentView({
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const isMarketing = project?.type === "marketing";
-  const [tab, setTab] = useState<"tasks" | "proposals" | "schedule" | "preview" | "social" | "settings">("tasks");
+  // No per-project task board any more: every board is the same board, and
+  // five copies of it behind five projects meant "what am I working on" had no
+  // single answer. The whole board lives at /admin/tasks and in every agent's
+  // Workspace rail, filterable by client.
+  const [tab, setTab] = useState<"proposals" | "preview" | "social" | "settings">("proposals");
 
 
 
@@ -123,30 +126,31 @@ export default function AppDevelopmentView({
 
         <ProjectTabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mt-8">
           <ProjectTabsList>
-            <ProjectTabsTrigger value="tasks">Tasks</ProjectTabsTrigger>
-            <ProjectTabsTrigger value="proposals">Proposals</ProjectTabsTrigger>
-            <ProjectTabsTrigger value="schedule">Payment Schedule</ProjectTabsTrigger>
+            {/* Proposals and the payment schedule were two tabs telling one
+                story: what we quoted, and what of it has been billed and paid.
+                Answering "has this client paid for what they signed" meant
+                holding one tab in your head while reading the other. */}
+            <ProjectTabsTrigger value="proposals">Proposals &amp; Payments</ProjectTabsTrigger>
             <ProjectTabsTrigger value="preview">Preview</ProjectTabsTrigger>
             {isMarketing && <ProjectTabsTrigger value="social">Social</ProjectTabsTrigger>}
             <ProjectTabsTrigger value="settings">Settings</ProjectTabsTrigger>
-
           </ProjectTabsList>
-
-
-          <ProjectTabsContent value="tasks">
-            <ProjectTasksPanel clientProjectId={projectId!} />
-            {project.type === "web_development" && (
-              <ContractAuditPanel clientId={clientId!} clientProjectId={projectId!} />
-            )}
-          </ProjectTabsContent>
-
 
           <ProjectTabsContent value="proposals">
             <ProjectProposalsPanel clientId={clientId!} clientProjectId={projectId!} portalUrl={portalUrl} />
-          </ProjectTabsContent>
 
-          <ProjectTabsContent value="schedule">
+            <hr style={{
+              border: 0, borderTop: "1px solid var(--crm-border-dark)", margin: "26px 0 22px",
+            }} />
+
             <ProjectInvoicesCard clientId={clientId!} clientProjectId={projectId!} embedded />
+
+            {/* The execution record for the signed agreement — the same story
+                as the proposal it came from, so it sits under it rather than
+                behind the task board it used to hide behind. */}
+            {project.type === "web_development" && (
+              <ContractAuditPanel clientId={clientId!} clientProjectId={projectId!} />
+            )}
           </ProjectTabsContent>
 
           <ProjectTabsContent value="preview">

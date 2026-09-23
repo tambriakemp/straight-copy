@@ -211,7 +211,7 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
   return (
     <>
       <div className="roster__toolbar">
-        <div style={{ flex: 1, fontSize: 17, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+        <div style={{ flex: 1, fontSize: 12, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
           Proposals ({proposals.length})
         </div>
         <button className="crm-btn crm-btn--primary" onClick={() => setOpenUpload(true)}>
@@ -222,12 +222,12 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
       {loading ? (
         <div style={{ padding: 40, color: "var(--crm-taupe)" }}>Loading…</div>
       ) : proposals.length === 0 ? (
-        <div style={{ padding: "60px 0", color: "var(--crm-taupe)", textAlign: "center", border: "1px dashed var(--crm-border-dark)", borderRadius: 12, marginTop: 16 }}>
-          <div style={{ fontSize: 17, letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 8 }}>No proposals yet</div>
-          <div style={{ fontSize: 20 }}>Upload your first proposal PDF to send for signature.</div>
+        <div style={{ padding: "24px 0", color: "var(--crm-taupe)", textAlign: "center", border: "1px dashed var(--crm-border-dark)", borderRadius: 10, marginTop: 12 }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: 6 }}>No proposals yet</div>
+          <div style={{ fontSize: 15 }}>Upload your first proposal PDF to send for signature.</div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
           {proposals.map((p) => {
             const isSigned = p.status === "signed";
             const isVoided = p.status === "voided";
@@ -240,24 +240,24 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
               <div key={p.id} style={{
                 background: "hsl(40 20% 97% / 0.03)",
                 border: "1px solid var(--crm-border-dark)",
-                borderRadius: 12, padding: "20px 22px",
-                display: "flex", flexDirection: "column", gap: 10,
+                borderRadius: 10, padding: "14px 16px",
+                display: "flex", flexDirection: "column", gap: 8,
               }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 16, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", marginBottom: 6 }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--crm-accent)", marginBottom: 4 }}>
                       <FileSignature size={12} /> Proposal
                     </div>
-                    <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 26, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.2 }}>
+                    <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 19, color: "var(--crm-warm-white)", margin: 0, lineHeight: 1.25 }}>
                       {p.title}
                     </h3>
                     {p.description && (
-                      <p style={{ marginTop: 6, color: "var(--crm-stone)", fontSize: 18 }}>{p.description}</p>
+                      <p style={{ marginTop: 4, color: "var(--crm-stone)", fontSize: 14 }}>{p.description}</p>
                     )}
                   </div>
                   <span style={{
-                    fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase",
-                    padding: "4px 10px", borderRadius: 999,
+                    fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase",
+                    padding: "3px 9px", borderRadius: 999,
                     background: isSigned
                       ? "hsl(120 30% 50% / 0.15)"
                       : isVoided
@@ -276,7 +276,7 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
                   }}>{p.status}</span>
                 </div>
 
-                <div style={{ fontSize: 17, color: "var(--crm-taupe)" }}>
+                <div style={{ fontSize: 13, color: "var(--crm-taupe)" }}>
                   {/* What this proposal actually is, without opening it. Two
                       proposals on one project looked identical here — same
                       date line, same buttons — which is how you end up unsure

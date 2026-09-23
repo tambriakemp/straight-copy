@@ -234,16 +234,16 @@ export default function ProjectInvoicesCard({
     <div style={embedded ? { padding: 0 } : {
       background: "hsl(40 20% 97% / 0.03)",
       border: "1px solid var(--crm-border-dark)",
-      borderRadius: 12, padding: "22px 24px", marginTop: 24,
+      borderRadius: 10, padding: "16px 18px", marginTop: 20,
     }}>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 16, letterSpacing: "0.3em", textTransform: "uppercase", color: "var(--crm-accent)", marginBottom: 4, display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <DollarSign size={12} /> Payment Schedule
+          <div style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--crm-accent)", marginBottom: 3, display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <DollarSign size={11} /> Payment Schedule
           </div>
-          <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 26, color: "var(--crm-warm-white)", margin: 0 }}>
-            Invoices {invoices.length > 0 && <span style={{ color: "var(--crm-taupe)", fontSize: 20 }}>· {fmtUSD(paid)} of {fmtUSD(total)} paid</span>}
+          <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 19, color: "var(--crm-warm-white)", margin: 0 }}>
+            Invoices {invoices.length > 0 && <span style={{ color: "var(--crm-taupe)", fontSize: 14 }}>· {fmtUSD(paid)} of {fmtUSD(total)} paid</span>}
           </h3>
         </div>
         {!editing && (
@@ -256,7 +256,7 @@ export default function ProjectInvoicesCard({
       {loading && <div style={{ color: "var(--crm-taupe)" }}>Loading…</div>}
 
       {!loading && !editing && invoices.length === 0 && (
-        <div style={{ color: "var(--crm-taupe)", fontSize: 18, padding: "16px 0" }}>
+        <div style={{ color: "var(--crm-taupe)", fontSize: 14, padding: "10px 0" }}>
           No payment schedule yet. Set up milestones to invoice the client through SureCart.
         </div>
       )}
@@ -267,23 +267,24 @@ export default function ProjectInvoicesCard({
             const sc = statusColor(inv.status);
             return (
               <div key={inv.id} className="crm-invoice-row">
-                <div className="crm-invoice-row__seq" style={{ fontFamily: "var(--crm-font-serif)", fontSize: 22, color: "var(--crm-taupe)", width: 28, textAlign: "center" }}>
+                <div className="crm-invoice-row__seq" style={{ fontFamily: "var(--crm-font-serif)", fontSize: 15, color: "var(--crm-taupe)", width: 22, textAlign: "center" }}>
                   {inv.sequence}
                 </div>
                 <div className="crm-invoice-row__label">
-                  <div style={{ color: "var(--crm-warm-white)", fontSize: 19 }}>{inv.label}</div>
-                  <div className="crm-invoice-row__meta" style={{ fontSize: 16, color: "var(--crm-taupe)" }}>
+                  <div style={{ color: "var(--crm-warm-white)", fontSize: 15 }}>{inv.label}</div>
+                  <div className="crm-invoice-row__meta" style={{ fontSize: 13, color: "var(--crm-taupe)" }}>
                     {inv.due_date ? `Due ${new Date(inv.due_date).toLocaleDateString()}` : "No due date"}
                     {inv.paid_at && ` · Paid ${new Date(inv.paid_at).toLocaleDateString()}`}
                     {inv.sent_at && !inv.paid_at && ` · Sent ${new Date(inv.sent_at).toLocaleDateString()}`}
                   </div>
                 </div>
-                <div className="crm-invoice-row__amount" style={{ color: "var(--crm-warm-white)", fontSize: 20, fontVariantNumeric: "tabular-nums" }}>
+                <div className="crm-invoice-row__amount" style={{ color: "var(--crm-warm-white)", fontSize: 16, fontVariantNumeric: "tabular-nums" }}>
                   {fmtUSD(inv.amount_cents)}
                 </div>
                 <span className="crm-invoice-row__status" style={{
-                  fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase",
+                  fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase",
                   padding: "3px 9px", borderRadius: 999, background: sc.bg, color: sc.fg,
+                  whiteSpace: "nowrap",
                 }}>{inv.status}</span>
                 <div className="crm-invoice-row__actions">
                   {(inv.status === "scheduled" || inv.status === "failed") && (
