@@ -670,24 +670,34 @@ export default function PortalProject() {
               });
             }
 
+            // One tab, matching the admin side. What was quoted and what is
+            // owed on it is one question, and a client asking "what do I still
+            // have to pay" should not have to find a second tab to answer it.
+            //
+            // Both anchor ids survive the merge, so a #portal-invoice link in
+            // an email sent before this change still scrolls to the right
+            // place instead of landing on a tab that no longer exists.
             if (!isAutomation) {
               tabs.push({
                 value: "proposals",
-                label: "Proposals",
+                label: "Proposals & Payments",
                 node: (
-                  <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
-                    <ProposalsSection clientId={clientId!} contactName={client.contact_name} projectId={currentProject.id} />
-                  </div>
-                ),
-              });
-
-              tabs.push({
-                value: "schedule",
-                label: "Payment Schedule",
-                node: (
-                  <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
-                    <InvoiceSection clientId={clientId!} projectId={currentProject.id} />
-                  </div>
+                  <>
+                    <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
+                      <ProposalsSection clientId={clientId!} contactName={client.contact_name} projectId={currentProject.id} />
+                    </div>
+                    <hr style={{
+                      // The portal's own border colour, not --crm-border-dark:
+                      // that token is a 0.08-alpha hairline meant for the admin
+                      // shell, and it all but disappears between two sections
+                      // whose own cards are outlined in this.
+                      border: 0, borderTop: "1px solid hsl(30 8% 22%)",
+                      margin: "26px 0 22px",
+                    }} />
+                    <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
+                      <InvoiceSection clientId={clientId!} projectId={currentProject.id} />
+                    </div>
+                  </>
                 ),
               });
             }
