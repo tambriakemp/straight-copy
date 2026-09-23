@@ -1,8 +1,8 @@
 # Admin IA reorganization
 
-- [ ] Replace `/admin` agent dashboard with client-first status strip and roster
-- [ ] Add per-client proposal, balance, and preview status badges
-- [ ] Add all-client Proposals and Payments pages
-- [ ] Promote Social/Marketing to `/admin/social`
-- [ ] Rework desktop and mobile navigation
-- [ ] Verify typecheck and tests
+- [x] Replace `/admin` agent dashboard with client-first status strip and roster
+- [x] Add per-client proposal, balance, and preview status badges
+- [x] Add all-client Proposals and Payments pages
+- [x] Promote Social/Marketing to `/admin/social`
+- [x] Rework desktop and mobile navigation
+- [x] Verify typecheck and tests
