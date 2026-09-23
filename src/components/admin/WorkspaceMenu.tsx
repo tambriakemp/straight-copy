@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import { NAV, NAV_GROUPS, activeChip, type NavItem } from "@/lib/adminNav";
+import { NAV, type NavItem } from "@/lib/adminNav";
 
 
 
@@ -38,23 +38,12 @@ export default function WorkspaceMenu() {
   const isActive = (n: NavItem) =>
     n.exact ? loc.pathname === n.to : loc.pathname.startsWith(n.to);
 
-  const current = NAV.find((n) => !n.exact && loc.pathname.startsWith(n.to))
-    ?? NAV.find((n) => n.exact && loc.pathname === n.to);
-
-  // Clients is a chip rather than a menu row because it is the other thing you
-  // are always in the middle of. It opens the client operations agent on its
-  // Clients view: the roster with the agent that triages it already in the
-  // room, rather than a roster on its own.
-  //
-  // Addressed by agent key, not id — ids are unguessable and names get changed,
-  // and a hardcoded name here would keep rendering perfectly after a rename
-  // while pointing at nothing.
-  // The two overlap on every agent URL, so which one is lit is decided in one
-  // tested place rather than by two conditions that can both be true.
-  const chipOn = activeChip(loc.pathname, loc.search);
-  const onClients = chipOn === "clients";
-  const onAgents = chipOn === "agents";
-
+  const primary = [
+    { to: "/admin", label: "Clients", exact: true },
+    { to: "/admin/proposals", label: "Proposals" },
+    { to: "/admin/payments", label: "Payments" },
+    { to: "/admin/social", label: "Social / Marketing" },
+  ];
   const chip = (on: boolean): React.CSSProperties => ({
     padding: "6px 12px", fontSize: 15, letterSpacing: "0.02em",
     border: "1px solid var(--crm-border-dark)", borderRadius: 2,
@@ -81,34 +70,14 @@ export default function WorkspaceMenu() {
           background: "var(--crm-warm-white)", color: "var(--crm-ink)",
           fontFamily: "Cormorant Garamond, serif", fontSize: 16, borderRadius: 2,
         }}>C</span>
-        <span style={{ fontSize: 15, letterSpacing: "0.02em" }}>Cre8 Visions</span>
+        <span style={{ fontSize: 15, letterSpacing: "0.02em" }}>Profile</span>
         <span style={{ fontSize: 11, color: "var(--crm-taupe)", transform: open ? "rotate(180deg)" : "none" }}>▾</span>
       </button>
 
-      {/* Agents is the home page, so it gets a tab rather than a menu row.
-          It is the thing you return to, and returning should not cost a click
-          into a menu first. */}
-      <Link to="/admin" style={chip(onAgents)} aria-current={onAgents ? "page" : undefined}>
-        Agents
-      </Link>
-
-      <Link
-        to="/admin/agents/client-triage?view=clients"
-        style={chip(onClients)}
-        aria-current={onClients ? "page" : undefined}
-      >
-        Clients
-      </Link>
-
-      {/* Where you are now, so the bar still orients you with the links hidden. */}
-      {current && current.to !== "/admin" && !onClients && (
-        <>
-          <span style={{ color: "var(--crm-border-dark)", fontSize: 14 }}>/</span>
-          <span style={{ fontSize: 14, color: "var(--crm-taupe)", letterSpacing: "0.14em", textTransform: "uppercase" }}>
-            {current.label}
-          </span>
-        </>
-      )}
+      {primary.map((item) => {
+        const active = item.exact ? loc.pathname === item.to : loc.pathname.startsWith(item.to);
+        return <Link key={item.to} to={item.to} style={chip(active)} aria-current={active ? "page" : undefined}>{item.label}</Link>;
+      })}
 
       {open && (
         <div role="menu" style={{
@@ -117,16 +86,12 @@ export default function WorkspaceMenu() {
           border: "1px solid var(--crm-border-dark)", padding: "6px 0",
           boxShadow: "0 18px 44px rgba(0,0,0,.5)",
         }}>
-          {NAV_GROUPS.map((group) => {
-            const items = NAV.filter((n) => n.group === group);
-            if (!items.length) return null;
-            return (
-              <div key={group}>
-                <div style={{
-                  fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase",
-                  color: "var(--crm-taupe)", padding: "9px 14px 5px",
-                }}>{group}</div>
-                {items.map((n) => (
+          <div>
+            <div style={{
+              fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase",
+              color: "var(--crm-taupe)", padding: "9px 14px 5px",
+            }}>Profile</div>
+            {NAV.map((n) => (
                   <Link key={n.to} to={n.to} role="menuitem"
                     style={{
                       display: "grid", gridTemplateColumns: "16px 1fr", gap: 10,
@@ -137,10 +102,8 @@ export default function WorkspaceMenu() {
                     <span style={{ opacity: 0.8 }}>{n.glyph}</span>
                     <span>{n.label}</span>
                   </Link>
-                ))}
-              </div>
-            );
-          })}
+            ))}
+          </div>
 
           <div style={{ borderTop: "1px solid var(--crm-border-dark)", marginTop: 6, paddingTop: 4 }}>
             <button

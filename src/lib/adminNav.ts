@@ -8,8 +8,6 @@ export interface NavItem {
   exact?: boolean;
 }
 
-export const NAV_GROUPS = ["Profile"] as const;
-
 /**
  * The menu holds what you visit occasionally.
  *
