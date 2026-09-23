@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, Send, Ban, ExternalLink, DollarSign, Mail, X } from "lucide-react";
+import { Plus, Trash2, Send, Ban, ExternalLink, Mail, X } from "lucide-react";
+import Panel, { PanelButton } from "@/components/admin/project/PanelChrome";
+import { T } from "@/components/admin/project/projectPageTokens";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -36,8 +38,8 @@ const fmtUSD = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 
 export default function ProjectInvoicesCard({
-  clientId, clientProjectId, embedded,
-}: { clientId: string; clientProjectId: string; embedded?: boolean }) {
+  clientId, clientProjectId,
+}: { clientId: string; clientProjectId: string }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -231,38 +233,29 @@ export default function ProjectInvoicesCard({
   };
 
   return (
-    <div style={embedded ? { padding: 0 } : {
-      background: "hsl(40 20% 97% / 0.03)",
-      border: "1px solid var(--crm-border-dark)",
-      borderRadius: 10, padding: "16px 18px", marginTop: 20,
-    }}>
+    <Panel
+      title="Payments"
+      meta={invoices.length > 0
+        ? <span style={{ fontSize: 14, color: T.text2 }}>{fmtUSD(paid)} of {fmtUSD(total)}</span>
+        : undefined}
+      actions={!editing ? (
+        <PanelButton onClick={beginEdit}>
+          <Plus size={14} /> {invoices.length === 0 ? "Set up" : "Edit"}
+        </PanelButton>
+      ) : undefined}
+    >
+      <div style={{ padding: editing ? "14px 18px" : 0 }}>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--crm-accent)", marginBottom: 3, display: "inline-flex", alignItems: "center", gap: 5 }}>
-            <DollarSign size={11} /> Payment Schedule
-          </div>
-          <h3 style={{ fontFamily: "var(--crm-font-serif)", fontWeight: 300, fontSize: 19, color: "var(--crm-warm-white)", margin: 0 }}>
-            Invoices {invoices.length > 0 && <span style={{ color: "var(--crm-taupe)", fontSize: 14 }}>· {fmtUSD(paid)} of {fmtUSD(total)} paid</span>}
-          </h3>
-        </div>
-        {!editing && (
-          <button className="crm-btn crm-btn--ghost" onClick={beginEdit}>
-            {invoices.length === 0 ? <><Plus size={14} /> Set up schedule</> : "Edit schedule"}
-          </button>
-        )}
-      </div>
-
-      {loading && <div style={{ color: "var(--crm-taupe)" }}>Loading…</div>}
+      {loading && <div style={{ color: T.muted, fontSize: 15, padding: "18px" }}>Loading…</div>}
 
       {!loading && !editing && invoices.length === 0 && (
-        <div style={{ color: "var(--crm-taupe)", fontSize: 14, padding: "10px 0" }}>
+        <div style={{ color: T.muted, fontSize: 15, padding: 18 }}>
           No payment schedule yet. Set up milestones to invoice the client through SureCart.
         </div>
       )}
 
       {!loading && !editing && invoices.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
           {invoices.map(inv => {
             const sc = statusColor(inv.status);
             return (
@@ -437,6 +430,7 @@ export default function ProjectInvoicesCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </Panel>
   );
 }

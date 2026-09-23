@@ -1,23 +1,29 @@
+// The project page.
+//
+// Was six tabs — Tasks, Proposals, Payment Schedule, Preview, Social,
+// Settings — which meant the answer to "where is this project up to" was
+// spread across six screens and nobody could see two of them at once. Tasks
+// went to the one board at /admin/tasks; the rest is now one page, in the
+// order the work actually reads: what the client is looking at, what we quoted,
+// and what has been paid.
+//
+// Laid out to the Cre8 Visions design canvas — tokens in
+// components/admin/project/projectPageTokens.ts, panel chrome in PanelChrome.
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
+import SidePanel from "@/components/admin/SidePanel";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
-import ProjectPreviewCard from "@/components/admin/ProjectPreviewCard";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ContractAuditPanel from "@/components/admin/ContractAuditPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
 import ProgressReportSettingsCard from "@/components/admin/ProgressReportSettingsCard";
 import DeliveryTargetsCard from "@/components/admin/DeliveryTargetsCard";
-
-
-import {
-  ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
-} from "@/components/ProjectTabs";
-
-
+import ProjectPageHeader from "@/components/admin/project/ProjectPageHeader";
+import ProjectPreviewPanel from "@/components/admin/project/ProjectPreviewPanel";
+import { T } from "@/components/admin/project/projectPageTokens";
 
 const TYPE_LABEL: Record<string, string> = {
   app_development: "App Development",
@@ -25,8 +31,13 @@ const TYPE_LABEL: Record<string, string> = {
   marketing: "Marketing",
 };
 
-type Project = { id: string; client_id: string; name: string; type: string };
-type Client = { id: string; business_name: string | null; contact_name: string | null };
+type Project = {
+  id: string; client_id: string; name: string; type: string; status: string;
+};
+type Client = {
+  id: string; business_name: string | null; contact_name: string | null;
+  contact_email: string | null;
+};
 
 /**
  * @param embedded Render without AdminLayout, for the agent Workspace rail.
@@ -47,16 +58,10 @@ export default function AppDevelopmentView({
   const [project, setProject] = useState<Project | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   const isMarketing = project?.type === "marketing";
-  // No per-project task board any more: every board is the same board, and
-  // five copies of it behind five projects meant "what am I working on" had no
-  // single answer. The whole board lives at /admin/tasks and in every agent's
-  // Workspace rail, filterable by client.
-  const [tab, setTab] = useState<"proposals" | "preview" | "social" | "settings">("proposals");
-
-
-
-  const portalUrl = client?.id ? `${window.location.origin}/portal/${client.id}` : "";
+  const portalUrl = clientId ? `${window.location.origin}/portal/${clientId}` : "";
 
   useEffect(() => {
     const load = async () => {
@@ -64,8 +69,10 @@ export default function AppDevelopmentView({
       setLoading(true);
       try {
         const [{ data: proj }, { data: c }] = await Promise.all([
-          supabase.from("client_projects").select("id, client_id, name, type").eq("id", projectId).maybeSingle(),
-          supabase.from("clients").select("id, business_name, contact_name").eq("id", clientId).maybeSingle(),
+          supabase.from("client_projects")
+            .select("id, client_id, name, type, status").eq("id", projectId).maybeSingle(),
+          supabase.from("clients")
+            .select("id, business_name, contact_name, contact_email").eq("id", clientId).maybeSingle(),
         ]);
         setProject(proj as Project | null);
         setClient(c as Client | null);
@@ -83,103 +90,69 @@ export default function AppDevelopmentView({
   const Shell = ({ children }: { children: React.ReactNode }) =>
     embedded ? <>{children}</> : <AdminLayout>{children}</AdminLayout>;
 
-  if (loading) return <Shell><div style={{ padding: 40, color: "var(--crm-taupe)" }}>Loading…</div></Shell>;
-  if (!project || !client) return <Shell><div style={{ padding: 40 }}>Project not found.</div></Shell>;
+  if (loading) return <Shell><div style={{ padding: 40, color: T.muted }}>Loading…</div></Shell>;
+  if (!project || !client) return <Shell><div style={{ padding: 40, color: T.text }}>Project not found.</div></Shell>;
 
-  const backLabel = `Back to ${client.contact_name ?? client.business_name ?? "client"}`;
+  const clientName = client.contact_name ?? client.business_name ?? "Client";
 
   return (
     <Shell>
-      <div className={embedded ? undefined : "roster"}>
-        {/* Embedded, going back is a step inside the panel — a Link would take
-            the whole window somewhere the panel cannot follow. */}
-        {embedded ? (
-          <button className="acv__back" onClick={onBack}>
-            <ArrowLeft size={13} /> {backLabel}
-          </button>
-        ) : (
-          <Link to={`/admin/clients/${clientId}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--crm-taupe)", fontSize: 17, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
-            <ArrowLeft size={14} /> {backLabel}
-          </Link>
-        )}
+      <div style={{ padding: embedded ? "0 0 32px" : "28px 40px 48px", maxWidth: 1180, margin: "0 auto" }}>
+        <ProjectPageHeader
+          typeLabel={TYPE_LABEL[project.type] ?? "Project"}
+          name={project.name}
+          clientName={clientName}
+          clientEmail={client.contact_email}
+          status={project.status}
+          backLabel={clientName}
+          // Embedded, going back is a step inside the panel — navigating would
+          // take the whole window somewhere the panel cannot follow.
+          onBack={() => (embedded && onBack ? onBack() : navigate(`/admin/clients/${clientId}`))}
+          portalUrl={portalUrl}
+          onSettings={() => setSettingsOpen(true)}
+        />
 
-        {embedded ? (
-          <header style={{ marginBottom: 6 }}>
-            <div className="ws__work-eyebrow">{TYPE_LABEL[project.type] ?? "Project"}</div>
-            <h2 className="ws__work-title">{project.name}</h2>
-            <p className="ws__work-sub">
-              {client.contact_name ?? client.business_name ?? "Client"}
-            </p>
-          </header>
-        ) : (
-          <div className="roster__head">
-            <div className="roster__title-block">
-              <div className="roster__eyebrow">{TYPE_LABEL[project.type] ?? "Project"}</div>
-              <h1 className="roster__title">{project.name}</h1>
-              <hr className="roster__rule" />
-              <p className="roster__sub">
-                Manage proposals, payment schedule, and the live preview for this project.
-              </p>
-            </div>
-          </div>
-        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <ProjectPreviewPanel
+            clientId={clientId!}
+            clientProjectId={projectId!}
+            projectName={project.name}
+            clientLabel={client.business_name}
+          />
 
-        <ProjectTabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mt-8">
-          <ProjectTabsList>
-            {/* Proposals and the payment schedule were two tabs telling one
-                story: what we quoted, and what of it has been billed and paid.
-                Answering "has this client paid for what they signed" meant
-                holding one tab in your head while reading the other. */}
-            <ProjectTabsTrigger value="proposals">Proposals &amp; Payments</ProjectTabsTrigger>
-            <ProjectTabsTrigger value="preview">Preview</ProjectTabsTrigger>
-            {isMarketing && <ProjectTabsTrigger value="social">Social</ProjectTabsTrigger>}
-            <ProjectTabsTrigger value="settings">Settings</ProjectTabsTrigger>
-          </ProjectTabsList>
-
-          <ProjectTabsContent value="proposals">
-            <ProjectProposalsPanel clientId={clientId!} clientProjectId={projectId!} portalUrl={portalUrl} />
-
-            <hr style={{
-              border: 0, borderTop: "1px solid var(--crm-border-dark)", margin: "26px 0 22px",
-            }} />
-
-            <ProjectInvoicesCard clientId={clientId!} clientProjectId={projectId!} embedded />
-
-            {/* The execution record for the signed agreement — the same story
-                as the proposal it came from, so it sits under it rather than
-                behind the task board it used to hide behind. */}
-            {project.type === "web_development" && (
-              <ContractAuditPanel clientId={clientId!} clientProjectId={projectId!} />
-            )}
-          </ProjectTabsContent>
-
-          <ProjectTabsContent value="preview">
-            <ProjectPreviewCard
-              clientId={clientId!}
-              clientProjectId={projectId!}
-              projectName={project.name}
-              clientLabel={client.business_name}
-              embedded
+          {/* Side by side, because the question they answer together — has this
+              client paid for what they signed — needs both in one glance. They
+              stack below 900px rather than squeezing to half a column each. */}
+          <div style={{
+            display: "grid", gap: 18,
+            gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+            alignItems: "start",
+          }}>
+            <ProjectProposalsPanel
+              clientId={clientId!} clientProjectId={projectId!} portalUrl={portalUrl}
             />
-          </ProjectTabsContent>
+            <ProjectInvoicesCard clientId={clientId!} clientProjectId={projectId!} />
+          </div>
 
-          {isMarketing && (
-            <ProjectTabsContent value="social">
-              {/* SocialTab owns the whole workflow now, including the CoPost
-                  credential and the autonomy gate. They used to sit in Settings,
-                  a tab away from the thing they gate. */}
-              <SocialTab clientProjectId={projectId!} />
-            </ProjectTabsContent>
+          {isMarketing && <SocialTab clientProjectId={projectId!} />}
+
+          {project.type === "web_development" && (
+            <ContractAuditPanel clientId={clientId!} clientProjectId={projectId!} />
           )}
+        </div>
 
-          <ProjectTabsContent value="settings">
-            <DeliveryTargetsCard clientProjectId={projectId!} />
-            <ProgressReportSettingsCard clientId={clientId!} clientProjectId={projectId!} />
-          </ProjectTabsContent>
-        </ProjectTabs>
-
-
-
+        {/* Settings were a tab you visited once per project and then never
+            again. Behind the gear, like the rest of the admin. */}
+        <SidePanel
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          title="Project settings"
+          subtitle={project.name}
+          width={520}
+        >
+          <DeliveryTargetsCard clientProjectId={projectId!} />
+          <ProgressReportSettingsCard clientId={clientId!} clientProjectId={projectId!} />
+        </SidePanel>
       </div>
     </Shell>
   );

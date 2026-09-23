@@ -890,7 +890,6 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
               <ProjectInvoicesCard
                 clientId={project.client_id}
                 clientProjectId={project.client_project_id}
-                embedded
               />
             </TabsContent>
           </>

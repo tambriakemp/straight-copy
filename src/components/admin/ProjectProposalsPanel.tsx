@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import Panel, { PanelButton } from "@/components/admin/project/PanelChrome";
+import { T } from "@/components/admin/project/projectPageTokens";
 import { Upload, Download, Trash2, FileSignature, ExternalLink, Activity, Send, Eye } from "lucide-react";
 import ProposalActivityLog from "@/components/admin/ProposalActivityLog";
 import SidePanel from "@/components/admin/SidePanel";
@@ -210,25 +212,26 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
 
   return (
     <>
-      <div className="roster__toolbar">
-        <div style={{ flex: 1, fontSize: 12, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
-          Proposals ({proposals.length})
-        </div>
-        <button className="crm-btn crm-btn--primary" onClick={() => setOpenUpload(true)}>
-          <Upload size={14} /> Upload proposal
-        </button>
-      </div>
-
+      <Panel
+        title="Proposal"
+        meta={proposals.length > 1
+          ? <span style={{ fontSize: 14, color: T.text2 }}>{proposals.length}</span>
+          : undefined}
+        actions={
+          <PanelButton onClick={() => setOpenUpload(true)}>
+            <Upload size={14} /> Upload
+          </PanelButton>
+        }
+      >
       {loading ? (
-        <div style={{ padding: 40, color: "var(--crm-taupe)" }}>Loading…</div>
+        <div style={{ padding: 18, color: T.muted, fontSize: 15 }}>Loading…</div>
       ) : proposals.length === 0 ? (
-        <div style={{ padding: "24px 0", color: "var(--crm-taupe)", textAlign: "center", border: "1px dashed var(--crm-border-dark)", borderRadius: 10, marginTop: 12 }}>
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: 6 }}>No proposals yet</div>
-          <div style={{ fontSize: 15 }}>Upload your first proposal PDF to send for signature.</div>
+        <div style={{ padding: 18, color: T.muted, fontSize: 15 }}>
+          No proposal yet. Upload one to send for signature.
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
-          {proposals.map((p) => {
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {proposals.map((p, i) => {
             const isSigned = p.status === "signed";
             const isVoided = p.status === "voided";
             // Declined is not voided. Voided is us withdrawing the document;
@@ -238,10 +241,8 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
             const isDeclined = p.status === "declined";
             return (
               <div key={p.id} style={{
-                background: "hsl(40 20% 97% / 0.03)",
-                border: "1px solid var(--crm-border-dark)",
-                borderRadius: 10, padding: "14px 16px",
-                display: "flex", flexDirection: "column", gap: 8,
+                borderTop: i === 0 ? "none" : T.hairline, padding: "12px 18px",
+                display: "flex", flexDirection: "column", gap: 7,
               }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
                   <div style={{ flex: 1 }}>
@@ -359,6 +360,7 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
           })}
         </div>
       )}
+      </Panel>
 
       {/* Wide on purpose: a proposal read in a narrow column is a proposal you
           skim instead of check, and checking is the whole point of opening it

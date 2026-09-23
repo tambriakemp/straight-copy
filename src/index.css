@@ -1971,13 +1971,15 @@
   grid-template-columns: auto 1fr auto auto auto;
   gap: 10px;
   align-items: center;
-  /* Tightened with the rest of Proposals & Payments: the two used to be
-     separate tabs and are now sections of one page, so a schedule of six
-     milestones has to leave room for the proposals above it. */
-  padding: 8px 12px;
-  border: 1px solid var(--crm-border-dark);
-  border-radius: 8px;
+  /* Hairline-separated rows inside the panel, not a stack of bordered cards.
+     The panel is the box; a box inside a box is what made this column twice
+     the height the design canvas gives it. */
+  padding: 9px 18px;
+  border: 0;
+  border-top: 1px solid rgba(244, 239, 233, 0.09);
+  border-radius: 0;
 }
+.crm-invoice-row:first-child { border-top: 0; }
 .crm-invoice-row__actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 .crm-invoice-edit-row {
   display: grid;
