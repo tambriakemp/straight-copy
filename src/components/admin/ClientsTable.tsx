@@ -12,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { ClientSignals } from "@/lib/adminOperations";
 
 export interface ClientRow {
   id: string;
@@ -41,12 +42,14 @@ function fmtDate(iso: string): string {
 }
 
 export default function ClientsTable({
-  onOpen, dense = false,
+  onOpen, dense = false, signals,
 }: {
   /** Where a row click goes. Defaults to the full client page. */
   onOpen?: (id: string) => void;
   /** Trims the chrome for the narrower agent workspace column. */
   dense?: boolean;
+  /** Optional client-work indicators used by the client-first home page. */
+  signals?: Record<string, ClientSignals>;
 }) {
   const navigate = useNavigate();
   const [rows, setRows] = useState<ClientRow[]>([]);
@@ -144,18 +147,19 @@ export default function ClientsTable({
               <th>
                 <button onClick={() => toggleSort("created_at")}>Created{arrow("created_at")}</button>
               </th>
-              <th>
+               <th>
                 <button onClick={() => toggleSort("status")}>Status{arrow("status")}</button>
               </th>
+               {signals && <th>Needs attention</th>}
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={dense ? 3 : 4} className="ctbl__empty">Loading…</td></tr>
+               <tr><td colSpan={(dense ? 3 : 4) + (signals ? 1 : 0)} className="ctbl__empty">Loading…</td></tr>
             )}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={dense ? 3 : 4} className="ctbl__empty">
+                 <td colSpan={(dense ? 3 : 4) + (signals ? 1 : 0)} className="ctbl__empty">
                   {rows.length === 0 ? "No clients yet." : "Nothing matches that search."}
                 </td>
               </tr>
@@ -175,6 +179,12 @@ export default function ClientsTable({
                     {r.archived ? "Inactive" : "Active"}
                   </span>
                 </td>
+                 {signals && <td><div className="ctbl__signals">
+                   {signals[r.id]?.proposalPending && <span>Proposal pending</span>}
+                   {signals[r.id]?.balanceDue && <span>Balance due</span>}
+                   {signals[r.id]?.previewAwaitingApproval && <span>Preview awaiting approval</span>}
+                   {!signals[r.id] && <span className="ctbl__signal-clear">Clear</span>}
+                 </div></td>}
               </tr>
             ))}
           </tbody>

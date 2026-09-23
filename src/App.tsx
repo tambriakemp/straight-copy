@@ -39,6 +39,10 @@ const Tokens = lazy(() => import("./pages/admin/Tokens.tsx"));
 const Invites = lazy(() => import("./pages/admin/Invites.tsx"));
 const ProjectDetail = lazy(() => import("./pages/admin/ProjectDetail.tsx"));
 const AllTasks = lazy(() => import("./pages/admin/AllTasks.tsx"));
+const Proposals = lazy(() => import("./pages/admin/Proposals.tsx"));
+const Payments = lazy(() => import("./pages/admin/Payments.tsx"));
+const Social = lazy(() => import("./pages/admin/Social.tsx"));
+const Agents = lazy(() => import("./pages/admin/Agents.tsx"));
 const PreviewViewer = lazy(() => import("./pages/PreviewViewer.tsx"));
 const RequireAdmin = lazy(() => import("./components/admin/RequireAdmin.tsx"));
 const RequireWiki = lazy(() => import("./components/admin/RequireWiki.tsx"));
@@ -82,6 +86,10 @@ const App = () => (
             <Route path="/admin/reset-password" element={<ResetPassword />} />
             <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
             <Route path="/admin/clients" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
+            <Route path="/admin/proposals" element={<RequireAdmin><Proposals /></RequireAdmin>} />
+            <Route path="/admin/payments" element={<RequireAdmin><Payments /></RequireAdmin>} />
+            <Route path="/admin/social" element={<RequireAdmin><Social /></RequireAdmin>} />
+            <Route path="/admin/agents" element={<RequireAdmin><Agents /></RequireAdmin>} />
             <Route path="/admin/tasks" element={<RequireAdmin><AllTasks /></RequireAdmin>} />
             {/* The queue lives in the engineering queue lead's Workspace rail
                 now. Kept as a redirect so bookmarks and old links still arrive,
