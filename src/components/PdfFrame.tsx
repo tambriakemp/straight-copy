@@ -11,8 +11,26 @@
 // a client opening a proposal and seeing nothing.
 import { useEffect, useState } from "react";
 
+/**
+ * How the viewer should open.
+ *
+ * `navpanes=0` shuts the page-thumbnail rail — a 53-page proposal opened with
+ * half the frame given to thumbnails of pages nobody is reading yet.
+ * `zoom=100` overrides the fit-to-width default, which shrank a portrait page
+ * to 58% inside a panel and made the body text unreadable. `toolbar=1` keeps
+ * the page counter, zoom and download, which are the controls someone
+ * genuinely reaching page 40 needs.
+ *
+ * Verified in Chromium against the same blob: URL this component builds.
+ * Without them the viewer opens the thumbnail rail and fits to width at 83%;
+ * with them, no rail and 100%. Other engines honour different subsets and
+ * ignore the rest harmlessly, so all three are sent rather than guessing at
+ * the reader's browser.
+ */
+const VIEWER_PARAMS = "#navpanes=0&toolbar=1&zoom=100";
+
 export default function PdfFrame({
-  url, title, height = "72vh",
+  url, title, height = "82vh",
 }: {
   url: string;
   title: string;
@@ -71,7 +89,7 @@ export default function PdfFrame({
 
   return (
     <iframe
-      src={blobUrl}
+      src={`${blobUrl}${VIEWER_PARAMS}`}
       title={title}
       style={{
         width: "100%", height, border: "1px solid var(--crm-border-dark)",

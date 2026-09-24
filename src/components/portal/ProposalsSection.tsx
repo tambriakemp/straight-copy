@@ -255,7 +255,9 @@ function ProposalCard({ clientId, contactName, proposal, onChanged, inPanel = fa
               serves it as a download, so a frame pointed at it renders blank
               and the client sees nothing where the proposal should be. */}
           {!loading && detail?.source_url && (
-            <PdfFrame url={detail.source_url} title={proposal.title} height={520} />
+            // No height override: 520px left a third of the panel empty below
+            // a document the client is meant to actually read.
+            <PdfFrame url={detail.source_url} title={proposal.title} />
           )}
 
           {isDeclined && !loading && (
