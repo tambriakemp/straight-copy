@@ -402,6 +402,7 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         </div>
       )}
 
+      {!embedded && (
       <header style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid var(--crm-border-dark)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0, flex: 1 }}>
@@ -470,23 +471,28 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
           </div>
         </div>
       </header>
+      )}
 
-      <Tabs defaultValue="pages" className="w-full">
+      <Tabs defaultValue={embedded ? "feedback" : "pages"} className="w-full">
         <TabsList style={{ background: "hsl(40 20% 97% / 0.04)", border: "1px solid var(--crm-border-dark)", borderRadius: 8, marginBottom: 18 }}>
-          <TabsTrigger value="pages" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-            Pages{pages.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-taupe)" }}>({pages.length})</span>}
-          </TabsTrigger>
+          {!embedded && (
+            <TabsTrigger value="pages" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+              Pages{pages.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-taupe)" }}>({pages.length})</span>}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="feedback" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>
             Feedback Board{openCount > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>({openCount})</span>}
           </TabsTrigger>
-          {isExternal && (
+          {isExternal && !embedded && (
             <TabsTrigger value="comments" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>
               Comments{pageComments.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-accent)" }}>({pageComments.length})</span>}
             </TabsTrigger>
           )}
-          <TabsTrigger value="files" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-            Files{assets.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-taupe)" }}>({assets.length})</span>}
-          </TabsTrigger>
+          {!embedded && (
+            <TabsTrigger value="files" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+              Files{assets.length > 0 && <span style={{ marginLeft: 6, color: "var(--crm-taupe)" }}>({assets.length})</span>}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="activity" style={{ fontSize: 17, letterSpacing: "0.2em", textTransform: "uppercase" }}>Activity</TabsTrigger>
           {!embedded && project.client_id && project.client_project_id && (
             <>
@@ -896,6 +902,31 @@ export default function PreviewDetail({ overrideId, backTo, embedded }: { overri
         )}
 
       </Tabs>
+
+      {/* The two real settings from the header that just went away. Feedback
+          decides whether the client can say anything at all, and archiving
+          takes the preview off their portal — neither is chrome, so they moved
+          down here rather than out. */}
+      {embedded && (
+        <div style={{
+          display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap",
+          marginTop: 28, paddingTop: 18, borderTop: "1px solid var(--crm-border-dark)",
+        }}>
+          <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={toggleFeedback}
+            title="Whether the client can leave feedback at all">
+            Feedback: {project.feedback_enabled ? "On" : "Off"}
+          </button>
+          <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={archiveProject}
+            title={project.archived ? "Put it back on the client's portal" : "Take it off the client's portal"}>
+            {project.archived ? "Unarchive" : "Archive"}
+          </button>
+          {project.archived && (
+            <span style={{ fontSize: 14, color: "hsl(0 60% 70%)" }}>
+              Archived — the client cannot reach this preview.
+            </span>
+          )}
+        </div>
+      )}
       </div>
 
 

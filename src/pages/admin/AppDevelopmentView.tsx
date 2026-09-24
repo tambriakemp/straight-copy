@@ -125,7 +125,6 @@ export default function AppDevelopmentView({
           // Embedded, going back is a step inside the panel — navigating would
           // take the whole window somewhere the panel cannot follow.
           onBack={() => (embedded && onBack ? onBack() : navigate(`/admin/clients/${clientId}`))}
-          portalUrl={portalUrl}
           onSettings={() => setSettingsOpen(true)}
         />
 

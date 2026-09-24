@@ -6,11 +6,12 @@
 // board and the settings that gate client access — so the panel could show you
 // a problem and then send you somewhere else to do anything about it. That page
 // is gone; its contents open in a side panel over this one.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   ChevronDown, ChevronRight, Copy, Check, ExternalLink, Eye, EyeOff, Folder,
-  FolderPlus, MessageSquare, MoreHorizontal, Sparkles, Trash2, Upload,
+  FolderPlus, Globe, Mail, MessageSquare, MoreHorizontal, Sparkles, Trash2,
+  Upload,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import SidePanel from "@/components/admin/SidePanel";
@@ -97,6 +98,39 @@ export default function ProjectPreviewPanel({
   const [aiPath, setAiPath] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [addMenu, setAddMenu] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [crawlOpen, setCrawlOpen] = useState(false);
+  const [crawlUrl, setCrawlUrl] = useState("");
+  const [crawling, setCrawling] = useState(false);
+  const [snippetCopied, setSnippetCopied] = useState(false);
+
+  const [mailOpen, setMailOpen] = useState(false);
+  const [contacts, setContacts] = useState<Array<{ id: string; name: string | null; email: string; is_primary: boolean }>>([]);
+  const [contactId, setContactId] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+
+  const filesInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
+  const zipInput = useRef<HTMLInputElement>(null);
+  const addWrap = useRef<HTMLDivElement>(null);
+
+  // Close the Add pages menu on an outside click, the way every other menu in
+  // this admin does. A menu that traps you is worse than one more button.
+  useEffect(() => {
+    if (!addMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (addWrap.current && !addWrap.current.contains(e.target as Node)) setAddMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setAddMenu(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [addMenu]);
+
   const base = useMemo(() => window.location.origin, []);
 
   const load = useCallback(async () => {
@@ -172,6 +206,10 @@ export default function ProjectPreviewPanel({
   }, [pages, selected]);
 
   const current = pages.find((p) => p.key === selected) ?? null;
+
+  const embedSnippet = preview
+    ? `<script src="https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/preview-serve?slug=${preview.slug}&path=__pf_embed.js"></script>`
+    : "";
 
   const pageUrl = (p: Page) => p.external
     ? `${preview?.external_base_url ?? ""}${p.path}`
@@ -268,6 +306,126 @@ export default function ProjectPreviewPanel({
     void load();
   };
 
+  // --- adding pages ----------------------------------------------------------
+
+  const upload = async (list: FileList | null, asZip: boolean) => {
+    if (!preview || !list?.length) return;
+    setUploading(true);
+    const id = toast.loading(asZip ? "Unpacking…" : `Uploading ${list.length} file${list.length === 1 ? "" : "s"}…`);
+    try {
+      const form = new FormData();
+      form.append("project_id", preview.id);
+      if (asZip) {
+        form.append("zip", list[0]);
+      } else {
+        for (const f of Array.from(list)) {
+          // A folder upload gives every file a webkitRelativePath beginning
+          // with the folder's own name. Dropping that first segment is what
+          // makes "site/index.html" upload as "index.html" — otherwise every
+          // path gains a directory the preview does not serve from.
+          const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
+          const path = rel.includes("/") ? rel.split("/").slice(1).join("/") || f.name : rel;
+          form.append(`file:${path}`, f);
+        }
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/preview-upload`,
+        { method: "POST", headers: { Authorization: `Bearer ${session?.access_token}` }, body: form },
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Upload failed");
+      toast.success(`Uploaded ${json.file_count} file${json.file_count === 1 ? "" : "s"}`, { id });
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed", { id });
+    } finally {
+      setUploading(false);
+      for (const r of [filesInput, folderInput, zipInput]) if (r.current) r.current.value = "";
+    }
+  };
+
+  const crawl = async () => {
+    if (!preview) return;
+    const url = crawlUrl.trim();
+    if (!url) { toast.error("Paste the site's address first"); return; }
+    setCrawling(true);
+    try {
+      // The crawler reads the address off the project rather than taking one,
+      // so a new address has to be saved before it can be followed.
+      const { error: saveErr } = await supabase.functions.invoke("preview-admin", {
+        body: { action: "update", id: preview.id, external_base_url: url },
+      });
+      if (saveErr) throw new Error(saveErr.message);
+
+      const { data, error } = await supabase.functions.invoke("preview-admin", {
+        body: { action: "crawl_external", id: preview.id },
+      });
+      if (error || data?.error) throw new Error(error?.message || data?.error || "Crawl failed");
+      const found = data?.pages ?? [];
+      if (!found.length) { toast.message("No pages discovered at that address."); return; }
+
+      // Merge rather than replace: a page someone named or filed by hand
+      // outranks whatever the crawler calls it this time round.
+      const have = new Set(external.map((p) => p.path));
+      await supabase.functions.invoke("preview-admin", {
+        body: {
+          action: "external_pages_set", project_id: preview.id,
+          pages: [
+            ...externalPayload((rows) => rows),
+            ...found
+              .filter((p: { path: string }) => !have.has(p.path))
+              .map((p: { path: string; label?: string }) => ({ path: p.path, label: p.label ?? null })),
+          ],
+        },
+      });
+      toast.success(`Discovered ${found.length} page${found.length === 1 ? "" : "s"}`);
+      setCrawlOpen(false);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Crawl failed");
+    } finally {
+      setCrawling(false);
+    }
+  };
+
+  // --- telling the client ----------------------------------------------------
+
+  const openMail = async () => {
+    setMailOpen(true);
+    const { data: cp } = await supabase
+      .from("client_projects").select("client_id").eq("id", clientProjectId).maybeSingle();
+    if (!cp?.client_id) { toast.error("No client on this project."); return; }
+    const { data: rows } = await supabase
+      .from("client_contacts")
+      .select("id, name, email, is_primary")
+      .eq("client_id", cp.client_id)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true });
+    const list = (rows ?? []).filter((c) => c.email) as typeof contacts;
+    setContacts(list);
+    setContactId((list.find((c) => c.is_primary) ?? list[0])?.id ?? null);
+  };
+
+  const sendMail = async () => {
+    if (!preview || !contactId) { toast.error("Pick who it goes to."); return; }
+    setSending(true);
+    const id = toast.loading("Sending review email…");
+    try {
+      const { data, error } = await supabase.functions.invoke("send-preview-review-email", {
+        body: { preview_project_id: preview.id, contact_id: contactId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Sent to ${data?.recipient ?? "the client"}`, { id, duration: 6000 });
+      setMailOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to send", { id, duration: 8000 });
+    } finally {
+      setSending(false);
+    }
+  };
+
   const createPreview = async () => {
     setCreating(true);
     try {
@@ -330,7 +488,10 @@ export default function ProjectPreviewPanel({
         actions={
           <>
             <PanelButton onClick={() => void copyLink()}>
-              {copied ? <Check size={14} /> : <Copy size={14} />} Copy client link
+              {copied ? <Check size={14} /> : <Copy size={14} />} Copy portal link
+            </PanelButton>
+            <PanelButton onClick={() => void openMail()}>
+              <Mail size={14} /> Send review email
             </PanelButton>
             <PanelButton
               onClick={() => { setGroupPicks(new Set()); setGroupName(""); setGroupOpen(true); }}
@@ -338,10 +499,61 @@ export default function ProjectPreviewPanel({
             >
               <FolderPlus size={14} /> New group
             </PanelButton>
-            <PanelButton primary onClick={() => setMoreOpen(true)}>
-              <Upload size={14} /> Add pages
-            </PanelButton>
-            <PanelButton onClick={() => setMoreOpen(true)} title="Files, activity and settings">
+
+            {/* A split button: the common case is the button, the rarer three
+                are behind the arrow. Add pages opens the file picker straight
+                away rather than opening a panel that then offers to open a
+                file picker. */}
+            <div ref={addWrap} style={{ position: "relative", display: "flex" }}>
+              <PanelButton primary onClick={() => filesInput.current?.click()} disabled={uploading}>
+                <Upload size={14} /> {uploading ? "Uploading…" : "Add pages"}
+              </PanelButton>
+              <button
+                type="button"
+                onClick={() => setAddMenu((o) => !o)}
+                aria-haspopup="menu"
+                aria-expanded={addMenu}
+                aria-label="More ways to add pages"
+                style={{
+                  marginLeft: 1, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  width: 28, borderRadius: T.radiusSm, border: "none",
+                  background: T.text, color: "rgb(27, 25, 21)", cursor: "pointer",
+                }}
+              >
+                <ChevronDown size={14} />
+              </button>
+
+              {addMenu && (
+                <div role="menu" style={{
+                  position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 40,
+                  minWidth: 190, background: T.panel, border: T.hairline,
+                  borderRadius: T.radiusSm, padding: "5px 0",
+                  boxShadow: "0 18px 44px rgba(0,0,0,.5)",
+                }}>
+                  {[
+                    { label: "Upload folder", icon: <Folder size={14} />, run: () => folderInput.current?.click() },
+                    { label: "Upload zip", icon: <Upload size={14} />, run: () => zipInput.current?.click() },
+                    { label: "Crawl pages", icon: <Globe size={14} />, run: () => setCrawlOpen(true) },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { setAddMenu(false); item.run(); }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 9, width: "100%",
+                        padding: "8px 14px", fontSize: 14, textAlign: "left",
+                        background: "transparent", border: "none", cursor: "pointer", color: T.text,
+                      }}
+                    >
+                      {item.icon} {item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <PanelButton onClick={() => setMoreOpen(true)} title="Feedback board and activity">
               <MoreHorizontal size={14} />
             </PanelButton>
           </>
@@ -520,6 +732,21 @@ export default function ProjectPreviewPanel({
       {/* Everything the old /admin/previews/:id page held — uploads, files,
           the feedback board, activity, and the settings that gate client
           access — over the page rather than away from it. */}
+      <input
+        ref={filesInput} type="file" multiple hidden
+        onChange={(e) => void upload(e.target.files, false)}
+      />
+      <input
+        ref={folderInput} type="file" multiple hidden
+        // @ts-expect-error — non-standard, and the only way to pick a folder.
+        webkitdirectory="" directory=""
+        onChange={(e) => void upload(e.target.files, false)}
+      />
+      <input
+        ref={zipInput} type="file" accept=".zip" hidden
+        onChange={(e) => void upload(e.target.files, true)}
+      />
+
       <SidePanel
         open={moreOpen}
         onClose={() => { setMoreOpen(false); void load(); }}
@@ -580,6 +807,114 @@ export default function ProjectPreviewPanel({
             </label>
           ))}
         </div>
+      </SidePanel>
+
+      <SidePanel
+        open={crawlOpen}
+        onClose={() => setCrawlOpen(false)}
+        title="Crawl pages"
+        subtitle="Point it at a site you have built and it finds the pages."
+        width={520}
+        footer={
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <PanelButton onClick={() => setCrawlOpen(false)}>Cancel</PanelButton>
+            <PanelButton primary onClick={() => void crawl()} disabled={crawling}>
+              {crawling ? "Crawling…" : "Crawl"}
+            </PanelButton>
+          </div>
+        }
+      >
+        <label className="crm-label" htmlFor="pv-crawl-url">Site address</label>
+        <input
+          id="pv-crawl-url"
+          className="crm-input"
+          value={crawlUrl}
+          onChange={(e) => setCrawlUrl(e.target.value)}
+          placeholder="https://example.lovable.app"
+        />
+        <p style={{ fontSize: 14, color: T.muted, margin: "8px 0 0", lineHeight: 1.5 }}>
+          Pages already on the list keep the name and folder you gave them.
+          Only new ones are added.
+        </p>
+
+        <hr style={{ border: 0, borderTop: T.hairline, margin: "22px 0 18px" }} />
+
+        {/* The other half of a crawled site: discovering pages puts them on
+            your list, but the client still cannot say anything ON one until
+            this is in the site's own HTML. Both jobs, one panel. */}
+        <div style={{ fontSize: 15, fontWeight: 500, color: T.text }}>
+          Pin comments on the live site
+        </div>
+        <p style={{ fontSize: 14, color: T.muted, margin: "6px 0 10px", lineHeight: 1.5 }}>
+          Paste this into the site's HTML once, before <code>&lt;/body&gt;</code>.
+          The client then gets the same click-to-pin tool your uploaded previews
+          have, on every page.
+        </p>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <code style={{
+            flex: 1, minWidth: 0, fontSize: 13, fontFamily: "monospace", color: T.text2,
+            background: T.card, borderRadius: 6, padding: "8px 10px",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {embedSnippet}
+          </code>
+          <PanelButton
+            onClick={() => {
+              void navigator.clipboard.writeText(embedSnippet);
+              setSnippetCopied(true);
+              setTimeout(() => setSnippetCopied(false), 1500);
+            }}
+          >
+            {snippetCopied ? <Check size={14} /> : <Copy size={14} />}
+          </PanelButton>
+        </div>
+      </SidePanel>
+
+      <SidePanel
+        open={mailOpen}
+        onClose={() => setMailOpen(false)}
+        title="Send review email"
+        subtitle="A link to the portal, and a nudge to look at it."
+        width={460}
+        footer={
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <PanelButton onClick={() => setMailOpen(false)}>Cancel</PanelButton>
+            <PanelButton primary onClick={() => void sendMail()} disabled={sending || !contactId}>
+              {sending ? "Sending…" : "Send"}
+            </PanelButton>
+          </div>
+        }
+      >
+        {!contacts.length ? (
+          <p style={{ fontSize: 15, color: T.muted, margin: 0 }}>
+            No contact on this client has an email address, so there is nobody to
+            send to. Add one on the client's page first.
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {contacts.map((c) => (
+              <label
+                key={c.id}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10, padding: "10px 2px",
+                  borderTop: T.hairline, fontSize: 15, color: T.text, cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio" name="pv-contact" checked={contactId === c.id}
+                  onChange={() => setContactId(c.id)}
+                />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  {c.name || c.email}
+                  {c.is_primary && (
+                    <span style={{ fontSize: 13, color: T.muted }}> · primary</span>
+                  )}
+                </span>
+                <span style={{ fontSize: 13, color: T.muted }}>{c.email}</span>
+              </label>
+            ))}
+          </div>
+        )}
       </SidePanel>
 
       <AiEditDialog

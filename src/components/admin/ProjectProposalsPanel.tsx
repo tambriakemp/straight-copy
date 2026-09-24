@@ -11,9 +11,6 @@ import {
   type ProposalContent,
 } from "../../../supabase/functions/_shared/agents/proposal-spine";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
@@ -309,49 +306,48 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
                     )}
                 </div>
 
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-                  <button
-                    className="crm-btn crm-btn--ghost crm-btn--sm"
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                  <PanelButton
                     onClick={() => void openPreview(p)}
                     disabled={previewing === p.id}
                     title="Read this proposal"
                   >
-                    <Eye size={12} /> {previewing === p.id ? "Opening…" : "Preview"}
-                  </button>
+                    <Eye size={13} /> {previewing === p.id ? "Opening…" : "Preview"}
+                  </PanelButton>
                   {p.source_pdf_path && (
-                    <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => downloadPdf(p, "source")}>
-                      <Download size={12} /> Source
-                    </button>
+                    <PanelButton onClick={() => downloadPdf(p, "source")} title="Download the PDF as uploaded">
+                      <Download size={13} /> Source
+                    </PanelButton>
                   )}
                   {isSigned && (
-                    <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => downloadPdf(p, "signed")}>
-                      <Download size={12} /> Signed PDF
-                    </button>
+                    <PanelButton onClick={() => downloadPdf(p, "signed")} title="Download the signed PDF">
+                      <Download size={13} /> Signed
+                    </PanelButton>
                   )}
                   {!isSigned && (
-                    <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => removeProposal(p)} title="Delete">
-                      <Trash2 size={12} /> Delete
-                    </button>
+                    <PanelButton onClick={() => removeProposal(p)} title="Delete this proposal">
+                      <Trash2 size={13} />
+                    </PanelButton>
                   )}
                   {!isSigned && !isVoided && !isDeclined && (
-                    <button
-                      className={`crm-btn crm-btn--sm ${p.sent_at ? "crm-btn--ghost" : "crm-btn--bronze"}`}
+                    <PanelButton
+                      primary={!p.sent_at}
                       onClick={() => void notifyClient(p)}
                       disabled={notifying === p.id}
                       title={p.sent_at
                         ? "Send the client another link to this proposal"
                         : "Email the client a link to review and sign it, and start the follow-up clock"}
                     >
-                      <Send size={12} />{" "}
-                      {notifying === p.id
-                        ? "Sending…"
-                        : p.sent_at ? "Resend link" : "Send to client"}
-                    </button>
+                      <Send size={13} />{" "}
+                      {notifying === p.id ? "Sending…" : p.sent_at ? "Resend" : "Send"}
+                    </PanelButton>
                   )}
-                  <button className="crm-btn crm-btn--ghost crm-btn--sm"
-                    onClick={() => setOpenLog(openLog === p.id ? null : p.id)}>
-                    <Activity size={12} /> {openLog === p.id ? "Hide activity" : "Activity"}
-                  </button>
+                  <PanelButton
+                    onClick={() => setOpenLog(openLog === p.id ? null : p.id)}
+                    title="What has happened to this proposal"
+                  >
+                    <Activity size={13} />
+                  </PanelButton>
                 </div>
 
                 {openLog === p.id && <ProposalActivityLog proposalId={p.id} />}
@@ -398,34 +394,47 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
         {preview && <ProposalPreviewBody p={preview.p} pdfUrl={preview.pdfUrl} />}
       </SidePanel>
 
-      <Dialog open={openUpload} onOpenChange={(v) => { if (!uploading) setOpenUpload(v); }}>
-        <DialogContent className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">Upload proposal</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div>
-              <label className="crm-label">Title *</label>
-              <input className="crm-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Proposal v1" />
-            </div>
-            <div>
-              <label className="crm-label">Description</label>
-              <textarea className="crm-input" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Optional internal note for the client" />
-            </div>
-            <div>
-              <label className="crm-label">PDF file *</label>
-              <input ref={fileRef} type="file" accept="application/pdf" className="crm-input" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-              {file && <div style={{ marginTop: 6, fontSize: 16, color: "var(--crm-taupe)" }}>{file.name} · {(file.size / 1024).toFixed(0)} KB</div>}
-            </div>
-          </div>
-          <DialogFooter>
-            <button className="crm-btn crm-btn--ghost" onClick={() => setOpenUpload(false)} disabled={uploading}>Cancel</button>
-            <button className="crm-btn crm-btn--primary" onClick={upload} disabled={uploading}>
+      {/* A panel, like every other "edit one thing" flow here. The centred
+          dialog covered the proposal list it was adding to. */}
+      <SidePanel
+        open={openUpload}
+        onClose={() => { if (!uploading) setOpenUpload(false); }}
+        title="Upload proposal"
+        subtitle="A PDF the client can read and sign in their portal."
+        width={460}
+        footer={
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <PanelButton onClick={() => setOpenUpload(false)} disabled={uploading}>Cancel</PanelButton>
+            <PanelButton primary onClick={upload} disabled={uploading}>
               {uploading ? "Uploading…" : "Upload"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </PanelButton>
+          </div>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label className="crm-label" htmlFor="pp-title">Title *</label>
+            <input id="pp-title" className="crm-input" value={title}
+              onChange={(e) => setTitle(e.target.value)} placeholder="Proposal v1" />
+          </div>
+          <div>
+            <label className="crm-label" htmlFor="pp-desc">Description</label>
+            <textarea id="pp-desc" className="crm-input" value={description}
+              onChange={(e) => setDescription(e.target.value)} rows={3}
+              placeholder="Optional internal note for the client" />
+          </div>
+          <div>
+            <label className="crm-label" htmlFor="pp-file">PDF file *</label>
+            <input id="pp-file" ref={fileRef} type="file" accept="application/pdf"
+              className="crm-input" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+            {file && (
+              <div style={{ marginTop: 6, fontSize: 14, color: T.muted }}>
+                {file.name} · {(file.size / 1024).toFixed(0)} KB
+              </div>
+            )}
+          </div>
+        </div>
+      </SidePanel>
     </>
   );
 }

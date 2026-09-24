@@ -3,7 +3,7 @@
 // Back link, type eyebrow, serif name, who it is for — then the three things
 // you reach for from anywhere on the page: is it live, what the client sees,
 // and the settings that gate both.
-import { ArrowLeft, ExternalLink, Settings } from "lucide-react";
+import { ArrowLeft, Settings } from "lucide-react";
 import { T } from "./projectPageTokens";
 import { Pill } from "./PanelChrome";
 
@@ -15,8 +15,7 @@ const STATUS_STYLE: Record<string, { fg: string; bg: string; label: string }> = 
 };
 
 export default function ProjectPageHeader({
-  typeLabel, name, clientName, clientEmail, status, backLabel, onBack,
-  portalUrl, onSettings,
+  typeLabel, name, clientName, clientEmail, status, backLabel, onBack, onSettings,
 }: {
   typeLabel: string;
   name: string;
@@ -25,7 +24,6 @@ export default function ProjectPageHeader({
   status: string;
   backLabel: string;
   onBack: () => void;
-  portalUrl: string;
   onSettings: () => void;
 }) {
   const s = STATUS_STYLE[status] ?? STATUS_STYLE.active;
@@ -65,16 +63,6 @@ export default function ProjectPageHeader({
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <Pill fg={s.fg} bg={s.bg}>{s.label}</Pill>
-          <a
-            href={portalUrl} target="_blank" rel="noreferrer"
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 7, fontSize: 14, fontWeight: 500,
-              padding: "7px 13px", borderRadius: T.radiusSm, border: T.hairline,
-              color: T.text, textDecoration: "none",
-            }}
-          >
-            <ExternalLink size={14} /> Client view
-          </a>
           <button
             type="button" onClick={onSettings} title="Project settings" aria-label="Project settings"
             style={{
