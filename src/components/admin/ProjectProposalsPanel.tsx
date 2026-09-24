@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import Panel, { PanelButton } from "@/components/admin/project/PanelChrome";
-import { T } from "@/components/admin/project/projectPageTokens";
+import { T } from "@/lib/cre8Design";
 import { Upload, Download, Trash2, FileSignature, ExternalLink, Activity, Send, Eye } from "lucide-react";
 import ProposalActivityLog from "@/components/admin/ProposalActivityLog";
 import SidePanel from "@/components/admin/SidePanel";

@@ -1,21 +1,42 @@
+// What the client is here to look at.
+//
+// Rebuilt to the Cre8 Visions portal canvas: the page tree on the left, the
+// page they picked on the right, and the two things they can do with it —
+// open it, or approve it — as the only two buttons on the panel.
+//
+// The data layer is unchanged. preview-approvals is the client's read/write
+// surface and it already returns folders and approvals; this is a new render
+// over the same calls.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ExternalLink, Loader2, MessageSquare, Send } from "lucide-react";
-import PortalFirstRunTip from "@/components/portal/PortalFirstRunTip";
+import { Check, ChevronDown, ChevronRight, ExternalLink, Folder, Info, X } from "lucide-react";
 import { toast } from "sonner";
+import { T, groupSummary } from "@/lib/cre8Design";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 type Approval = { approver_name: string | null; approved_at: string } | null;
-type PageRow = { path: string; label?: string | null; isEntry: boolean; isExternal?: boolean; viewUrl?: string | null; group?: string | null; approval: Approval };
+type PageRow = {
+  path: string; label?: string | null; isEntry: boolean; isExternal?: boolean;
+  viewUrl?: string | null; group?: string | null; approval: Approval;
+};
 type AssetRow = { path: string; approval: Approval };
 type ListResp = {
-  project: { id: string; name: string; slug: string; entry_path: string; source_type?: string; external_base_url?: string | null; has_external?: boolean };
+  project: {
+    id: string; name: string; slug: string; entry_path: string;
+    source_type?: string; external_base_url?: string | null; has_external?: boolean;
+  };
   pages: PageRow[];
   assets: AssetRow[];
 };
 
-type Props = { clientProjectId: string; contactName?: string | null; clientId?: string };
+type Props = {
+  clientProjectId: string;
+  contactName?: string | null;
+  clientId?: string;
+  /** Lets the page header show the same count without loading it twice. */
+  onProgress?: (p: { approved: number; total: number }) => void;
+};
 
 async function call(body: Record<string, unknown>) {
   const r = await fetch(`${SUPABASE_URL}/functions/v1/preview-approvals`, {
@@ -26,13 +47,29 @@ async function call(body: Record<string, unknown>) {
   return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
 }
 
-export default function PortalProjectPreviewCard({ clientProjectId, contactName, clientId }: Props) {
+const TIP_KEY = "cre8-portal-preview-tip";
+
+export default function PortalProjectPreviewCard({
+  clientProjectId, contactName, onProgress,
+}: Props) {
   const [list, setList] = useState<ListResp | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [approverDraft, setApproverDraft] = useState(contactName ?? "");
+  const [selected, setSelected] = useState<string | null>(null);
+  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({});
+  const [tipOpen, setTipOpen] = useState(true);
 
   useEffect(() => { setApproverDraft(contactName ?? ""); }, [contactName]);
+
+  // Dismissed for good, per browser. Wrapped because private windows throw.
+  useEffect(() => {
+    try { if (localStorage.getItem(TIP_KEY)) setTipOpen(false); } catch { /* keep it */ }
+  }, []);
+  const dismissTip = () => {
+    setTipOpen(false);
+    try { localStorage.setItem(TIP_KEY, new Date().toISOString()); } catch { /* fine */ }
+  };
 
   const base = useMemo(() => window.location.origin, []);
 
@@ -46,38 +83,17 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName,
 
   useEffect(() => { void load(); }, [load]);
 
-  if (loading) return null;
-
-  if (!list) {
-    return (
-      <section className="portal-access is-open" style={{ scrollMarginTop: 24 }}>
-        <div className="portal-access__toggle" style={{ cursor: "default" }}>
-          <div className="portal-access__toggle-left">
-            <div className="portal-access__eyebrow">Preview</div>
-            <h2 className="portal-access__title">Coming <em>soon</em>.</h2>
-          </div>
-        </div>
-        <div className="portal-access__body">
-          <p className="portal-access__intro">
-            Your preview link isn't ready yet. We'll let you know the moment it's available.
-          </p>
-        </div>
-      </section>
-    );
-  }
-
-  const pageUrl = (row: PageRow) =>
-    row.viewUrl || `${base}/p/${list.project.slug}/${row.path}`;
-  const assetUrl = (path: string) => `${base}/p/${list.project.slug}/${path}`;
-
-  const uploadedPages = list.pages.filter((p) => !p.isExternal);
-  const externalPages = list.pages.filter((p) => p.isExternal);
-
-  const totalItems = list.pages.length + list.assets.length;
+  const totalItems = (list?.pages.length ?? 0) + (list?.assets.length ?? 0);
   const approvedItems =
-    list.pages.filter((p) => p.approval).length + list.assets.filter((a) => a.approval).length;
+    (list?.pages.filter((p) => p.approval).length ?? 0)
+    + (list?.assets.filter((a) => a.approval).length ?? 0);
+
+  useEffect(() => {
+    onProgress?.({ approved: approvedItems, total: totalItems });
+  }, [approvedItems, totalItems, onProgress]);
 
   const setApproval = async (kind: "page" | "asset", path: string, approve: boolean) => {
+    if (!list) return;
     const key = `${kind}:${path}`;
     if (approve && !approverDraft.trim()) {
       toast.error("Please enter your name before approving.");
@@ -92,19 +108,13 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName,
       approver_name: approverDraft.trim() || null,
     });
     setBusy(null);
-    if (!r.ok) { toast.error((r.data as any)?.error || "Could not save approval"); return; }
+    if (!r.ok) {
+      toast.error((r.data as { error?: string })?.error || "Could not save approval");
+      return;
+    }
     toast.success(approve ? "Approved" : "Approval removed");
     await load();
   };
-
-  const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-
-  const labelForPath = (p: string) =>
-    p.replace(/\.html?$/i, "").split("/").pop() || p;
-
-  const hasExternalPages = externalPages.length > 0;
-  const hasUploadedPages = uploadedPages.length > 0;
 
   /*
    * Pages, in folders.
@@ -118,300 +128,242 @@ export default function PortalProjectPreviewCard({ clientProjectId, contactName,
    * returns pages in order_index order, so the first folder a page appears in
    * decides where that folder sits.
    */
-  const pageFolders = (() => {
-    const byTitle = new Map<string, { title: string; note?: string; pages: typeof list.pages }>();
+  const folders = useMemo(() => {
+    if (!list) return [];
+    const byTitle = new Map<string, { title: string; note?: string; pages: PageRow[] }>();
     for (const p of list.pages) {
-      const title = p.group ||
-        (p.isExternal ? "Website pages" : "Design concepts");
+      const title = p.group || (p.isExternal ? "Website pages" : "Design concepts");
       const existing = byTitle.get(title);
       if (existing) existing.pages.push(p);
       else {
         byTitle.set(title, {
           title,
-          // Said once per folder rather than on every row.
           note: p.isExternal
-            ? "These open on your live site. Leave feedback beside the page."
+            ? "These open on your live site. Use the comment button beside the page."
             : undefined,
           pages: [p],
         });
       }
     }
     return [...byTitle.values()];
-  })();
+  }, [list]);
+
+  const allPages = useMemo(() => folders.flatMap((f) => f.pages), [folders]);
+
+  useEffect(() => {
+    if (selected || !allPages.length) return;
+    setSelected(allPages[0].path);
+  }, [allPages, selected]);
+
+  if (loading) return null;
+
+  if (!list) {
+    return (
+      <section style={{
+        border: T.hairline, borderRadius: T.radius, background: T.panel, padding: "18px 20px",
+      }}>
+        <h2 style={{ fontFamily: T.serif, fontSize: 22, fontWeight: 500, color: T.text, margin: 0 }}>
+          Preview
+        </h2>
+        <p style={{ fontSize: 15, color: T.muted, margin: "8px 0 0" }}>
+          Your preview link isn't ready yet. We'll let you know the moment it's available.
+        </p>
+      </section>
+    );
+  }
+
+  const current = allPages.find((p) => p.path === selected) ?? null;
+  const currentFolder = folders.find((f) => f.pages.some((p) => p.path === selected));
+  const pageUrl = (row: PageRow) => row.viewUrl || `${base}/p/${list.project.slug}/${row.path}`;
+  const labelFor = (row: PageRow) =>
+    row.label?.trim() || row.path.replace(/\.html?$/i, "").split("/").pop() || row.path;
 
   return (
-    <section className="portal-access is-open" style={{ scrollMarginTop: 24 }}>
-      <div className="portal-access__toggle" style={{ cursor: "default" }}>
-        <div className="portal-access__toggle-left">
-          <div className="portal-access__eyebrow">Preview</div>
-          <h2 className="portal-access__title">{list.project.name}</h2>
-        </div>
-        <div className="portal-access__toggle-right">
-          <span className="portal-access__status">
-            {totalItems > 0 ? `${approvedItems} of ${totalItems} approved` : "Live"}
-          </span>
-        </div>
-      </div>
-      <div className="portal-access__body">
-        {/*
-          The old copy told every client to "use the in-page comment tools",
-          which only exist on pages we host — they are injected by
-          preview-serve. A client reviewing the live site followed that
-          instruction, found nothing, and reasonably concluded there was no way
-          to give feedback. So each kind now describes the way it actually
-          works.
-        */}
-        <p className="portal-access__intro">
-          {hasExternalPages && hasUploadedPages
-            ? "Open any page in a new tab to look at it. Design concepts have commenting built in — on your live site, use Leave feedback beside the page. Approve each one below once it's right."
-            : hasExternalPages
-            ? "Open any page in a new tab to look at it, then use Leave feedback beside it to tell us what to change. Approve each one once it's right."
-            : "Open the preview in a new tab and use the commenting tools on the page itself. Approve each page or asset below once it's good to go."}
-        </p>
+    <section style={{
+      border: T.hairline, borderRadius: T.radius, background: T.panel,
+      display: "flex", flexDirection: "column", minWidth: 0,
+    }}>
+      <header style={{
+        display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
+        borderBottom: T.hairline, flexWrap: "wrap",
+      }}>
+        <h2 style={{ fontFamily: T.serif, fontSize: 22, fontWeight: 500, color: T.text, margin: 0 }}>
+          Preview
+        </h2>
+        <span style={{ fontSize: 14, color: T.text2 }}>
+          {list.pages.length} page{list.pages.length === 1 ? "" : "s"}
+        </span>
 
-        {totalItems > 0 && clientId && (
-          <PortalFirstRunTip tipId="preview-feedback" clientId={clientId}>
-            {hasExternalPages
-              ? "New here? Open a page to look at it, then use Leave feedback beside it to tell us what to change — you don't need to write anything formal. Approve a page once you're happy with it."
-              : "New here? Open a page and you'll find a comment button on it — click anywhere to pin a note to that exact spot. Approve a page once you're happy with it."}
-          </PortalFirstRunTip>
-        )}
+        {/* Asked for once, at the top, rather than per approval. Approving is
+            a signature — it has to carry a name, and being stopped by that
+            after clicking Approve is a worse moment to discover it. */}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <label htmlFor="portal-approver" style={{ fontSize: 14, color: T.muted }}>Your name</label>
+          <input
+            id="portal-approver"
+            value={approverDraft}
+            onChange={(e) => setApproverDraft(e.target.value)}
+            placeholder="So we know who approved it"
+            style={{
+              fontSize: 14, color: T.text, background: T.ink, border: T.hairline,
+              borderRadius: T.radiusSm, padding: "8px 11px", minWidth: 190, fontFamily: "inherit",
+            }}
+          />
+        </div>
+      </header>
 
-        {totalItems === 0 && (
-          <p style={{ marginTop: 14, fontSize: 15, color: "hsl(30 8% 62%)" }}>
-            Nothing is ready to review just yet. We'll let you know the moment there is.
+      {tipOpen && (
+        <div style={{
+          display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 18px",
+          borderBottom: T.hairline, background: T.noticeBg,
+        }}>
+          <Info size={16} color={T.bronze} style={{ flexShrink: 0, marginTop: 2 }} />
+          <p style={{ fontSize: 14, color: T.text2, margin: 0, flex: 1, lineHeight: 1.5 }}>
+            Open a page and use the comment button on it. Click anywhere to pin a
+            note to that exact spot. Approve a page here once you're happy with it.
           </p>
-        )}
+          <button
+            type="button" onClick={dismissTip} aria-label="Dismiss"
+            style={{
+              background: "none", border: "none", cursor: "pointer", color: T.muted, padding: "1px 6px",
+            }}
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
 
-        {totalItems > 0 && (
-          <>
-            <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-              <label style={{ fontSize: 14, letterSpacing: "0.18em", textTransform: "uppercase", color: "hsl(30 8% 62%)" }}>
-                Your name
-              </label>
-              <input
-                value={approverDraft}
-                onChange={(e) => setApproverDraft(e.target.value)}
-                placeholder="Required to approve"
-                style={{
-                  flex: "1 1 220px",
-                  background: "transparent",
-                  border: "1px solid hsl(30 8% 22%)",
-                  borderRadius: 6,
-                  padding: "8px 12px",
-                  color: "hsl(40 20% 97%)",
-                  fontSize: 16,
-                }}
-              />
-            </div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 1fr)" }}>
+        <div style={{ borderRight: T.hairline, padding: "6px 0 10px", minWidth: 0 }}>
+          {!folders.length && (
+            <p style={{ padding: "18px 20px", fontSize: 15, color: T.muted, margin: 0 }}>
+              Nothing to look at yet. We'll let you know when there is.
+            </p>
+          )}
+          {folders.map((f) => {
+            const open = openFolders[f.title] !== false;
+            const done = f.pages.filter((p) => p.approval).length;
+            return (
+              <div key={f.title}>
+                <button
+                  type="button"
+                  onClick={() => setOpenFolders((o) => ({ ...o, [f.title]: !open }))}
+                  aria-expanded={open}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8, width: "100%",
+                    padding: "8px 20px", background: "transparent", border: "none",
+                    cursor: "pointer", color: T.text, textAlign: "left",
+                  }}
+                >
+                  {open ? <ChevronDown size={14} color={T.muted} /> : <ChevronRight size={14} color={T.muted} />}
+                  <Folder size={14} color={T.muted} />
+                  <span style={{ fontSize: 14, fontWeight: 500 }}>{f.title}</span>
+                  <span style={{ fontSize: 14, color: T.muted }}>
+                    · {groupSummary(f.pages.length, done)}
+                  </span>
+                </button>
 
-            {pageFolders.map((folder) => (
-              <ApprovalGroup
-                key={folder.title}
-                title={folder.title}
-                note={folder.note}
-                rows={folder.pages.map((p) => ({
-                  key: p.isExternal ? `ext:${p.path}` : p.path,
-                  label: (p.label || labelForPath(p.path)) + (p.isEntry ? " · entry" : ""),
-                  viewUrl: pageUrl(p),
-                  approval: p.approval,
-                  onApprove: (v: boolean) => setApproval("page", p.path, v),
-                  busy: busy === `page:${p.path}`,
-                  // An uploaded page carries the pin widget inside it; an
-                  // external one is somebody else's site, so the only place
-                  // feedback can live is here.
-                  showComments: p.isExternal,
-                  slug: list.project.slug,
-                  path: p.path,
-                }))}
-                fmtDate={fmtDate}
-              />
-            ))}
+                {open && f.pages.map((p) => {
+                  const on = p.path === selected;
+                  const approved = !!p.approval;
+                  return (
+                    <button
+                      key={p.path}
+                      type="button"
+                      onClick={() => setSelected(p.path)}
+                      aria-current={on}
+                      style={{
+                        display: "grid", gridTemplateColumns: "1fr auto", gap: 10,
+                        alignItems: "center", width: "100%", padding: "7px 18px 7px 42px",
+                        background: on ? T.rowActive : "transparent",
+                        border: "none", borderLeft: `2px solid ${on ? T.bronze : "transparent"}`,
+                        cursor: "pointer", textAlign: "left", color: T.text,
+                      }}
+                    >
+                      <span style={{
+                        fontSize: 15, fontWeight: on ? 500 : 400,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
+                        {labelFor(p)}
+                        {p.isEntry && <span style={{ color: T.muted, fontWeight: 400 }}> · entry</span>}
+                      </span>
+                      <span style={{
+                        display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14,
+                        fontWeight: 500, borderRadius: 999, padding: "3px 10px", whiteSpace: "nowrap",
+                        color: approved ? T.green : T.text2,
+                        background: approved ? T.greenBg : T.rowActive,
+                      }}>
+                        <span style={{
+                          width: 5, height: 5, borderRadius: "50%",
+                          background: approved ? T.green : T.text2,
+                        }} />
+                        {approved ? "Approved" : "To review"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
 
-            {list.assets.length > 0 && (
-              <ApprovalGroup
-                title="Assets"
-                rows={list.assets.map((a) => ({
-                  key: a.path,
-                  label: a.path.split("/").pop() || a.path,
-                  viewUrl: assetUrl(a.path),
-                  approval: a.approval,
-                  onApprove: (v: boolean) => setApproval("asset", a.path, v),
-                  busy: busy === `asset:${a.path}`,
-                }))}
-                fmtDate={fmtDate}
-              />
-            )}
-          </>
-        )}
+        <div style={{ padding: "16px 18px", minWidth: 0 }}>
+          {!current ? (
+            <p style={{ fontSize: 15, color: T.muted, margin: 0 }}>Pick a page to look at it.</p>
+          ) : (
+            <>
+              <div style={{ fontSize: 14, color: T.muted }}>{currentFolder?.title} /</div>
+              <div style={{ fontSize: 17, fontWeight: 500, color: T.text }}>{labelFor(current)}</div>
+
+              <div style={{
+                marginTop: 12, height: 190, borderRadius: 8, border: T.hairline,
+                display: "grid", placeItems: "center",
+                background: "repeating-linear-gradient(135deg, rgba(244,239,233,0.03) 0 8px, transparent 8px 16px)",
+                color: T.muted, fontSize: 14,
+              }}>
+                Page preview
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                <a
+                  href={pageUrl(current)} target="_blank" rel="noreferrer"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 7, fontSize: 14, fontWeight: 500,
+                    padding: "8px 14px", borderRadius: T.radiusSm, textDecoration: "none",
+                    background: T.text, color: "rgb(27, 25, 21)",
+                  }}
+                >
+                  <ExternalLink size={14} /> Open &amp; comment
+                </a>
+                <button
+                  type="button"
+                  disabled={busy === `page:${current.path}`}
+                  onClick={() => void setApproval("page", current.path, !current.approval)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 7, fontSize: 14, fontWeight: 500,
+                    padding: "8px 14px", borderRadius: T.radiusSm, border: "none", cursor: "pointer",
+                    background: current.approval ? "transparent" : T.bronzeBtn,
+                    color: current.approval ? T.text2 : T.bronzeBtnText,
+                    boxShadow: current.approval ? `inset 0 0 0 1px rgba(244,239,233,0.09)` : undefined,
+                  }}
+                >
+                  <Check size={14} />
+                  {busy === `page:${current.path}`
+                    ? "Saving…"
+                    : current.approval ? "Approved — undo" : "Approve page"}
+                </button>
+              </div>
+
+              <p style={{ fontSize: 14, color: T.muted, margin: "10px 0 0", lineHeight: 1.5 }}>
+                {current.approval
+                  ? `Approved by ${current.approval.approver_name || "you"} on ${new Date(current.approval.approved_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}.`
+                  : currentFolder?.note
+                    ?? "Comments you leave on the page go straight to the team."}
+              </p>
+            </>
+          )}
+        </div>
       </div>
     </section>
-  );
-}
-
-type Row = {
-  key: string;
-  label: string;
-  viewUrl: string;
-  approval: Approval;
-  onApprove: (v: boolean) => void;
-  busy: boolean;
-  showComments?: boolean;
-  slug?: string;
-  path?: string;
-};
-
-function ApprovalGroup({ title, note, rows, fmtDate }: { title: string; note?: string; rows: Row[]; fmtDate: (s: string) => string }) {
-  return (
-    <div style={{ marginTop: 18 }}>
-      <div style={{ fontSize: 14, letterSpacing: "0.18em", textTransform: "uppercase", color: "hsl(30 8% 62%)", marginBottom: note ? 4 : 8 }}>
-        {title}
-      </div>
-      {note && (
-        <div style={{ fontSize: 14, color: "hsl(30 8% 55%)", marginBottom: 10 }}>{note}</div>
-      )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {rows.map((r) => {
-          const approved = !!r.approval;
-          return (
-            <div
-              key={r.key}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-                padding: "12px 14px",
-                border: "1px solid hsl(30 8% 22%)",
-                borderRadius: 6,
-                background: approved ? "hsl(30 6% 12%)" : "transparent",
-              }}
-            >
-              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 14 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 16, color: "hsl(40 20% 97%)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {r.label}
-                  </div>
-                  {approved && r.approval && (
-                    <div style={{ fontSize: 13, color: "hsl(140 30% 60%)", marginTop: 4, letterSpacing: "0.06em" }}>
-                      ✓ Approved{r.approval.approver_name ? ` by ${r.approval.approver_name}` : ""} · {fmtDate(r.approval.approved_at)}
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <a className="crm-btn crm-btn--ghost crm-btn--sm" href={r.viewUrl} target="_blank" rel="noreferrer" title="View in new tab">
-                    <ExternalLink size={12} /> View
-                  </a>
-                  {approved ? (
-                    <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => r.onApprove(false)} disabled={r.busy} title="Remove approval">
-                      {r.busy ? <Loader2 size={12} className="animate-spin" /> : "Undo"}
-                    </button>
-                  ) : (
-                    <button className="crm-btn crm-btn--bronze crm-btn--sm" onClick={() => r.onApprove(true)} disabled={r.busy}>
-                      {r.busy ? <Loader2 size={12} className="animate-spin" /> : <><Check size={12} /> Approve</>}
-                    </button>
-                  )}
-                </div>
-              </div>
-              {r.showComments && r.slug && r.path !== undefined && (
-                <PageCommentThread slug={r.slug} path={r.path} fmtDate={fmtDate} />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-type Comment = { id: string; author_name: string | null; body: string; created_at: string };
-
-function PageCommentThread({ slug, path, fmtDate }: { slug: string; path: string; fmtDate: (s: string) => string }) {
-  const [open, setOpen] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [name, setName] = useState("");
-  const [body, setBody] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const load = useCallback(async () => {
-    const url = new URL(`${SUPABASE_URL}/functions/v1/preview-page-comments`);
-    url.searchParams.set("slug", slug);
-    url.searchParams.set("path", path);
-    const r = await fetch(url.toString(), { headers: { Authorization: `Bearer ${PUB_KEY}`, apikey: PUB_KEY } });
-    const j = await r.json().catch(() => ({}));
-    if (r.ok) setComments(j.comments || []);
-    setLoaded(true);
-  }, [slug, path]);
-
-  useEffect(() => { if (open && !loaded) void load(); }, [open, loaded, load]);
-
-  const submit = async () => {
-    const text = body.trim();
-    if (!text) return;
-    setBusy(true);
-    const r = await fetch(`${SUPABASE_URL}/functions/v1/preview-page-comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}`, apikey: PUB_KEY },
-      body: JSON.stringify({ slug, path, author_name: name.trim() || null, body: text }),
-    });
-    const j = await r.json().catch(() => ({}));
-    setBusy(false);
-    if (!r.ok) { toast.error(j?.error || "Could not send comment"); return; }
-    setBody("");
-    setComments((prev) => [...prev, j.comment]);
-    toast.success("Comment sent");
-  };
-
-  return (
-    <div style={{ borderTop: "1px dashed hsl(30 8% 22%)", paddingTop: 10 }}>
-      {/*
-        "Comments" read as "look at the comments" — passive, easily taken for a
-        count. On a page we cannot inject the pin widget into, this button IS
-        the only way to give feedback, so it says so, and carries weight until
-        there is actually something in the thread.
-      */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`crm-btn crm-btn--sm ${comments.length > 0 || open ? "crm-btn--ghost" : "crm-btn--bronze"}`}
-        style={{ alignSelf: "flex-start" }}
-      >
-        <MessageSquare size={12} />{" "}
-        {open ? "Hide" : comments.length > 0 ? `Feedback (${comments.length})` : "Leave feedback"}
-      </button>
-      {open && (
-        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
-          {loaded && comments.length === 0 && (
-            <div style={{ fontSize: 14, color: "hsl(30 8% 55%)" }}>No comments yet. Be the first to leave feedback.</div>
-          )}
-          {comments.map((c) => (
-            <div key={c.id} style={{ background: "hsl(30 6% 10%)", border: "1px solid hsl(30 8% 18%)", borderRadius: 4, padding: "8px 10px" }}>
-              <div style={{ fontSize: 13, color: "hsl(30 8% 62%)", marginBottom: 4, letterSpacing: "0.06em" }}>
-                {c.author_name || "Anonymous"} · {fmtDate(c.created_at)}
-              </div>
-              <div style={{ fontSize: 15, color: "hsl(40 20% 95%)", whiteSpace: "pre-wrap" }}>{c.body}</div>
-            </div>
-          ))}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name (optional)"
-              style={{ background: "transparent", border: "1px solid hsl(30 8% 22%)", borderRadius: 4, padding: "6px 10px", color: "hsl(40 20% 97%)", fontSize: 15 }}
-            />
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Share feedback for this page…"
-              rows={3}
-              style={{ background: "transparent", border: "1px solid hsl(30 8% 22%)", borderRadius: 4, padding: "8px 10px", color: "hsl(40 20% 97%)", fontSize: 15, fontFamily: "inherit", resize: "vertical" }}
-            />
-            <button className="crm-btn crm-btn--bronze crm-btn--sm" onClick={submit} disabled={busy || !body.trim()} style={{ alignSelf: "flex-end" }}>
-              {busy ? <Loader2 size={12} className="animate-spin" /> : <><Send size={12} /> Send</>}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }

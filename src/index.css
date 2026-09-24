@@ -1095,7 +1095,9 @@
   color: var(--crm-stone); padding: 8px 14px; border: 1px solid var(--crm-border-dark);
   border-radius: 999px;
 }
-.crm-shell .portal-main { padding: 64px 52px 120px; max-width: 1080px; margin: 0 auto; width: 100%; }
+/* 1024 to the canvas. width:100% matters: .crm-page is a flex column and an
+   auto cross-axis margin cancels the stretch without it. */
+.crm-shell .portal-main { padding: 48px 40px 96px; max-width: 1024px; margin: 0 auto; width: 100%; }
 .crm-shell .portal-hero { margin-bottom: 56px; }
 .crm-shell .portal-hero__eyebrow {
   font-size: 17px; letter-spacing: 0.35em; text-transform: uppercase;

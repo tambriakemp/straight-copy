@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { Eye, FileText } from "lucide-react";
 import { toast } from "sonner";
 import PdfFrame from "@/components/PdfFrame";
+import SidePanel from "@/components/admin/SidePanel";
+import { T } from "@/lib/cre8Design";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -57,8 +60,13 @@ async function callFn(body: Record<string, unknown>) {
   return data;
 }
 
-function ProposalCard({ clientId, contactName, proposal, onChanged }: {
-  clientId: string; contactName: string | null; proposal: Proposal; onChanged: () => void;
+/**
+ * @param inPanel Render the body alone, for the side panel the client reads it
+ *   in. The accordion shell it used to carry is the list's job now.
+ */
+function ProposalCard({ clientId, contactName, proposal, onChanged, inPanel = false }: {
+  clientId: string; contactName: string | null; proposal: Proposal;
+  onChanged: () => void; inPanel?: boolean;
 }) {
   // A decided proposal — signed or declined — opens collapsed. The decision is
   // in the header; the document is there if they want it.
@@ -211,7 +219,7 @@ function ProposalCard({ clientId, contactName, proposal, onChanged }: {
     ? new Date(proposal.client_signed_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
     : null;
 
-  return (
+  const Shell = ({ children }: { children: React.ReactNode }) => inPanel ? <>{children}</> : (
     <section className={`portal-access ${open ? "is-open" : "is-closed"}`}>
       <button type="button" className="portal-access__toggle" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
         <div className="portal-access__toggle-left">
@@ -231,8 +239,13 @@ function ProposalCard({ clientId, contactName, proposal, onChanged }: {
           <span className={`portal-access__chev ${open ? "is-open" : ""}`}>›</span>
         </div>
       </button>
+      {children}
+    </section>
+  );
 
-      {open && (
+  return (
+    <Shell>
+      {(inPanel || open) && (
         <div className="portal-access__body">
           {proposal.description && <p className="portal-access__intro">{proposal.description}</p>}
 
@@ -375,13 +388,14 @@ function ProposalCard({ clientId, contactName, proposal, onChanged }: {
           )}
         </div>
       )}
-    </section>
+    </Shell>
   );
 }
 
 export default function ProposalsSection({ clientId, contactName, projectId }: { clientId: string; contactName: string | null; projectId?: string }) {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewing, setViewing] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -401,11 +415,100 @@ export default function ProposalsSection({ clientId, contactName, projectId }: {
   const visible = proposals.filter((p) => p.status !== "voided" && p.status !== "draft");
   if (visible.length === 0) return null;
 
+  const open = visible.find((p) => p.id === viewing) ?? null;
+  const headline = visible[0];
+  const statusOf = (p: Proposal) =>
+    p.status === "signed"
+      ? { label: "Signed", fg: T.green, bg: T.greenBg }
+      : p.status === "declined"
+        ? { label: "Declined", fg: T.clay, bg: T.clayBg }
+        : { label: "Awaiting you", fg: T.amber, bg: T.amberBg };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {visible.map((p) => (
-        <ProposalCard key={p.id} clientId={clientId} contactName={contactName} proposal={p} onChanged={load} />
-      ))}
-    </div>
+    <>
+      <section style={{
+        border: T.hairline, borderRadius: T.radius, background: T.panel,
+        display: "flex", flexDirection: "column", minWidth: 0,
+      }}>
+        <header style={{
+          display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
+          borderBottom: T.hairline,
+        }}>
+          <h2 style={{ fontFamily: T.serif, fontSize: 22, fontWeight: 500, color: T.text, margin: 0 }}>
+            Proposal
+          </h2>
+          <span style={{ marginLeft: "auto" }}>
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 500,
+              borderRadius: 999, padding: "3px 10px",
+              color: statusOf(headline).fg, background: statusOf(headline).bg,
+            }}>
+              <span style={{
+                width: 5, height: 5, borderRadius: "50%", background: statusOf(headline).fg,
+              }} />
+              {statusOf(headline).label}
+            </span>
+          </span>
+        </header>
+
+        {visible.map((p, i) => {
+          const signedOn = p.client_signed_at
+            ? new Date(p.client_signed_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+            : null;
+          const declinedOn = p.declined_at
+            ? new Date(p.declined_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+            : null;
+          return (
+            <div key={p.id} style={{
+              display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
+              borderTop: i === 0 ? "none" : T.hairline,
+            }}>
+              <FileText size={16} color={T.muted} style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, color: T.text }}>{p.title}</div>
+                <div style={{ fontSize: 14, color: T.muted, marginTop: 2 }}>
+                  {signedOn ? `Signed ${signedOn}` : declinedOn ? `Declined ${declinedOn}` : "Waiting for your decision"}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewing(p.id)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 7, fontSize: 14, fontWeight: 500,
+                  padding: "7px 13px", borderRadius: T.radiusSm, border: T.hairline,
+                  background: "transparent", color: T.text, cursor: "pointer", whiteSpace: "nowrap",
+                }}
+              >
+                <Eye size={14} /> View
+              </button>
+            </div>
+          );
+        })}
+      </section>
+
+      {/* Wide, because a proposal read in a narrow column is a proposal you
+          skim — and this is the panel someone signs a contract in. */}
+      <SidePanel
+        open={!!open}
+        onClose={() => setViewing(null)}
+        title={open?.title ?? "Proposal"}
+        subtitle={open
+          ? (open.status === "signed" ? "Signed — a copy is on file."
+            : open.status === "declined" ? "You let us know this isn't the right fit."
+              : "Read it here, then sign or let us know it isn't right.")
+          : undefined}
+        width={900}
+      >
+        {open && (
+          <ProposalCard
+            clientId={clientId}
+            contactName={contactName}
+            proposal={open}
+            onChanged={load}
+            inPanel
+          />
+        )}
+      </SidePanel>
+    </>
   );
 }

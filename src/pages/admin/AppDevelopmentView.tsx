@@ -23,7 +23,7 @@ import ProgressReportSettingsCard from "@/components/admin/ProgressReportSetting
 import DeliveryTargetsCard from "@/components/admin/DeliveryTargetsCard";
 import ProjectPageHeader from "@/components/admin/project/ProjectPageHeader";
 import ProjectPreviewPanel from "@/components/admin/project/ProjectPreviewPanel";
-import { T } from "@/components/admin/project/projectPageTokens";
+import { T } from "@/lib/cre8Design";
 
 const TYPE_LABEL: Record<string, string> = {
   app_development: "App Development",

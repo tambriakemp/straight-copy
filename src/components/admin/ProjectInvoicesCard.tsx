@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2, Send, Ban, ExternalLink, Mail, X } from "lucide-react";
 import Panel, { PanelButton } from "@/components/admin/project/PanelChrome";
-import { T } from "@/components/admin/project/projectPageTokens";
+import { T } from "@/lib/cre8Design";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,

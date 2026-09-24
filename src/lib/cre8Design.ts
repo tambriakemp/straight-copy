@@ -1,9 +1,14 @@
-// The project page's design language, read off the canvas rather than guessed.
+// The Cre8 Visions design language, read off the canvases rather than guessed.
+//
+// Shared by the admin project page and the client portal, which are two views
+// of the same work and are meant to look like it. Lives in lib/ rather than
+// under admin/ for that reason — the portal importing from an admin folder is
+// how a shared thing quietly becomes an admin thing.
 //
 // These are close cousins of the --crm-* tokens but not the same values: the
-// canvas uses a slightly warmer ink and a heavier hairline than the admin
-// shell, and matching it means saying so once here rather than sprinkling
-// near-miss hex codes through four components.
+// canvases use a slightly warmer ink and a heavier hairline than the admin
+// shell, and matching that means saying so once here rather than sprinkling
+// near-miss hex codes through a dozen components.
 export const T = {
   ink: "rgb(28, 26, 23)",
   panel: "rgb(34, 31, 28)",
@@ -22,6 +27,14 @@ export const T = {
   amberBg: "rgba(210, 174, 114, 0.13)",
   clay: "rgb(212, 148, 116)",
   clayBg: "rgba(212, 148, 116, 0.14)",
+
+  /* Portal-only. The client's two buttons are both primary — looking at a page
+     and approving it are equally the point — so the approving one is bronze
+     and the opening one is the usual light. */
+  bronzeBtn: "rgb(143, 118, 89)",
+  bronzeBtnText: "rgb(249, 246, 241)",
+  /* The "here is how this works" strip above the page tree. */
+  noticeBg: "rgba(184, 156, 122, 0.07)",
 
   serif: "'Cormorant Garamond', Georgia, serif",
   radius: 10,

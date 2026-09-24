@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
   pageState, groupSummary, folderOf, money, UNGROUPED, PAGE_STATE_STYLE,
-} from "@/components/admin/project/projectPageTokens";
+} from "@/lib/cre8Design";
 
 describe("pageState", () => {
   it("calls a page with open comments Changes, even when it was approved", () => {

@@ -4,7 +4,7 @@
 // you reach for from anywhere on the page: is it live, what the client sees,
 // and the settings that gate both.
 import { ArrowLeft, Settings } from "lucide-react";
-import { T } from "./projectPageTokens";
+import { T } from "@/lib/cre8Design";
 import { Pill } from "./PanelChrome";
 
 const STATUS_STYLE: Record<string, { fg: string; bg: string; label: string }> = {

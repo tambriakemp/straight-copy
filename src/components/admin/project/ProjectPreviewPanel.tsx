@@ -19,7 +19,7 @@ import AiEditDialog from "@/components/admin/preview/AiEditDialog";
 import PreviewDetail from "@/pages/admin/PreviewDetail";
 import {
   T, PAGE_STATE_STYLE, pageState, groupSummary, folderOf,
-} from "./projectPageTokens";
+} from "@/lib/cre8Design";
 import Panel, { PanelButton, Pill } from "./PanelChrome";
 
 interface FileRow {

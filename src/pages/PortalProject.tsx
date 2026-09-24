@@ -9,6 +9,7 @@ import ProposalsSection from "@/components/portal/ProposalsSection";
 import InvoiceSection from "@/components/portal/InvoiceSection";
 import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
 import PortalProjectPreviewCard from "@/components/portal/PortalProjectPreviewCard";
+import PortalProgress from "@/components/portal/PortalProgress";
 import WebDevDiscoveryChat from "@/components/portal/WebDevDiscoveryChat";
 
 
@@ -58,6 +59,9 @@ const STAGE_LABELS = [
 export default function PortalProject() {
   const { clientId, projectId } = useParams<{ clientId: string; projectId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  // Reported up by the preview panel so the hero can show it without a second
+  // round trip for the same numbers.
+  const [previewProgress, setPreviewProgress] = useState({ approved: 0, total: 0 });
 
   // Admin impersonation flag — persists across in-portal navigation via sessionStorage.
   // Does NOT touch the Supabase auth session; admin remains signed in on the admin tab.
@@ -474,10 +478,16 @@ export default function PortalProject() {
               {heroTitle.split(" ").length === 1 && <em>.</em>}
             </h1>
             <hr className="portal-hero__rule" />
-            <p className="portal-hero__sub">
-              Welcome{client.contact_name ? `, ${client.contact_name}` : ""}.
-              {contactEmail ? ` We'll keep you posted at ${contactEmail}.` : ""}
-            </p>
+            <div style={{
+              display: "flex", alignItems: "flex-end", justifyContent: "space-between",
+              gap: 24, flexWrap: "wrap",
+            }}>
+              <p className="portal-hero__sub" style={{ margin: 0 }}>
+                Welcome{client.contact_name ? `, ${client.contact_name}` : ""}.
+                {contactEmail ? ` We'll keep you posted at ${contactEmail}.` : ""}
+              </p>
+              <PortalProgress approved={previewProgress.approved} total={previewProgress.total} />
+            </div>
             {isAutomation && (client.build_start_date || client.delivery_date) && (
               <div
                 style={{
@@ -661,7 +671,12 @@ export default function PortalProject() {
                 label: "Preview",
                 node: (
                   <div id="portal-preview" style={{ scrollMarginTop: 24 }}>
-                    <PortalProjectPreviewCard clientProjectId={currentProject.id} contactName={client.contact_name} clientId={clientId} />
+                    <PortalProjectPreviewCard
+                      clientProjectId={currentProject.id}
+                      contactName={client.contact_name}
+                      clientId={clientId}
+                      onProgress={setPreviewProgress}
+                    />
                   </div>
                 ),
               });
@@ -679,22 +694,20 @@ export default function PortalProject() {
                 value: "proposals",
                 label: "Proposals & Payments",
                 node: (
-                  <>
+                  // Side by side, because what was quoted and what is owed on
+                  // it is one question. They stack below 900px rather than
+                  // squeezing to half a column each.
+                  <div style={{
+                    display: "grid", gap: 18, alignItems: "start",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
+                  }}>
                     <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
                       <ProposalsSection clientId={clientId!} contactName={client.contact_name} projectId={currentProject.id} />
                     </div>
-                    <hr style={{
-                      // The portal's own border colour, not --crm-border-dark:
-                      // that token is a 0.08-alpha hairline meant for the admin
-                      // shell, and it all but disappears between two sections
-                      // whose own cards are outlined in this.
-                      border: 0, borderTop: "1px solid hsl(30 8% 22%)",
-                      margin: "26px 0 22px",
-                    }} />
                     <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
                       <InvoiceSection clientId={clientId!} projectId={currentProject.id} />
                     </div>
-                  </>
+                  </div>
                 ),
               });
             }
@@ -732,12 +745,17 @@ export default function PortalProject() {
               <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 32 }}>
                 {tabs.map((t) => (
                   <section key={t.value} id={`portal-section-${t.value}`}>
-                    <h2 style={{
-                      fontFamily: "var(--crm-font-serif)", fontSize: 22, fontWeight: 500,
-                      color: "hsl(40 20% 97%)", margin: "0 0 14px",
-                    }}>
-                      {t.label}
-                    </h2>
+                    {/* Only the grouped one gets a heading. Preview, Proposal
+                        and Payments each title themselves in their own panel
+                        header, so a heading above them says it twice. */}
+                    {t.value === "client-tasks" && (
+                      <h2 style={{
+                        fontFamily: "var(--crm-font-serif)", fontSize: 22, fontWeight: 500,
+                        color: "hsl(40 20% 97%)", margin: "0 0 14px",
+                      }}>
+                        {t.label}
+                      </h2>
+                    )}
                     {t.node}
                   </section>
                 ))}

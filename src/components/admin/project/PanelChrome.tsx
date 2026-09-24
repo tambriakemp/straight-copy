@@ -4,7 +4,7 @@
 // One implementation so Preview, Proposal and Payments cannot drift into three
 // slightly different boxes — which is what happened last time each panel
 // styled its own heading.
-import { T } from "./projectPageTokens";
+import { T } from "@/lib/cre8Design";
 
 export function PanelButton({
   primary, onClick, disabled, children, title, type = "button",
