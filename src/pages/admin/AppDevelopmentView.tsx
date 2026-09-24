@@ -97,7 +97,24 @@ export default function AppDevelopmentView({
 
   return (
     <Shell>
-      <div style={{ padding: embedded ? "0 0 32px" : "28px 40px 48px", maxWidth: 1180, margin: "0 auto" }}>
+      {/* Two boxes, and both do a job.
+
+          The outer one scrolls. .crm-page is `overflow: hidden`, so a page that
+          does not bring its own scroller simply loses everything past the fold
+          — which is what .roster was quietly providing before this page stopped
+          using it. Full width, so the scrollbar sits at the window edge.
+
+          The inner one centres and caps. width:100% on it is load-bearing, not
+          belt-and-braces: an auto margin on a flex column's cross axis cancels
+          the default stretch, so without it this box shrinks to fit its own
+          content (measured: 500px inside a 1024px page) and the auto-fit grid
+          below then has room for only one column. The narrow ribbon and the
+          stacked panels were one cause, not two. */}
+      <div style={embedded ? undefined : { flex: 1, minHeight: 0, overflowY: "auto" }}>
+      <div style={{
+        padding: embedded ? "0 0 32px" : "28px 40px 48px",
+        maxWidth: 1320, margin: "0 auto", width: "100%", boxSizing: "border-box",
+      }}>
         <ProjectPageHeader
           typeLabel={TYPE_LABEL[project.type] ?? "Project"}
           name={project.name}
@@ -153,6 +170,7 @@ export default function AppDevelopmentView({
           <DeliveryTargetsCard clientProjectId={projectId!} />
           <ProgressReportSettingsCard clientId={clientId!} clientProjectId={projectId!} />
         </SidePanel>
+      </div>
       </div>
     </Shell>
   );
