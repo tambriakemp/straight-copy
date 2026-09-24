@@ -10,9 +10,6 @@ import InvoiceSection from "@/components/portal/InvoiceSection";
 import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
 import PortalProjectPreviewCard from "@/components/portal/PortalProjectPreviewCard";
 import WebDevDiscoveryChat from "@/components/portal/WebDevDiscoveryChat";
-import {
-  ProjectTabs, ProjectTabsList, ProjectTabsTrigger, ProjectTabsContent,
-} from "@/components/ProjectTabs";
 
 
 type ProjectRow = { id: string; type: string; name: string; status: string; updated_at: string };
@@ -718,25 +715,33 @@ export default function PortalProject() {
               });
             }
 
-            // Deep-link support: focus=contract|brand-kit picks the tab.
-            const initialTab =
-              (focus === "contract" || focus === "brand-kit") && tabs.find((t) => t.value === "client-tasks")
-                ? "client-tasks"
-                : tabs[0]?.value;
+            if (!tabs.length) return null;
 
-            if (!initialTab) return null;
-
+            // One page, in the order a client works it: what they owe us, then
+            // what we have built for them, then the money.
+            //
+            // These were tabs, and a tab is a promise that the other tabs can
+            // wait. They could not: a client who signed the contract and never
+            // opened Brand Kit had no way of knowing anything was left, because
+            // an unvisited tab looks exactly like a finished one. Stacked, the
+            // work that is outstanding is simply visible.
+            //
+            // `focus` used to pick a tab. It now scrolls, which is what the
+            // #portal-* anchors on each section were always for.
             return (
-              <ProjectTabs defaultValue={initialTab} style={{ marginTop: 24 }}>
-                <ProjectTabsList style={{ flexWrap: "wrap" }}>
-                  {tabs.map((t) => (
-                    <ProjectTabsTrigger key={t.value} value={t.value}>{t.label}</ProjectTabsTrigger>
-                  ))}
-                </ProjectTabsList>
+              <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 32 }}>
                 {tabs.map((t) => (
-                  <ProjectTabsContent key={t.value} value={t.value}>{t.node}</ProjectTabsContent>
+                  <section key={t.value} id={`portal-section-${t.value}`}>
+                    <h2 style={{
+                      fontFamily: "var(--crm-font-serif)", fontSize: 22, fontWeight: 500,
+                      color: "hsl(40 20% 97%)", margin: "0 0 14px",
+                    }}>
+                      {t.label}
+                    </h2>
+                    {t.node}
+                  </section>
                 ))}
-              </ProjectTabs>
+              </div>
             );
           })()}
 

@@ -1204,10 +1204,13 @@
  * Portal — Account Access Section
  * ============================================================ */
 .crm-shell .portal-access {
-  margin-bottom: 12px;
-  background: hsl(40 20% 97% / 0.04);
-  border: 1px solid hsl(40 20% 97% / 0.12);
-  border-radius: 4px;
+  /* Matched to the design canvas's panel, so the portal and the admin project
+     page read as one product rather than two. Same ink, same 0.09 hairline,
+     same 10px corner. */
+  margin-bottom: 14px;
+  background: rgb(34, 31, 28);
+  border: 1px solid rgba(244, 239, 233, 0.09);
+  border-radius: 10px;
   overflow: hidden;
   transition: border-color var(--crm-dur-base) var(--crm-ease-soft);
 }
