@@ -39,7 +39,6 @@ const Tokens = lazy(() => import("./pages/admin/Tokens.tsx"));
 const Invites = lazy(() => import("./pages/admin/Invites.tsx"));
 const ProjectDetail = lazy(() => import("./pages/admin/ProjectDetail.tsx"));
 const AllTasks = lazy(() => import("./pages/admin/AllTasks.tsx"));
-const PreviewDetail = lazy(() => import("./pages/admin/PreviewDetail.tsx"));
 const Proposals = lazy(() => import("./pages/admin/Proposals.tsx"));
 const Payments = lazy(() => import("./pages/admin/Payments.tsx"));
 const Social = lazy(() => import("./pages/admin/Social.tsx"));
@@ -92,7 +91,6 @@ const App = () => (
             <Route path="/admin/social" element={<RequireAdmin><Social /></RequireAdmin>} />
             <Route path="/admin/agents" element={<RequireAdmin><Agents /></RequireAdmin>} />
             <Route path="/admin/tasks" element={<RequireAdmin><AllTasks /></RequireAdmin>} />
-            <Route path="/admin/previews/:id" element={<RequireAdmin><PreviewDetail /></RequireAdmin>} />
             {/* The queue lives in the engineering queue lead's Workspace rail
                 now. Kept as a redirect so bookmarks and old links still arrive,
                 rather than as a second door to the same panel. */}

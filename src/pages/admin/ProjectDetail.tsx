@@ -3,7 +3,6 @@ import { useParams, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import AutomationBuildView from "./AutomationBuildView";
-import PreviewDetail from "./PreviewDetail";
 import AppDevelopmentView from "./AppDevelopmentView";
 
 type ProjectRow = { id: string; client_id: string; type: string; name: string };
@@ -25,7 +24,6 @@ export default function ProjectDetail({
   const params = useParams<{ id: string; projectId: string }>();
   const projectId = projectIdProp ?? params.projectId;
   const [project, setProject] = useState<ProjectRow | null>(null);
-  const [previewId, setPreviewId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -41,14 +39,6 @@ export default function ProjectDetail({
       if (cancelled) return;
       if (!data) { setNotFound(true); setLoading(false); return; }
       setProject(data as ProjectRow);
-      if (data.type === "site_preview") {
-        const { data: pp } = await supabase
-          .from("preview_projects")
-          .select("id")
-          .eq("client_project_id", data.id)
-          .maybeSingle();
-        setPreviewId(pp?.id ?? null);
-      }
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -71,18 +61,10 @@ export default function ProjectDetail({
 
   if (project.type === "automation_build") return <AutomationBuildView {...pass} />;
 
-  if (project.type === "site_preview") {
-    if (!previewId) {
-      return <Shell><div style={{ padding: 40 }}>No preview attached to this project yet.</div></Shell>;
-    }
-    return (
-      <PreviewDetail
-        overrideId={previewId}
-        backTo={`/admin/clients/${clientId}`}
-        embedded={embedded}
-      />
-    );
-  }
+  // site_preview used to jump straight to the preview page, skipping the
+  // project page entirely — so a preview project had no proposal, no payment
+  // schedule and no settings. It gets the same page as everything else now;
+  // the Preview panel is simply the whole story for that type.
 
   // Everything that is not a preview gets the board view, including project
   // types added later.
