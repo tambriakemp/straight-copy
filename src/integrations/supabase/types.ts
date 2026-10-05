@@ -596,6 +596,24 @@ export type Database = {
         }
         Relationships: []
       }
+      app_secrets: {
+        Row: {
+          key: string
+          rotated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          rotated_at?: string
+          value: string
+        }
+        Update: {
+          key?: string
+          rotated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           id: number
@@ -617,6 +635,72 @@ export type Database = {
           review_email_subject?: string | null
           review_email_template_uuid?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      briefs: {
+        Row: {
+          created_at: string
+          delivered_to_chat: boolean
+          external_id: string | null
+          id: string
+          period: string
+          sections: Json
+          source: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          delivered_to_chat?: boolean
+          external_id?: string | null
+          id?: string
+          period: string
+          sections: Json
+          source?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          delivered_to_chat?: boolean
+          external_id?: string | null
+          id?: string
+          period?: string
+          sections?: Json
+          source?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      client_audits: {
+        Row: {
+          client_name: string
+          created_at: string
+          id: string
+          password: string
+          password_rotated_at: string
+          report_url: string | null
+          slug: string
+          status: string
+        }
+        Insert: {
+          client_name: string
+          created_at?: string
+          id?: string
+          password: string
+          password_rotated_at?: string
+          report_url?: string | null
+          slug: string
+          status?: string
+        }
+        Update: {
+          client_name?: string
+          created_at?: string
+          id?: string
+          password?: string
+          password_rotated_at?: string
+          report_url?: string | null
+          slug?: string
+          status?: string
         }
         Relationships: []
       }
@@ -2105,6 +2189,36 @@ export type Database = {
           last_activity_at?: string | null
           summary?: Json | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      paperclip_pending_items: {
+        Row: {
+          id: string
+          issue_identifier: string | null
+          issue_url: string | null
+          kind: string
+          raw: Json | null
+          synced_at: string
+          title: string
+        }
+        Insert: {
+          id: string
+          issue_identifier?: string | null
+          issue_url?: string | null
+          kind: string
+          raw?: Json | null
+          synced_at?: string
+          title: string
+        }
+        Update: {
+          id?: string
+          issue_identifier?: string | null
+          issue_url?: string | null
+          kind?: string
+          raw?: Json | null
+          synced_at?: string
+          title?: string
         }
         Relationships: []
       }
