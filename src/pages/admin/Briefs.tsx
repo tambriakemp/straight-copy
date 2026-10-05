@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Copy, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { Copy, Eye, EyeOff, RefreshCw, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from "@/components/ui/sheet";
 
 // briefs, paperclip_pending_items and app_secrets aren't in the generated
 // Database type yet — Lovable regenerates src/integrations/supabase/types.ts
@@ -115,6 +118,7 @@ export default function Briefs() {
   const [briefs, setBriefs] = useState<Brief[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingItem[] | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const load = async () => {
     const { data, error } = await db.from("briefs").select("*").order("created_at", { ascending: false }).limit(30);
@@ -145,6 +149,15 @@ export default function Briefs() {
               <Link to="/admin/audits" style={{ color: "hsl(40 20% 97%)" }}>Client passwords →</Link>
             </p>
           </div>
+          <button
+            type="button"
+            className="crm-btn crm-btn--ghost crm-btn--sm"
+            style={{ alignSelf: "flex-start" }}
+            aria-label="Settings"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings className="h-4 w-4" />
+          </button>
         </div>
 
         <div style={{ background: "hsl(36 5% 16%)", padding: 28, marginBottom: 24 }}>
@@ -232,28 +245,38 @@ export default function Briefs() {
             )}
           </div>
         </div>
-
-        <div style={{ background: "hsl(36 5% 16%)", padding: 28 }}>
-          <h2 className="font-serif italic text-xl" style={{ color: "hsl(40 20% 97%)", marginBottom: 4 }}>Settings</h2>
-          <p style={{ fontSize: 17, color: "hsl(30 8% 62%)", marginBottom: 20 }}>
-            Keys this tab needs. Generated and rotated here — never in Supabase or Lovable.
-          </p>
-          <SecretRow
-            label="Brief ingest key" secretKey="briefs_ingest_secret" placeholder="" generated
-            hint="Paste this into Ara's secure secret form as BRIEFS_INGEST_SECRET. Rotating breaks Ara's posts until she has the new value — briefs fall back to full chat messages in the meantime, nothing is lost."
-          />
-          <SecretRow
-            label="Paperclip read key" secretKey="paperclip_read_token" placeholder="paste the key minted on your agent page"
-            generated={false}
-            hint="Mint on your Paperclip agent page (Settings → API Keys → New key, scope Standard, name briefs-sync-reader) and paste the one-time value here. Never paste it anywhere else — not Supabase, not Lovable chat."
-          />
-          <SecretRow
-            label="Bree's Paperclip user ID" secretKey="paperclip_bree_user_id" placeholder="paste Bree's Paperclip user id"
-            generated={false}
-            hint="So the sync can pull Bree's personal inbox, not just company-wide approvals. Find it on her Paperclip profile."
-          />
-        </div>
       </div>
+
+      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <SheetContent
+          side="right"
+          style={{ background: "hsl(36 5% 16%)", color: "hsl(40 20% 97%)", borderColor: "hsl(40 20% 97% / 0.10)" }}
+          className="!w-full sm:!max-w-md overflow-y-auto"
+        >
+          <SheetHeader>
+            <SheetTitle className="font-serif italic text-xl" style={{ color: "hsl(40 20% 97%)" }}>Settings</SheetTitle>
+            <SheetDescription style={{ fontSize: 17, color: "hsl(30 8% 62%)" }}>
+              Keys this tab needs. Generated and rotated here — never in Supabase or Lovable.
+            </SheetDescription>
+          </SheetHeader>
+          <div style={{ marginTop: 20 }}>
+            <SecretRow
+              label="Brief ingest key" secretKey="briefs_ingest_secret" placeholder="" generated
+              hint="Paste this into Ara's secure secret form as BRIEFS_INGEST_SECRET. Rotating breaks Ara's posts until she has the new value — briefs fall back to full chat messages in the meantime, nothing is lost."
+            />
+            <SecretRow
+              label="Paperclip read key" secretKey="paperclip_read_token" placeholder="paste the key minted on your agent page"
+              generated={false}
+              hint="Mint on your Paperclip agent page (Settings → API Keys → New key, scope Standard, name briefs-sync-reader) and paste the one-time value here. Never paste it anywhere else — not Supabase, not Lovable chat."
+            />
+            <SecretRow
+              label="Bree's Paperclip user ID" secretKey="paperclip_bree_user_id" placeholder="paste Bree's Paperclip user id"
+              generated={false}
+              hint="So the sync can pull Bree's personal inbox, not just company-wide approvals. Find it on her Paperclip profile."
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </AdminLayout>
   );
 }
