@@ -43,6 +43,7 @@ const Proposals = lazy(() => import("./pages/admin/Proposals.tsx"));
 const Payments = lazy(() => import("./pages/admin/Payments.tsx"));
 const Social = lazy(() => import("./pages/admin/Social.tsx"));
 const Briefs = lazy(() => import("./pages/admin/Briefs.tsx"));
+const Approvals = lazy(() => import("./pages/admin/Approvals.tsx"));
 const Audits = lazy(() => import("./pages/admin/Audits.tsx"));
 const Agents = lazy(() => import("./pages/admin/Agents.tsx"));
 const PreviewViewer = lazy(() => import("./pages/PreviewViewer.tsx"));
@@ -92,6 +93,7 @@ const App = () => (
             <Route path="/admin/payments" element={<RequireAdmin><Payments /></RequireAdmin>} />
             <Route path="/admin/social" element={<RequireAdmin><Social /></RequireAdmin>} />
             <Route path="/admin/briefs" element={<RequireAdmin><Briefs /></RequireAdmin>} />
+            <Route path="/admin/approvals" element={<RequireAdmin><Approvals /></RequireAdmin>} />
             <Route path="/admin/audits" element={<RequireAdmin><Audits /></RequireAdmin>} />
             <Route path="/admin/agents" element={<RequireAdmin><Agents /></RequireAdmin>} />
             <Route path="/admin/tasks" element={<RequireAdmin><AllTasks /></RequireAdmin>} />

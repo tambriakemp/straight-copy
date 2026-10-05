@@ -174,3 +174,10 @@ verify_jwt = false
 # the function — the same arrangement as dispatch-social-schedule.
 [functions.sync-paperclip-pending]
 verify_jwt = false
+
+# Shared-secret ingest/read for Nicole's weekly prospect-outreach batches
+# (CRE-244). The expected value lives in app_secrets.prospect_approvals_ingest_secret,
+# checked inside the function — not a Supabase Function env var. Same pattern
+# as post-brief.
+[functions.prospect-approvals-sync]
+verify_jwt = false

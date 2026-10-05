@@ -21,6 +21,7 @@ interface Brief {
 interface PendingItem {
   id: string; kind: string; title: string; issue_identifier: string | null; issue_url: string | null;
 }
+interface ProspectBatchPending { batch: string; count: number }
 
 function randomSecret(len = 40) {
   const arr = new Uint8Array(len);
@@ -115,6 +116,7 @@ export default function Briefs() {
   const [briefs, setBriefs] = useState<Brief[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingItem[] | null>(null);
+  const [prospectBatches, setProspectBatches] = useState<ProspectBatchPending[] | null>(null);
 
   const load = async () => {
     const { data, error } = await db.from("briefs").select("*").order("created_at", { ascending: false }).limit(30);
@@ -128,9 +130,36 @@ export default function Briefs() {
     if (error) { toast.error(error.message); return; }
     setPending((data ?? []) as PendingItem[]);
   };
-  useEffect(() => { load(); loadPending(); }, []);
+  const loadProspectPending = async () => {
+    const { data, error } = await db.from("prospect_approvals").select("batch").eq("status", "pending");
+    if (error) { toast.error(error.message); return; }
+    const counts = new Map<string, number>();
+    for (const row of (data ?? []) as { batch: string }[]) {
+      counts.set(row.batch, (counts.get(row.batch) ?? 0) + 1);
+    }
+    setProspectBatches(
+      Array.from(counts, ([batch, count]) => ({ batch, count })).sort((a, b) => b.batch.localeCompare(a.batch)),
+    );
+  };
+  useEffect(() => { load(); loadPending(); loadProspectPending(); }, []);
 
   const current = useMemo(() => briefs?.find((b) => b.id === selected) ?? briefs?.[0] ?? null, [briefs, selected]);
+
+  // Prospect-approval batches with pending decisions join Paperclip's own
+  // pending items in one "needs you now" list (CRE-244 §5) — one row per
+  // batch rather than per prospect, so a big outreach round doesn't flood the
+  // panel with dozens of lines.
+  const combinedPending = useMemo(() => {
+    if (pending === null && prospectBatches === null) return null;
+    const fromProspects = (prospectBatches ?? []).map((b) => ({
+      id: `prospect-${b.batch}`,
+      kind: "prospect approvals",
+      title: `${b.count} prospect${b.count === 1 ? "" : "s"} pending review — batch ${b.batch}`,
+      issue_identifier: null,
+      issue_url: "/admin/approvals",
+    }));
+    return [...fromProspects, ...(pending ?? [])];
+  }, [pending, prospectBatches]);
 
   return (
     <AdminLayout>
@@ -152,16 +181,16 @@ export default function Briefs() {
           <p style={{ fontSize: 17, color: "hsl(30 8% 62%)", marginBottom: 16 }}>
             Open Paperclip approvals and questions, synced every 10 minutes.
           </p>
-          {!pending ? (
+          {!combinedPending ? (
             <div style={{ fontSize: 16, color: "hsl(30 8% 62%)" }}>Loading…</div>
-          ) : !pending.length ? (
+          ) : !combinedPending.length ? (
             <div className="crm-empty">
               <div className="crm-empty__glyph">✓</div>
               <div className="crm-empty__title">Nothing <em>waiting</em>.</div>
             </div>
           ) : (
             <div style={{ display: "grid", gap: 8 }}>
-              {pending.map((p) => (
+              {combinedPending.map((p) => (
                 <a key={p.id} href={p.issue_url ?? "#"} target="_blank" rel="noreferrer"
                   style={{
                     display: "flex", justifyContent: "space-between", gap: 12,

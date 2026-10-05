@@ -41,6 +41,7 @@ export default function WorkspaceMenu() {
   const primary = [
     { to: "/admin", label: "Clients", exact: true },
     { to: "/admin/briefs", label: "Briefs" },
+    { to: "/admin/approvals", label: "Approvals" },
     { to: "/admin/proposals", label: "Proposals" },
     { to: "/admin/payments", label: "Payments" },
     { to: "/admin/social", label: "Social / Marketing" },
