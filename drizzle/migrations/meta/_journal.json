@@ -8,6 +8,13 @@
       "when": 1791175664368,
       "tag": "0000_briefs_core",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791184556106,
+      "tag": "0001_prospect_approvals",
+      "breakpoints": true
     }
   ]
 }

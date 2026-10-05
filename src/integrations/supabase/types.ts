@@ -3111,6 +3111,72 @@ export type Database = {
           },
         ]
       }
+      prospect_approvals: {
+        Row: {
+          batch: string
+          city: string | null
+          company: string
+          contact_email: string | null
+          contact_name: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          email_body: string | null
+          email_subject: string | null
+          hook: string | null
+          id: string
+          notes: string | null
+          preview_image_url: string | null
+          preview_url: string | null
+          slug: string
+          status: string
+          trade: string | null
+          updated_at: string
+        }
+        Insert: {
+          batch: string
+          city?: string | null
+          company: string
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          email_body?: string | null
+          email_subject?: string | null
+          hook?: string | null
+          id?: string
+          notes?: string | null
+          preview_image_url?: string | null
+          preview_url?: string | null
+          slug: string
+          status?: string
+          trade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          batch?: string
+          city?: string | null
+          company?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          email_body?: string | null
+          email_subject?: string | null
+          hook?: string | null
+          id?: string
+          notes?: string | null
+          preview_image_url?: string | null
+          preview_url?: string | null
+          slug?: string
+          status?: string
+          trade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           auth: string
