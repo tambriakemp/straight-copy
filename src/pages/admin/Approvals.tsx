@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Check, Copy, ExternalLink, Eye, EyeOff, RefreshCw, X } from "lucide-react";
+import { Check, Copy, ExternalLink, Eye, EyeOff, RefreshCw, Settings, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from "@/components/ui/sheet";
 
 // prospect_approvals and app_secrets aren't in the generated Database type
 // yet — see the same note in Briefs.tsx.
@@ -118,6 +121,7 @@ export default function Approvals() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const load = async () => {
     const { data, error } = await db.from("prospect_approvals").select("*")
@@ -206,6 +210,15 @@ export default function Approvals() {
               <Link to="/admin/briefs" style={{ color: "hsl(40 20% 97%)" }}>Briefs →</Link>
             </p>
           </div>
+          <button
+            type="button"
+            className="crm-btn crm-btn--ghost crm-btn--sm"
+            style={{ alignSelf: "flex-start" }}
+            aria-label="Settings"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings className="h-4 w-4" />
+          </button>
         </div>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
@@ -378,17 +391,28 @@ export default function Approvals() {
           </div>
         )}
 
-        <div style={{ background: "hsl(36 5% 16%)", padding: 28, marginTop: 24 }}>
-          <h2 className="font-serif italic text-xl" style={{ color: "hsl(40 20% 97%)", marginBottom: 4 }}>Settings</h2>
-          <p style={{ fontSize: 17, color: "hsl(30 8% 62%)", marginBottom: 20 }}>
-            Key this tab needs. Generated and rotated here — never in Supabase or Lovable.
-          </p>
-          <SecretRow
-            label="Prospect approvals ingest key" secretKey="prospect_approvals_ingest_secret"
-            hint="Paste this into Nicole's secure secret form as PROSPECT_APPROVALS_INGEST_SECRET. Rotating breaks her pushes and decision reads until she has the new value."
-          />
-        </div>
       </div>
+
+      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <SheetContent
+          side="right"
+          style={{ background: "hsl(36 5% 16%)", color: "hsl(40 20% 97%)", borderColor: "hsl(40 20% 97% / 0.10)" }}
+          className="!w-full sm:!max-w-md overflow-y-auto"
+        >
+          <SheetHeader>
+            <SheetTitle className="font-serif italic text-xl" style={{ color: "hsl(40 20% 97%)" }}>Settings</SheetTitle>
+            <SheetDescription style={{ fontSize: 17, color: "hsl(30 8% 62%)" }}>
+              Key this tab needs. Generated and rotated here — never in Supabase or Lovable.
+            </SheetDescription>
+          </SheetHeader>
+          <div style={{ marginTop: 20 }}>
+            <SecretRow
+              label="Prospect approvals ingest key" secretKey="prospect_approvals_ingest_secret"
+              hint="Save this as a Paperclip secret named PROSPECT-APPROVALS-INGEST-KEY — Ara adds it to Nicole's env from there. Rotating breaks her pushes and decision reads until she has the new value."
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </AdminLayout>
   );
 }
