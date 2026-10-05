@@ -12,17 +12,23 @@
 // and updates polling state (complete/paused as applicable).
 //
 // Also accepts { clientId } in the body for one-off manual runs (called by
-// check-email-status).
+// check-email-status, which already calls through a service-role client).
 //
 // verify_jwt = false — cron + service-role admin path.
+//
+// CRE-249: this had no caller check at all — anyone could trigger a poll
+// sweep across every client, or a single one by id. Now requires either the
+// CLAUDE_WEBHOOK_SECRET shared secret (see the fire_email_status_poll
+// migration) or a service-role bearer (check-email-status already sends one).
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { flipChecklistItem } from "../_shared/auto-checklist.ts";
+import { resolveCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-agent-secret",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -268,6 +274,9 @@ async function pollOneClient(
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const caller = await resolveCaller(req);
+  if (caller.kind === "unauthorized") return json({ success: false, error: "Unauthorized" }, 401);
 
   try {
     const apiKey = Deno.env.get("SURECONTACT_API_KEY");

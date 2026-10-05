@@ -1,16 +1,29 @@
 // Cron-driven drainer for web_dev_scheduled_emails. Picks any rows whose
 // send_after is in the past and sent_at is null, then fires the SureContact
 // template. Invoked by pg_cron every 15 minutes.
+//
+// CRE-249: this had no caller check at all — anyone could trigger a drain of
+// every due email. Now requires the CLAUDE_WEBHOOK_SECRET shared secret (see
+// the fire_web_dev_scheduled_dispatch migration).
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { sendWebDevTemplate } from "../_shared/web-dev-emails.ts";
+import { resolveCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-agent-secret",
 };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const caller = await resolveCaller(req);
+  if (caller.kind === "unauthorized") {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,

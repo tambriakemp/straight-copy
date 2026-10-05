@@ -1,19 +1,26 @@
 // Pushes a client record into SureContact, including their unique portal URL
 // as a custom field so SureContact email templates can merge it.
 //
-// verify_jwt = false — invoked from server-side triggers (pg_net) and the
-// admin UI with the publishable key. Always validates the clientId against
+// verify_jwt = false — invoked from server-side triggers (pg_net), the admin
+// UI, and the agent action executor. Always validates the clientId against
 // the clients table before doing anything.
+//
+// CRE-249: clientId alone used to be enough to push a client update to
+// SureContact (tags, stage, billing status, custom fields) as anyone. The DB
+// trigger (fire_surecontact_sync) now sends the CLAUDE_WEBHOOK_SECRET shared
+// secret instead of the public anon key; the admin UI sends a real admin
+// session; the agent action executor already sends a service-role bearer.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import {
   splitContactName,
   upsertSureContact,
 } from "../_shared/surecontact.ts";
+import { resolveCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-agent-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const PORTAL_BASE_URL =
@@ -27,6 +34,9 @@ const json = (body: unknown, status = 200) =>
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const caller = await resolveCaller(req);
+  if (caller.kind === "unauthorized") return json({ success: false, error: "Unauthorized" }, 401);
 
   try {
     const apiKey = Deno.env.get("SURECONTACT_API_KEY");

@@ -8,13 +8,19 @@
 //
 // verify_jwt = false — invoked by the DB trigger via pg_net and by the admin
 // UI for manual re-fires.
+//
+// CRE-249: clientId alone used to be enough to make this fire a real
+// SureContact email to that client's contact address. The DB trigger
+// (fire_kickoff_webhook) now sends the CLAUDE_WEBHOOK_SECRET shared secret
+// instead of the public anon key; the admin UI sends a real admin session.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { splitContactName, upsertSureContact } from "../_shared/surecontact.ts";
+import { resolveCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-agent-secret",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -67,6 +73,9 @@ function markKickoffDone(checklist: unknown): ChecklistItem[] | null {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const caller = await resolveCaller(req);
+  if (caller.kind === "unauthorized") return json({ success: false, error: "Unauthorized" }, 401);
 
   try {
     const supabase = createClient(
