@@ -163,3 +163,14 @@ verify_jwt = false
 # stripe-webhook (ventures) so the two carry different signing secrets.
 [functions.stripe-crm-webhook]
 verify_jwt = false
+
+# Shared-secret ingest for Ara's twice-daily brief routine (CRE-235). The
+# expected value lives in app_secrets.briefs_ingest_secret, checked inside the
+# function — not a Supabase Function env var.
+[functions.post-brief]
+verify_jwt = false
+
+# pg_cron calls this via pg_net with an x-agent-secret header, checked inside
+# the function — the same arrangement as dispatch-social-schedule.
+[functions.sync-paperclip-pending]
+verify_jwt = false
