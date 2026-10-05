@@ -8,11 +8,16 @@
 // app_secrets, pasted from the same Settings card as the brief ingest
 // secret — never a Supabase Function env var.
 //
-// The exact shape of an approval/interaction object was observed live for
-// only the two fields the plan tested (array vs {items:[]}, required
-// userId); field names below (title/issueIdentifier/etc.) are a best guess
-// with fallbacks and may need a follow-up adjustment once real pending rows
-// exist to compare against.
+// inbox/mine's shape was confirmed live against real data on CRE-248: it
+// returns full Paperclip issue objects with a flat `identifier` field (not
+// `issueIdentifier`, not a nested `.issue`), and — the bigger find — it
+// returns *every* issue responsible to the given user regardless of status
+// (76 rows going back to September, including `done`/`backlog`), not just
+// the ones that need her attention. Filtered below to the statuses that
+// actually mean "needs you right now": in_review, blocked, todo.
+// The /approvals endpoint's field shape is still unverified — this company
+// has never had a real pending-approval row to check field names against,
+// so that mapping is left as the original best guess.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -100,8 +105,10 @@ Deno.serve(async (req) => {
       if (!inboxRes.ok) throw new Error(`inbox ${inboxRes.status}: ${await inboxRes.text()}`);
       const inbox = await inboxRes.json();
       const list = Array.isArray(inbox) ? inbox : inbox.items ?? [];
+      const ACTIONABLE_STATUSES = new Set(["in_review", "blocked", "todo"]);
       for (const i of list) {
-        const identifier = i.issueIdentifier ?? i.issue?.identifier ?? null;
+        if (!ACTIONABLE_STATUSES.has(i.status)) continue;
+        const identifier = i.identifier ?? null;
         items.push({
           id: String(i.id),
           kind: "interaction",

@@ -237,7 +237,7 @@ export default function Briefs() {
                 }}>
                 <div>{b.title}</div>
                 <div style={{ fontSize: 13, color: "hsl(30 8% 62%)" }}>
-                  {new Date(b.created_at).toLocaleString()}{!b.delivered_to_chat ? " · chat fallback" : ""}
+                  {new Date(b.created_at).toLocaleString()}
                 </div>
               </button>
             ))}
