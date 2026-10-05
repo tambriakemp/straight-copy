@@ -1,8 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, CreditCard, FileSignature, Megaphone, User } from "lucide-react";
+import { Home, CreditCard, FileSignature, Megaphone, User, Newspaper } from "lucide-react";
 
 const tabs = [
   { to: "/admin", label: "Home", icon: Home, exact: true },
+  { to: "/admin/briefs", label: "Briefs", icon: Newspaper },
   { to: "/admin/payments", label: "Payments", icon: CreditCard },
   { to: "/admin/proposals", label: "Proposals", icon: FileSignature },
   { to: "/admin/social", label: "Social", icon: Megaphone },

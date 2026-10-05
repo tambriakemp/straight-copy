@@ -40,6 +40,7 @@ export default function WorkspaceMenu() {
 
   const primary = [
     { to: "/admin", label: "Clients", exact: true },
+    { to: "/admin/briefs", label: "Briefs" },
     { to: "/admin/proposals", label: "Proposals" },
     { to: "/admin/payments", label: "Payments" },
     { to: "/admin/social", label: "Social / Marketing" },
@@ -113,7 +114,7 @@ export default function WorkspaceMenu() {
                 width: "100%", padding: "8px 14px", fontSize: 15, textAlign: "left",
                 background: "transparent", border: "none", cursor: "pointer", color: "var(--crm-taupe)",
               }}>
-              <span style={{ opacity: 0.8 }}>⎋</span>
+              <span style={{ opacity: 0.8 }}>⏋</span>
               <span>Sign out</span>
             </button>
           </div>
