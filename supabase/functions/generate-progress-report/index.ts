@@ -6,10 +6,11 @@ import {
   sendProgressReportEmail,
   type TaskForSummary,
 } from "../_shared/progress-report-email.ts";
+import { resolveCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-agent-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -23,15 +24,29 @@ Deno.serve(async (req) => {
     });
   }
 
+  // CRE-249: projectId alone used to be enough to make this function email a
+  // client's real progress report, or (via testRecipientEmail) email it to
+  // any address. Caller must be the weekly cron fan-out (service-role bearer),
+  // another server-side caller holding CLAUDE_WEBHOOK_SECRET, or a logged-in
+  // admin.
+  const caller = await resolveCaller(req);
+  if (caller.kind === "unauthorized") return json({ ok: false, error: "Unauthorized" }, 401);
+
   try {
     const { projectId, forceSend, preview, testRecipientEmail } = await req.json();
     if (!projectId || typeof projectId !== "string") {
       return json({ ok: false, error: "projectId is required" }, 400);
     }
     const isPreview = preview === true;
-    const testEmail = typeof testRecipientEmail === "string" && testRecipientEmail.includes("@")
+    const requestedTestEmail = typeof testRecipientEmail === "string" && testRecipientEmail.includes("@")
       ? testRecipientEmail.trim()
       : null;
+    // Only a real admin session may redirect a send to an arbitrary address —
+    // the cron fan-out and any other secret/service-role caller never need to.
+    if (requestedTestEmail && caller.kind !== "admin") {
+      return json({ ok: false, error: "testRecipientEmail requires an authenticated admin" }, 403);
+    }
+    const testEmail = requestedTestEmail;
 
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,

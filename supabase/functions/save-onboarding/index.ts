@@ -1,5 +1,10 @@
 // Saves a completed onboarding submission, notifies the owner via email,
 // and kicks off brand-voice generation.
+//
+// Intentionally public — this is the onboarding chat for prospective clients
+// who aren't authenticated yet (CRE-249 confirmed the open form is by
+// design). Hardened with cheap shape limits and a per-IP rate limit so it
+// can't be used to run up Anthropic/email costs or flood onboarding_submissions.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { extractSummaryWithClaude, triggerBrandVoiceGeneration } from "../_shared/onboarding-summary.ts";
 
@@ -10,6 +15,17 @@ const corsHeaders = {
 };
 
 const OWNER_EMAIL = "hello@cre8visions.com";
+
+const MAX_MESSAGES = 60;
+const MAX_MESSAGE_LENGTH = 4000;
+const RATE_LIMIT_WINDOW_MINUTES = 10;
+const RATE_LIMIT_MAX_PER_WINDOW = 3;
+
+function clientIp(req: Request): string | null {
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0].trim();
+  return req.headers.get("x-real-ip");
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -22,10 +38,44 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    if (conversation.length > MAX_MESSAGES) {
+      return new Response(JSON.stringify({ error: "conversation is too long" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const oversizedMessage = conversation.some(
+      (m: any) => typeof m?.content === "string" && m.content.length > MAX_MESSAGE_LENGTH,
+    );
+    if (oversizedMessage) {
+      return new Response(JSON.stringify({ error: "a message is too long" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    // Rate limit before the Anthropic call, not after — the whole point is to
+    // cap the cost per IP, not just the row count.
+    const ip = clientIp(req);
+    if (ip) {
+      const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
+      const { count } = await supabase
+        .from("onboarding_submissions")
+        .select("id", { count: "exact", head: true })
+        .eq("submitted_ip", ip)
+        .gte("created_at", windowStart);
+      if ((count ?? 0) >= RATE_LIMIT_MAX_PER_WINDOW) {
+        return new Response(JSON.stringify({ error: "Too many submissions — please wait a few minutes and try again." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // 1. Use Claude to extract structured summary (19-field schema).
     const transcript = conversation
@@ -35,7 +85,6 @@ Deno.serve(async (req) => {
     const summary: any = await extractSummaryWithClaude(transcript, ANTHROPIC_API_KEY);
 
     // 2. Save submission (the create_client_from_onboarding trigger will spawn a clients row).
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: inserted, error: insertErr } = await supabase
       .from("onboarding_submissions")
       .insert({
@@ -45,6 +94,7 @@ Deno.serve(async (req) => {
         conversation,
         summary,
         completed: true,
+        submitted_ip: ip,
       })
       .select()
       .single();

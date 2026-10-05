@@ -1,11 +1,18 @@
 // Sends an internal notification to the Cre8 Visions team when a Web Dev
 // discovery chat is marked complete. Best-effort — never throws to the caller.
+//
+// CRE-249: clientId alone used to be enough to make this fan out an internal
+// notification email for any client. Its only real caller is
+// web-dev-discovery-chat, which already calls through a service-role client,
+// so this now requires that service-role bearer (or the CLAUDE_WEBHOOK_SECRET
+// shared secret, for parity with the rest of the webhook fleet).
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { resolveCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-agent-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 function serviceClient() {
@@ -31,6 +38,14 @@ function buildSummary(conversation: Msg[]): string {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const caller = await resolveCaller(req);
+  if (caller.kind === "unauthorized") {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   try {
     const body = await req.json().catch(() => ({} as Record<string, unknown>));

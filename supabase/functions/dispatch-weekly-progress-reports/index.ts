@@ -1,15 +1,28 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { resolveCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-agent-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 // Fans out generate-progress-report to every eligible project. Triggered
 // weekly by pg_cron at Friday 21:00 UTC.
+//
+// CRE-249: this had no caller check at all — anyone could fire a real send to
+// every active client in one call. Now requires the CLAUDE_WEBHOOK_SECRET
+// shared secret (see the fire_weekly_progress_reports migration).
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const caller = await resolveCaller(req);
+  if (caller.kind === "unauthorized") {
+    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
