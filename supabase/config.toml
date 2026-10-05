@@ -1,10 +1,10 @@
 project_id = "zjxvcgcuukgqawczanud"
 
 [functions.process-email-queue]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-transactional-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.preview-transactional-email]
 verify_jwt = false
@@ -31,7 +31,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.generate-brand-voice]
-verify_jwt = false
+verify_jwt = true
 
 [functions.brand-kit-intake]
 verify_jwt = false
@@ -49,7 +49,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.check-email-status]
-verify_jwt = false
+verify_jwt = true
 
 [functions.poll-email-status]
 verify_jwt = false
@@ -89,7 +89,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-web-dev-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.dispatch-web-dev-scheduled]
 verify_jwt = false
