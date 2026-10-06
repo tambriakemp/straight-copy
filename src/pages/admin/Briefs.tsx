@@ -303,6 +303,10 @@ export default function Briefs() {
               generated={false}
               hint="So the sync can pull Bree's personal inbox, not just company-wide approvals. Find it on her Paperclip profile."
             />
+            <SecretRow
+              label="Audit upload key" secretKey="audit_upload_secret" placeholder="" generated
+              hint="Paste this into Devin's secure secret form as AUDIT_UPLOAD_SECRET — the site-audit tool on the VPS sends it with every published report (/audit/<slug>, CRE-225). Rotating breaks publishing until Devin has the new value; nothing already published is affected."
+            />
           </div>
         </SheetContent>
       </Sheet>
