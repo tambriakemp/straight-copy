@@ -30,6 +30,9 @@ export interface WebDevTaskDef {
   acceptance_criteria: string[];
   email_template_key?: string;
   email_trigger?: "agency" | "auto";
+  // Present on every entry of WEB_DEV_TASKS (position within the full
+  // backlog); used as project_tasks.order_index when seeding.
+  order_index: number;
 }
 
 export const WEB_DEV_TASKS: WebDevTaskDef[] = [
