@@ -15,6 +15,13 @@
       "when": 1791184556106,
       "tag": "0001_prospect_approvals",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791265048080,
+      "tag": "0002_payment_schedules",
+      "breakpoints": true
     }
   ]
 }

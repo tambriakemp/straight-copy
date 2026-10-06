@@ -1275,6 +1275,7 @@ export type Database = {
           content_version: number
           created_at: string
           created_by_agent: string | null
+          currency: string
           decline_reason: string | null
           declined_at: string | null
           description: string | null
@@ -1285,14 +1286,20 @@ export type Database = {
           last_activity_at: string | null
           meeting_link: string | null
           next_followup_at: string | null
+          payment_due_days: number | null
+          payment_terms: Json | null
           pdf_generated_at: string | null
           send_message_id: string | null
           sent_at: string | null
           sent_to: string | null
           signed_pdf_path: string | null
+          signed_pdf_sha256: string | null
           source_pdf_path: string | null
+          source_pdf_sha256: string | null
+          source_pdf_version: number
           status: string
           title: string
+          total_cents: number | null
           updated_at: string
         }
         Insert: {
@@ -1311,6 +1318,7 @@ export type Database = {
           content_version?: number
           created_at?: string
           created_by_agent?: string | null
+          currency?: string
           decline_reason?: string | null
           declined_at?: string | null
           description?: string | null
@@ -1321,14 +1329,20 @@ export type Database = {
           last_activity_at?: string | null
           meeting_link?: string | null
           next_followup_at?: string | null
+          payment_due_days?: number | null
+          payment_terms?: Json | null
           pdf_generated_at?: string | null
           send_message_id?: string | null
           sent_at?: string | null
           sent_to?: string | null
           signed_pdf_path?: string | null
+          signed_pdf_sha256?: string | null
           source_pdf_path?: string | null
+          source_pdf_sha256?: string | null
+          source_pdf_version?: number
           status?: string
           title: string
+          total_cents?: number | null
           updated_at?: string
         }
         Update: {
@@ -1347,6 +1361,7 @@ export type Database = {
           content_version?: number
           created_at?: string
           created_by_agent?: string | null
+          currency?: string
           decline_reason?: string | null
           declined_at?: string | null
           description?: string | null
@@ -1357,14 +1372,20 @@ export type Database = {
           last_activity_at?: string | null
           meeting_link?: string | null
           next_followup_at?: string | null
+          payment_due_days?: number | null
+          payment_terms?: Json | null
           pdf_generated_at?: string | null
           send_message_id?: string | null
           sent_at?: string | null
           sent_to?: string | null
           signed_pdf_path?: string | null
+          signed_pdf_sha256?: string | null
           source_pdf_path?: string | null
+          source_pdf_sha256?: string | null
+          source_pdf_version?: number
           status?: string
           title?: string
+          total_cents?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -2222,6 +2243,70 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_schedules: {
+        Row: {
+          client_id: string
+          client_project_id: string
+          created_at: string
+          currency: string
+          id: string
+          proposal_id: string | null
+          source: string
+          status: string
+          title: string
+          total_cents: number | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          client_project_id: string
+          created_at?: string
+          currency?: string
+          id?: string
+          proposal_id?: string | null
+          source: string
+          status?: string
+          title?: string
+          total_cents?: number | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          client_project_id?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          proposal_id?: string | null
+          source?: string
+          status?: string
+          title?: string
+          total_cents?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_schedules_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_schedules_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_schedules_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: true
+            referencedRelation: "client_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       preview_approval_events: {
         Row: {
           action: string
@@ -2581,16 +2666,20 @@ export type Database = {
           created_at: string
           currency: string
           due_date: string | null
+          due_days: number | null
           id: string
           label: string
           notes: string | null
           paid_at: string | null
+          proposal_id: string | null
+          schedule_id: string | null
           sent_at: string | null
           sequence: number
           status: string
           surecart_checkout_id: string | null
           surecart_invoice_id: string | null
           surecart_order_id: string | null
+          trigger: string | null
           updated_at: string
           voided_at: string | null
         }
@@ -2602,16 +2691,20 @@ export type Database = {
           created_at?: string
           currency?: string
           due_date?: string | null
+          due_days?: number | null
           id?: string
           label: string
           notes?: string | null
           paid_at?: string | null
+          proposal_id?: string | null
+          schedule_id?: string | null
           sent_at?: string | null
           sequence?: number
           status?: string
           surecart_checkout_id?: string | null
           surecart_invoice_id?: string | null
           surecart_order_id?: string | null
+          trigger?: string | null
           updated_at?: string
           voided_at?: string | null
         }
@@ -2623,20 +2716,39 @@ export type Database = {
           created_at?: string
           currency?: string
           due_date?: string | null
+          due_days?: number | null
           id?: string
           label?: string
           notes?: string | null
           paid_at?: string | null
+          proposal_id?: string | null
+          schedule_id?: string | null
           sent_at?: string | null
           sequence?: number
           status?: string
           surecart_checkout_id?: string | null
           surecart_invoice_id?: string | null
           surecart_order_id?: string | null
+          trigger?: string | null
           updated_at?: string
           voided_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "project_invoices_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "client_proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_invoices_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "payment_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       project_links: {
         Row: {
@@ -4491,6 +4603,7 @@ export type Database = {
         Args: { _client_id: string }
         Returns: undefined
       }
+      fire_sync_paperclip_pending: { Args: never; Returns: undefined }
       get_portal_client: { Args: { _client_id: string }; Returns: Json }
       get_project_secret: {
         Args: { _client_project_id: string; _enc_key: string; _key: string }
