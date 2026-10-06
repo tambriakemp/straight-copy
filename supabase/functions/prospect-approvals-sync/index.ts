@@ -12,8 +12,13 @@
 // Bree already made.
 // action "decisions": read back rows Nicole needs for her side of the
 // pipeline (approved/rejected only, optionally filtered by batch and/or an
-// "updated since" cursor for polling).
-import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+// "updated since" cursor for polling). Each decision now also carries its
+// attachments (CRE-303 follow-up) as short-lived signed URLs — the bucket is
+// private, so a bare storage path is useless to Nicole's side.
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+
+const ATTACHMENT_BUCKET = "prospect-approval-attachments";
+const SIGNED_URL_TTL_SECONDS = 600; // 10 minutes — just long enough for a read-back to download them
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -96,6 +101,54 @@ function validatePush(body: unknown): string | null {
   return null;
 }
 
+interface AttachmentRow {
+  prospect_id: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  created_at: string;
+}
+
+async function attachmentsForProspects(sb: SupabaseClient, prospectIds: string[]) {
+  const byProspect = new Map<string, Array<{
+    file_name: string;
+    mime_type: string | null;
+    size_bytes: number | null;
+    created_at: string;
+    signed_url: string | null;
+  }>>();
+  if (!prospectIds.length) return byProspect;
+
+  const { data: rows, error } = await sb
+    .from("prospect_approval_attachments")
+    .select("prospect_id, storage_path, file_name, mime_type, size_bytes, created_at")
+    .in("prospect_id", prospectIds);
+  if (error || !rows?.length) return byProspect;
+
+  const attachmentRows = rows as AttachmentRow[];
+  const paths = attachmentRows.map((r) => r.storage_path);
+  const { data: signed } = await sb.storage
+    .from(ATTACHMENT_BUCKET)
+    .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
+  const signedByPath = new Map<string | null, string>(
+    (signed ?? []).map((s: { path: string | null; signedUrl: string }) => [s.path, s.signedUrl]),
+  );
+
+  for (const row of attachmentRows) {
+    const list = byProspect.get(row.prospect_id) ?? [];
+    list.push({
+      file_name: row.file_name,
+      mime_type: row.mime_type,
+      size_bytes: row.size_bytes,
+      created_at: row.created_at,
+      signed_url: signedByPath.get(row.storage_path) ?? null,
+    });
+    byProspect.set(row.prospect_id, list);
+  }
+  return byProspect;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -132,7 +185,11 @@ Deno.serve(async (req) => {
     if (b.since) query = query.gt("updated_at", b.since);
     const { data, error } = await query;
     if (error) return json({ error: error.message }, 500);
-    return json({ decisions: data ?? [] }, 200);
+    const decisions = data ?? [];
+    const attachmentsByProspect = await attachmentsForProspects(sb, decisions.map((d) => d.id as string));
+    return json({
+      decisions: decisions.map((d) => ({ ...d, attachments: attachmentsByProspect.get(d.id as string) ?? [] })),
+    }, 200);
   }
 
   if (action !== "push") {

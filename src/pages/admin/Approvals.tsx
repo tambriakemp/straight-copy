@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Check, Copy, ExternalLink, Eye, EyeOff, RefreshCw, Settings, X } from "lucide-react";
+import {
+  Check, Copy, ExternalLink, Eye, EyeOff, FileText, Paperclip, RefreshCw, Settings, Upload, X,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +10,29 @@ import { useAdminAuth } from "@/hooks/useAdminAuth";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
+
+const ATTACHMENT_BUCKET = "prospect-approval-attachments";
+const ACCEPTED_ATTACHMENT_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB
+
+interface AttachmentDraft {
+  file: File;
+  previewUrl: string | null; // object URL for images; null for PDFs (icon instead)
+}
+
+function validateAttachment(file: File): string | null {
+  if (!ACCEPTED_ATTACHMENT_TYPES.includes(file.type)) return `${file.name}: unsupported type`;
+  if (file.size > MAX_ATTACHMENT_BYTES) return `${file.name}: over 10 MB`;
+  return null;
+}
+
+function slugifyFileName(name: string): string {
+  const dot = name.lastIndexOf(".");
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot).toLowerCase() : "";
+  const slug = base.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "file";
+  return `${slug}${ext}`;
+}
 
 // prospect_approvals and app_secrets aren't in the generated Database type
 // yet — see the same note in Briefs.tsx.
@@ -123,11 +148,12 @@ export default function Approvals() {
   const [batch, setBatch] = useState<string>("all");
   const [status, setStatus] = useState<"all" | Status>("pending");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [noteOpenId, setNoteOpenId] = useState<string | null>(null);
+  const [panelId, setPanelId] = useState<string | null>(null);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [attachmentDrafts, setAttachmentDrafts] = useState<Record<string, AttachmentDraft[]>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     const { data, error } = await db.from("prospect_approvals").select("*")
@@ -163,8 +189,49 @@ export default function Approvals() {
     rejected: scoped.filter((p) => p.status === "rejected").length,
   }), [scoped]);
 
+  // Attachments are uploaded only at save time — a panel opened, attached-to,
+  // then closed without deciding leaves no orphan files in the bucket.
+  const uploadAttachments = async (id: string): Promise<string | null> => {
+    const drafts = attachmentDrafts[id] ?? [];
+    if (!drafts.length) return null;
+    const { data: userRes } = await supabase.auth.getUser();
+    for (const draft of drafts) {
+      const path = `${id}/${crypto.randomUUID()}-${slugifyFileName(draft.file.name)}`;
+      const up = await supabase.storage.from(ATTACHMENT_BUCKET).upload(path, draft.file, {
+        contentType: draft.file.type,
+        upsert: false,
+      });
+      if (up.error) return `${draft.file.name}: ${up.error.message}`;
+      const { error: insErr } = await db.from("prospect_approval_attachments").insert({
+        prospect_id: id,
+        storage_path: path,
+        file_name: draft.file.name,
+        mime_type: draft.file.type,
+        size_bytes: draft.file.size,
+        uploaded_by: userRes.user?.id ?? null,
+      });
+      if (insErr) return `${draft.file.name}: ${insErr.message}`;
+    }
+    return null;
+  };
+
+  const clearAttachmentDrafts = (id: string) => {
+    setAttachmentDrafts((d) => {
+      (d[id] ?? []).forEach((a) => a.previewUrl && URL.revokeObjectURL(a.previewUrl));
+      const next = { ...d };
+      delete next[id];
+      return next;
+    });
+  };
+
   const decide = async (id: string, next: Status, notes?: string) => {
     setBusyId(id);
+    const attachErr = await uploadAttachments(id);
+    if (attachErr) {
+      setBusyId(null);
+      toast.error(`Attachment failed, decision not saved: ${attachErr}`);
+      return;
+    }
     const { error } = await db.from("prospect_approvals").update({
       status: next,
       notes: notes ?? null,
@@ -176,8 +243,8 @@ export default function Approvals() {
     if (error) { toast.error(error.message); return; }
     toast.success(next === "approved" ? "Approved" : "Rejected");
     setSelected((s) => { const n = new Set(s); n.delete(id); return n; });
-    setOpenId(null);
-    setNoteOpenId((n) => (n === id ? null : n));
+    clearAttachmentDrafts(id);
+    setPanelId((p) => (p === id ? null : p));
     load();
   };
 
@@ -202,7 +269,28 @@ export default function Approvals() {
     return n;
   });
 
-  const open = filtered.find((p) => p.id === openId) ?? null;
+  const addAttachmentFiles = (id: string, files: FileList | File[] | null) => {
+    if (!files) return;
+    const next: AttachmentDraft[] = [];
+    for (const file of Array.from(files)) {
+      const problem = validateAttachment(file);
+      if (problem) { toast.error(problem); continue; }
+      next.push({ file, previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null });
+    }
+    if (next.length) setAttachmentDrafts((d) => ({ ...d, [id]: [...(d[id] ?? []), ...next] }));
+  };
+
+  const removeAttachmentDraft = (id: string, idx: number) => {
+    setAttachmentDrafts((d) => {
+      const list = [...(d[id] ?? [])];
+      const [removed] = list.splice(idx, 1);
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+      return { ...d, [id]: list };
+    });
+  };
+
+  const panelProspect = filtered.find((p) => p.id === panelId) ?? null;
+  const panelAttachments = panelId ? attachmentDrafts[panelId] ?? [] : [];
 
   return (
     <AdminLayout>
@@ -324,7 +412,7 @@ export default function Approvals() {
                           <button
                             type="button"
                             className="crm-btn crm-btn--ghost crm-btn--sm"
-                            onClick={() => setNoteOpenId((id) => (id === p.id ? null : p.id))}
+                            onClick={() => setPanelId(p.id)}
                           >
                             + Note
                           </button>
@@ -340,22 +428,13 @@ export default function Approvals() {
                             type="button"
                             className="crm-btn crm-btn--ghost crm-btn--sm"
                             disabled={busyId === p.id}
-                            onClick={() => setOpenId(p.id)}
+                            onClick={() => setPanelId(p.id)}
                           >
                             <X className="h-3 w-3" /> Reject
                           </button>
                         </>
                       )}
                     </div>
-                    {noteOpenId === p.id && (
-                      <textarea
-                        className="crm-input"
-                        placeholder="Note (optional)"
-                        value={noteDrafts[p.id] ?? ""}
-                        onChange={(e) => setNoteDrafts((d) => ({ ...d, [p.id]: e.target.value }))}
-                        style={{ width: 220, minHeight: 50, fontFamily: "inherit", fontSize: 13 }}
-                      />
-                    )}
                   </div>
                 </div>
               ))}
@@ -363,51 +442,149 @@ export default function Approvals() {
           </>
         )}
 
-        {open && (
-          <div
-            role="dialog"
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "grid", placeItems: "center", zIndex: 80, padding: 20 }}
-            onClick={() => setOpenId(null)}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{ background: "hsl(36 5% 16%)", maxWidth: 480, width: "100%", maxHeight: "90vh", overflowY: "auto", padding: 28 }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <h2 className="font-serif italic text-2xl" style={{ color: "hsl(40 20% 97%)", marginBottom: 2 }}>
-                    Reject {open.company}?
-                  </h2>
-                  <p style={{ fontSize: 14, color: "hsl(30 8% 62%)" }}>
-                    {open.city}{open.trade ? ` · ${open.trade}` : ""} · batch {open.batch}
-                  </p>
-                </div>
-                <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setOpenId(null)}>Close</button>
+      </div>
+
+      <Sheet open={!!panelProspect} onOpenChange={(v) => { if (!v) setPanelId(null); }}>
+        <SheetContent
+          side="right"
+          style={{ background: "hsl(36 5% 16%)", color: "hsl(40 20% 97%)", borderColor: "hsl(40 20% 97% / 0.10)" }}
+          className="!w-full sm:!max-w-xl overflow-y-auto"
+        >
+          {panelProspect && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="font-serif italic text-2xl" style={{ color: "hsl(40 20% 97%)" }}>
+                  {panelProspect.company}
+                </SheetTitle>
+                <SheetDescription style={{ fontSize: 15, color: "hsl(30 8% 62%)" }}>
+                  {panelProspect.city}{panelProspect.trade ? ` · ${panelProspect.trade}` : ""} · batch {panelProspect.batch}
+                </SheetDescription>
+              </SheetHeader>
+
+              <div style={{ display: "flex", gap: 8, margin: "14px 0 6px" }}>
+                <button
+                  type="button"
+                  className="crm-btn crm-btn--ghost crm-btn--sm"
+                  disabled={!panelProspect.current_site_url}
+                  title={panelProspect.current_site_url ? undefined : "No site"}
+                  onClick={() => openInNewTab(panelProspect.current_site_url)}
+                >
+                  Current site
+                </button>
+                <button
+                  type="button"
+                  className="crm-btn crm-btn--ghost crm-btn--sm"
+                  disabled={!panelProspect.preview_url}
+                  onClick={() => openInNewTab(panelProspect.preview_url)}
+                >
+                  Preview <ExternalLink className="h-3 w-3" />
+                </button>
               </div>
 
               <textarea
                 className="crm-input"
                 placeholder="Notes for Nicole — what should change? (encouraged, optional)"
-                defaultValue={noteDrafts[open.id] ?? open.notes ?? ""}
-                onChange={(e) => setNoteDrafts((d) => ({ ...d, [open.id]: e.target.value }))}
-                style={{ width: "100%", minHeight: 100, margin: "18px 0", fontFamily: "inherit" }}
+                value={noteDrafts[panelProspect.id] ?? panelProspect.notes ?? ""}
+                onChange={(e) => setNoteDrafts((d) => ({ ...d, [panelProspect.id]: e.target.value }))}
+                style={{ width: "100%", minHeight: 160, margin: "14px 0", fontFamily: "inherit" }}
                 autoFocus
               />
 
+              <div style={{ marginBottom: 18 }}>
+                <label className="crm-label" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <Paperclip className="h-3.5 w-3.5" /> Attachments
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ACCEPTED_ATTACHMENT_TYPES.join(",")}
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={(e) => { addAttachmentFiles(panelProspect.id, e.target.files); e.target.value = ""; }}
+                />
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); addAttachmentFiles(panelProspect.id, e.dataTransfer.files); }}
+                  onPaste={(e) => {
+                    const files = Array.from(e.clipboardData?.files ?? []);
+                    if (files.length) addAttachmentFiles(panelProspect.id, files);
+                  }}
+                  tabIndex={0}
+                  style={{
+                    border: "1px dashed hsl(40 20% 97% / 0.18)",
+                    borderRadius: 8,
+                    padding: panelAttachments.length ? 12 : "20px 12px",
+                    background: "hsl(40 20% 97% / 0.02)",
+                  }}
+                >
+                  {panelAttachments.length === 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "hsl(30 8% 62%)", fontSize: 14 }}>
+                        <Upload className="h-3.5 w-3.5" /> Drop or paste screenshots here, PNG/JPG/WebP/PDF up to 10 MB
+                      </div>
+                      <button
+                        type="button"
+                        className="crm-btn crm-btn--ghost crm-btn--sm"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Paperclip className="h-3 w-3" /> Attach
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 10 }}>
+                      {panelAttachments.map((a, i) => (
+                        <div key={i} style={{ position: "relative", borderRadius: 6, overflow: "hidden", border: "1px solid hsl(40 20% 97% / 0.12)" }}>
+                          {a.previewUrl ? (
+                            <img src={a.previewUrl} alt="" style={{ width: "100%", height: 80, objectFit: "cover", display: "block" }} />
+                          ) : (
+                            <div style={{ width: "100%", height: 80, display: "flex", alignItems: "center", justifyContent: "center", background: "hsl(40 8% 10%)" }}>
+                              <FileText className="h-6 w-6" style={{ color: "hsl(30 8% 62%)" }} />
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeAttachmentDraft(panelProspect.id, i)}
+                            style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.7)", border: 0, color: "#fff", borderRadius: "50%", width: 20, height: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                            aria-label={`Remove ${a.file.name}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                          <div style={{ padding: "3px 5px", fontSize: 11, color: "hsl(30 8% 62%)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {a.file.name}
+                          </div>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        style={{ minHeight: 80, border: "1px dashed hsl(40 20% 97% / 0.18)", borderRadius: 6, background: "transparent", color: "hsl(30 8% 62%)", cursor: "pointer", fontSize: 13 }}
+                      >
+                        + Add more
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div style={{ display: "flex", gap: 10 }}>
                 <button
-                  className="crm-btn crm-btn--ghost" disabled={busyId === open.id}
-                  onClick={() => decide(open.id, "rejected", noteDrafts[open.id] ?? open.notes ?? undefined)}
+                  className="crm-btn crm-btn--bronze" disabled={busyId === panelProspect.id}
+                  onClick={() => decide(panelProspect.id, "approved", noteDrafts[panelProspect.id] ?? panelProspect.notes ?? undefined)}
+                >
+                  <Check className="h-4 w-4" /> Approve
+                </button>
+                <button
+                  className="crm-btn crm-btn--ghost" disabled={busyId === panelProspect.id}
+                  onClick={() => decide(panelProspect.id, "rejected", noteDrafts[panelProspect.id] ?? panelProspect.notes ?? undefined)}
                 >
                   <X className="h-4 w-4" /> Reject
                 </button>
-                <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setOpenId(null)}>Cancel</button>
+                <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setPanelId(null)}>Cancel</button>
               </div>
-            </div>
-          </div>
-        )}
-
-      </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
         <SheetContent
