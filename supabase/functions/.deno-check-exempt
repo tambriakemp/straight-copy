@@ -18,9 +18,6 @@ mcp-oauth/index.ts
 parse-metrics-image/index.ts
 poll-email-status/index.ts
 project-invoices/index.ts
-project-tasks/index.ts
 proposal-sign/index.ts
 regenerate-social-post/index.ts
 send-preview-review-email/index.ts
-surecart-webhook/index.ts
-surecontact-webhook/index.ts
