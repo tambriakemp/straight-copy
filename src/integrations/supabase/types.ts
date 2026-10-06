@@ -1298,12 +1298,9 @@ export type Database = {
           source_pdf_sha256: string | null
           source_pdf_version: number
           status: string
-          supersedes_id: string | null
           title: string
           total_cents: number | null
           updated_at: string
-          version: number
-          version_group_id: string | null
         }
         Insert: {
           agency_countersigned_at?: string | null
@@ -1344,12 +1341,9 @@ export type Database = {
           source_pdf_sha256?: string | null
           source_pdf_version?: number
           status?: string
-          supersedes_id?: string | null
           title: string
           total_cents?: number | null
           updated_at?: string
-          version?: number
-          version_group_id?: string | null
         }
         Update: {
           agency_countersigned_at?: string | null
@@ -1390,12 +1384,9 @@ export type Database = {
           source_pdf_sha256?: string | null
           source_pdf_version?: number
           status?: string
-          supersedes_id?: string | null
           title?: string
           total_cents?: number | null
           updated_at?: string
-          version?: number
-          version_group_id?: string | null
         }
         Relationships: [
           {
@@ -1403,13 +1394,6 @@ export type Database = {
             columns: ["created_by_agent"]
             isOneToOne: false
             referencedRelation: "agents"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_proposals_supersedes_id_fkey"
-            columns: ["supersedes_id"]
-            isOneToOne: false
-            referencedRelation: "client_proposals"
             referencedColumns: ["id"]
           },
         ]
