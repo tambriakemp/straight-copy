@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  Check, Copy, ExternalLink, Eye, EyeOff, FileText, Paperclip, RefreshCw, Settings, Upload, X,
+  Check, Copy, ExternalLink, Eye, EyeOff, FileText, History, Paperclip, RefreshCw, Send, Settings, Upload, X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -34,6 +34,23 @@ function slugifyFileName(name: string): string {
   return `${slug}${ext}`;
 }
 
+// Keep in sync with prospectKeyAndVersion in
+// supabase/functions/prospect-approvals-sync/index.ts — both sides must
+// derive the same key for the same slug, or a round written here won't
+// group with the history the edge function reads back for Nicole.
+function prospectKeyAndVersion(slug: string): { prospectKey: string; version: string } {
+  const m = slug.match(/^(.*)-v(\d+)$/i);
+  if (m) return { prospectKey: m[1], version: `v${m[2]}` };
+  return { prospectKey: slug, version: "v1" };
+}
+
+const CT_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Chicago", dateStyle: "medium", timeStyle: "short",
+});
+function formatCT(iso: string): string {
+  return `${CT_FORMATTER.format(new Date(iso))} CT`;
+}
+
 // prospect_approvals and app_secrets aren't in the generated Database type
 // yet — see the same note in Briefs.tsx.
 const db = supabase as unknown as { from: (table: string) => any };
@@ -61,6 +78,27 @@ interface Prospect {
   decided_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface FeedbackAttachment {
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  signed_url: string | null;
+}
+
+// One round of feedback (CRE-303 follow-up, Bree 11:01 AM CT Oct 6): a Submit
+// in the composer, read-only once saved. Fetched by prospect_key, so a
+// rebuild that lands as a new row (acme-roofing-v2) still shows the rounds
+// left on acme-roofing (v1) — see prospectKeyAndVersion above.
+interface FeedbackRound {
+  id: string;
+  round: number;
+  preview_version: string;
+  notes: string | null;
+  created_at: string;
+  created_by: string | null;
+  attachments: FeedbackAttachment[];
 }
 
 const STATUS_LABEL: Record<Status, string> = { pending: "Pending", approved: "Approved", rejected: "Rejected" };
@@ -153,6 +191,7 @@ export default function Approvals() {
   const [attachmentDrafts, setAttachmentDrafts] = useState<Record<string, AttachmentDraft[]>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [panelHistory, setPanelHistory] = useState<FeedbackRound[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -190,8 +229,10 @@ export default function Approvals() {
   }), [scoped]);
 
   // Attachments are uploaded only at save time — a panel opened, attached-to,
-  // then closed without deciding leaves no orphan files in the bucket.
-  const uploadAttachments = async (id: string): Promise<string | null> => {
+  // then closed without submitting leaves no orphan files in the bucket.
+  // Each attachment belongs to a feedback round, not to the prospect alone
+  // (CRE-303 follow-up), so a round must already exist before this runs.
+  const uploadAttachments = async (id: string, feedbackId: string): Promise<string | null> => {
     const drafts = attachmentDrafts[id] ?? [];
     if (!drafts.length) return null;
     const { data: userRes } = await supabase.auth.getUser();
@@ -204,6 +245,7 @@ export default function Approvals() {
       if (up.error) return `${draft.file.name}: ${up.error.message}`;
       const { error: insErr } = await db.from("prospect_approval_attachments").insert({
         prospect_id: id,
+        feedback_id: feedbackId,
         storage_path: path,
         file_name: draft.file.name,
         mime_type: draft.file.type,
@@ -224,17 +266,87 @@ export default function Approvals() {
     });
   };
 
-  const decide = async (id: string, next: Status, notes?: string) => {
-    setBusyId(id);
-    const attachErr = await uploadAttachments(id);
-    if (attachErr) {
-      setBusyId(null);
-      toast.error(`Attachment failed, decision not saved: ${attachErr}`);
-      return;
+  // Every round left on this prospect, across whichever batch/slug version it
+  // was written from — keyed by prospect_key, not this row's own id.
+  const loadHistory = async (prospect: Prospect) => {
+    const { prospectKey } = prospectKeyAndVersion(prospect.slug);
+    const { data: rounds, error } = await db.from("prospect_approval_feedback")
+      .select("id, round, preview_version, notes, created_at, created_by")
+      .eq("prospect_key", prospectKey)
+      .order("round", { ascending: false });
+    if (error) { toast.error(error.message); setPanelHistory([]); return; }
+    const feedbackIds = (rounds ?? []).map((r: { id: string }) => r.id);
+    const attachmentsByFeedback = new Map<string, FeedbackAttachment[]>();
+    if (feedbackIds.length) {
+      const { data: attachRows } = await db.from("prospect_approval_attachments")
+        .select("feedback_id, storage_path, file_name, mime_type, size_bytes")
+        .in("feedback_id", feedbackIds);
+      const paths = (attachRows ?? []).map((a: { storage_path: string }) => a.storage_path);
+      const signedByPath = new Map<string, string>();
+      if (paths.length) {
+        const { data: signed } = await supabase.storage.from(ATTACHMENT_BUCKET).createSignedUrls(paths, 600);
+        (signed ?? []).forEach((s) => { if (s.path && s.signedUrl) signedByPath.set(s.path, s.signedUrl); });
+      }
+      for (const a of attachRows ?? []) {
+        const list = attachmentsByFeedback.get(a.feedback_id) ?? [];
+        list.push({
+          file_name: a.file_name, mime_type: a.mime_type, size_bytes: a.size_bytes,
+          signed_url: signedByPath.get(a.storage_path) ?? null,
+        });
+        attachmentsByFeedback.set(a.feedback_id, list);
+      }
     }
+    setPanelHistory((rounds ?? []).map((r: Omit<FeedbackRound, "attachments">) => ({
+      ...r, attachments: attachmentsByFeedback.get(r.id) ?? [],
+    })));
+  };
+
+  // Submit saves the composer as a new, read-only round — independent of
+  // Approve/Reject, so Bree can leave several rounds of feedback across
+  // rebuild cycles rather than one field that keeps getting overwritten.
+  const submitRound = async (id: string): Promise<boolean> => {
+    const prospect = prospects?.find((p) => p.id === id);
+    if (!prospect) return false;
+    const notes = (noteDrafts[id] ?? "").trim();
+    const drafts = attachmentDrafts[id] ?? [];
+    if (!notes && !drafts.length) {
+      toast.error("Add notes or an attachment before submitting");
+      return false;
+    }
+    setBusyId(id);
+    const { prospectKey, version } = prospectKeyAndVersion(prospect.slug);
+    const { data: maxRow } = await db.from("prospect_approval_feedback")
+      .select("round").eq("prospect_key", prospectKey).order("round", { ascending: false }).limit(1).maybeSingle();
+    const round = (maxRow?.round ?? 0) + 1;
+    const { data: feedbackRow, error } = await db.from("prospect_approval_feedback").insert({
+      approval_id: id,
+      prospect_key: prospectKey,
+      round,
+      preview_version: version,
+      notes: notes || null,
+      created_by: user?.email ?? null,
+    }).select("id").single();
+    if (error) { setBusyId(null); toast.error(error.message); return false; }
+    const attachErr = await uploadAttachments(id, feedbackRow.id as string);
+    setBusyId(null);
+    if (attachErr) { toast.error(`Round ${round} saved, but an attachment failed: ${attachErr}`); } else {
+      toast.success(`Round ${round} saved`);
+    }
+    setNoteDrafts((d) => ({ ...d, [id]: "" }));
+    clearAttachmentDrafts(id);
+    await loadHistory(prospect);
+    return true;
+  };
+
+  const decide = async (id: string, next: Status) => {
+    const hasDraft = !!(noteDrafts[id] ?? "").trim() || !!(attachmentDrafts[id] ?? []).length;
+    if (hasDraft) {
+      const ok = await submitRound(id);
+      if (!ok) return; // submitRound already surfaced the error
+    }
+    setBusyId(id);
     const { error } = await db.from("prospect_approvals").update({
       status: next,
-      notes: notes ?? null,
       decided_at: new Date().toISOString(),
       decided_by: user?.email ?? null,
       updated_at: new Date().toISOString(),
@@ -243,7 +355,6 @@ export default function Approvals() {
     if (error) { toast.error(error.message); return; }
     toast.success(next === "approved" ? "Approved" : "Rejected");
     setSelected((s) => { const n = new Set(s); n.delete(id); return n; });
-    clearAttachmentDrafts(id);
     setPanelId((p) => (p === id ? null : p));
     load();
   };
@@ -291,6 +402,16 @@ export default function Approvals() {
 
   const panelProspect = filtered.find((p) => p.id === panelId) ?? null;
   const panelAttachments = panelId ? attachmentDrafts[panelId] ?? [] : [];
+
+  useEffect(() => {
+    if (!panelId) { setPanelHistory(null); return; }
+    const prospect = (prospects ?? []).find((p) => p.id === panelId);
+    if (prospect) loadHistory(prospect);
+    // prospects is intentionally omitted: a decide()/load() refresh while the
+    // panel is open must not re-trigger this — submitRound already reloads
+    // history itself after a successful save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelId]);
 
   return (
     <AdminLayout>
@@ -420,7 +541,7 @@ export default function Approvals() {
                             type="button"
                             className="crm-btn crm-btn--bronze crm-btn--sm"
                             disabled={busyId === p.id}
-                            onClick={() => decide(p.id, "approved", noteDrafts[p.id])}
+                            onClick={() => decide(p.id, "approved")}
                           >
                             <Check className="h-3 w-3" /> Approve
                           </button>
@@ -481,12 +602,15 @@ export default function Approvals() {
                 </button>
               </div>
 
+              <label className="crm-label" style={{ display: "block", marginTop: 14 }}>
+                New round {panelHistory && panelHistory.length > 0 ? `(round ${panelHistory[0].round + 1})` : "(round 1)"}
+              </label>
               <textarea
                 className="crm-input"
                 placeholder="Notes for Nicole — what should change? (encouraged, optional)"
-                value={noteDrafts[panelProspect.id] ?? panelProspect.notes ?? ""}
+                value={noteDrafts[panelProspect.id] ?? ""}
                 onChange={(e) => setNoteDrafts((d) => ({ ...d, [panelProspect.id]: e.target.value }))}
-                style={{ width: "100%", minHeight: 160, margin: "14px 0", fontFamily: "inherit" }}
+                style={{ width: "100%", minHeight: 140, margin: "8px 0 14px", fontFamily: "inherit" }}
                 autoFocus
               />
 
@@ -566,16 +690,83 @@ export default function Approvals() {
                 </div>
               </div>
 
+              <button
+                type="button"
+                className="crm-btn crm-btn--ghost"
+                disabled={busyId === panelProspect.id}
+                onClick={() => submitRound(panelProspect.id)}
+                style={{ marginBottom: 24 }}
+              >
+                <Send className="h-4 w-4" /> Submit
+              </button>
+
+              <div style={{ borderTop: "1px solid hsl(40 20% 97% / 0.10)", paddingTop: 16, marginBottom: 20 }}>
+                <label className="crm-label" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                  <History className="h-3.5 w-3.5" /> History
+                </label>
+                {panelHistory === null ? (
+                  <div style={{ fontSize: 14, color: "hsl(30 8% 62%)" }}>Loading…</div>
+                ) : panelHistory.length === 0 ? (
+                  <div style={{ fontSize: 14, color: "hsl(30 8% 62%)" }}>No rounds yet.</div>
+                ) : (
+                  <div style={{ display: "grid", gap: 14 }}>
+                    {panelHistory.map((round) => (
+                      <div
+                        key={round.id}
+                        style={{
+                          border: "1px solid hsl(40 20% 97% / 0.10)", borderRadius: 8, padding: 12,
+                          background: "hsl(40 20% 97% / 0.02)",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "hsl(30 8% 62%)", marginBottom: 6 }}>
+                          <span>Round {round.round} · {round.preview_version}</span>
+                          <span>{formatCT(round.created_at)}</span>
+                        </div>
+                        {round.notes && (
+                          <p style={{ fontSize: 15, whiteSpace: "pre-wrap", margin: "0 0 8px" }}>{round.notes}</p>
+                        )}
+                        {round.attachments.length > 0 && (
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8 }}>
+                            {round.attachments.map((a, i) => (
+                              a.signed_url && a.mime_type?.startsWith("image/") ? (
+                                <a key={i} href={a.signed_url} target="_blank" rel="noopener noreferrer">
+                                  <img
+                                    src={a.signed_url} alt={a.file_name}
+                                    style={{ width: "100%", height: 64, objectFit: "cover", borderRadius: 4, display: "block" }}
+                                  />
+                                </a>
+                              ) : (
+                                <a
+                                  key={i} href={a.signed_url ?? undefined} target="_blank" rel="noopener noreferrer"
+                                  style={{
+                                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                                    height: 64, background: "hsl(40 8% 10%)", borderRadius: 4, gap: 4, fontSize: 10,
+                                    color: "hsl(30 8% 62%)", textAlign: "center", overflow: "hidden", padding: 4,
+                                  }}
+                                >
+                                  <FileText className="h-5 w-5" />
+                                  {a.file_name}
+                                </a>
+                              )
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: "flex", gap: 10 }}>
                 <button
                   className="crm-btn crm-btn--bronze" disabled={busyId === panelProspect.id}
-                  onClick={() => decide(panelProspect.id, "approved", noteDrafts[panelProspect.id] ?? panelProspect.notes ?? undefined)}
+                  onClick={() => decide(panelProspect.id, "approved")}
                 >
                   <Check className="h-4 w-4" /> Approve
                 </button>
                 <button
                   className="crm-btn crm-btn--ghost" disabled={busyId === panelProspect.id}
-                  onClick={() => decide(panelProspect.id, "rejected", noteDrafts[panelProspect.id] ?? panelProspect.notes ?? undefined)}
+                  onClick={() => decide(panelProspect.id, "rejected")}
                 >
                   <X className="h-4 w-4" /> Reject
                 </button>
