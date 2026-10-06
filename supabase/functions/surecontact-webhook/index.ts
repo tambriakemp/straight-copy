@@ -7,7 +7,7 @@
 // We accept any well-formed JSON body and always return 200 unless the body
 // is unparseable, so SureContact won't retry valid events forever.
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { logProposalEvent, type ProposalEventType } from "../_shared/proposal-events.ts";
 
 const corsHeaders = {
