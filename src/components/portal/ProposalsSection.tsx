@@ -8,11 +8,19 @@ import { T } from "@/lib/cre8Design";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
+type PaymentTerm = {
+  label: string;
+  trigger: "on_signature" | "on_completion" | "date";
+  amountType: "percent" | "fixed";
+  amountValue: number;
+  dueDate?: string | null;
+};
+
 type Proposal = {
   id: string;
   title: string;
   description: string | null;
-  status: "draft" | "ready" | "sent" | "signed" | "voided" | "declined";
+  status: "draft" | "ready" | "sent" | "signed" | "voided" | "declined" | "superseded";
   client_signature_name: string | null;
   client_signed_at: string | null;
   declined_at?: string | null;
@@ -20,7 +28,27 @@ type Proposal = {
   created_at: string;
   source_url?: string | null;
   signed_pdf_url?: string | null;
+  total_cents?: number | null;
+  payment_terms?: PaymentTerm[] | null;
 };
+
+const fmtUSD = (cents: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+
+/** Same split shown on the admin card — the amount, and what it's divided
+ *  into, so signing isn't the first time the client sees the number. */
+function depositSplitLine(p: Proposal): string | null {
+  if (p.total_cents == null) return null;
+  if (!p.payment_terms?.length) return fmtUSD(p.total_cents);
+  const parts = p.payment_terms.map((t) => {
+    const cents = t.amountType === "percent"
+      ? Math.round(p.total_cents! * (t.amountValue / 100))
+      : Math.round(t.amountValue);
+    const when = t.trigger === "on_signature" ? "on signature" : t.trigger === "on_completion" ? "on completion" : t.dueDate ? `by ${t.dueDate}` : "on a set date";
+    return `${fmtUSD(cents)} ${t.label.toLowerCase()} ${when}`;
+  });
+  return `${fmtUSD(p.total_cents)} — ${parts.join(" + ")}`;
+}
 
 function collectAuditData() {
   const nav: any = typeof navigator !== "undefined" ? navigator : {};
@@ -249,6 +277,12 @@ function ProposalCard({ clientId, contactName, proposal, onChanged, inPanel = fa
         <div className="portal-access__body">
           {proposal.description && <p className="portal-access__intro">{proposal.description}</p>}
 
+          {depositSplitLine(proposal) && (
+            <p className="portal-access__intro" style={{ fontWeight: 500 }}>
+              {depositSplitLine(proposal)}
+            </p>
+          )}
+
           {loading && <p style={{ color: "var(--crm-taupe)" }}>Loading…</p>}
 
           {/* Through a blob rather than straight at the signed URL: storage
@@ -414,7 +448,11 @@ export default function ProposalsSection({ clientId, contactName, projectId }: {
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [clientId, projectId]);
 
   if (loading) return null;
-  const visible = proposals.filter((p) => p.status !== "voided" && p.status !== "draft" && p.status !== "ready");
+  // The server (proposal-sign `list`) already excludes draft, ready, voided
+  // and superseded for a portal caller — this mirrors it defensively rather
+  // than relying on the API being the only thing that ever filters.
+  const visible = proposals.filter((p) =>
+    p.status !== "voided" && p.status !== "draft" && p.status !== "ready" && p.status !== "superseded");
   if (visible.length === 0) return null;
 
   const open = visible.find((p) => p.id === viewing) ?? null;
@@ -467,7 +505,12 @@ export default function ProposalsSection({ clientId, contactName, projectId }: {
             }}>
               <FileText size={16} color={T.muted} style={{ flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, color: T.text }}>{p.title}</div>
+                <div style={{ fontSize: 15, color: T.text }}>
+                  {p.title}
+                  {p.total_cents != null && (
+                    <span style={{ color: T.muted, fontWeight: 400 }}> · {fmtUSD(p.total_cents)}</span>
+                  )}
+                </div>
                 <div style={{ fontSize: 14, color: T.muted, marginTop: 2 }}>
                   {signedOn ? `Signed ${signedOn}` : declinedOn ? `Declined ${declinedOn}` : "Waiting for your decision"}
                 </div>

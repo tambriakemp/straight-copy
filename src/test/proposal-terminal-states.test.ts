@@ -12,8 +12,13 @@ import { describe, expect, it } from "vitest";
  * based off of if they want to continue the project in the future." A declined
  * proposal quoted a price for a decision made then. Letting someone sign it
  * weeks later binds us to numbers we may no longer be able to honour.
+ *
+ * 'superseded' (CRE-287) joined the same rule for the same reason: a newer
+ * version may carry a different total and payment terms, so signing the old
+ * one would bind us to numbers, or a missing deposit schedule, that no longer
+ * reflect what was actually agreed.
  */
-type Status = "draft" | "sent" | "signed" | "voided" | "declined";
+type Status = "draft" | "sent" | "signed" | "voided" | "declined" | "superseded";
 
 function refusalForSigning(status: Status): string | null {
   if (status === "signed") return "Already signed";
@@ -21,6 +26,10 @@ function refusalForSigning(status: Status): string | null {
   if (status === "declined") {
     return "This proposal was declined and can no longer be signed. " +
       "Ask us for a new one and we will re-quote it.";
+  }
+  if (status === "superseded") {
+    return "A newer version of this proposal has replaced it and it can no longer be signed. " +
+      "Ask us for the current version.";
   }
   return null;
 }
@@ -43,6 +52,18 @@ describe("a declined proposal is closed for good", () => {
   });
 });
 
+describe("a superseded proposal can never be signed", () => {
+  it("refuses the signature", () => {
+    expect(refusalForSigning("superseded")).not.toBeNull();
+  });
+
+  it("points at the current version rather than just saying no", () => {
+    const msg = refusalForSigning("superseded")!;
+    expect(msg).toMatch(/newer version/i);
+    expect(msg).toMatch(/no longer be signed/i);
+  });
+});
+
 describe("the states that can still be signed", () => {
   it.each(["draft", "sent"] as const)("%s still accepts a signature", (s) => {
     expect(refusalForSigning(s)).toBeNull();
@@ -51,8 +72,9 @@ describe("the states that can still be signed", () => {
   // Guards against the previous behaviour coming back: signing used to clear
   // declined_at and go through, which is exactly what must no longer happen.
   it("has no state that both reads declined and accepts a signature", () => {
-    const signable = (["draft", "sent", "signed", "voided", "declined"] as Status[])
+    const signable = (["draft", "sent", "signed", "voided", "declined", "superseded"] as Status[])
       .filter((s) => refusalForSigning(s) === null);
     expect(signable).not.toContain("declined");
+    expect(signable).not.toContain("superseded");
   });
 });

@@ -36,6 +36,7 @@ function describe(e: ProposalEvent): string {
     case "declined":
       return `Client declined${d.reason ? ` — "${d.reason}"` : ""}`;
     case "voided": return "Voided";
+    case "superseded": return "Superseded by a newer version";
     default: return e.event_type.replace(/_/g, " ");
   }
 }

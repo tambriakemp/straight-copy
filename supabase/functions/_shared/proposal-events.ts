@@ -26,7 +26,8 @@ export type ProposalEventType =
   | "followup_scheduled"
   | "followup_sent"
   | "declined"
-  | "voided";
+  | "voided"
+  | "superseded";
 
 /** Ordered roughly as a proposal progresses, for rendering a lifecycle bar. */
 export const LIFECYCLE_ORDER: ProposalEventType[] = [
@@ -104,6 +105,7 @@ export function describeProposalEvent(
     case "declined":
       return `Client declined${d.reason ? ` — "${d.reason}"` : ""}`;
     case "voided": return "Voided";
+    case "superseded": return `Superseded${d.superseded_by ? " by a newer version" : ""}`;
     default: return e.event_type.replace(/_/g, " ");
   }
 }
