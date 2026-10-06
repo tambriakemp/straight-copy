@@ -1121,6 +1121,8 @@ export type Database = {
           source_order_id: string | null
           status: string
           subscription_status: string | null
+          surecontact_deal_id: string | null
+          surecontact_deal_stage: string | null
           timezone: string | null
           toolchain: string
           type: string
@@ -1151,6 +1153,8 @@ export type Database = {
           source_order_id?: string | null
           status?: string
           subscription_status?: string | null
+          surecontact_deal_id?: string | null
+          surecontact_deal_stage?: string | null
           timezone?: string | null
           toolchain?: string
           type: string
@@ -1181,6 +1185,8 @@ export type Database = {
           source_order_id?: string | null
           status?: string
           subscription_status?: string | null
+          surecontact_deal_id?: string | null
+          surecontact_deal_stage?: string | null
           timezone?: string | null
           toolchain?: string
           type?: string
