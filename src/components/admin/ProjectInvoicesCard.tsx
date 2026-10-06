@@ -12,6 +12,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
 type Invoice = {
   id: string;
+  schedule_id: string | null;
   sequence: number;
   label: string;
   amount_cents: number;
@@ -23,6 +24,17 @@ type Invoice = {
   sent_at: string | null;
   paid_at: string | null;
   notes: string | null;
+};
+
+type Schedule = {
+  id: string;
+  title: string;
+  status: "active" | "archived";
+  source: "proposal" | "manual";
+  proposal_id: string | null;
+  total_cents: number | null;
+  currency: string;
+  invoices: Invoice[];
 };
 
 type DraftItem = {
@@ -40,10 +52,11 @@ const fmtUSD = (cents: number) =>
 export default function ProjectInvoicesCard({
   clientId, clientProjectId,
 }: { clientId: string; clientProjectId: string }) {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
+  const [creatingSchedule, setCreatingSchedule] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [contacts, setContacts] = useState<{ id: string; name: string | null; email: string | null }[]>([]);
   const [emailDialog, setEmailDialog] = useState<{ invoice: Invoice; selected: Set<string>; extra: string } | null>(null);
@@ -65,10 +78,10 @@ export default function ProjectInvoicesCard({
   const load = async () => {
     setLoading(true);
     try {
-      const data = await callFn({ action: "list", clientId, clientProjectId });
-      setInvoices((data.invoices ?? []) as Invoice[]);
+      const data = await callFn({ action: "list-schedules", clientId, clientProjectId });
+      setSchedules((data.schedules ?? []) as Schedule[]);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load invoices");
+      toast.error(e instanceof Error ? e.message : "Failed to load payment schedules");
     } finally { setLoading(false); }
   };
 
@@ -121,26 +134,32 @@ export default function ProjectInvoicesCard({
     } finally { setSending(false); }
   };
 
-  const beginEdit = () => {
-    if (invoices.length === 0) {
-      // Default 3x$5000 prefill
-      setDrafts([
-        { sequence: 1, label: "Deposit", amount_dollars: "5000", due_date: "" },
-        { sequence: 2, label: "Milestone 2", amount_dollars: "5000", due_date: "" },
-        { sequence: 3, label: "Final", amount_dollars: "5000", due_date: "" },
-      ]);
-    } else {
-      setDrafts(invoices.map(i => ({
+  const beginEdit = (schedule: Schedule) => {
+    setDrafts(schedule.invoices.length
+      ? schedule.invoices.map(i => ({
         id: i.id, sequence: i.sequence, label: i.label,
         amount_dollars: (i.amount_cents / 100).toString(),
         due_date: i.due_date ?? "",
         notes: i.notes,
-      })));
-    }
-    setEditing(true);
+      }))
+      : [{ sequence: 1, label: "", amount_dollars: "", due_date: "" }]);
+    setEditingScheduleId(schedule.id);
+  };
+
+  const addSchedule = async () => {
+    setCreatingSchedule(true);
+    try {
+      const r = await callFn({ action: "create-schedule", clientId, clientProjectId, title: "Payment schedule", items: [] });
+      await load();
+      setDrafts([{ sequence: 1, label: "", amount_dollars: "", due_date: "" }]);
+      setEditingScheduleId(r.schedule.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not create schedule");
+    } finally { setCreatingSchedule(false); }
   };
 
   const saveSchedule = async () => {
+    if (!editingScheduleId) return;
     try {
       const items = drafts.map(d => ({
         id: d.id,
@@ -154,9 +173,10 @@ export default function ProjectInvoicesCard({
         if (!it.label) throw new Error("Each invoice needs a label");
         if (!it.amount_cents || it.amount_cents < 100) throw new Error(`${it.label}: amount must be at least $1`);
       }
-      await callFn({ action: "schedule", clientId, clientProjectId, items });
+      if (!items.length) throw new Error("Add at least one invoice, or delete this schedule");
+      await callFn({ action: "schedule", clientId, clientProjectId, scheduleId: editingScheduleId, items });
       toast.success("Schedule saved");
-      setEditing(false);
+      setEditingScheduleId(null);
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to save");
@@ -221,9 +241,6 @@ export default function ProjectInvoicesCard({
     } finally { setBusy(null); }
   };
 
-  const total = invoices.reduce((s, i) => s + i.amount_cents, 0);
-  const paid = invoices.filter(i => i.status === "paid").reduce((s, i) => s + i.amount_cents, 0);
-
   const statusColor = (s: Invoice["status"]) => {
     if (s === "paid") return { bg: "hsl(120 30% 50% / 0.15)", fg: "hsl(120 60% 70%)" };
     if (s === "sent") return { bg: "hsl(40 80% 50% / 0.15)", fg: "hsl(40 80% 70%)" };
@@ -232,123 +249,164 @@ export default function ProjectInvoicesCard({
     return { bg: "hsl(40 20% 97% / 0.06)", fg: "var(--crm-taupe)" };
   };
 
+  const grandTotal = schedules.reduce((s, sc) => s + sc.invoices.reduce((ss, i) => ss + i.amount_cents, 0), 0);
+  const grandPaid = schedules.reduce((s, sc) => s + sc.invoices.filter(i => i.status === "paid").reduce((ss, i) => ss + i.amount_cents, 0), 0);
+
   return (
     <Panel
       title="Payments"
-      meta={invoices.length > 0
-        ? <span style={{ fontSize: 14, color: T.text2 }}>{fmtUSD(paid)} of {fmtUSD(total)}</span>
+      meta={schedules.length > 0
+        ? <span style={{ fontSize: 14, color: T.text2 }}>{fmtUSD(grandPaid)} of {fmtUSD(grandTotal)}</span>
         : undefined}
-      actions={!editing ? (
-        <PanelButton onClick={beginEdit}>
-          <Plus size={14} /> {invoices.length === 0 ? "Set up" : "Edit"}
+      actions={
+        <PanelButton onClick={addSchedule} disabled={creatingSchedule}>
+          <Plus size={14} /> {creatingSchedule ? "Adding…" : "Add schedule"}
         </PanelButton>
-      ) : undefined}
+      }
     >
-      <div style={{ padding: editing ? "14px 18px" : 0 }}>
-
+      <div>
       {loading && <div style={{ color: T.muted, fontSize: 15, padding: "18px" }}>Loading…</div>}
 
-      {!loading && !editing && invoices.length === 0 && (
+      {!loading && schedules.length === 0 && (
         <div style={{ color: T.muted, fontSize: 15, padding: 18 }}>
-          No payment schedule yet. Set up milestones to invoice the client through SureCart.
+          No payment schedule yet. Add one to invoice the client through SureCart, or wait for a signed
+          proposal with terms to create one automatically.
         </div>
       )}
 
-      {!loading && !editing && invoices.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {invoices.map(inv => {
-            const sc = statusColor(inv.status);
-            return (
-              <div key={inv.id} className="crm-invoice-row">
-                <div className="crm-invoice-row__seq" style={{ fontFamily: "var(--crm-font-serif)", fontSize: 15, color: "var(--crm-taupe)", width: 22, textAlign: "center" }}>
-                  {inv.sequence}
+      {!loading && schedules.map((schedule, si) => {
+        const editing = editingScheduleId === schedule.id;
+        const total = schedule.invoices.reduce((s, i) => s + i.amount_cents, 0);
+        const paid = schedule.invoices.filter(i => i.status === "paid").reduce((s, i) => s + i.amount_cents, 0);
+        return (
+          <div key={schedule.id} style={{ borderTop: si === 0 ? "none" : T.hairline }}>
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "10px 18px", background: "hsl(40 20% 97% / 0.03)",
+            }}>
+              <div style={{ fontSize: 14, color: T.text2 }}>
+                {schedule.title}
+                {schedule.source === "proposal" && (
+                  <span style={{ marginLeft: 8, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--crm-taupe)" }}>
+                    from signed proposal
+                  </span>
+                )}
+                {schedule.invoices.length > 0 && (
+                  <span style={{ marginLeft: 8, color: T.muted }}>· {fmtUSD(paid)} of {fmtUSD(total)}</span>
+                )}
+              </div>
+              {!editing && (
+                <PanelButton onClick={() => beginEdit(schedule)}>
+                  <Plus size={14} /> Edit
+                </PanelButton>
+              )}
+            </div>
+
+            <div style={{ padding: editing ? "14px 18px" : 0 }}>
+              {!editing && schedule.invoices.length === 0 && (
+                <div style={{ color: T.muted, fontSize: 15, padding: 18 }}>No invoices on this schedule yet.</div>
+              )}
+
+              {!editing && schedule.invoices.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {schedule.invoices.map(inv => {
+                    const sc = statusColor(inv.status);
+                    return (
+                      <div key={inv.id} className="crm-invoice-row">
+                        <div className="crm-invoice-row__seq" style={{ fontFamily: "var(--crm-font-serif)", fontSize: 15, color: "var(--crm-taupe)", width: 22, textAlign: "center" }}>
+                          {inv.sequence}
+                        </div>
+                        <div className="crm-invoice-row__label">
+                          <div style={{ color: "var(--crm-warm-white)", fontSize: 15 }}>{inv.label}</div>
+                          <div className="crm-invoice-row__meta" style={{ fontSize: 13, color: "var(--crm-taupe)" }}>
+                            {inv.due_date ? `Due ${new Date(inv.due_date).toLocaleDateString()}` : "No due date"}
+                            {inv.paid_at && ` · Paid ${new Date(inv.paid_at).toLocaleDateString()}`}
+                            {inv.sent_at && !inv.paid_at && ` · Sent ${new Date(inv.sent_at).toLocaleDateString()}`}
+                          </div>
+                        </div>
+                        <div className="crm-invoice-row__amount" style={{ color: "var(--crm-warm-white)", fontSize: 16, fontVariantNumeric: "tabular-nums" }}>
+                          {fmtUSD(inv.amount_cents)}
+                        </div>
+                        <span className="crm-invoice-row__status" style={{
+                          fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase",
+                          padding: "3px 9px", borderRadius: 999, background: sc.bg, color: sc.fg,
+                          whiteSpace: "nowrap",
+                        }}>{inv.status}</span>
+                        <div className="crm-invoice-row__actions">
+                          {(inv.status === "scheduled" || inv.status === "failed") && (
+                            <>
+                              <button className="crm-btn crm-btn--primary crm-btn--sm" disabled={busy === inv.id}
+                                onClick={() => sendInvoice(inv)} title="Send via SureCart">
+                                <Send size={12} /> {busy === inv.id ? "Sending…" : "Send"}
+                              </button>
+                              <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => deleteInvoice(inv)} disabled={busy === inv.id} title="Delete">
+                                <Trash2 size={12} />
+                              </button>
+                            </>
+                          )}
+                          {inv.status === "sent" && (
+                            <>
+                              {inv.checkout_url && (
+                                <button className="crm-btn crm-btn--ghost crm-btn--sm"
+                                  onClick={() => openPayLink(inv)} disabled={busy === inv.id}>
+                                  <ExternalLink size={12} /> Pay link
+                                </button>
+                              )}
+                              <button className="crm-btn crm-btn--ghost crm-btn--sm"
+                                onClick={() => openEmailDialog(inv)} disabled={busy === inv.id}
+                                title="Email payment link">
+                                <Mail size={12} /> Email
+                              </button>
+                              <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => voidInvoice(inv)} disabled={busy === inv.id}>
+                                <Ban size={12} /> Void
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="crm-invoice-row__label">
-                  <div style={{ color: "var(--crm-warm-white)", fontSize: 15 }}>{inv.label}</div>
-                  <div className="crm-invoice-row__meta" style={{ fontSize: 13, color: "var(--crm-taupe)" }}>
-                    {inv.due_date ? `Due ${new Date(inv.due_date).toLocaleDateString()}` : "No due date"}
-                    {inv.paid_at && ` · Paid ${new Date(inv.paid_at).toLocaleDateString()}`}
-                    {inv.sent_at && !inv.paid_at && ` · Sent ${new Date(inv.sent_at).toLocaleDateString()}`}
+              )}
+
+              {editing && (
+                <div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                    {drafts.map((d, i) => {
+                      const locked = !!d.id && schedule.invoices.find(x => x.id === d.id)?.status !== "scheduled";
+                      return (
+                        <div key={i} className="crm-invoice-edit-row">
+                          <input className="crm-input" type="number" min={1} value={d.sequence} disabled={locked}
+                            onChange={e => setDrafts(s => s.map((x, ix) => ix === i ? { ...x, sequence: parseInt(e.target.value) || 1 } : x))} />
+                          <input className="crm-input" placeholder="Label (e.g. Deposit)" value={d.label} disabled={locked}
+                            onChange={e => setDrafts(s => s.map((x, ix) => ix === i ? { ...x, label: e.target.value } : x))} />
+                          <input className="crm-input" type="number" step="0.01" placeholder="Amount" value={d.amount_dollars} disabled={locked}
+                            onChange={e => setDrafts(s => s.map((x, ix) => ix === i ? { ...x, amount_dollars: e.target.value } : x))} />
+                          <input className="crm-input" type="date" value={d.due_date} disabled={locked}
+                            onChange={e => setDrafts(s => s.map((x, ix) => ix === i ? { ...x, due_date: e.target.value } : x))} />
+                          <button className="crm-btn crm-btn--ghost crm-btn--sm" disabled={locked}
+                            onClick={() => setDrafts(s => s.filter((_, ix) => ix !== i))}>
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button className="crm-btn crm-btn--ghost crm-btn--sm"
+                    onClick={() => setDrafts(s => [...s, { sequence: s.length + 1, label: "", amount_dollars: "", due_date: "" }])}>
+                    <Plus size={12} /> Add invoice
+                  </button>
+                  <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+                    <button className="crm-btn crm-btn--ghost" onClick={() => setEditingScheduleId(null)}>Cancel</button>
+                    <button className="crm-btn crm-btn--primary" onClick={saveSchedule}>Save schedule</button>
                   </div>
                 </div>
-                <div className="crm-invoice-row__amount" style={{ color: "var(--crm-warm-white)", fontSize: 16, fontVariantNumeric: "tabular-nums" }}>
-                  {fmtUSD(inv.amount_cents)}
-                </div>
-                <span className="crm-invoice-row__status" style={{
-                  fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase",
-                  padding: "3px 9px", borderRadius: 999, background: sc.bg, color: sc.fg,
-                  whiteSpace: "nowrap",
-                }}>{inv.status}</span>
-                <div className="crm-invoice-row__actions">
-                  {(inv.status === "scheduled" || inv.status === "failed") && (
-                    <>
-                      <button className="crm-btn crm-btn--primary crm-btn--sm" disabled={busy === inv.id}
-                        onClick={() => sendInvoice(inv)} title="Send via SureCart">
-                        <Send size={12} /> {busy === inv.id ? "Sending…" : "Send"}
-                      </button>
-                      <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => deleteInvoice(inv)} disabled={busy === inv.id} title="Delete">
-                        <Trash2 size={12} />
-                      </button>
-                    </>
-                  )}
-                  {inv.status === "sent" && (
-                    <>
-                      {inv.checkout_url && (
-                        <button className="crm-btn crm-btn--ghost crm-btn--sm"
-                          onClick={() => openPayLink(inv)} disabled={busy === inv.id}>
-                          <ExternalLink size={12} /> Pay link
-                        </button>
-                      )}
-                      <button className="crm-btn crm-btn--ghost crm-btn--sm"
-                        onClick={() => openEmailDialog(inv)} disabled={busy === inv.id}
-                        title="Email payment link">
-                        <Mail size={12} /> Email
-                      </button>
-                      <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => voidInvoice(inv)} disabled={busy === inv.id}>
-                        <Ban size={12} /> Void
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {editing && (
-        <div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-            {drafts.map((d, i) => {
-              const locked = !!d.id && invoices.find(x => x.id === d.id)?.status !== "scheduled";
-              return (
-                <div key={i} className="crm-invoice-edit-row">
-                  <input className="crm-input" type="number" min={1} value={d.sequence} disabled={locked}
-                    onChange={e => setDrafts(s => s.map((x, ix) => ix === i ? { ...x, sequence: parseInt(e.target.value) || 1 } : x))} />
-                  <input className="crm-input" placeholder="Label (e.g. Deposit)" value={d.label} disabled={locked}
-                    onChange={e => setDrafts(s => s.map((x, ix) => ix === i ? { ...x, label: e.target.value } : x))} />
-                  <input className="crm-input" type="number" step="0.01" placeholder="Amount" value={d.amount_dollars} disabled={locked}
-                    onChange={e => setDrafts(s => s.map((x, ix) => ix === i ? { ...x, amount_dollars: e.target.value } : x))} />
-                  <input className="crm-input" type="date" value={d.due_date} disabled={locked}
-                    onChange={e => setDrafts(s => s.map((x, ix) => ix === i ? { ...x, due_date: e.target.value } : x))} />
-                  <button className="crm-btn crm-btn--ghost crm-btn--sm" disabled={locked}
-                    onClick={() => setDrafts(s => s.filter((_, ix) => ix !== i))}>
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              );
-            })}
+              )}
+            </div>
           </div>
-          <button className="crm-btn crm-btn--ghost crm-btn--sm"
-            onClick={() => setDrafts(s => [...s, { sequence: s.length + 1, label: "", amount_dollars: "", due_date: "" }])}>
-            <Plus size={12} /> Add invoice
-          </button>
-          <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
-            <button className="crm-btn crm-btn--ghost" onClick={() => setEditing(false)}>Cancel</button>
-            <button className="crm-btn crm-btn--primary" onClick={saveSchedule}>Save schedule</button>
-          </div>
-        </div>
-      )}
+        );
+      })}
+      </div>
 
       <Dialog open={!!emailDialog} onOpenChange={(o) => !o && setEmailDialog(null)}>
         <DialogContent data-mobile-bottom-sheet="true" className="sm:max-w-lg">
@@ -430,7 +488,6 @@ export default function ProjectInvoicesCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </div>
     </Panel>
   );
 }

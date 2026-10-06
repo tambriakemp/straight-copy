@@ -12,7 +12,7 @@ type Proposal = {
   id: string;
   title: string;
   description: string | null;
-  status: "draft" | "sent" | "signed" | "voided" | "declined";
+  status: "draft" | "ready" | "sent" | "signed" | "voided" | "declined";
   client_signature_name: string | null;
   client_signed_at: string | null;
   declined_at?: string | null;
@@ -414,7 +414,7 @@ export default function ProposalsSection({ clientId, contactName, projectId }: {
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [clientId, projectId]);
 
   if (loading) return null;
-  const visible = proposals.filter((p) => p.status !== "voided" && p.status !== "draft");
+  const visible = proposals.filter((p) => p.status !== "voided" && p.status !== "draft" && p.status !== "ready");
   if (visible.length === 0) return null;
 
   const open = visible.find((p) => p.id === viewing) ?? null;

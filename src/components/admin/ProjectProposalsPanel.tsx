@@ -14,18 +14,29 @@ import { supabase } from "@/integrations/supabase/client";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
+type PaymentTerm = {
+  label: string;
+  trigger: "on_signature" | "on_completion" | "date";
+  amountType: "percent" | "fixed";
+  amountValue: number;
+  dueDate?: string | null;
+};
+
 type Proposal = {
   id: string;
   client_id: string;
   client_project_id: string;
   title: string;
   description: string | null;
-  status: "draft" | "sent" | "signed" | "voided" | "declined";
+  status: "draft" | "ready" | "sent" | "signed" | "voided" | "declined";
   sent_at?: string | null;
   sent_to?: string | null;
   source_pdf_path: string | null;
   /** Agent-written proposals live here and have no PDF until they are sent. */
   content: unknown;
+  total_cents: number | null;
+  payment_due_days: number | null;
+  payment_terms: PaymentTerm[] | null;
   client_signature_name: string | null;
   client_signed_at: string | null;
   declined_at?: string | null;
@@ -33,6 +44,9 @@ type Proposal = {
   signed_pdf_path: string | null;
   created_at: string;
 };
+
+const fmtUSD = (cents: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 
 type Props = {
   clientId: string;
@@ -52,11 +66,21 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Commercial terms, optional. Left blank, the proposal uploads as a plain
+  // PDF with no schedule created at signature — the admin email on signing
+  // says so, so nobody assumes a deposit went out that never did.
+  const [totalDollars, setTotalDollars] = useState("");
+  const [paymentDueDays, setPaymentDueDays] = useState("14");
+  const [terms, setTerms] = useState<PaymentTerm[]>([
+    { label: "Deposit", trigger: "on_signature", amountType: "percent", amountValue: 50 },
+    { label: "Final", trigger: "on_completion", amountType: "percent", amountValue: 50 },
+  ]);
   // Timelines are collapsed by default — on a project with several proposals,
   // every log expanded at once buries the proposals themselves.
   const [openLog, setOpenLog] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [notifying, setNotifying] = useState<string | null>(null);
+  const [markingReady, setMarkingReady] = useState<string | null>(null);
 
   const callFn = async (body: Record<string, unknown>) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -74,10 +98,10 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
   /**
    * Tell the client the proposal is waiting.
    *
-   * Uploading one marks it 'sent' so the portal will show it — but nothing was
-   * ever sent. No email, no SureContact activity, and no send date, which is
-   * what every follow-up threshold measures from. So this is a separate,
-   * deliberate step, and it is the one that makes the status true.
+   * Uploading one saves it as 'draft' or 'ready' — nothing is sent yet. No
+   * email, no SureContact activity, and no send date, which is what every
+   * follow-up threshold measures from. So this is a separate, deliberate
+   * step, and it is the one that makes the 'sent' status true.
    */
   const notifyClient = async (p: Proposal) => {
     if (notifying) return;
@@ -97,6 +121,19 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
     }
   };
 
+  const markReady = async (p: Proposal) => {
+    setMarkingReady(p.id);
+    try {
+      await callFn({ action: "mark-ready", clientId, proposalId: p.id });
+      toast.success("Marked ready to send");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not mark ready");
+    } finally {
+      setMarkingReady(null);
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     try {
@@ -111,11 +148,27 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [clientId, clientProjectId]);
 
+  // Blank terms are valid (plain PDF, no schedule) — but a started row has to
+  // be finished, so a half-filled installment doesn't silently vanish into
+  // "no terms" at signature time.
+  const termsAreValid = () => {
+    if (terms.length === 0) return true;
+    for (const t of terms) {
+      if (!t.label.trim()) return false;
+      if (!(t.amountValue > 0)) return false;
+      if (t.trigger === "date" && !t.dueDate) return false;
+    }
+    return true;
+  };
+
   const upload = async () => {
     if (!title.trim()) return toast.error("Title required");
     if (!file) return toast.error("Select a PDF");
     if (file.type !== "application/pdf") return toast.error("Only PDF files are supported");
     if (file.size > 25 * 1024 * 1024) return toast.error("PDF must be under 25MB");
+    if (!termsAreValid()) return toast.error("Finish each installment, or remove it");
+    const totalCents = totalDollars.trim() ? Math.round(parseFloat(totalDollars) * 100) : undefined;
+    if (totalDollars.trim() && (!totalCents || totalCents <= 0)) return toast.error("Total price must be a positive amount");
     setUploading(true);
     try {
       const up = await callFn({
@@ -137,10 +190,18 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
         title: title.trim(),
         description: description.trim() || undefined,
         sourcePdfPath: up.path,
+        totalCents,
+        paymentDueDays: paymentDueDays.trim() ? parseInt(paymentDueDays, 10) : undefined,
+        paymentTerms: totalCents && terms.length ? terms : undefined,
       });
       toast.success("Proposal uploaded");
       setOpenUpload(false);
       setTitle(""); setDescription(""); setFile(null);
+      setTotalDollars(""); setPaymentDueDays("14");
+      setTerms([
+        { label: "Deposit", trigger: "on_signature", amountType: "percent", amountValue: 50 },
+        { label: "Final", trigger: "on_completion", amountType: "percent", amountValue: 50 },
+      ]);
       if (fileRef.current) fileRef.current.value = "";
       await load();
     } catch (e) {
@@ -236,6 +297,7 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
             // number that says how often we lose work — so it gets its own
             // colour rather than being folded in with the ones we pulled.
             const isDeclined = p.status === "declined";
+            const isDraft = p.status === "draft";
             return (
               <div key={p.id} style={{
                 borderTop: i === 0 ? "none" : T.hairline, padding: "12px 18px",
@@ -304,6 +366,11 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
                     : !isSigned && !isVoided && (
                       <> · <strong style={{ color: "hsl(28 70% 70%)" }}>Not sent to the client yet</strong></>
                     )}
+                  {p.total_cents != null && (
+                    <> · {fmtUSD(p.total_cents)}{p.payment_terms?.length
+                      ? ` over ${p.payment_terms.length} installment${p.payment_terms.length === 1 ? "" : "s"}`
+                      : ""}</>
+                  )}
                 </div>
 
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
@@ -327,6 +394,15 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
                   {!isSigned && (
                     <PanelButton onClick={() => removeProposal(p)} title="Delete this proposal">
                       <Trash2 size={13} />
+                    </PanelButton>
+                  )}
+                  {isDraft && (
+                    <PanelButton
+                      onClick={() => void markReady(p)}
+                      disabled={markingReady === p.id}
+                      title="Mark this proposal ready to send"
+                    >
+                      {markingReady === p.id ? "Marking…" : "Mark ready"}
                     </PanelButton>
                   )}
                   {!isSigned && !isVoided && !isDeclined && (
@@ -430,6 +506,63 @@ export default function ProjectProposalsPanel({ clientId, clientProjectId, porta
             {file && (
               <div style={{ marginTop: 6, fontSize: 14, color: T.muted }}>
                 {file.name} · {(file.size / 1024).toFixed(0)} KB
+              </div>
+            )}
+          </div>
+
+          <div style={{ borderTop: T.hairline, paddingTop: 14 }}>
+            <div style={{ fontSize: 13, letterSpacing: "0.14em", textTransform: "uppercase", color: T.muted, marginBottom: 10 }}>
+              Commercial terms (optional)
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <label className="crm-label" htmlFor="pp-total">Total price ($)</label>
+                <input id="pp-total" className="crm-input" type="number" min={0} step="0.01" value={totalDollars}
+                  onChange={(e) => setTotalDollars(e.target.value)} placeholder="e.g. 4000" />
+              </div>
+              <div style={{ width: 110 }}>
+                <label className="crm-label" htmlFor="pp-due-days">Due (days)</label>
+                <input id="pp-due-days" className="crm-input" type="number" min={0} value={paymentDueDays}
+                  onChange={(e) => setPaymentDueDays(e.target.value)} />
+              </div>
+            </div>
+
+            {totalDollars.trim() && (
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                {terms.map((t, i) => (
+                  <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input className="crm-input" style={{ flex: 1 }} placeholder="Label" value={t.label}
+                      onChange={(e) => setTerms((s) => s.map((x, ix) => ix === i ? { ...x, label: e.target.value } : x))} />
+                    <select className="crm-input" style={{ width: 130 }} value={t.trigger}
+                      onChange={(e) => setTerms((s) => s.map((x, ix) => ix === i ? { ...x, trigger: e.target.value as PaymentTerm["trigger"] } : x))}>
+                      <option value="on_signature">On signature</option>
+                      <option value="on_completion">On completion</option>
+                      <option value="date">On date</option>
+                    </select>
+                    {t.trigger === "date" && (
+                      <input className="crm-input" style={{ width: 130 }} type="date" value={t.dueDate ?? ""}
+                        onChange={(e) => setTerms((s) => s.map((x, ix) => ix === i ? { ...x, dueDate: e.target.value } : x))} />
+                    )}
+                    <select className="crm-input" style={{ width: 70 }} value={t.amountType}
+                      onChange={(e) => setTerms((s) => s.map((x, ix) => ix === i ? { ...x, amountType: e.target.value as PaymentTerm["amountType"] } : x))}>
+                      <option value="percent">%</option>
+                      <option value="fixed">$</option>
+                    </select>
+                    <input className="crm-input" style={{ width: 80 }} type="number" min={0} step="0.01" value={t.amountValue}
+                      onChange={(e) => setTerms((s) => s.map((x, ix) => ix === i ? { ...x, amountValue: parseFloat(e.target.value) || 0 } : x))} />
+                    <button className="crm-btn crm-btn--ghost crm-btn--sm"
+                      onClick={() => setTerms((s) => s.filter((_, ix) => ix !== i))}>
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+                <button className="crm-btn crm-btn--ghost crm-btn--sm"
+                  onClick={() => setTerms((s) => [...s, { label: "", trigger: "on_completion", amountType: "percent", amountValue: 0 }])}>
+                  + Installment
+                </button>
+                <div style={{ fontSize: 13, color: T.muted }}>
+                  The on-signature installment sends automatically through SureCart the moment this is signed.
+                </div>
               </div>
             )}
           </div>

@@ -6,6 +6,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { logProposalEvent } from "../_shared/proposal-events.ts";
+import { sendProjectInvoice } from "../_shared/surecart-invoices.ts";
 import { PDFDocument, PDFFont, PDFPage, rgb, type PDFImage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 
@@ -67,6 +68,7 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): 
 
 interface StampInput {
   sourceBytes: Uint8Array;
+  sourceSha256: string | null;
   proposalTitle: string;
   proposalId: string;
   businessName: string;
@@ -79,7 +81,14 @@ interface StampInput {
   audit: any;
 }
 
-async function stampSignedProposal(input: StampInput): Promise<Uint8Array> {
+/**
+ * Returns the final signed PDF plus the SHA-256 of the document through the
+ * signature page (source + signature block), computed before the audit page
+ * is appended. A hash can't describe the bytes it is itself printed on, so
+ * this is the hash of everything legally operative — the audit page below it
+ * is metadata about that signing, not part of what was signed.
+ */
+async function stampSignedProposal(input: StampInput): Promise<{ bytes: Uint8Array; signedSha256: string }> {
   const doc = await PDFDocument.load(input.sourceBytes, { ignoreEncryption: true });
   doc.registerFontkit(fontkit);
   const fontBytes = await loadFonts();
@@ -154,6 +163,13 @@ async function stampSignedProposal(input: StampInput): Promise<Uint8Array> {
     meta: ["Cre8 Visions, LLC", `Countersigned ${fmtDate(input.countersignedAt)}`],
   });
 
+  // The hash of the document as signed — everything through the signature
+  // page above, before the audit page below is appended. Computed here, not
+  // after, so the certificate can print it without describing itself.
+  const preAuditBytes = await doc.save();
+  const signedDigest = await crypto.subtle.digest("SHA-256", preAuditBytes as BufferSource);
+  const signedSha256 = Array.from(new Uint8Array(signedDigest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+
   // ---------- Audit page ----------
   const auditPage = doc.addPage([PAGE_W, PAGE_H]);
   let ay = PAGE_H - 72;
@@ -209,6 +225,10 @@ async function stampSignedProposal(input: StampInput): Promise<Uint8Array> {
   drawKV("Client", input.businessName);
   drawKV("Signatory", input.signature.name);
 
+  drawSubhead("Integrity");
+  drawKV("Source PDF SHA-256", input.sourceSha256 ?? "Not recorded");
+  drawKV("Signed PDF SHA-256", signedSha256);
+
   drawSubhead("Signature Event");
   drawKV("Method", input.signature.type === "drawn" ? "Hand-drawn (canvas, PNG)" : "Typed name");
   drawKV("Consent", "Signatory affirmatively checked the consent box and clicked Sign.");
@@ -233,10 +253,15 @@ async function stampSignedProposal(input: StampInput): Promise<Uint8Array> {
   }
   if (a.viewport) drawKV("Viewport", `${a.viewport.width ?? "?"} x ${a.viewport.height ?? "?"} px`);
 
-  return await doc.save();
+  return { bytes: await doc.save(), signedSha256 };
 }
 
 // ---------- Helpers ----------
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function getClientIp(req: Request): string | null {
   const fwd = req.headers.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0].trim();
@@ -268,6 +293,17 @@ const UploadUrlSchema = z.object({
   clientProjectId: z.string().uuid(),
   filename: z.string().min(1).max(200),
 });
+// One installment of a proposal's commercial terms. `amountValue` is a
+// percentage (0-100) when amountType is 'percent', or whole cents when
+// 'fixed'. Turned into a real project_invoices row at signature time, once
+// totalCents is known to be final.
+const PaymentTermItem = z.object({
+  label: z.string().trim().min(1).max(120),
+  trigger: z.enum(["on_signature", "on_completion", "date"]),
+  amountType: z.enum(["percent", "fixed"]),
+  amountValue: z.number().positive(),
+  dueDate: z.string().nullable().optional(),
+});
 const CreateSchema = z.object({
   action: z.literal("create"),
   clientId: z.string().uuid(),
@@ -275,6 +311,14 @@ const CreateSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().max(2000).optional(),
   sourcePdfPath: z.string().min(1).max(500),
+  totalCents: z.number().int().min(0).max(100_000_000).optional(),
+  paymentDueDays: z.number().int().min(0).max(365).optional(),
+  paymentTerms: z.array(PaymentTermItem).max(20).optional(),
+});
+const MarkReadySchema = z.object({
+  action: z.literal("mark-ready"),
+  clientId: z.string().uuid(),
+  proposalId: z.string().uuid(),
 });
 const GetSchema = z.object({
   action: z.literal("get"),
@@ -342,20 +386,172 @@ const ActivitySchema = z.object({
 });
 
 const ActionSchema = z.discriminatedUnion("action", [
-  ListSchema, UploadUrlSchema, CreateSchema, GetSchema, SignSchema, DownloadSchema, VoidSchema,
+  ListSchema, UploadUrlSchema, CreateSchema, MarkReadySchema, GetSchema, SignSchema, DownloadSchema, VoidSchema,
   DeleteSchema, ActivitySchema, DeclineSchema, NotifySchema,
 ]);
 
-const ADMIN_ONLY = new Set(["upload-url", "create", "void", "delete", "activity", "notify"]);
+const ADMIN_ONLY = new Set(["upload-url", "create", "mark-ready", "void", "delete", "activity", "notify"]);
 
 const PROPOSAL_COLS =
   "id, client_id, client_project_id, title, description, status, source_pdf_path, " +
+  "source_pdf_version, source_pdf_sha256, signed_pdf_sha256, " +
+  "total_cents, currency, payment_due_days, payment_terms, " +
   "content, sent_at, sent_to, first_opened_at, first_viewed_at, last_activity_at, " +
   "next_followup_at, followup_count, " +
   "declined_at, decline_reason, " +
   "client_signature_name, client_signature_type, client_signed_at, " +
   "agency_signer_name, agency_countersigned_at, signed_pdf_path, pdf_generated_at, " +
   "created_at, updated_at";
+
+/** For `list`/`get`/`download`: non-admin (portal) callers never see draft or
+ *  voided proposals server-side — the browser used to be the only thing
+ *  filtering those out, so a crafted request could read an internal draft or
+ *  a withdrawn document straight from the API. */
+const CLIENT_HIDDEN_STATUSES = ["draft", "ready", "voided"];
+
+const BREE_EMAIL = "info@cre8visions.com";
+
+const formatCents = (cents: number, currency: string) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: (currency || "usd").toUpperCase() }).format(cents / 100);
+
+interface PostSignatureResult {
+  hasTerms: boolean;
+  depositStatus: "sent" | "failed" | "none";
+  errorDetail: string | null;
+}
+
+/**
+ * Everything that happens after a signature lands: the schedule and its
+ * invoices get created from the proposal's commercial terms, the on-signature
+ * installment goes out through SureCart, and both the client and Bree get
+ * told what happened — including when it didn't work, because a signature
+ * that goes through silently is worse than one that's loud about a problem.
+ */
+async function runPostSignatureAutomation(
+  supabase: any,
+  opts: { proposal: any; client: any; signedPdfUrl: string | null },
+): Promise<PostSignatureResult> {
+  const { proposal, client, signedPdfUrl } = opts;
+  const adminUrl = `${PORTAL_BASE_URL}/admin/clients/${proposal.client_id}/projects/${proposal.client_project_id}`;
+  const currency = proposal.currency || "usd";
+  const terms = Array.isArray(proposal.payment_terms) ? proposal.payment_terms : [];
+  const hasTerms = !!(proposal.total_cents && terms.length);
+
+  let depositStatus: "sent" | "failed" | "none" = "none";
+  let depositAmountFormatted: string | null = null;
+  let errorDetail: string | null = null;
+
+  if (hasTerms) {
+    try {
+      const totalCents = proposal.total_cents as number;
+      const items = terms.map((t: any) => ({
+        label: t.label,
+        trigger: t.trigger,
+        due_date: t.trigger === "date" ? (t.dueDate ?? null) : null,
+        amount_cents: t.amountType === "percent"
+          ? Math.round(totalCents * (t.amountValue / 100))
+          : Math.round(t.amountValue),
+      }));
+
+      const { data: schedule, error: schErr } = await supabase.from("payment_schedules").insert({
+        client_id: proposal.client_id,
+        client_project_id: proposal.client_project_id,
+        proposal_id: proposal.id,
+        title: `${proposal.title} — Payment Schedule`,
+        total_cents: totalCents,
+        currency,
+        status: "active",
+        source: "proposal",
+      }).select("id").single();
+      if (schErr) throw schErr;
+
+      const inserts = items.map((it: any, idx: number) => ({
+        client_id: proposal.client_id,
+        client_project_id: proposal.client_project_id,
+        schedule_id: schedule.id,
+        proposal_id: proposal.id,
+        sequence: idx + 1,
+        label: it.label,
+        amount_cents: it.amount_cents,
+        currency,
+        trigger: it.trigger,
+        due_date: it.due_date,
+        due_days: proposal.payment_due_days ?? null,
+        status: "scheduled",
+      }));
+      const { data: invoiceRows, error: insErr } = await supabase.from("project_invoices")
+        .insert(inserts).select("id, trigger, amount_cents, due_days");
+      if (insErr) throw insErr;
+
+      const depositRow = (invoiceRows ?? []).find((r: any) => r.trigger === "on_signature");
+      if (depositRow) {
+        const dueDate = depositRow.due_days
+          ? new Date(Date.now() + depositRow.due_days * 86_400_000).toISOString().slice(0, 10)
+          : null;
+        try {
+          await sendProjectInvoice(supabase, { invoiceId: depositRow.id, clientId: proposal.client_id, dueDate });
+          depositStatus = "sent";
+          depositAmountFormatted = formatCents(depositRow.amount_cents, currency);
+        } catch (e) {
+          depositStatus = "failed";
+          errorDetail = e instanceof Error ? e.message : String(e);
+        }
+      }
+    } catch (e) {
+      errorDetail = e instanceof Error ? e.message : String(e);
+      console.error("[proposal-sign] schedule creation failed:", e);
+    }
+  }
+
+  if (client.contact_email) {
+    try {
+      const { error: sendErr } = await supabase.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "proposal-signed-client",
+          recipientEmail: client.contact_email,
+          idempotencyKey: `proposal-signed-client-${proposal.id}`,
+          templateData: {
+            recipientName: client.contact_name ?? null,
+            proposalTitle: proposal.title,
+            signedPdfUrl,
+            depositStatus: !hasTerms ? "none" : depositStatus === "sent" ? "sent" : "pending",
+            depositAmountFormatted,
+            fromName: "CRE8 Visions",
+          },
+        },
+      });
+      if (sendErr) console.error("[proposal-sign] client signed-email failed:", sendErr);
+    } catch (e) {
+      console.error("[proposal-sign] client signed-email threw:", e);
+    }
+  } else {
+    errorDetail = (errorDetail ? `${errorDetail}; ` : "") + "client has no contact email on file";
+  }
+
+  try {
+    const { error: sendErr } = await supabase.functions.invoke("send-transactional-email", {
+      body: {
+        templateName: "proposal-signed-admin",
+        recipientEmail: BREE_EMAIL,
+        idempotencyKey: `proposal-signed-admin-${proposal.id}`,
+        templateData: {
+          clientName: client.business_name || client.contact_name || "A client",
+          proposalTitle: proposal.title,
+          adminUrl,
+          hasTerms,
+          depositStatus: hasTerms ? depositStatus : "none",
+          depositAmountFormatted,
+          errorDetail,
+        },
+      },
+    });
+    if (sendErr) console.error("[proposal-sign] admin signed-email failed:", sendErr);
+  } catch (e) {
+    console.error("[proposal-sign] admin signed-email threw:", e);
+  }
+
+  return { hasTerms, depositStatus, errorDetail };
+}
 
 // ---------- Handler ----------
 Deno.serve(async (req) => {
@@ -373,12 +569,14 @@ Deno.serve(async (req) => {
     }
     const input = parsed.data;
 
-    if (ADMIN_ONLY.has(input.action)) {
-      const ok = await isCallerAdmin(req, supabase);
-      if (!ok) {
-        return new Response(JSON.stringify({ error: "Admin only" }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+    // Computed once: `list`/`get`/`download` use it to decide what a non-admin
+    // caller is allowed to see, and the admin-only gate below reuses it rather
+    // than checking the JWT twice.
+    const callerIsAdmin = await isCallerAdmin(req, supabase);
+
+    if (ADMIN_ONLY.has(input.action) && !callerIsAdmin) {
+      return new Response(JSON.stringify({ error: "Admin only" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: client, error: clientErr } = await supabase
@@ -405,6 +603,7 @@ Deno.serve(async (req) => {
       let q = supabase.from("client_proposals").select(PROPOSAL_COLS)
         .eq("client_id", input.clientId).order("created_at", { ascending: false });
       if (input.clientProjectId) q = q.eq("client_project_id", input.clientProjectId);
+      if (!callerIsAdmin) q = q.not("status", "in", `(${CLIENT_HIDDEN_STATUSES.join(",")})`);
       const { data, error } = await q;
       if (error) throw error;
       return respond({ proposals: data ?? [] });
@@ -420,13 +619,32 @@ Deno.serve(async (req) => {
     }
 
     if (input.action === "create") {
+      // Hashed now, while the bytes are known-good from the upload — not
+      // recomputed later from whatever happens to be at this path, which is
+      // the one thing that must never silently change under a sent proposal.
+      let sourceSha256: string | null = null;
+      try {
+        const { data: src } = await supabase.storage.from(BUCKET).download(input.sourcePdfPath);
+        if (src) sourceSha256 = await sha256Hex(new Uint8Array(await src.arrayBuffer()));
+      } catch (e) {
+        console.warn("[proposal-sign] could not hash source PDF:", e);
+      }
+
       const { data, error } = await supabase.from("client_proposals").insert({
         client_id: input.clientId,
         client_project_id: input.clientProjectId,
         title: input.title,
         description: input.description ?? null,
         source_pdf_path: input.sourcePdfPath,
-        status: "sent",
+        source_pdf_sha256: sourceSha256,
+        // Draft until the commercial terms (if any) are confirmed and the
+        // Send email actually goes out — uploading a PDF is not the same
+        // as telling a client it exists. See `notify` for the only path
+        // that sets 'sent'.
+        status: input.totalCents != null && input.paymentTerms?.length ? "ready" : "draft",
+        total_cents: input.totalCents ?? null,
+        payment_due_days: input.paymentDueDays ?? null,
+        payment_terms: input.paymentTerms ?? null,
       }).select(PROPOSAL_COLS).single();
       if (error) throw error;
       await logProposalEvent(supabase, {
@@ -439,12 +657,25 @@ Deno.serve(async (req) => {
       return respond({ proposal: data });
     }
 
+    if (input.action === "mark-ready") {
+      const { data: row } = await supabase.from("client_proposals")
+        .select("id, status").eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
+      if (!row) return respond({ error: "Not found" }, 404);
+      if (row.status !== "draft") return respond({ error: `Cannot mark ready from status ${row.status}` }, 409);
+      const { error } = await supabase.from("client_proposals").update({ status: "ready" }).eq("id", input.proposalId);
+      if (error) throw error;
+      return respond({ success: true });
+    }
+
     if (input.action === "get") {
       const { data: row, error } = await supabase.from("client_proposals")
         .select(PROPOSAL_COLS)
         .eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
       if (error) throw error;
       if (!row) return respond({ error: "Proposal not found" }, 404);
+      if (!callerIsAdmin && CLIENT_HIDDEN_STATUSES.includes(row.status)) {
+        return respond({ error: "Proposal not found" }, 404);
+      }
       const sourceUrl = await signedUrl(row.source_pdf_path);
       const signedPdfUrl = await signedUrl(row.signed_pdf_path);
       // Reading a proposal in the portal is the strongest engagement signal
@@ -477,9 +708,12 @@ Deno.serve(async (req) => {
 
     if (input.action === "download") {
       const { data: row } = await supabase.from("client_proposals")
-        .select("id, source_pdf_path, signed_pdf_path")
+        .select("id, status, source_pdf_path, signed_pdf_path")
         .eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
       if (!row) return respond({ error: "Proposal not found" }, 404);
+      if (!callerIsAdmin && CLIENT_HIDDEN_STATUSES.includes(row.status)) {
+        return respond({ error: "Proposal not found" }, 404);
+      }
       const path = input.variant === "signed" ? row.signed_pdf_path : row.source_pdf_path;
       if (!path) return respond({ error: "No PDF available" }, 404);
       const url = await signedUrl(path);
@@ -659,6 +893,11 @@ Deno.serve(async (req) => {
             "Ask us for a new one and we will re-quote it.",
         }, 409);
       }
+      // Draft and ready are internal states — nothing has been sent to the
+      // client yet, so there is no valid link for anyone to be signing from.
+      if (row.status !== "sent") {
+        return respond({ error: "This proposal has not been sent and cannot be signed yet." }, 409);
+      }
       if (input.signatureType === "drawn" && !input.signatureData.startsWith("data:image/png")) {
         return respond({ error: "Drawn signature must be a PNG data URL." }, 400);
       }
@@ -673,8 +912,9 @@ Deno.serve(async (req) => {
       const ua = req.headers.get("user-agent");
       const now = new Date();
 
-      const signedBytes = await stampSignedProposal({
+      const { bytes: signedBytes, signedSha256 } = await stampSignedProposal({
         sourceBytes,
+        sourceSha256: row.source_pdf_sha256 ?? null,
         proposalTitle: row.title,
         proposalId: row.id,
         businessName: client.business_name ?? "Client",
@@ -704,6 +944,7 @@ Deno.serve(async (req) => {
         client_audit: input.audit ?? null,
         agency_countersigned_at: now.toISOString(),
         signed_pdf_path: signedPath,
+        signed_pdf_sha256: signedSha256,
         pdf_generated_at: now.toISOString(),
       }).eq("id", row.id);
       if (updErr) throw updErr;
@@ -726,7 +967,16 @@ Deno.serve(async (req) => {
       });
 
       const signedPdfUrl = await signedUrl(signedPath);
-      return respond({ success: true, proposalId: row.id, signedPdfUrl });
+
+      // From here on: schedule + deposit invoice + both emails. Best-effort —
+      // the signature itself is already durable, and a failure here must
+      // reach Bree (fail loud), never silently swallow and never fail the
+      // response the client is waiting on.
+      const automation = await runPostSignatureAutomation(supabase, {
+        proposal: row, client, signedPdfUrl,
+      });
+
+      return respond({ success: true, proposalId: row.id, signedPdfUrl, automation });
     }
 
     return respond({ error: "Unknown action" }, 400);

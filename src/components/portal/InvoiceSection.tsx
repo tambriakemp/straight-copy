@@ -16,7 +16,8 @@ type Invoice = {
   sent_at: string | null;
   paid_at: string | null;
 };
-type ProjectGroup = { projectId: string; projectName: string; invoices: Invoice[] };
+type ScheduleGroup = { scheduleId: string; title: string; invoices: Invoice[] };
+type ProjectGroup = { projectId: string; projectName: string; schedules: ScheduleGroup[] };
 
 const fmtMoney = (cents: number, currency: string) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: (currency || "usd").toUpperCase() }).format(cents / 100);
@@ -61,14 +62,20 @@ export default function InvoiceSection({ clientId, projectId }: { clientId: stri
 
   if (loading || groups.length === 0) return null;
 
+  // One section per schedule, not per project — a project with two schedules
+  // (e.g. a signed proposal's deposit/milestones alongside an older manual
+  // one) shows both instead of silently merging them into one total.
+  const sections = groups.flatMap((g) =>
+    g.schedules.map((s) => ({ ...s, projectName: g.projectName, multi: g.schedules.length > 1 })));
+
   return (
     <>
-      {groups.map((g) => {
+      {sections.map((g) => {
         const totalCents = g.invoices.reduce((sum, i) => sum + (i.status === "void" ? 0 : i.amount_cents), 0);
         const paidCents = g.invoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.amount_cents, 0);
         const currency = g.invoices[0]?.currency || "usd";
         return (
-          <section key={g.projectId} style={{
+          <section key={g.scheduleId} style={{
             border: T.hairline, borderRadius: T.radius, background: T.panel,
             display: "flex", flexDirection: "column", minWidth: 0, scrollMarginTop: 24,
           }}>
@@ -78,6 +85,7 @@ export default function InvoiceSection({ clientId, projectId }: { clientId: stri
             }}>
               <h2 style={{ fontFamily: T.serif, fontSize: 22, fontWeight: 500, color: T.text, margin: 0 }}>
                 Payments
+                {g.multi && <span style={{ fontSize: 14, color: T.muted, fontWeight: 400 }}> · {g.title}</span>}
               </h2>
               <span style={{ marginLeft: "auto", fontSize: 14, color: T.text2 }}>
                 {fmtMoney(paidCents, currency)} of {fmtMoney(totalCents, currency)} paid
