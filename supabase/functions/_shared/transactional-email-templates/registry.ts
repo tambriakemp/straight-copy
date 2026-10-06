@@ -16,6 +16,10 @@ import { template as brandKitNotification } from './brand-kit-notification.tsx'
 import { template as webDevDiscoveryNotification } from './web-dev-discovery-notification.tsx'
 import { template as invoicePaymentLink } from './invoice-payment-link.tsx'
 import { template as proposalReady } from './proposal-ready.tsx'
+import { template as proposalSignedClient } from './proposal-signed-client.tsx'
+import { template as proposalSignedAdmin } from './proposal-signed-admin.tsx'
+import { template as invoicePaidClient } from './invoice-paid-client.tsx'
+import { template as invoicePaidAdmin } from './invoice-paid-admin.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'contact-confirmation': contactConfirmation,
@@ -25,4 +29,8 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'web-dev-discovery-notification': webDevDiscoveryNotification,
   'invoice-payment-link': invoicePaymentLink,
   'proposal-ready': proposalReady,
+  'proposal-signed-client': proposalSignedClient,
+  'proposal-signed-admin': proposalSignedAdmin,
+  'invoice-paid-client': invoicePaidClient,
+  'invoice-paid-admin': invoicePaidAdmin,
 }

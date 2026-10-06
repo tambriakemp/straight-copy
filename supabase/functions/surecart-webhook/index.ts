@@ -114,6 +114,88 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 
+const BREE_EMAIL = 'info@cre8visions.com'
+
+/**
+ * Everything that happens once a project_invoices row flips to paid: Bree and
+ * the client both get told, and a kickoff item is logged so the next step
+ * doesn't rely on anyone having read the email. No Paperclip write key is
+ * configured on this site (only a read-only token, used by
+ * sync-paperclip-pending) — if that changes, swap the activity_events insert
+ * below for a real Paperclip issue.
+ */
+async function notifyInvoicePaid(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  invRow: { id: string; client_id: string; client_project_id: string; label: string; amount_cents: number; currency: string },
+) {
+  const { data: client } = await supabase
+    .from('clients')
+    .select('id, business_name, contact_name, contact_email')
+    .eq('id', invRow.client_id)
+    .maybeSingle()
+  const { data: project } = await supabase
+    .from('client_projects')
+    .select('name')
+    .eq('id', invRow.client_project_id)
+    .maybeSingle()
+
+  const amountFormatted = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: (invRow.currency || 'usd').toUpperCase(),
+  }).format(invRow.amount_cents / 100)
+  const clientName = client?.business_name || client?.contact_name || 'A client'
+  const adminUrl = `https://cre8visions.com/admin/clients/${invRow.client_id}/projects/${invRow.client_project_id}`
+
+  await supabase.from('activity_events').insert({
+    kind: 'kickoff',
+    title: `Kickoff: ${clientName} — ${invRow.label}`,
+    description: `${invRow.label} (${amountFormatted}) was paid on ${project?.name ?? 'a project'}. Ready to move ahead.`,
+    client_id: invRow.client_id,
+    client_project_id: invRow.client_project_id,
+    actor: 'system',
+    metadata: { project_invoice_id: invRow.id, amount_cents: invRow.amount_cents, currency: invRow.currency },
+  }).then(({ error }: { error: unknown }) => { if (error) console.error('kickoff activity_events insert failed', error) })
+
+  try {
+    const { error } = await supabase.functions.invoke('send-transactional-email', {
+      body: {
+        templateName: 'invoice-paid-admin',
+        recipientEmail: BREE_EMAIL,
+        idempotencyKey: `invoice-paid-admin-${invRow.id}`,
+        templateData: {
+          clientName, projectName: project?.name ?? null,
+          invoiceLabel: invRow.label, amountFormatted, adminUrl,
+        },
+      },
+    })
+    if (error) console.error('invoice-paid-admin send failed', error)
+  } catch (e) {
+    console.error('invoice-paid-admin send threw', e)
+  }
+
+  if (client?.contact_email) {
+    try {
+      const { error } = await supabase.functions.invoke('send-transactional-email', {
+        body: {
+          templateName: 'invoice-paid-client',
+          recipientEmail: client.contact_email,
+          idempotencyKey: `invoice-paid-client-${invRow.id}`,
+          templateData: {
+            recipientName: client.contact_name ?? null,
+            projectName: project?.name ?? null,
+            invoiceLabel: invRow.label, amountFormatted,
+            fromName: 'CRE8 Visions',
+          },
+        },
+      })
+      if (error) console.error('invoice-paid-client send failed', error)
+    } catch (e) {
+      console.error('invoice-paid-client send threw', e)
+    }
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -245,7 +327,7 @@ Deno.serve(async (req) => {
     if (ors.length) {
       const { data: invRow } = await supabaseInv
         .from('project_invoices')
-        .select('id, status')
+        .select('id, status, client_id, client_project_id, label, amount_cents, currency')
         .or(ors.join(','))
         .maybeSingle()
       if (invRow) {
@@ -257,6 +339,11 @@ Deno.serve(async (req) => {
             surecart_checkout_id: checkoutId || undefined,
             surecart_invoice_id: invoiceId || undefined,
           }).eq('id', invRow.id)
+
+          // Fires exactly once per invoice — this whole branch only runs the
+          // update above when the row wasn't already 'paid', so a retried
+          // webhook event never double-notifies or double-logs the kickoff.
+          await notifyInvoicePaid(supabaseInv, invRow)
         }
         return new Response(JSON.stringify({ ok: true, project_invoice_paid: invRow.id }), {
           status: 200,
