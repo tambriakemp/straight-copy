@@ -4491,6 +4491,7 @@ export type Database = {
         Args: { _client_id: string }
         Returns: undefined
       }
+      fire_sync_paperclip_pending: { Args: never; Returns: undefined }
       get_portal_client: { Args: { _client_id: string }; Returns: Json }
       get_project_secret: {
         Args: { _client_project_id: string; _enc_key: string; _key: string }
