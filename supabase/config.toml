@@ -181,3 +181,15 @@ verify_jwt = false
 # as post-brief.
 [functions.prospect-approvals-sync]
 verify_jwt = false
+
+# Shared-secret ingest for the site-audit tool's publish step (CRE-225). The
+# expected value lives in app_secrets.audit_upload_secret, checked inside the
+# function — not a Supabase Function env var. Same pattern as post-brief.
+[functions.audit-upload]
+verify_jwt = false
+
+# Fully public: the password check and signed-token report fetch behind
+# /audit/:slug. No Supabase JWT involved at all — auth is the client_audits
+# password plus a short-lived HMAC token, both checked inside the function.
+[functions.audit-serve]
+verify_jwt = false

@@ -47,6 +47,7 @@ const Approvals = lazy(() => import("./pages/admin/Approvals.tsx"));
 const Audits = lazy(() => import("./pages/admin/Audits.tsx"));
 const Agents = lazy(() => import("./pages/admin/Agents.tsx"));
 const PreviewViewer = lazy(() => import("./pages/PreviewViewer.tsx"));
+const AuditReport = lazy(() => import("./pages/AuditReport.tsx"));
 const RequireAdmin = lazy(() => import("./components/admin/RequireAdmin.tsx"));
 const RequireWiki = lazy(() => import("./components/admin/RequireWiki.tsx"));
 const WikiList = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => ({ default: module.WikiList })));
@@ -120,6 +121,7 @@ const App = () => (
             <Route path="/admin/wiki/:slug/edit" element={<RequireWiki><WikiEdit mode="edit" /></RequireWiki>} />
             <Route path="/admin/wiki/:slug/history" element={<RequireWiki><WikiHistory /></RequireWiki>} />
             <Route path="/p/:slug/*" element={<PreviewViewer />} />
+            <Route path="/audit/:slug" element={<AuditReport />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
