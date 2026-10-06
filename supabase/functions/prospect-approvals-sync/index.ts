@@ -42,6 +42,7 @@ interface ProspectInput {
   contact_name?: string | null;
   contact_email?: string | null;
   hook?: string | null;
+  current_site_url?: string | null;
   preview_url?: string | null;
   preview_image_url?: string | null;
   email_subject?: string | null;
@@ -54,6 +55,7 @@ const OPTIONAL_STRING_FIELDS = [
   "contact_name",
   "contact_email",
   "hook",
+  "current_site_url",
   "preview_url",
   "preview_image_url",
   "email_subject",
@@ -158,6 +160,7 @@ Deno.serve(async (req) => {
       contact_name: p.contact_name ?? null,
       contact_email: p.contact_email ?? null,
       hook: p.hook ?? null,
+      current_site_url: p.current_site_url ?? null,
       preview_url: p.preview_url ?? null,
       preview_image_url: p.preview_image_url ?? null,
       email_subject: p.email_subject ?? null,

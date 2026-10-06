@@ -25,6 +25,7 @@ interface Prospect {
   contact_name: string | null;
   contact_email: string | null;
   hook: string | null;
+  current_site_url: string | null;
   preview_url: string | null;
   preview_image_url: string | null;
   email_subject: string | null;
@@ -43,6 +44,10 @@ const STATUS_COLOR: Record<Status, string> = {
   approved: "hsl(140 35% 48%)",
   rejected: "hsl(5 55% 55%)",
 };
+
+function openInNewTab(url: string | null | undefined) {
+  if (url) window.open(url, "_blank", "noopener,noreferrer");
+}
 
 function randomSecret(len = 40) {
   const arr = new Uint8Array(len);
@@ -119,6 +124,7 @@ export default function Approvals() {
   const [status, setStatus] = useState<"all" | Status>("pending");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openId, setOpenId] = useState<string | null>(null);
+  const [noteOpenId, setNoteOpenId] = useState<string | null>(null);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -171,6 +177,7 @@ export default function Approvals() {
     toast.success(next === "approved" ? "Approved" : "Rejected");
     setSelected((s) => { const n = new Set(s); n.delete(id); return n; });
     setOpenId(null);
+    setNoteOpenId((n) => (n === id ? null : n));
     load();
   };
 
@@ -256,7 +263,7 @@ export default function Approvals() {
           </div>
         ) : (
           <>
-            <div className="roster__head-row" style={{ gridTemplateColumns: "28px 72px 2fr 1fr auto" }}>
+            <div className="roster__head-row" style={{ gridTemplateColumns: "28px 72px 2fr 0.7fr 2.4fr" }}>
               <div className="roster__col-h" style={{ cursor: "default" }} />
               <div className="roster__col-h" style={{ cursor: "default" }} />
               <div className="roster__col-h" style={{ cursor: "default" }}>Company</div>
@@ -265,7 +272,7 @@ export default function Approvals() {
             </div>
             <div className="roster__list">
               {filtered.map((p) => (
-                <div key={p.id} className="roster__row" style={{ gridTemplateColumns: "28px 72px 2fr 1fr auto", cursor: "default" }}>
+                <div key={p.id} className="roster__row" style={{ gridTemplateColumns: "28px 72px 2fr 0.7fr 2.4fr", cursor: "default" }}>
                   <input
                     type="checkbox"
                     disabled={p.status !== "pending"}
@@ -293,10 +300,62 @@ export default function Approvals() {
                   }}>
                     {STATUS_LABEL[p.status]}
                   </span>
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setOpenId(p.id)}>
-                      Review
-                    </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "flex-end" }}>
+                      <button
+                        type="button"
+                        className="crm-btn crm-btn--ghost crm-btn--sm"
+                        disabled={!p.current_site_url}
+                        title={p.current_site_url ? undefined : "No site"}
+                        onClick={() => openInNewTab(p.current_site_url)}
+                      >
+                        Current site
+                      </button>
+                      <button
+                        type="button"
+                        className="crm-btn crm-btn--ghost crm-btn--sm"
+                        disabled={!p.preview_url}
+                        onClick={() => openInNewTab(p.preview_url)}
+                      >
+                        Preview <ExternalLink className="h-3 w-3" />
+                      </button>
+                      {p.status === "pending" && (
+                        <>
+                          <button
+                            type="button"
+                            className="crm-btn crm-btn--ghost crm-btn--sm"
+                            onClick={() => setNoteOpenId((id) => (id === p.id ? null : p.id))}
+                          >
+                            + Note
+                          </button>
+                          <button
+                            type="button"
+                            className="crm-btn crm-btn--bronze crm-btn--sm"
+                            disabled={busyId === p.id}
+                            onClick={() => decide(p.id, "approved", noteDrafts[p.id])}
+                          >
+                            <Check className="h-3 w-3" /> Approve
+                          </button>
+                          <button
+                            type="button"
+                            className="crm-btn crm-btn--ghost crm-btn--sm"
+                            disabled={busyId === p.id}
+                            onClick={() => setOpenId(p.id)}
+                          >
+                            <X className="h-3 w-3" /> Reject
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    {noteOpenId === p.id && (
+                      <textarea
+                        className="crm-input"
+                        placeholder="Note (optional)"
+                        value={noteDrafts[p.id] ?? ""}
+                        onChange={(e) => setNoteDrafts((d) => ({ ...d, [p.id]: e.target.value }))}
+                        style={{ width: 220, minHeight: 50, fontFamily: "inherit", fontSize: 13 }}
+                      />
+                    )}
                   </div>
                 </div>
               ))}
@@ -312,12 +371,12 @@ export default function Approvals() {
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              style={{ background: "hsl(36 5% 16%)", maxWidth: 640, width: "100%", maxHeight: "90vh", overflowY: "auto", padding: 28 }}
+              style={{ background: "hsl(36 5% 16%)", maxWidth: 480, width: "100%", maxHeight: "90vh", overflowY: "auto", padding: 28 }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
                   <h2 className="font-serif italic text-2xl" style={{ color: "hsl(40 20% 97%)", marginBottom: 2 }}>
-                    {open.company}
+                    Reject {open.company}?
                   </h2>
                   <p style={{ fontSize: 14, color: "hsl(30 8% 62%)" }}>
                     {open.city}{open.trade ? ` · ${open.trade}` : ""} · batch {open.batch}
@@ -326,66 +385,23 @@ export default function Approvals() {
                 <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setOpenId(null)}>Close</button>
               </div>
 
-              {open.preview_url && (
-                <a
-                  href={open.preview_url} target="_blank" rel="noreferrer"
-                  style={{ color: "hsl(26 60% 55%)", fontSize: 14, display: "inline-flex", gap: 6, alignItems: "center", margin: "10px 0" }}
-                >
-                  Open live preview <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
-
-              {open.hook && (
-                <p style={{ fontSize: 15, color: "hsl(40 20% 97%)", lineHeight: 1.5, margin: "14px 0" }}>{open.hook}</p>
-              )}
-
-              {(open.email_subject || open.email_body) && (
-                <div style={{ margin: "18px 0" }}>
-                  <div style={{ fontSize: 13, letterSpacing: "0.15em", textTransform: "uppercase", color: "hsl(30 8% 62%)", marginBottom: 6 }}>
-                    Email as it will send
-                  </div>
-                  <div style={{ background: "hsl(40 8% 10%)", border: "1px solid hsl(40 20% 97% / 0.08)", padding: 14 }}>
-                    {open.email_subject && (
-                      <div style={{ fontSize: 15, color: "hsl(40 20% 97%)", marginBottom: 8 }}>
-                        <strong>Subject:</strong> {open.email_subject}
-                      </div>
-                    )}
-                    {open.email_body && (
-                      <div style={{ fontSize: 14, color: "hsl(40 20% 97%)", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-                        {open.email_body}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {(open.contact_name || open.contact_email) && (
-                <p style={{ fontSize: 13, color: "hsl(30 8% 62%)" }}>
-                  To: {open.contact_name}{open.contact_name && open.contact_email ? " · " : ""}{open.contact_email}
-                </p>
-              )}
-
               <textarea
                 className="crm-input"
-                placeholder="Notes (shown back to Nicole; optional on approve, encouraged on reject)"
-                defaultValue={open.notes ?? ""}
+                placeholder="Notes for Nicole — what should change? (encouraged, optional)"
+                defaultValue={noteDrafts[open.id] ?? open.notes ?? ""}
                 onChange={(e) => setNoteDrafts((d) => ({ ...d, [open.id]: e.target.value }))}
-                style={{ width: "100%", minHeight: 80, margin: "14px 0", fontFamily: "inherit" }}
+                style={{ width: "100%", minHeight: 100, margin: "18px 0", fontFamily: "inherit" }}
+                autoFocus
               />
 
               <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  className="crm-btn crm-btn--bronze" disabled={busyId === open.id}
-                  onClick={() => decide(open.id, "approved", noteDrafts[open.id] ?? open.notes ?? undefined)}
-                >
-                  <Check className="h-4 w-4" /> Approve
-                </button>
                 <button
                   className="crm-btn crm-btn--ghost" disabled={busyId === open.id}
                   onClick={() => decide(open.id, "rejected", noteDrafts[open.id] ?? open.notes ?? undefined)}
                 >
                   <X className="h-4 w-4" /> Reject
                 </button>
+                <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setOpenId(null)}>Cancel</button>
               </div>
             </div>
           </div>
