@@ -21,4 +21,5 @@ project-invoices/index.ts
 project-tasks/index.ts
 proposal-sign/index.ts
 regenerate-social-post/index.ts
+send-preview-review-email/index.ts
 surecart-webhook/index.ts
