@@ -3256,7 +3256,6 @@ export type Database = {
           contact_email: string | null
           contact_name: string | null
           created_at: string
-          current_site_url: string | null
           decided_at: string | null
           decided_by: string | null
           email_body: string | null
@@ -3278,7 +3277,6 @@ export type Database = {
           contact_email?: string | null
           contact_name?: string | null
           created_at?: string
-          current_site_url?: string | null
           decided_at?: string | null
           decided_by?: string | null
           email_body?: string | null
@@ -3300,7 +3298,6 @@ export type Database = {
           contact_email?: string | null
           contact_name?: string | null
           created_at?: string
-          current_site_url?: string | null
           decided_at?: string | null
           decided_by?: string | null
           email_body?: string | null
