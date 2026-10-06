@@ -1121,8 +1121,6 @@ export type Database = {
           source_order_id: string | null
           status: string
           subscription_status: string | null
-          surecontact_deal_id: string | null
-          surecontact_deal_stage: string | null
           timezone: string | null
           toolchain: string
           type: string
@@ -1153,8 +1151,6 @@ export type Database = {
           source_order_id?: string | null
           status?: string
           subscription_status?: string | null
-          surecontact_deal_id?: string | null
-          surecontact_deal_stage?: string | null
           timezone?: string | null
           toolchain?: string
           type: string
@@ -1185,8 +1181,6 @@ export type Database = {
           source_order_id?: string | null
           status?: string
           subscription_status?: string | null
-          surecontact_deal_id?: string | null
-          surecontact_deal_stage?: string | null
           timezone?: string | null
           toolchain?: string
           type?: string
@@ -2204,6 +2198,7 @@ export type Database = {
           id: string
           invite_id: string | null
           last_activity_at: string | null
+          submitted_ip: string | null
           summary: Json | null
           updated_at: string
         }
@@ -2217,6 +2212,7 @@ export type Database = {
           id?: string
           invite_id?: string | null
           last_activity_at?: string | null
+          submitted_ip?: string | null
           summary?: Json | null
           updated_at?: string
         }
@@ -2230,6 +2226,7 @@ export type Database = {
           id?: string
           invite_id?: string | null
           last_activity_at?: string | null
+          submitted_ip?: string | null
           summary?: Json | null
           updated_at?: string
         }
@@ -4611,6 +4608,7 @@ export type Database = {
         Args: { _client_project_id: string }
         Returns: undefined
       }
+      fire_email_status_poll: { Args: never; Returns: undefined }
       fire_kickoff_webhook: { Args: { _client_id: string }; Returns: undefined }
       fire_queue_routine: {
         Args: {
@@ -4626,6 +4624,8 @@ export type Database = {
         Returns: undefined
       }
       fire_sync_paperclip_pending: { Args: never; Returns: undefined }
+      fire_web_dev_scheduled_dispatch: { Args: never; Returns: undefined }
+      fire_weekly_progress_reports: { Args: never; Returns: undefined }
       get_portal_client: { Args: { _client_id: string }; Returns: Json }
       get_project_secret: {
         Args: { _client_project_id: string; _enc_key: string; _key: string }
