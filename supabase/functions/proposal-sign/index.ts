@@ -6,6 +6,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { logProposalEvent } from "../_shared/proposal-events.ts";
+import { syncProposalToSureContactDeal } from "../_shared/proposal-deal-sync.ts";
 import { sendProjectInvoice } from "../_shared/surecart-invoices.ts";
 import { PDFDocument, PDFFont, PDFPage, rgb, type PDFImage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
@@ -311,9 +312,24 @@ const CreateSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().max(2000).optional(),
   sourcePdfPath: z.string().min(1).max(500),
-  totalCents: z.number().int().min(0).max(100_000_000).optional(),
+  // Required since CRE-287 — a proposal with no amount looked identical to
+  // one that would auto-create a deposit schedule, which is how a $0 Menovia
+  // reupload almost went out without the $5,000 anyone actually quoted.
+  totalCents: z.number().int().min(1).max(100_000_000),
   paymentDueDays: z.number().int().min(0).max(365).optional(),
   paymentTerms: z.array(PaymentTermItem).max(20).optional(),
+});
+// Pairing two proposals that already exist: the old one is retired without
+// being deleted, the new one becomes the one the client (and Bree) see as
+// current. Used both by the upload dialog's "New version of…" picker and by
+// the admin "Mark superseded by…" action on a row uploaded independently —
+// which is also how the 9/23 and 10/6 Menovia proposals get linked after the
+// fact, since neither was created through the other.
+const SupersedeSchema = z.object({
+  action: z.literal("supersede"),
+  clientId: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  supersededByProposalId: z.string().uuid(),
 });
 const MarkReadySchema = z.object({
   action: z.literal("mark-ready"),
@@ -387,15 +403,16 @@ const ActivitySchema = z.object({
 
 const ActionSchema = z.discriminatedUnion("action", [
   ListSchema, UploadUrlSchema, CreateSchema, MarkReadySchema, GetSchema, SignSchema, DownloadSchema, VoidSchema,
-  DeleteSchema, ActivitySchema, DeclineSchema, NotifySchema,
+  DeleteSchema, ActivitySchema, DeclineSchema, NotifySchema, SupersedeSchema,
 ]);
 
-const ADMIN_ONLY = new Set(["upload-url", "create", "mark-ready", "void", "delete", "activity", "notify"]);
+const ADMIN_ONLY = new Set(["upload-url", "create", "mark-ready", "void", "delete", "activity", "notify", "supersede"]);
 
 const PROPOSAL_COLS =
   "id, client_id, client_project_id, title, description, status, source_pdf_path, " +
   "source_pdf_version, source_pdf_sha256, signed_pdf_sha256, " +
   "total_cents, currency, payment_due_days, payment_terms, " +
+  "version, version_group_id, supersedes_id, " +
   "content, sent_at, sent_to, first_opened_at, first_viewed_at, last_activity_at, " +
   "next_followup_at, followup_count, " +
   "declined_at, decline_reason, " +
@@ -403,11 +420,14 @@ const PROPOSAL_COLS =
   "agency_signer_name, agency_countersigned_at, signed_pdf_path, pdf_generated_at, " +
   "created_at, updated_at";
 
-/** For `list`/`get`/`download`: non-admin (portal) callers never see draft or
- *  voided proposals server-side — the browser used to be the only thing
- *  filtering those out, so a crafted request could read an internal draft or
- *  a withdrawn document straight from the API. */
-const CLIENT_HIDDEN_STATUSES = ["draft", "ready", "voided"];
+/** For `list`/`get`/`download`: non-admin (portal) callers never see draft,
+ *  voided or superseded proposals server-side — the browser used to be the
+ *  only thing filtering those out, so a crafted request could read an
+ *  internal draft, a withdrawn document, or an old version straight from the
+ *  API (which is exactly how Dr. Kahin could still open and sign the 9/23
+ *  Menovia proposal after the $5,000 one replaced it — the list endpoint
+ *  handed it over, the portal UI just never showed it). */
+const CLIENT_HIDDEN_STATUSES = ["draft", "ready", "voided", "superseded"];
 
 const BREE_EMAIL = "info@cre8visions.com";
 
@@ -641,7 +661,7 @@ Deno.serve(async (req) => {
         // Send email actually goes out — uploading a PDF is not the same
         // as telling a client it exists. See `notify` for the only path
         // that sets 'sent'.
-        status: input.totalCents != null && input.paymentTerms?.length ? "ready" : "draft",
+        status: input.paymentTerms?.length ? "ready" : "draft",
         total_cents: input.totalCents ?? null,
         payment_due_days: input.paymentDueDays ?? null,
         payment_terms: input.paymentTerms ?? null,
@@ -664,6 +684,49 @@ Deno.serve(async (req) => {
       if (row.status !== "draft") return respond({ error: `Cannot mark ready from status ${row.status}` }, 409);
       const { error } = await supabase.from("client_proposals").update({ status: "ready" }).eq("id", input.proposalId);
       if (error) throw error;
+      return respond({ success: true });
+    }
+
+    if (input.action === "supersede") {
+      const { data: oldRow } = await supabase.from("client_proposals")
+        .select("id, status, version, version_group_id")
+        .eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
+      if (!oldRow) return respond({ error: "Proposal not found" }, 404);
+      if (oldRow.status === "signed") return respond({ error: "Cannot supersede a signed proposal" }, 409);
+      if (oldRow.status === "superseded") return respond({ error: "That proposal is already superseded" }, 409);
+
+      const { data: newRow } = await supabase.from("client_proposals")
+        .select("id, status, version, version_group_id")
+        .eq("id", input.supersededByProposalId).eq("client_id", input.clientId).maybeSingle();
+      if (!newRow) return respond({ error: "Replacement proposal not found" }, 404);
+      if (newRow.id === oldRow.id) return respond({ error: "A proposal cannot supersede itself" }, 400);
+
+      // Every row already carries a version_group_id (set on insert, see the
+      // trigger). The older of the two groups wins as the thread's identity
+      // so repeated "mark superseded" calls on the same chain keep landing on
+      // one group instead of forking a new one each time.
+      const groupId = oldRow.version_group_id ?? oldRow.id;
+      const oldVersion = oldRow.version ?? 1;
+      const newVersion = Math.max(newRow.version ?? 1, oldVersion + 1);
+
+      const { error: e1 } = await supabase.from("client_proposals")
+        .update({ status: "superseded", version_group_id: groupId, version: oldVersion })
+        .eq("id", oldRow.id);
+      if (e1) throw e1;
+
+      const { error: e2 } = await supabase.from("client_proposals")
+        .update({ version_group_id: groupId, version: newVersion, supersedes_id: oldRow.id })
+        .eq("id", newRow.id);
+      if (e2) throw e2;
+
+      await logProposalEvent(supabase, {
+        proposal_id: oldRow.id,
+        client_id: input.clientId,
+        event_type: "superseded",
+        actor: "admin",
+        detail: { superseded_by: newRow.id },
+      });
+
       return respond({ success: true });
     }
 
@@ -722,13 +785,16 @@ Deno.serve(async (req) => {
 
     if (input.action === "notify") {
       const { data: row } = await supabase.from("client_proposals")
-        .select("id, title, status, client_project_id, sent_at, source_pdf_path, content")
+        .select("id, title, status, client_project_id, sent_at, source_pdf_path, content, total_cents, version")
         .eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
       if (!row) return respond({ error: "Proposal not found" }, 404);
       if (row.status === "signed") return respond({ error: "That proposal is already signed" }, 409);
       if (row.status === "voided") return respond({ error: "Proposal voided" }, 409);
       if (row.status === "declined") {
         return respond({ error: "The client declined this proposal" }, 409);
+      }
+      if (row.status === "superseded") {
+        return respond({ error: "A newer version has replaced this proposal — send that one instead" }, 409);
       }
       if (!row.source_pdf_path && !row.content) {
         // Sending someone to an empty document is worse than not sending.
@@ -799,6 +865,22 @@ Deno.serve(async (req) => {
         occurred_at: now,
         detail: { to, link, template: "proposal-ready", note: input.note ?? null },
       });
+
+      // CRE-286 hook: every send or resend of a proposal keeps the
+      // SureContact deal amount current. Best-effort — a sync failure must
+      // never be the reason a proposal send itself fails.
+      try {
+        await syncProposalToSureContactDeal({
+          proposalId: row.id,
+          clientId: input.clientId,
+          clientProjectId: row.client_project_id,
+          title: row.title,
+          totalCents: row.total_cents,
+          isNewVersion: row.version > 1,
+        });
+      } catch (e) {
+        console.error("[proposal-sign] deal sync failed:", e);
+      }
 
       return respond({
         success: true, to, link,
@@ -891,6 +973,15 @@ Deno.serve(async (req) => {
         return respond({
           error: "This proposal was declined and can no longer be signed. " +
             "Ask us for a new one and we will re-quote it.",
+        }, 409);
+      }
+      // A superseded proposal is exactly the bug CRE-287 closed: the terms on
+      // it may be stale (no total, no payment schedule) and signing it would
+      // bypass the deposit automation the current version is set up for.
+      if (row.status === "superseded") {
+        return respond({
+          error: "A newer version of this proposal has replaced it and it can no longer be signed. " +
+            "Ask us for the current version.",
         }, 409);
       }
       // Draft and ready are internal states — nothing has been sent to the
