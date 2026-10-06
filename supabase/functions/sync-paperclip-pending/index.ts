@@ -14,7 +14,12 @@
 // returns *every* issue responsible to the given user regardless of status
 // (76 rows going back to September, including `done`/`backlog`), not just
 // the ones that need her attention. Filtered below to the statuses that
-// actually mean "needs you right now": in_review, blocked, todo.
+// actually mean "needs you right now": in_progress, in_review, blocked, todo.
+// in_progress was added 2026-10-06 after Bree flagged a real example
+// (CRE-262) that was missing — the endpoint's own `isUnreadForMe` field is
+// scoped to the calling agent identity ("get current agent assigned inbox
+// items"), not to the userId query param, so it can't substitute for "unread
+// to Bree" and is deliberately not used here.
 // The /approvals endpoint's field shape is still unverified — this company
 // has never had a real pending-approval row to check field names against,
 // so that mapping is left as the original best guess.
@@ -105,7 +110,7 @@ Deno.serve(async (req) => {
       if (!inboxRes.ok) throw new Error(`inbox ${inboxRes.status}: ${await inboxRes.text()}`);
       const inbox = await inboxRes.json();
       const list = Array.isArray(inbox) ? inbox : inbox.items ?? [];
-      const ACTIONABLE_STATUSES = new Set(["in_review", "blocked", "todo"]);
+      const ACTIONABLE_STATUSES = new Set(["in_progress", "in_review", "blocked", "todo"]);
       for (const i of list) {
         if (!ACTIONABLE_STATUSES.has(i.status)) continue;
         const identifier = i.identifier ?? null;
