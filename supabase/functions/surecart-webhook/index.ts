@@ -3,6 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { seedWebDevTasks } from '../_shared/web-dev-tasks.ts'
+import { markDealWonFromDepositPaid } from '../_shared/proposal-deal-sync.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -327,7 +328,7 @@ Deno.serve(async (req) => {
     if (ors.length) {
       const { data: invRow } = await supabaseInv
         .from('project_invoices')
-        .select('id, status, client_id, client_project_id, label, amount_cents, currency')
+        .select('id, status, client_id, client_project_id, label, amount_cents, currency, trigger, proposal_id')
         .or(ors.join(','))
         .maybeSingle()
       if (invRow) {
@@ -344,6 +345,23 @@ Deno.serve(async (req) => {
           // update above when the row wasn't already 'paid', so a retried
           // webhook event never double-notifies or double-logs the kickoff.
           await notifyInvoicePaid(supabaseInv, invRow)
+
+          // CRE-286 hook: the deposit (trigger = 'on_signature') is only ever
+          // created by runPostSignatureAutomation once a proposal is signed,
+          // so this invoice flipping to paid means both halves of "Won" are
+          // true. Best-effort — never let a SureContact hiccup affect the
+          // invoice itself, which is already durably marked paid above.
+          if (invRow.trigger === 'on_signature' && invRow.proposal_id && invRow.client_project_id) {
+            try {
+              await markDealWonFromDepositPaid(supabaseInv, {
+                proposalId: invRow.proposal_id,
+                clientProjectId: invRow.client_project_id,
+                amountCents: invRow.amount_cents,
+              })
+            } catch (e) {
+              console.error('[surecart-webhook] deal-won sync failed:', e)
+            }
+          }
         }
         return new Response(JSON.stringify({ ok: true, project_invoice_paid: invRow.id }), {
           status: 200,

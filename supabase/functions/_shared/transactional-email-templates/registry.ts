@@ -20,6 +20,7 @@ import { template as proposalSignedClient } from './proposal-signed-client.tsx'
 import { template as proposalSignedAdmin } from './proposal-signed-admin.tsx'
 import { template as invoicePaidClient } from './invoice-paid-client.tsx'
 import { template as invoicePaidAdmin } from './invoice-paid-admin.tsx'
+import { template as surecontactSyncFailedAdmin } from './surecontact-sync-failed-admin.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'contact-confirmation': contactConfirmation,
@@ -33,4 +34,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'proposal-signed-admin': proposalSignedAdmin,
   'invoice-paid-client': invoicePaidClient,
   'invoice-paid-admin': invoicePaidAdmin,
+  'surecontact-sync-failed-admin': surecontactSyncFailedAdmin,
 }

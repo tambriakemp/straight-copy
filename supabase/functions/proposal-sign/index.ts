@@ -6,7 +6,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { logProposalEvent } from "../_shared/proposal-events.ts";
-import { syncProposalToSureContactDeal } from "../_shared/proposal-deal-sync.ts";
+import { markDealLostForProposal, syncProposalToSureContactDeal } from "../_shared/proposal-deal-sync.ts";
 import { sendProjectInvoice } from "../_shared/surecart-invoices.ts";
 import { PDFDocument, PDFFont, PDFPage, rgb, type PDFImage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
@@ -870,7 +870,7 @@ Deno.serve(async (req) => {
       // SureContact deal amount current. Best-effort — a sync failure must
       // never be the reason a proposal send itself fails.
       try {
-        await syncProposalToSureContactDeal({
+        await syncProposalToSureContactDeal(supabase, {
           proposalId: row.id,
           clientId: input.clientId,
           clientProjectId: row.client_project_id,
@@ -928,17 +928,41 @@ Deno.serve(async (req) => {
         },
       });
 
+      // CRE-286 hook: a decline is a Lost deal. Best-effort, same as notify.
+      try {
+        await markDealLostForProposal(supabase, {
+          proposalId: row.id,
+          clientProjectId: row.client_project_id,
+          reason: `Proposal "${row.title}" declined` + (input.reason?.trim() ? ` — "${input.reason.trim()}"` : ""),
+        });
+      } catch (e) {
+        console.error("[proposal-sign] deal-lost sync failed:", e);
+      }
+
       return respond({ success: true, status: "declined", declinedAt });
     }
 
     if (input.action === "void") {
       const { data: row } = await supabase.from("client_proposals")
-        .select("id, status").eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
+        .select("id, status, title, client_project_id")
+        .eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
       if (!row) return respond({ error: "Not found" }, 404);
       if (row.status === "signed") return respond({ error: "Cannot void a signed proposal" }, 409);
       const { error } = await supabase.from("client_proposals")
         .update({ status: "voided" }).eq("id", input.proposalId);
       if (error) throw error;
+
+      // CRE-286 hook: a voided proposal is a Lost deal. Best-effort, same as notify.
+      try {
+        await markDealLostForProposal(supabase, {
+          proposalId: row.id,
+          clientProjectId: row.client_project_id,
+          reason: `Proposal "${row.title}" voided`,
+        });
+      } catch (e) {
+        console.error("[proposal-sign] deal-lost sync failed:", e);
+      }
+
       return respond({ success: true });
     }
 
