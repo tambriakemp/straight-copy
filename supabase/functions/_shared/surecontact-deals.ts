@@ -11,8 +11,10 @@ const SURECONTACT_BASE = "https://api.surecontact.com/api/v1/public";
 /** Bree's one sales pipeline, confirmed live 2026-10-06. */
 export const CRE8_PROSPECT_PIPELINE_UUID = "457d7961-cc70-4ee3-908b-34cf38a71475";
 
-/** Stage display names as they read in SureContact's "Cre8 Prospect"
- *  pipeline. Matched case-insensitively against `GET /pipelines/{uuid}`. */
+/** Human-readable stage labels, for log/note text only (CRE-332). Resolving
+ *  a stage to its uuid no longer matches on these — see STAGE_ORDER below —
+ *  so renaming a stage in SureContact does not require touching this map,
+ *  though it's worth keeping in sync for anyone reading the logs. */
 export const STAGE_NAMES = {
   new: "New",
   qualifying: "Qualifying",
@@ -92,14 +94,42 @@ function extractUuid(d: unknown): string | null {
   return typeof uuid === "string" ? uuid : null;
 }
 
-let stageCache: { fetchedAt: number; byName: Map<string, string> } | null = null;
-const STAGE_CACHE_TTL_MS = 5 * 60_000;
+/** Pipeline position (0-based) of each stage this codebase ever resolves to
+ *  a uuid. CRE-332 renames "New"->"Lead", "Qualifying"->"Intake", and
+ *  inserts a new "Signed" stage after "In Negotiation" — none of that moves
+ *  these five stages, so position stays a stable identifier through all of
+ *  it where display name would not. Won/Lost are reached through their own
+ *  `/won` and `/lost` endpoints and never need a position here. */
+const STAGE_ORDER: StageKey[] = [
+  "new",
+  "qualifying",
+  "demoScheduled",
+  "proposalSent",
+  "inNegotiation",
+];
+
+/** Display names accepted at each position, old or new. A name outside this
+ *  list at its expected position doesn't fail the lookup — position is the
+ *  real key — but it does mean the pipeline was reordered, not just
+ *  renamed, which this scheme doesn't cover, so it's logged loudly. */
+const STAGE_NAME_ALIASES: Record<StageKey, string[]> = {
+  new: ["new", "lead"],
+  qualifying: ["qualifying", "intake"],
+  demoScheduled: ["demo scheduled"],
+  proposalSent: ["proposal sent"],
+  inNegotiation: ["in negotiation"],
+  won: ["won"],
+  lost: ["lost"],
+};
 
 interface PipelineStageShape {
   uuid?: string;
   id?: string;
   name?: string;
   label?: string;
+  position?: number;
+  order?: number;
+  sort_order?: number;
 }
 interface PipelineResponseShape {
   pipeline?: { stages?: PipelineStageShape[]; pipeline_stages?: PipelineStageShape[] };
@@ -108,12 +138,21 @@ interface PipelineResponseShape {
   pipeline_stages?: PipelineStageShape[];
 }
 
-/** Lowercased stage name -> stage_uuid for the Cre8 Prospect pipeline.
- *  Cached in-module for a few minutes — stages are hand-edited in
- *  SureContact, not something that needs live-every-request freshness. */
-export async function getStageUuidMap(): Promise<Map<string, string>> {
+function stagePosition(s: PipelineStageShape): number | null {
+  const p = s.position ?? s.order ?? s.sort_order;
+  return typeof p === "number" ? p : null;
+}
+
+let stageCache: { fetchedAt: number; uuidsByPosition: string[] } | null = null;
+const STAGE_CACHE_TTL_MS = 5 * 60_000;
+
+/** Ordered list of stage uuids for the Cre8 Prospect pipeline, index-aligned
+ *  to STAGE_ORDER. Fetched live and cached a few minutes — stages are
+ *  hand-edited in SureContact, not something that needs live-every-request
+ *  freshness — but never hardcoded, since the pipeline can change again. */
+async function getOrderedStageUuids(): Promise<string[]> {
   if (stageCache && Date.now() - stageCache.fetchedAt < STAGE_CACHE_TTL_MS) {
-    return stageCache.byName;
+    return stageCache.uuidsByPosition;
   }
   const result = await call<PipelineResponseShape>(`/pipelines/${CRE8_PROSPECT_PIPELINE_UUID}`);
   if (!result.ok) {
@@ -121,23 +160,46 @@ export async function getStageUuidMap(): Promise<Map<string, string>> {
   }
   const pipeline = result.data?.pipeline ?? result.data?.data ?? result.data;
   const stages: PipelineStageShape[] = pipeline?.stages ?? pipeline?.pipeline_stages ?? [];
-  const byName = new Map<string, string>();
-  for (const s of stages) {
-    const name = String(s?.name ?? s?.label ?? "").trim().toLowerCase();
-    const uuid = s?.uuid ?? s?.id;
-    if (name && uuid) byName.set(name, String(uuid));
+  if (stages.length < STAGE_ORDER.length) {
+    throw new Error(
+      `Cre8 Prospect pipeline returned ${stages.length} stage(s), expected at least ${STAGE_ORDER.length}`,
+    );
   }
-  if (byName.size === 0) throw new Error("Cre8 Prospect pipeline returned no stages");
-  stageCache = { fetchedAt: Date.now(), byName };
-  return byName;
+
+  const haveExplicitPositions = stages.every((s) => stagePosition(s) != null);
+  const ordered = haveExplicitPositions
+    ? [...stages].sort((a, b) => (stagePosition(a) as number) - (stagePosition(b) as number))
+    : stages; // no position field on any stage — trust the API's own array order
+
+  const uuidsByPosition: string[] = [];
+  for (let i = 0; i < STAGE_ORDER.length; i++) {
+    const stage = ordered[i];
+    const uuid = stage?.uuid ?? stage?.id;
+    if (!uuid) throw new Error(`Cre8 Prospect pipeline stage at position ${i} has no uuid`);
+    const expectedKey = STAGE_ORDER[i];
+    const name = String(stage?.name ?? stage?.label ?? "").trim().toLowerCase();
+    if (name && !STAGE_NAME_ALIASES[expectedKey].includes(name)) {
+      console.warn(
+        `[surecontact-deals] stage at position ${i} is named "${name}", expected one of ` +
+          `${STAGE_NAME_ALIASES[expectedKey].join("/")} for "${expectedKey}" — the pipeline may have been ` +
+          `reordered, not just renamed. Using position ${i}'s uuid anyway.`,
+      );
+    }
+    uuidsByPosition.push(String(uuid));
+  }
+  stageCache = { fetchedAt: Date.now(), uuidsByPosition };
+  return uuidsByPosition;
 }
 
 export async function resolveStageUuid(stageKey: StageKey): Promise<string> {
-  const map = await getStageUuidMap();
-  const name = STAGE_NAMES[stageKey];
-  const uuid = map.get(name.toLowerCase());
-  if (!uuid) throw new Error(`Stage "${name}" not found on the Cre8 Prospect pipeline`);
-  return uuid;
+  const index = STAGE_ORDER.indexOf(stageKey);
+  if (index === -1) {
+    throw new Error(
+      `Stage "${stageKey}" has no pipeline position mapping (only ${STAGE_ORDER.join(", ")} resolve to a uuid)`,
+    );
+  }
+  const uuids = await getOrderedStageUuids();
+  return uuids[index];
 }
 
 export interface CreateDealInput {
