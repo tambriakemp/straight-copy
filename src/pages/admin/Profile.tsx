@@ -3,11 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { useNewAdminLayout } from "@/hooks/useNewAdminLayout";
+import { Switch } from "@/components/ui/switch";
 
 type Template = { uuid: string | null; name: string; subject: string | null; type: string | null };
 
 export default function Profile() {
   const { user } = useAdminAuth();
+  const { enabled: newLayout, setEnabled: setNewLayout } = useNewAdminLayout();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -114,6 +117,37 @@ export default function Profile() {
           <div style={{ color: "hsl(40 20% 97%)", fontSize: 20 }}>
             {user?.email ?? "—"}
           </div>
+        </div>
+
+        <div
+          style={{
+            background: "hsl(36 5% 16%)",
+            border: "1px solid hsl(40 20% 97% / 0.08)",
+            padding: "32px 36px",
+            marginBottom: 24,
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: "Cormorant Garamond, serif",
+              fontWeight: 300,
+              fontSize: 32,
+              color: "hsl(40 20% 97%)",
+              margin: "0 0 8px 0",
+            }}
+          >
+            New admin <em style={{ color: "hsl(30 25% 44%)" }}>layout</em>
+          </h2>
+          <p style={{ color: "hsl(30 10% 70%)", fontSize: 18, margin: "0 0 18px 0" }}>
+            A light side-nav dashboard, one page per function (CRE-332). Still being built —
+            flip it to try it, flip it back any time. Your pick is saved on this browser.
+          </p>
+          <label style={{ display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }}>
+            <Switch checked={newLayout} onCheckedChange={setNewLayout} />
+            <span style={{ color: "hsl(40 20% 97%)", fontSize: 18 }}>
+              {newLayout ? "New layout is on" : "Try the new admin layout"}
+            </span>
+          </label>
         </div>
 
         <div
