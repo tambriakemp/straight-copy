@@ -1,7 +1,7 @@
-// The new 6-tab client detail page (CRE-332 Phase 4) — Overview, Intake,
+// The 6-tab client detail page (CRE-332 Phase 4) — Overview, Intake,
 // Proposals, Payments, Project & Tasks, Files & Portal. Rendered by
-// ClientDetail.tsx only when useNewAdminLayout() is on; the old page
-// (AgentClientView, unchanged) stays the default.
+// ClientDetail.tsx. AgentClientView still renders standalone in the agent
+// Workspace rail — unchanged, not this component.
 import { useState } from "react";
 import { Eye } from "lucide-react";
 import PageHeader from "@/components/admin/cv/PageHeader";

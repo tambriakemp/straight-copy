@@ -4,7 +4,6 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import PageHeader from "@/components/admin/cv/PageHeader";
 import DarkEmbed from "@/components/admin/cv/DarkEmbed";
 import SecretRow from "@/components/admin/cv/SecretRow";
-import { useNewAdminLayout } from "@/hooks/useNewAdminLayout";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Trash2, Copy } from "lucide-react";
@@ -28,7 +27,6 @@ function generateToken() {
 type CvTab = "api" | "keys";
 
 export default function Tokens() {
-  const { enabled: newLayout } = useNewAdminLayout();
   const [cvTab, setCvTab] = useState<CvTab>("api");
   const [tokens, setTokens] = useState<Token[]>([]);
   const [label, setLabel] = useState("");
@@ -246,28 +244,6 @@ export default function Tokens() {
       </div>
     </>
   );
-
-  if (!newLayout) {
-    return (
-      <AdminLayout>
-        <div className="roster">
-          <div className="roster__head">
-            <div className="roster__title-block">
-              <div className="roster__eyebrow">Integrations</div>
-              <h1 className="roster__title"><em>Settings</em></h1>
-              <hr className="roster__rule" />
-              <p className="roster__sub">
-                API tokens and MCP connection settings.
-              </p>
-            </div>
-          </div>
-
-          {apiAndMcpSection}
-        </div>
-        {revealDialog}
-      </AdminLayout>
-    );
-  }
 
   return (
     <AdminLayout>

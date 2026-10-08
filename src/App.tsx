@@ -27,7 +27,6 @@ const McpAuthorize = lazy(() => import("./pages/admin/McpAuthorize.tsx"));
 const ResetPassword = lazy(() => import("./pages/admin/ResetPassword.tsx"));
 const Profile = lazy(() => import("./pages/admin/Profile.tsx"));
 const ClientsList = lazy(() => import("./pages/admin/ClientsList.tsx"));
-const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard.tsx"));
 const Today = lazy(() => import("./pages/admin/Today.tsx"));
 const Portfolio = lazy(() => import("./pages/admin/Portfolio.tsx"));
 const ClientDetail = lazy(() => import("./pages/admin/ClientDetail.tsx"));
@@ -43,7 +42,6 @@ const AllTasks = lazy(() => import("./pages/admin/AllTasks.tsx"));
 const Proposals = lazy(() => import("./pages/admin/Proposals.tsx"));
 const Payments = lazy(() => import("./pages/admin/Payments.tsx"));
 const Social = lazy(() => import("./pages/admin/Social.tsx"));
-const Briefs = lazy(() => import("./pages/admin/Briefs.tsx"));
 const Approvals = lazy(() => import("./pages/admin/Approvals.tsx"));
 const Audits = lazy(() => import("./pages/admin/Audits.tsx"));
 const Agents = lazy(() => import("./pages/admin/Agents.tsx"));
@@ -90,21 +88,21 @@ const App = () => (
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/mcp-authorize" element={<McpAuthorize />} />
             <Route path="/admin/reset-password" element={<ResetPassword />} />
-            <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+            {/* CRE-332 Phase 7: the light side-nav shell is the only admin
+                layout now. Today/Money/Marketing/More/Pipeline are the real
+                homes; the old routes below redirect so bookmarks and old
+                links still arrive. Prospects stays a pure redirect to
+                Approvals until the Oct 12 outreach hold lifts. */}
+            <Route path="/admin" element={<Navigate to="/admin/today" replace />} />
+            <Route path="/admin/briefs" element={<Navigate to="/admin/today" replace />} />
             <Route path="/admin/clients" element={<RequireAdmin><ClientsList /></RequireAdmin>} />
             <Route path="/admin/proposals" element={<RequireAdmin><Proposals /></RequireAdmin>} />
-            <Route path="/admin/payments" element={<RequireAdmin><Payments /></RequireAdmin>} />
-            <Route path="/admin/social" element={<RequireAdmin><Social /></RequireAdmin>} />
-            <Route path="/admin/briefs" element={<RequireAdmin><Briefs /></RequireAdmin>} />
+            <Route path="/admin/payments" element={<Navigate to="/admin/money" replace />} />
+            <Route path="/admin/social" element={<Navigate to="/admin/marketing" replace />} />
             <Route path="/admin/approvals" element={<RequireAdmin><Approvals /></RequireAdmin>} />
             <Route path="/admin/audits" element={<RequireAdmin><Audits /></RequireAdmin>} />
             <Route path="/admin/agents" element={<RequireAdmin><Agents /></RequireAdmin>} />
             <Route path="/admin/tasks" element={<RequireAdmin><AllTasks /></RequireAdmin>} />
-            {/* CRE-332 — new side-nav shell's alias routes. Today is the real
-                Phase 2 page; Money/Marketing still reuse existing content as a
-                placeholder until Phase 5 replaces them; Prospects stays a pure
-                redirect to Approvals until the Oct 12 outreach hold lifts; More
-                and Pipeline are new. */}
             <Route path="/admin/today" element={<RequireAdmin><Today /></RequireAdmin>} />
             <Route path="/admin/pipeline" element={<RequireAdmin><Pipeline /></RequireAdmin>} />
             <Route path="/admin/prospects" element={<Navigate to="/admin/approvals" replace />} />

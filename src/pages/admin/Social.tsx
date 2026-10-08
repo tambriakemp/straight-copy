@@ -6,13 +6,11 @@ import DarkEmbed from "@/components/admin/cv/DarkEmbed";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import SocialTab from "@/components/admin/social/SocialTab";
 import { Megaphone } from "lucide-react";
-import { useNewAdminLayout } from "@/hooks/useNewAdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 
 type Project = { id: string; name: string; business_name: string | null; client_id: string };
 
 export default function Social() {
-  const { enabled: newLayout } = useNewAdminLayout();
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState("");
   useEffect(() => {
@@ -24,20 +22,6 @@ export default function Social() {
         setProjectId((current) => current || rows[0]?.id || "");
       });
   }, []);
-
-  if (!newLayout) {
-    return <AdminLayout><div className="roster">
-      <div className="roster__head"><div className="roster__title-block">
-        <div className="roster__eyebrow">Client work</div><h1 className="roster__title">Social / <em>Marketing</em></h1>
-        <hr className="roster__rule" /><p className="roster__sub">Review, approve, and publish social content by client project.</p>
-      </div></div>
-      <div className="ctbl__bar"><select className="ctbl__filter" value={projectId} onChange={(event) => setProjectId(event.target.value)} aria-label="Choose client project">
-        {!projects.length && <option value="">No projects</option>}
-        {projects.map((project) => <option key={project.id} value={project.id}>{project.business_name ? `${project.business_name} — ` : ""}{project.name}</option>)}
-      </select></div>
-      {projectId ? <SocialTab clientProjectId={projectId} /> : <div className="ctbl__empty">No client projects available.</div>}
-    </div></AdminLayout>;
-  }
 
   return (
     <AdminLayout>

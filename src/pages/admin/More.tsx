@@ -26,7 +26,7 @@ const HUB_ITEMS: Array<{ to: string; label: string; description: string; icon: L
   { to: "/admin/tokens", label: "Settings & keys", description: "Tokens, briefs and approvals keys", icon: KeyRound },
   { to: "/admin/invites", label: "Invites", description: "Admin and client invites", icon: Mail },
   { to: "/admin/audits", label: "Client passwords", description: "Portal credential audits", icon: ShieldCheck },
-  { to: "/admin/profile", label: "Profile", description: "Your account and layout settings", icon: UserCircle },
+  { to: "/admin/profile", label: "Profile", description: "Your account settings", icon: UserCircle },
 ];
 
 export default function More() {

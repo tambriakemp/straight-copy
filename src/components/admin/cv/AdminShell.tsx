@@ -4,10 +4,10 @@ import TopBar from "./TopBar";
 import MobileTopBar from "./MobileTopBar";
 import MobileBottomBar from "./MobileBottomBar";
 
-// The new light side-nav shell (CRE-332), switched in by the
-// useNewAdminLayout() toggle on /admin/profile. Existing pages render
+// The admin shell (CRE-332) — the only admin layout since Phase 7. Pages
+// that haven't migrated to .cv-admin of their own accord still render
 // unchanged inside .crm-shell--embedded — see the comment on that class in
-// index.css — until each one migrates to .cv-admin of its own accord.
+// index.css.
 export default function AdminShell({ isMobile, children }: { isMobile: boolean; children: ReactNode }) {
   if (isMobile) {
     return (

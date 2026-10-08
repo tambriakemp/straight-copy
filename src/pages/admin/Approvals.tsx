@@ -5,6 +5,9 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
+import PageHeader from "@/components/admin/cv/PageHeader";
+import EmptyState from "@/components/admin/cv/EmptyState";
+import StatusChip from "@/components/admin/cv/StatusChip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import {
@@ -102,11 +105,6 @@ interface FeedbackRound {
 }
 
 const STATUS_LABEL: Record<Status, string> = { pending: "Pending", approved: "Approved", rejected: "Rejected" };
-const STATUS_COLOR: Record<Status, string> = {
-  pending: "hsl(35 70% 55%)",
-  approved: "hsl(140 35% 48%)",
-  rejected: "hsl(5 55% 55%)",
-};
 
 function openInNewTab(url: string | null | undefined) {
   if (url) window.open(url, "_blank", "noopener,noreferrer");
@@ -415,73 +413,77 @@ export default function Approvals() {
 
   return (
     <AdminLayout>
-      <div className="roster">
-        <div className="roster__head">
-          <div className="roster__title-block">
-            <div className="roster__eyebrow">Outreach pipeline</div>
-            <h1 className="roster__title">Prospect <em>approvals</em></h1>
-            <hr className="roster__rule" />
-            <p className="roster__sub">
+      <div className="cv-admin" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+        <PageHeader
+          eyebrow="Daily / Prospects"
+          title="Prospect approvals"
+          subtitle={
+            <>
               Review this batch's redesigns and send copy before Monday's send.{" "}
-              <Link to="/admin/briefs" style={{ color: "hsl(40 20% 97%)" }}>Briefs →</Link>
-            </p>
-          </div>
-          <button
-            type="button"
-            className="crm-btn crm-btn--ghost crm-btn--sm"
-            style={{ alignSelf: "flex-start" }}
-            aria-label="Settings"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Settings className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
-          <select value={batch} onChange={(e) => setBatch(e.target.value)} className="crm-input" style={{ width: 200 }}>
-            <option value="all">All batches</option>
-            {batches.map((b) => <option key={b} value={b}>{b}</option>)}
-          </select>
-          {(["pending", "approved", "rejected", "all"] as const).map((s) => (
+              <Link to="/admin/today" style={{ color: "var(--cv-accent)" }}>Today →</Link>
+            </>
+          }
+          right={
             <button
-              key={s}
-              onClick={() => setStatus(s)}
-              className="crm-btn crm-btn--sm"
+              type="button"
+              className="cv-sync-btn"
+              aria-label="Settings"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </button>
+          }
+        />
+
+        <div style={{ padding: "0 32px 32px" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
+            <select
+              value={batch}
+              onChange={(e) => setBatch(e.target.value)}
+              aria-label="Choose batch"
               style={{
-                background: status === s ? "var(--crm-charcoal)" : "transparent",
-                color: status === s ? "var(--crm-warm-white)" : "var(--crm-taupe)",
-                border: "1px solid var(--crm-border-dark)",
+                fontSize: 13, color: "var(--cv-body)", background: "var(--cv-card)",
+                border: "1px solid var(--cv-border-strong)", borderRadius: "var(--cv-r-sm)",
+                padding: "7px 10px", fontFamily: "var(--cv-font-sans)", minWidth: 180,
               }}
             >
-              {s === "all" ? "All" : STATUS_LABEL[s]} ({counts[s]})
-            </button>
-          ))}
-          {selected.size > 0 && (
-            <button className="crm-btn crm-btn--bronze crm-btn--sm" onClick={bulkApprove} style={{ marginLeft: "auto" }}>
-              <Check className="h-3 w-3" /> Approve {selected.size} selected
-            </button>
-          )}
-        </div>
-
-        {!prospects ? (
-          <div style={{ fontSize: 16, color: "hsl(30 8% 62%)" }}>Loading…</div>
-        ) : !filtered.length ? (
-          <div className="crm-empty">
-            <div className="crm-empty__glyph">✓</div>
-            <div className="crm-empty__title">Nothing <em>{status === "all" ? "here" : status}</em>.</div>
-          </div>
-        ) : (
-          <>
-            <div className="roster__head-row" style={{ gridTemplateColumns: "28px 72px 2fr 0.7fr 2.4fr" }}>
-              <div className="roster__col-h" style={{ cursor: "default" }} />
-              <div className="roster__col-h" style={{ cursor: "default" }} />
-              <div className="roster__col-h" style={{ cursor: "default" }}>Company</div>
-              <div className="roster__col-h" style={{ cursor: "default" }}>Status</div>
-              <div className="roster__col-h" style={{ cursor: "default", justifyContent: "flex-end" }}>Actions</div>
+              <option value="all">All batches</option>
+              {batches.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
+            <div className="cv-filter-tabs">
+              {(["pending", "approved", "rejected", "all"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className={`cv-filter-tab ${status === s ? "cv-filter-tab--active" : ""}`}
+                  onClick={() => setStatus(s)}
+                >
+                  {s === "all" ? "All" : STATUS_LABEL[s]} {counts[s]}
+                </button>
+              ))}
             </div>
-            <div className="roster__list">
-              {filtered.map((p) => (
-                <div key={p.id} className="roster__row" style={{ gridTemplateColumns: "28px 72px 2fr 0.7fr 2.4fr", cursor: "default" }}>
+            {selected.size > 0 && (
+              <button className="cv-btn-primary" onClick={bulkApprove} style={{ marginLeft: "auto" }}>
+                <Check className="h-3 w-3" /> Approve {selected.size} selected
+              </button>
+            )}
+          </div>
+
+          {!prospects ? (
+            <div style={{ fontSize: 14, color: "var(--cv-muted)" }}>Loading…</div>
+          ) : !filtered.length ? (
+            <EmptyState title="Nothing here" subtitle={`No ${status === "all" ? "" : status} prospects in this batch.`} />
+          ) : (
+            <div className="cv-card" style={{ overflow: "hidden" }}>
+              {filtered.map((p, i) => (
+                <div
+                  key={p.id}
+                  style={{
+                    display: "grid", gridTemplateColumns: "28px 72px 2fr 0.7fr 2.4fr", gap: 14,
+                    alignItems: "center", padding: "14px 16px",
+                    borderTop: i === 0 ? "none" : "1px solid var(--cv-border)",
+                  }}
+                >
                   <input
                     type="checkbox"
                     disabled={p.status !== "pending"}
@@ -492,77 +494,68 @@ export default function Approvals() {
                     <img
                       src={p.preview_image_url ?? `${p.preview_url.replace(/\/$/, "")}/preview.jpg`}
                       alt={p.company}
-                      style={{ width: 64, height: 48, objectFit: "cover", background: "#333" }}
+                      style={{ width: 64, height: 48, objectFit: "cover", background: "var(--cv-sunken)", borderRadius: "var(--cv-r-sm)" }}
                       onError={(e) => { (e.target as HTMLImageElement).style.visibility = "hidden"; }}
                     />
-                  ) : <div style={{ width: 64, height: 48, background: "#333" }} />}
-                  <div>
-                    <div className="roster__name" style={{ fontSize: 18 }}>{p.company}</div>
-                    <div style={{ fontSize: 13, color: "hsl(30 8% 62%)" }}>
+                  ) : <div style={{ width: 64, height: 48, background: "var(--cv-sunken)", borderRadius: "var(--cv-r-sm)" }} />}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 15, color: "var(--cv-ink)" }}>{p.company}</div>
+                    <div style={{ fontSize: 13, color: "var(--cv-muted)" }}>
                       {p.city}{p.trade ? ` · ${p.trade}` : ""}
                     </div>
                   </div>
-                  <span style={{
-                    fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em",
-                    color: STATUS_COLOR[p.status], border: `1px solid ${STATUS_COLOR[p.status]}`,
-                    borderRadius: 20, padding: "3px 10px", justifySelf: "start",
-                  }}>
-                    {STATUS_LABEL[p.status]}
-                  </span>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "flex-end" }}>
-                      <button
-                        type="button"
-                        className="crm-btn crm-btn--ghost crm-btn--sm"
-                        disabled={!p.current_site_url}
-                        title={p.current_site_url ? undefined : "No site"}
-                        onClick={() => openInNewTab(p.current_site_url)}
-                      >
-                        Current site
-                      </button>
-                      <button
-                        type="button"
-                        className="crm-btn crm-btn--ghost crm-btn--sm"
-                        disabled={!p.preview_url}
-                        onClick={() => openInNewTab(p.preview_url)}
-                      >
-                        Preview <ExternalLink className="h-3 w-3" />
-                      </button>
-                      {p.status === "pending" && (
-                        <>
-                          <button
-                            type="button"
-                            className="crm-btn crm-btn--ghost crm-btn--sm"
-                            onClick={() => setPanelId(p.id)}
-                          >
-                            + Note
-                          </button>
-                          <button
-                            type="button"
-                            className="crm-btn crm-btn--bronze crm-btn--sm"
-                            disabled={busyId === p.id}
-                            onClick={() => decide(p.id, "approved")}
-                          >
-                            <Check className="h-3 w-3" /> Approve
-                          </button>
-                          <button
-                            type="button"
-                            className="crm-btn crm-btn--ghost crm-btn--sm"
-                            disabled={busyId === p.id}
-                            onClick={() => setPanelId(p.id)}
-                          >
-                            <X className="h-3 w-3" /> Reject
-                          </button>
-                        </>
-                      )}
-                    </div>
+                  <div><StatusChip label={STATUS_LABEL[p.status]} status={p.status} /></div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      className="cv-sync-btn"
+                      disabled={!p.current_site_url}
+                      title={p.current_site_url ? undefined : "No site"}
+                      onClick={() => openInNewTab(p.current_site_url)}
+                    >
+                      Current site
+                    </button>
+                    <button
+                      type="button"
+                      className="cv-sync-btn"
+                      disabled={!p.preview_url}
+                      onClick={() => openInNewTab(p.preview_url)}
+                    >
+                      Preview <ExternalLink className="h-3 w-3" />
+                    </button>
+                    {p.status === "pending" && (
+                      <>
+                        <button
+                          type="button"
+                          className="cv-sync-btn"
+                          onClick={() => setPanelId(p.id)}
+                        >
+                          + Note
+                        </button>
+                        <button
+                          type="button"
+                          className="cv-btn-primary"
+                          disabled={busyId === p.id}
+                          onClick={() => decide(p.id, "approved")}
+                        >
+                          <Check className="h-3 w-3" /> Approve
+                        </button>
+                        <button
+                          type="button"
+                          className="cv-sync-btn"
+                          disabled={busyId === p.id}
+                          onClick={() => setPanelId(p.id)}
+                        >
+                          <X className="h-3 w-3" /> Reject
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
-          </>
-        )}
-
+          )}
+        </div>
       </div>
 
       <Sheet open={!!panelProspect} onOpenChange={(v) => { if (!v) setPanelId(null); }}>
