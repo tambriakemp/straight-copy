@@ -144,7 +144,9 @@ mcp.tool("list_queue_projects", {
       .neq("status", "complete");
     if (error) throw new Error(error.message);
 
-    const ids = (projects ?? []).map((p) => p.id as string);
+    // Untyped client rows come back as GenericStringError; declare the shape.
+    const projectRows = (projects ?? []) as Array<{ id: string } & Record<string, unknown>>;
+    const ids = projectRows.map((p) => p.id);
     if (!ids.length) return textResult({ projects: [] });
 
     // Unclaimed only: a task another run is holding is not waiting for this one.
