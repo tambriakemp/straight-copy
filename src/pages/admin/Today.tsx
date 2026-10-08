@@ -3,6 +3,12 @@
 // "Needs you now" + morning brief + "Coming up" view. Read-only, no schema
 // change — every query here already exists elsewhere (Briefs.tsx,
 // AdminDashboard.tsx); this page only reshapes how they're presented.
+//
+// CRE-335: every Needs-you-now item and every brief line gets a checkbox.
+// Checking one writes brief_item_completions (via complete-brief-item,
+// see src/lib/briefItemCompletions.ts) instead of Bree telling Ara in chat.
+// Checked items stay visible, struck through, with an Undo — they are
+// never removed from the underlying data here.
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -12,10 +18,12 @@ import PageHeader from "@/components/admin/cv/PageHeader";
 import Card from "@/components/admin/cv/Card";
 import KpiCard from "@/components/admin/cv/KpiCard";
 import EmptyState from "@/components/admin/cv/EmptyState";
+import BriefCheckItem from "@/components/admin/cv/BriefCheckItem";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney, loadAdminOperations, type AdminOperations } from "@/lib/adminOperations";
 import { useNeedsYouNow, type NeedsYouBucket } from "@/lib/needsYouNow";
-import { useBriefs } from "@/lib/briefs";
+import { useBriefs, type Brief, type BriefItem } from "@/lib/briefs";
+import { useBriefItemCompletions } from "@/lib/briefItemCompletions";
 
 const FILTERS: Array<{ key: "all" | NeedsYouBucket; label: string }> = [
   { key: "all", label: "All" },
@@ -23,6 +31,65 @@ const FILTERS: Array<{ key: "all" | NeedsYouBucket; label: string }> = [
   { key: "clients", label: "Clients" },
   { key: "money", label: "Money" },
 ];
+
+// Stable id for a brief line: the ingest routine's own `id` once it sends
+// one (CRE-335 §3), otherwise a key scoped to this one brief instance so
+// the checkbox still works for older/un-migrated briefs — it just won't be
+// recognized as "already done" on a future, differently-worded brief.
+function briefItemId(briefId: string, sectionIdx: number, itemIdx: number, item: BriefItem): string {
+  return item.id ?? `${briefId}:${sectionIdx}:${itemIdx}`;
+}
+
+// Best-effort Paperclip issue identifier for a brief line that hasn't been
+// updated to carry an explicit `issue` field yet: parse it out of the link
+// Ara already includes, same URL shape sync-paperclip-pending builds
+// (`${PAPERCLIP_BASE}/CRE/issues/${identifier}`).
+function briefItemIssue(item: BriefItem): string | null {
+  if (item.issue) return item.issue;
+  const m = item.link?.match(/\/issues\/([A-Z]+-\d+)/);
+  return m ? m[1] : null;
+}
+
+function BriefSections({
+  brief, isDone, complete, undo,
+}: {
+  brief: Brief;
+  isDone: (id: string) => boolean;
+  complete: ReturnType<typeof useBriefItemCompletions>["complete"];
+  undo: ReturnType<typeof useBriefItemCompletions>["undo"];
+}) {
+  return (
+    <>
+      {brief.sections.map((s, i) => (
+        <div key={i} className="cv-brief-section">
+          <div className="cv-brief-section__heading">{s.heading}</div>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
+            {s.items.map((item, j) => {
+              const id = briefItemId(brief.id, i, j, item);
+              const issue = briefItemIssue(item);
+              return (
+                <li key={j}>
+                  <BriefCheckItem
+                    done={isDone(id)}
+                    onComplete={() => complete({
+                      item_id: id,
+                      item_text: item.text,
+                      issue_identifier: issue,
+                      brief_date: brief.created_at.slice(0, 10),
+                    })}
+                    onUndo={() => undo(id)}
+                  >
+                    {item.link ? <a href={item.link} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.text}</a> : item.text}
+                  </BriefCheckItem>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </>
+  );
+}
 
 export default function Today() {
   const navigate = useNavigate();
@@ -32,6 +99,7 @@ export default function Today() {
   const [briefTab, setBriefTab] = useState<"morning" | "past">("morning");
   const { items: needsYouNow, reload: reloadNeedsYouNow } = useNeedsYouNow();
   const { briefs, selected, setSelected, current, latestMorning, reload: reloadBriefs } = useBriefs();
+  const { isDone, complete, undo, reload: reloadCompletions } = useBriefItemCompletions();
 
   const loadOps = () => {
     loadAdminOperations().then(setOps).catch((error) => toast.error(error.message || "Failed to load client status"));
@@ -44,7 +112,10 @@ export default function Today() {
   };
   useEffect(() => { loadOps(); loadAgentStatus(); }, []);
 
-  const syncNow = () => { loadOps(); loadAgentStatus(); reloadNeedsYouNow(); reloadBriefs(); toast.success("Syncing…"); };
+  const syncNow = () => {
+    loadOps(); loadAgentStatus(); reloadNeedsYouNow(); reloadBriefs(); reloadCompletions();
+    toast.success("Syncing…");
+  };
 
   const proposalsPending = (ops?.proposals ?? []).filter((p) => p.status === "sent" && !p.client_signed_at);
   const invoicesSent = (ops?.invoices ?? []).filter((i) => i.status === "sent");
@@ -52,9 +123,18 @@ export default function Today() {
   const overdueInvoices = invoicesSent.filter((i) => i.due_date && i.due_date < today);
   const upcoming = invoicesSent.filter((i) => i.due_date && i.due_date >= today).slice(0, 6);
 
+  // Checking off a Needs-you-now item is acknowledgement, not resolution
+  // (CRE-335 §4) — it still comes back from the same source query next
+  // sync. Open counts/badges exclude it; the row itself stays visible,
+  // struck through, below.
+  const openNeedsYouNow = useMemo(
+    () => (needsYouNow ?? []).filter((item) => !isDone(item.id)),
+    [needsYouNow, isDone],
+  );
+
   const prospectsToReview = useMemo(
-    () => (needsYouNow ?? []).filter((item) => item.kind === "prospect approvals").length,
-    [needsYouNow],
+    () => openNeedsYouNow.filter((item) => item.kind === "prospect approvals").length,
+    [openNeedsYouNow],
   );
 
   const visibleItems = useMemo(
@@ -62,10 +142,10 @@ export default function Today() {
     [needsYouNow, filter],
   );
   const bucketCounts = useMemo(() => {
-    const counts: Record<"all" | NeedsYouBucket, number> = { all: needsYouNow?.length ?? 0, agents: 0, clients: 0, money: 0 };
-    for (const item of needsYouNow ?? []) counts[item.bucket] += 1;
+    const counts: Record<"all" | NeedsYouBucket, number> = { all: openNeedsYouNow.length, agents: 0, clients: 0, money: 0 };
+    for (const item of openNeedsYouNow) counts[item.bucket] += 1;
     return counts;
-  }, [needsYouNow]);
+  }, [openNeedsYouNow]);
 
   return (
     <AdminLayout>
@@ -87,7 +167,7 @@ export default function Today() {
         <div className="cv-kpi-row">
           <KpiCard
             label="Needs you"
-            value={needsYouNow ? needsYouNow.length : "—"}
+            value={needsYouNow ? openNeedsYouNow.length : "—"}
             hint={needsYouNow ? `${bucketCounts.agents} agents · ${bucketCounts.clients} clients · ${bucketCounts.money} money` : undefined}
             onClick={() => setFilter("all")}
           />
@@ -129,16 +209,7 @@ export default function Today() {
                   <div className="cv-card-sub" style={{ marginLeft: 0, marginBottom: 10 }}>
                     {new Date(latestMorning.created_at).toLocaleString()}
                   </div>
-                  {latestMorning.sections.map((s, i) => (
-                    <div key={i} className="cv-brief-section">
-                      <div className="cv-brief-section__heading">{s.heading}</div>
-                      <ul>
-                        {s.items.map((item, j) => (
-                          <li key={j}>{item.link ? <a href={item.link} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.text}</a> : item.text}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
+                  <BriefSections brief={latestMorning} isDone={isDone} complete={complete} undo={undo} />
                 </>
               )
             ) : !briefs?.length ? (
@@ -158,16 +229,7 @@ export default function Today() {
                 ))}
                 {current && (
                   <div className="cv-brief-section" style={{ marginTop: 10, borderTop: "1px solid var(--cv-border)", paddingTop: 12 }}>
-                    {current.sections.map((s, i) => (
-                      <div key={i} className="cv-brief-section">
-                        <div className="cv-brief-section__heading">{s.heading}</div>
-                        <ul>
-                          {s.items.map((item, j) => (
-                            <li key={j}>{item.link ? <a href={item.link} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.text}</a> : item.text}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
+                    <BriefSections brief={current} isDone={isDone} complete={complete} undo={undo} />
                   </div>
                 )}
               </div>
@@ -198,10 +260,25 @@ export default function Today() {
               ) : (
                 <div className="cv-needs-list">
                   {visibleItems.map((item) => (
-                    <a key={item.id} className="cv-needs-item" href={item.issue_url ?? "#"} target="_blank" rel="noreferrer">
-                      <span className="cv-needs-item__title">{item.title}</span>
-                      <span className="cv-needs-item__kind">{item.kind}{item.issue_identifier ? ` · ${item.issue_identifier}` : ""}</span>
-                    </a>
+                    <div key={item.id} className="cv-needs-item">
+                      <BriefCheckItem
+                        done={isDone(item.id)}
+                        onComplete={() => complete({
+                          item_id: item.id,
+                          item_text: item.title,
+                          issue_identifier: item.issue_identifier,
+                        })}
+                        onUndo={() => undo(item.id)}
+                      >
+                        <a
+                          href={item.issue_url ?? "#"} target="_blank" rel="noreferrer"
+                          style={{ display: "flex", flexDirection: "column", gap: 2, color: "inherit", textDecoration: "none" }}
+                        >
+                          <span className="cv-needs-item__title">{item.title}</span>
+                          <span className="cv-needs-item__kind">{item.kind}{item.issue_identifier ? ` · ${item.issue_identifier}` : ""}</span>
+                        </a>
+                      </BriefCheckItem>
+                    </div>
                   ))}
                 </div>
               )}

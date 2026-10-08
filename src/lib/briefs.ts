@@ -7,7 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 // is regenerated").
 const db = supabase as unknown as { from: (table: string) => any };
 
-export interface BriefItem { text: string; link: string | null }
+// `id` and `issue` are optional (CRE-335): a stable cross-brief item id and,
+// when the line names one, the bare Paperclip identifier ("CRE-335") it's
+// about. Older rows and anything the ingest routine hasn't updated yet will
+// simply have neither — callers fall back to a brief-scoped key, see
+// Today.tsx / Briefs.tsx's `briefItemId` helper.
+export interface BriefItem { id?: string; issue?: string | null; text: string; link: string | null }
 export interface BriefSection { heading: string; items: BriefItem[] }
 export interface Brief {
   id: string; period: string; title: string; sections: BriefSection[];
