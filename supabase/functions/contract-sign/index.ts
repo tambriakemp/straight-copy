@@ -6,7 +6,7 @@
 //   - download : returns a fresh signed URL for an existing contract PDF.
 //
 // verify_jwt = false (public). Service role mediates all DB access.
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { z } from "zod";
 import { PDFDocument, PDFFont, PDFPage, rgb, type PDFImage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
@@ -662,8 +662,9 @@ Deno.serve(async (req) => {
 
     // Resolve the linked project: prefer an explicit projectId from the caller,
     // otherwise fall back to the most recent active web_development project.
+    type LinkedProjectRow = { id: string; type: string | null; primary_contact_id: string | null };
     let linkedProjectId: string | null = null;
-    let projectRow: { id: string; type: string | null; primary_contact_id: string | null } | null = null;
+    let projectRow: LinkedProjectRow | null = null;
     if ((input as any).projectId) {
       const { data: explicit } = await supabase
         .from("client_projects")
@@ -672,7 +673,7 @@ Deno.serve(async (req) => {
         .eq("client_id", input.clientId)
         .maybeSingle();
       if (explicit) {
-        projectRow = explicit as typeof projectRow;
+        projectRow = explicit as LinkedProjectRow;
         linkedProjectId = explicit.id;
       }
     }
@@ -687,7 +688,7 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
       if (webDevProject) {
-        projectRow = webDevProject as typeof projectRow;
+        projectRow = webDevProject as LinkedProjectRow;
         linkedProjectId = webDevProject.id;
       }
     }
