@@ -638,6 +638,36 @@ export type Database = {
         }
         Relationships: []
       }
+      brief_item_completions: {
+        Row: {
+          brief_date: string | null
+          completed_at: string
+          completed_by: string | null
+          issue_identifier: string | null
+          item_id: string
+          item_text: string
+          note: string | null
+        }
+        Insert: {
+          brief_date?: string | null
+          completed_at?: string
+          completed_by?: string | null
+          issue_identifier?: string | null
+          item_id: string
+          item_text: string
+          note?: string | null
+        }
+        Update: {
+          brief_date?: string | null
+          completed_at?: string
+          completed_by?: string | null
+          issue_identifier?: string | null
+          item_id?: string
+          item_text?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       briefs: {
         Row: {
           created_at: string
