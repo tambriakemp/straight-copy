@@ -46,3 +46,23 @@ export async function loadPipelineBoard(): Promise<PipelineBoard> {
   if (!r.ok) throw new Error(body?.error || "Could not load the pipeline from SureContact");
   return body as PipelineBoard;
 }
+
+// CRE-332 Phase 6.2: the write half of the two-way sync. Moves the real
+// SureContact deal — pipeline-board reads live, so there's no local cache
+// to patch; the caller just reloads the board after this resolves.
+export async function moveDealOnBoard(input: {
+  dealUuid: string;
+  toColumn: BoardColumnKey;
+  reopen?: boolean;
+  lossReason?: string;
+}): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string);
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/pipeline-deal-move`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const body = await r.json();
+  if (!r.ok) throw new Error(body?.error || "Could not move the deal in SureContact");
+}
