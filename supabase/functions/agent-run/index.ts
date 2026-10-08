@@ -13,7 +13,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { definitionFor, systemPromptFor } from "../_shared/agents/registry.ts";
 import { runAgentModel } from "../_shared/agents/claude.ts";
-import { runToolLoop } from "../_shared/agents/loop.ts";
+import { runToolLoop, type ModelClient } from "../_shared/agents/loop.ts";
 import { resolveTurnOutcome } from "../_shared/agents/turn-outcome.ts";
 import { executeReadTool, readToolDefinitions } from "../_shared/agents/read-tools.ts";
 import { actionToolDefinition, executeActionTool, type ActionToolContext } from "../_shared/agents/action-tool.ts";
@@ -138,7 +138,9 @@ Deno.serve(async (req) => {
       const webSearch = (agent.config as Record<string, unknown> | null)?.web_search !== false;
 
       const loop = await runToolLoop({
-        client: new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! }),
+        // The SDK's `messages.stream` signature is stricter than the minimal
+        // duck-typed ModelClient the loop needs; it is a real Anthropic client.
+        client: new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! }) as unknown as ModelClient,
         model: agent.model,
         effort: agent.effort,
         maxTokens: 16_000,
@@ -176,7 +178,7 @@ Deno.serve(async (req) => {
         dispatch: async (name, input) => {
           if (name === "propose_action") {
             return await executeActionTool(actionCtx, input, async (row) => {
-              const outcome = await executeAndRecord(sb, row as ActionRow, agent.name);
+              const outcome = await executeAndRecord(sb, row as unknown as ActionRow, agent.name);
               return { ok: outcome.ok, result: outcome.result, error: outcome.error };
             });
           }
@@ -287,7 +289,7 @@ Deno.serve(async (req) => {
 
       for (const row of rows ?? []) {
         if (row.status !== "approved") { pendingApprovals++; continue; }
-        const outcome = await executeAndRecord(sb, row as ActionRow, agent.name);
+        const outcome = await executeAndRecord(sb, row as unknown as ActionRow, agent.name);
         executed.push({ id: row.id, ok: outcome.ok, error: outcome.error });
       }
     }
