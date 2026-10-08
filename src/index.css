@@ -503,6 +503,47 @@ button.cv-kpi:hover { border-color: var(--cv-accent); }
 .cv-simple-list__sub { font-size: 12px; color: var(--cv-muted); }
 .cv-simple-list__when { font-size: 13px; color: var(--cv-muted); white-space: nowrap; }
 
+/* ---------- Pipeline (CRE-332 Phase 6) ---------- */
+.cv-spin { animation: cv-spin 0.9s linear infinite; }
+@keyframes cv-spin { to { transform: rotate(360deg); } }
+
+.cv-pipeline-strip {
+  display: flex; gap: 12px; overflow-x: auto; padding: 0 32px 20px; margin: 0 -32px 0;
+}
+.cv-pipeline-strip__item {
+  flex: 1; min-width: 140px; background: var(--cv-card); border: 1px solid var(--cv-border);
+  border-radius: var(--cv-r); padding: 14px 16px; font-family: var(--cv-font-sans);
+  cursor: default; text-align: left;
+}
+.cv-pipeline-strip__item--muted { cursor: pointer; opacity: 0.75; }
+.cv-pipeline-strip__item--muted:hover { opacity: 1; border-color: var(--cv-accent); }
+.cv-pipeline-strip__label { font-size: 12px; color: var(--cv-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+.cv-pipeline-strip__count { font-size: 22px; color: var(--cv-ink); font-weight: 500; line-height: 1.1; }
+.cv-pipeline-strip__value { font-size: 13px; color: var(--cv-accent); margin-top: 2px; }
+
+.cv-kanban { display: flex; gap: 14px; overflow-x: auto; align-items: flex-start; padding-bottom: 8px; }
+.cv-kanban__col {
+  flex: 0 0 240px; min-width: 240px; background: var(--cv-sunken); border: 1px solid var(--cv-border);
+  border-radius: var(--cv-r); padding: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.cv-kanban__col-head {
+  display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 500;
+  color: var(--cv-ink); padding: 0 2px 4px;
+}
+.cv-kanban__col-count { font-size: 11px; color: var(--cv-muted); background: var(--cv-card); border-radius: 999px; padding: 1px 7px; }
+.cv-kanban__empty { font-size: 12px; color: var(--cv-faint); padding: 8px 2px; }
+
+.cv-kanban-card {
+  display: block; width: 100%; text-align: left; background: var(--cv-card); border: 1px solid var(--cv-border);
+  border-radius: var(--cv-r-sm); padding: 10px 12px; cursor: pointer; font-family: var(--cv-font-sans);
+}
+.cv-kanban-card:hover { border-color: var(--cv-accent); }
+.cv-kanban-card__company { font-size: 13px; color: var(--cv-ink); font-weight: 500; overflow-wrap: anywhere; }
+.cv-kanban-card__service { font-size: 12px; color: var(--cv-muted); margin-top: 2px; overflow-wrap: anywhere; }
+.cv-kanban-card__meta { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.cv-kanban-card__value { font-size: 13px; color: var(--cv-accent); font-weight: 500; }
+.cv-kanban-card__days { font-size: 11px; color: var(--cv-faint); }
+
 /* ============================================================
    CRM ADMIN — Dark editorial theme (scoped under .crm-shell)
    Mirrors the Cre8 CRM mockup: ink/charcoal background,
