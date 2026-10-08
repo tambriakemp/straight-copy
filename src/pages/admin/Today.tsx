@@ -19,6 +19,7 @@ import Card from "@/components/admin/cv/Card";
 import KpiCard from "@/components/admin/cv/KpiCard";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import BriefCheckItem from "@/components/admin/cv/BriefCheckItem";
+import WeeklyCalendarCard from "@/components/admin/cv/WeeklyCalendarCard";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney, loadAdminOperations, type AdminOperations } from "@/lib/adminOperations";
 import { useNeedsYouNow, type NeedsYouBucket } from "@/lib/needsYouNow";
@@ -50,43 +51,59 @@ function briefItemIssue(item: BriefItem): string | null {
   return m ? m[1] : null;
 }
 
+// CRE-358: a brief whose `calendar_events` field has at least one event
+// gets the new weekly calendar card instead of its old markdown "Calendar"
+// section. A brief that doesn't send the field (or sends an empty array)
+// keeps rendering whatever it has in `sections` unchanged.
+function hasCalendarCard(brief: Brief): boolean {
+  return Array.isArray(brief.calendar_events) && brief.calendar_events.length > 0;
+}
+
 function BriefSections({
-  brief, isDone, complete, undo,
+  brief, isDone, complete, undo, hideCalendarHeading = false,
 }: {
   brief: Brief;
   isDone: (id: string) => boolean;
   complete: ReturnType<typeof useBriefItemCompletions>["complete"];
   undo: ReturnType<typeof useBriefItemCompletions>["undo"];
+  hideCalendarHeading?: boolean;
 }) {
   return (
     <>
-      {brief.sections.map((s, i) => (
-        <div key={i} className="cv-brief-section">
-          <div className="cv-brief-section__heading">{s.heading}</div>
-          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
-            {s.items.map((item, j) => {
-              const id = briefItemId(brief.id, i, j, item);
-              const issue = briefItemIssue(item);
-              return (
-                <li key={j}>
-                  <BriefCheckItem
-                    done={isDone(id)}
-                    onComplete={() => complete({
-                      item_id: id,
-                      item_text: item.text,
-                      issue_identifier: issue,
-                      brief_date: brief.created_at.slice(0, 10),
-                    })}
-                    onUndo={() => undo(id)}
-                  >
-                    {item.link ? <a href={item.link} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.text}</a> : item.text}
-                  </BriefCheckItem>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+      {brief.sections.map((s, i) => {
+        // Bree: "for any section that doesn't have an update for that day
+        // don't show the section at all" — skip a heading with no items
+        // rather than rendering it empty.
+        if (!s.items.length) return null;
+        if (hideCalendarHeading && s.heading.trim().toLowerCase() === "calendar") return null;
+        return (
+          <div key={i} className="cv-brief-section">
+            <div className="cv-brief-section__heading">{s.heading}</div>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
+              {s.items.map((item, j) => {
+                const id = briefItemId(brief.id, i, j, item);
+                const issue = briefItemIssue(item);
+                return (
+                  <li key={j}>
+                    <BriefCheckItem
+                      done={isDone(id)}
+                      onComplete={() => complete({
+                        item_id: id,
+                        item_text: item.text,
+                        issue_identifier: issue,
+                        brief_date: brief.created_at.slice(0, 10),
+                      })}
+                      onUndo={() => undo(id)}
+                    >
+                      {item.link ? <a href={item.link} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.text}</a> : item.text}
+                    </BriefCheckItem>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -209,7 +226,8 @@ export default function Today() {
                   <div className="cv-card-sub" style={{ marginLeft: 0, marginBottom: 10 }}>
                     {new Date(latestMorning.created_at).toLocaleString()}
                   </div>
-                  <BriefSections brief={latestMorning} isDone={isDone} complete={complete} undo={undo} />
+                  {hasCalendarCard(latestMorning) && <WeeklyCalendarCard events={latestMorning.calendar_events!} />}
+                  <BriefSections brief={latestMorning} isDone={isDone} complete={complete} undo={undo} hideCalendarHeading={hasCalendarCard(latestMorning)} />
                 </>
               )
             ) : !briefs?.length ? (
@@ -229,7 +247,8 @@ export default function Today() {
                 ))}
                 {current && (
                   <div className="cv-brief-section" style={{ marginTop: 10, borderTop: "1px solid var(--cv-border)", paddingTop: 12 }}>
-                    <BriefSections brief={current} isDone={isDone} complete={complete} undo={undo} />
+                    {hasCalendarCard(current) && <WeeklyCalendarCard events={current.calendar_events!} />}
+                    <BriefSections brief={current} isDone={isDone} complete={complete} undo={undo} hideCalendarHeading={hasCalendarCard(current)} />
                   </div>
                 )}
               </div>

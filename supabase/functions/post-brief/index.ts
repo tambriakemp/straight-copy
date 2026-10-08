@@ -24,6 +24,12 @@
 //     a "marked done from the brief" comment back on that issue.
 // See the `action: "completed"` branch below for how the routine should
 // use these ids to skip already-checked-off items on the next brief.
+//
+// CRE-358: an optional `calendar_events` array, sibling to `sections`,
+// drives the Today page's weekly calendar card instead of a markdown
+// "Calendar" section. Omit the field (or send it as `null`/absent) to keep
+// the old checkbox-list rendering — the frontend falls back automatically.
+// Every date/time is America/Chicago, same as the rest of the brief.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -48,6 +54,60 @@ function serviceClient() {
 interface BriefSection {
   heading: string;
   items: { id?: string; issue?: string | null; text: string; link: string | null }[];
+}
+
+const CALENDAR_EVENT_TYPES = ["rental", "business", "live", "home"];
+const CALENDAR_EVENT_STATUSES = ["confirmed", "canceled", "tentative"];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{2}:\d{2}$/;
+
+interface CalendarEvent {
+  id: string;
+  title: string;
+  type: string;
+  start_date: string;
+  end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  time_label?: string | null;
+  status: string;
+  note?: string | null;
+}
+
+function validateCalendarEvents(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value)) return "calendar_events must be an array or null";
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") return "each calendar_events entry must be an object";
+    const e = entry as Record<string, unknown>;
+    if (typeof e.id !== "string" || !e.id.trim()) return "every calendar_events entry needs a non-empty id";
+    if (typeof e.title !== "string" || !e.title.trim()) return "every calendar_events entry needs a non-empty title";
+    if (typeof e.type !== "string" || !CALENDAR_EVENT_TYPES.includes(e.type)) {
+      return `calendar_events entry.type must be one of ${CALENDAR_EVENT_TYPES.join(", ")}`;
+    }
+    if (typeof e.status !== "string" || !CALENDAR_EVENT_STATUSES.includes(e.status)) {
+      return `calendar_events entry.status must be one of ${CALENDAR_EVENT_STATUSES.join(", ")}`;
+    }
+    if (typeof e.start_date !== "string" || !DATE_RE.test(e.start_date)) {
+      return "calendar_events entry.start_date must be a YYYY-MM-DD string";
+    }
+    if (e.end_date !== undefined && e.end_date !== null && (typeof e.end_date !== "string" || !DATE_RE.test(e.end_date))) {
+      return "calendar_events entry.end_date must be a YYYY-MM-DD string or null";
+    }
+    if (e.start_time !== undefined && e.start_time !== null && (typeof e.start_time !== "string" || !TIME_RE.test(e.start_time))) {
+      return "calendar_events entry.start_time must be an HH:MM string or null";
+    }
+    if (e.end_time !== undefined && e.end_time !== null && (typeof e.end_time !== "string" || !TIME_RE.test(e.end_time))) {
+      return "calendar_events entry.end_time must be an HH:MM string or null";
+    }
+    if (e.time_label !== undefined && e.time_label !== null && typeof e.time_label !== "string") {
+      return "calendar_events entry.time_label must be a string or null";
+    }
+    if (e.note !== undefined && e.note !== null && typeof e.note !== "string") {
+      return "calendar_events entry.note must be a string or null";
+    }
+  }
+  return null;
 }
 
 function validate(body: unknown): string | null {
@@ -89,6 +149,8 @@ function validate(body: unknown): string | null {
   if (b.external_id !== undefined && b.external_id !== null && typeof b.external_id !== "string") {
     return "external_id must be a string";
   }
+  const calendarProblem = validateCalendarEvents(b.calendar_events);
+  if (calendarProblem) return calendarProblem;
   return null;
 }
 
@@ -134,6 +196,7 @@ Deno.serve(async (req) => {
     period: "morning" | "evening";
     title: string;
     sections: BriefSection[];
+    calendar_events?: CalendarEvent[] | null;
   };
 
   if (b.external_id) {
@@ -152,6 +215,7 @@ Deno.serve(async (req) => {
       period: b.period,
       title: b.title,
       sections: b.sections,
+      calendar_events: b.calendar_events ?? null,
     })
     .select("id, created_at")
     .single();
