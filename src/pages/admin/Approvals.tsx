@@ -510,10 +510,10 @@ export default function Approvals() {
                       type="button"
                       className="cv-sync-btn"
                       disabled={!p.current_site_url}
-                      title={p.current_site_url ? undefined : "No site"}
+                      title={p.current_site_url ? undefined : "No site on file for this prospect"}
                       onClick={() => openInNewTab(p.current_site_url)}
                     >
-                      Current site
+                      Current site{!p.current_site_url && <span>(no site)</span>}
                     </button>
                     <button
                       type="button"
@@ -580,10 +580,10 @@ export default function Approvals() {
                   type="button"
                   className="crm-btn crm-btn--ghost crm-btn--sm"
                   disabled={!panelProspect.current_site_url}
-                  title={panelProspect.current_site_url ? undefined : "No site"}
+                  title={panelProspect.current_site_url ? undefined : "No site on file for this prospect"}
                   onClick={() => openInNewTab(panelProspect.current_site_url)}
                 >
-                  Current site
+                  Current site{!panelProspect.current_site_url && <span>(no site)</span>}
                 </button>
                 <button
                   type="button"
