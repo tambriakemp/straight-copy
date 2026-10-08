@@ -234,3 +234,13 @@ local terminal session can use `dontAsk`, honours the allow list, and is the
 reason local chats never prompt. In the cloud, the only honest way to cut the
 prompts is to make fewer consequential calls — batch the SQL rather than firing
 five small queries.
+
+## Deno resolution (added 2026-10-10)
+
+`deno.json` at the repo root sets `"nodeModulesDir": "auto"` — the harness runs plain
+`deno check <fn>/index.ts` (no flag), and in default byonm mode it cannot resolve the
+functions' pinned specifiers (`npm:@supabase/supabase-js@2.45.0`, `@anthropic-ai/sdk@0.71.0`)
+because the app's `node_modules` holds different versions. Auto mode self-installs the pins
+into `node_modules/.deno`, so plain checks pass in a fresh sandbox. Bare imports used only by
+functions (`hono`, `mcp-lite`, `pdf-lib`, `@pdf-lib/fontkit`) must stay declared in
+`package.json` dependencies or auto mode rejects them ("not a dependency").
