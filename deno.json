@@ -1,1 +1,1 @@
-{"nodeModulesDir": "auto", "lint": {"exclude": ["node_modules"]}}
+{"nodeModulesDir": "none", "lint": {"exclude": ["node_modules"]}}
