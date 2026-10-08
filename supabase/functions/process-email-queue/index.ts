@@ -1,5 +1,5 @@
 import { sendLovableEmail } from 'npm:@lovable.dev/email-js'
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2.45.0'
 import { logSureContactActivity, sendSureContactEmail } from '../_shared/surecontact-send.ts'
 
 const MAX_RETRIES = 5

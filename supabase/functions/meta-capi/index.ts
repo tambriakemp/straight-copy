@@ -1,5 +1,5 @@
 // Meta Conversions API proxy. Public endpoint (no JWT) — pixel-equivalent.
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.45.0/cors";
 
 const PIXEL_ID = Deno.env.get("META_PIXEL_ID") ?? "2233428127414824";
 const ACCESS_TOKEN = Deno.env.get("META_ACCESS_TOKEN");
