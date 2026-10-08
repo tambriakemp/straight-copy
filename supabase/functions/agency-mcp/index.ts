@@ -145,7 +145,7 @@ mcp.tool("list_queue_projects", {
     if (error) throw new Error(error.message);
 
     // Untyped client rows come back as GenericStringError; declare the shape.
-    const projectRows = (projects ?? []) as Array<{ id: string } & Record<string, unknown>>;
+    const projectRows = (projects ?? []) as unknown as Array<{ id: string } & Record<string, unknown>>;
     const ids = projectRows.map((p) => p.id);
     if (!ids.length) return textResult({ projects: [] });
 
