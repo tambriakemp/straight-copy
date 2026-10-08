@@ -255,15 +255,15 @@ export async function listPipelineStages(): Promise<LivePipelineStage[]> {
 
 /** A deal as the Pipeline page needs it — already unwrapped from whatever
  *  envelope SureContact returns, and already converted to cents. Field
- *  names here are a best-effort read of the live deal shape: confirmed
- *  fields are `uuid`/`id` (used by extractUuid above) and `amount` in
- *  dollars (createDeal/updateDealAmount both send `amount` in dollars), and
- *  the list endpoint itself (`GET /deals?pipeline_uuid=`) is the one this
- *  issue's own two-way-sync design section specifies for reconciliation.
- *  Company/contact/timestamp field names are not yet confirmed against a
- *  real response — parsed defensively with fallbacks, and any deal that
- *  can't be matched to a known stage uuid is surfaced via `unmatched`
- *  rather than silently dropped (see pipeline-board/index.ts). */
+ *  names confirmed against a real `GET /deals?pipeline_uuid=` response
+ *  (Ara, Oct 7 2026): `amount` is a numeric string ("5000.00"), the stage
+ *  reference is a nested `stage.uuid` (there is no flat `stage_uuid` /
+ *  `pipeline_stage_uuid`), and `company`/`contact` are plural arrays
+ *  (`companies[]` / `contacts[]`) with no singular form. The flat/singular
+ *  fallbacks below are kept defensively in case the API varies by deal
+ *  state, but `stage.uuid` and the plural arrays are the confirmed shape.
+ *  Any deal that can't be matched to a known stage uuid is surfaced via
+ *  `unmatched` rather than silently dropped (see pipeline-board/index.ts). */
 export interface LiveDeal {
   uuid: string;
   name: string;
@@ -283,6 +283,7 @@ interface DealShape {
   name?: string;
   title?: string;
   amount?: number | string | null;
+  stage?: { uuid?: string };
   pipeline_stage_uuid?: string;
   stage_uuid?: string;
   pipeline_stage?: { uuid?: string };
@@ -294,9 +295,14 @@ interface DealShape {
   stage_updated_at?: string;
   updated_at?: string;
 }
+interface DealsListMeta {
+  current_page?: number;
+  last_page?: number;
+}
 interface DealsListResponseShape {
   deals?: DealShape[];
   data?: { deals?: DealShape[] } | DealShape[];
+  meta?: DealsListMeta;
 }
 
 function contactDisplayName(c?: DealContactShape): string | null {
@@ -306,42 +312,58 @@ function contactDisplayName(c?: DealContactShape): string | null {
   return full || null;
 }
 
-export async function listPipelineDeals(): Promise<LiveDeal[]> {
-  const result = await call<DealsListResponseShape | DealShape[]>(
-    `/deals?pipeline_uuid=${CRE8_PROSPECT_PIPELINE_UUID}`,
-  );
-  if (!result.ok) throw new Error(`Could not load Cre8 Prospect deals: ${result.error}`);
-  const raw = result.data;
-  const list: DealShape[] = Array.isArray(raw)
-    ? raw
-    : Array.isArray(raw?.deals)
-      ? raw.deals
-      : Array.isArray(raw?.data)
-        ? (raw.data as DealShape[])
-        : Array.isArray((raw?.data as { deals?: DealShape[] } | undefined)?.deals)
-          ? (raw!.data as { deals: DealShape[] }).deals
-          : [];
+/** Exported for unit testing against the confirmed envelope shape
+ *  (`{ success, message, data: [...], meta }`) without a live fetch. */
+export function extractDealsPage(raw: DealsListResponseShape | DealShape[] | null): { list: DealShape[]; meta?: DealsListMeta } {
+  if (Array.isArray(raw)) return { list: raw };
+  if (Array.isArray(raw?.deals)) return { list: raw.deals, meta: raw.meta };
+  if (Array.isArray(raw?.data)) return { list: raw.data as DealShape[], meta: raw.meta };
+  const nestedDeals = (raw?.data as { deals?: DealShape[] } | undefined)?.deals;
+  if (Array.isArray(nestedDeals)) return { list: nestedDeals, meta: raw?.meta };
+  return { list: [] };
+}
 
-  return list
-    .map((d): LiveDeal => {
-      const company = d.company;
-      const companyName =
-        typeof company === "string"
-          ? company
-          : company?.name ?? company?.business_name ?? d.companies?.[0]?.name ?? d.companies?.[0]?.business_name ?? null;
-      const amountNum = d.amount == null ? null : Number(d.amount);
-      return {
-        uuid: String(d.uuid ?? d.id ?? ""),
-        name: String(d.name ?? d.title ?? "Untitled deal"),
-        amountCents: amountNum != null && Number.isFinite(amountNum) ? Math.round(amountNum * 100) : null,
-        stageUuid: d.pipeline_stage_uuid ?? d.stage_uuid ?? d.pipeline_stage?.uuid ?? null,
-        companyName,
-        contactName: contactDisplayName(d.contact) ?? contactDisplayName(d.contacts?.[0]),
-        createdAt: d.created_at ?? null,
-        stageUpdatedAt: d.stage_updated_at ?? d.updated_at ?? null,
-      };
-    })
-    .filter((d) => d.uuid);
+/** Exported for unit testing against a real deal object (Ara, Oct 7 2026)
+ *  without a live fetch. */
+export function toLiveDeal(d: DealShape): LiveDeal {
+  const company = d.company;
+  const companyName =
+    typeof company === "string"
+      ? company
+      : company?.name ?? company?.business_name ?? d.companies?.[0]?.name ?? d.companies?.[0]?.business_name ?? null;
+  const amountNum = d.amount == null ? null : Number(d.amount);
+  return {
+    uuid: String(d.uuid ?? d.id ?? ""),
+    name: String(d.name ?? d.title ?? "Untitled deal"),
+    amountCents: amountNum != null && Number.isFinite(amountNum) ? Math.round(amountNum * 100) : null,
+    stageUuid: d.stage?.uuid ?? d.pipeline_stage_uuid ?? d.stage_uuid ?? d.pipeline_stage?.uuid ?? null,
+    companyName,
+    contactName: contactDisplayName(d.contact) ?? contactDisplayName(d.contacts?.[0]),
+    createdAt: d.created_at ?? null,
+    stageUpdatedAt: d.stage_updated_at ?? d.updated_at ?? null,
+  };
+}
+
+/** The confirmed envelope (`{ success, message, data: [...], meta }`) is
+ *  paginated at 25/page (Ara, Oct 7 2026) — a single-page read would
+ *  silently drop deals once the pipeline grows past that. Loop on
+ *  `meta.last_page` until every page is collected. */
+export async function listPipelineDeals(): Promise<LiveDeal[]> {
+  const rawDeals: DealShape[] = [];
+  let page = 1;
+  while (true) {
+    const result = await call<DealsListResponseShape | DealShape[]>(
+      `/deals?pipeline_uuid=${CRE8_PROSPECT_PIPELINE_UUID}&page=${page}`,
+    );
+    if (!result.ok) throw new Error(`Could not load Cre8 Prospect deals: ${result.error}`);
+    const { list, meta } = extractDealsPage(result.data);
+    rawDeals.push(...list);
+    const lastPage = meta?.last_page ?? 1;
+    if (page >= lastPage || list.length === 0) break;
+    page++;
+  }
+
+  return rawDeals.map(toLiveDeal).filter((d) => d.uuid);
 }
 
 export interface CreateDealInput {
