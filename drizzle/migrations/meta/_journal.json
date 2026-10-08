@@ -29,6 +29,13 @@
       "when": 1791269171456,
       "tag": "0003_proposal_versions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791425315526,
+      "tag": "0004_prospect_approvals_current_site_url",
+      "breakpoints": true
     }
   ]
 }
