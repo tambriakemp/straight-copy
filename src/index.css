@@ -466,6 +466,41 @@ button.cv-kpi:hover { border-color: var(--cv-accent); }
 }
 .cv-sync-btn:hover { border-color: var(--cv-accent); }
 
+/* ---------- Client detail (CRE-332 Phase 4) ---------- */
+.cv-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--cv-border); margin-bottom: 20px; flex-wrap: wrap; }
+.cv-tab {
+  font-size: 14px; padding: 10px 4px; margin-right: 22px; border: none; border-bottom: 2px solid transparent;
+  background: none; color: var(--cv-muted); cursor: pointer; font-family: var(--cv-font-sans);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.cv-tab:hover { color: var(--cv-ink); }
+.cv-tab--active { color: var(--cv-accent); border-bottom-color: var(--cv-accent); font-weight: 500; }
+.cv-tab-count {
+  font-size: 11px; background: var(--cv-sunken); color: var(--cv-muted); border-radius: 999px;
+  padding: 1px 7px; line-height: 1.5;
+}
+.cv-tab--active .cv-tab-count { background: var(--cv-accent-tint); color: var(--cv-accent); }
+
+.cv-dl { display: grid; grid-template-columns: 170px 1fr; gap: 10px 16px; margin: 0; font-size: 14px; }
+.cv-dl dt { color: var(--cv-muted); }
+.cv-dl dd { margin: 0; color: var(--cv-ink); }
+@media (max-width: 640px) {
+  .cv-dl { grid-template-columns: 1fr; }
+  .cv-dl dt { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cv-faint); margin-top: 10px; }
+  .cv-dl dt:first-child { margin-top: 0; }
+}
+
+.cv-simple-list { display: flex; flex-direction: column; }
+.cv-simple-list__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--cv-border);
+}
+.cv-simple-list__row:last-child { border-bottom: none; }
+.cv-simple-list__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.cv-simple-list__title { font-size: 14px; color: var(--cv-ink); }
+.cv-simple-list__sub { font-size: 12px; color: var(--cv-muted); }
+.cv-simple-list__when { font-size: 13px; color: var(--cv-muted); white-space: nowrap; }
+
 /* ============================================================
    CRM ADMIN — Dark editorial theme (scoped under .crm-shell)
    Mirrors the Cre8 CRM mockup: ink/charcoal background,

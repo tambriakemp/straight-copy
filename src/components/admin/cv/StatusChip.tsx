@@ -17,6 +17,18 @@ const STATUS_TONE: Record<string, StatusTone> = {
   paused: "gray",
   "needs-you": "bronze",
   drafts: "bronze",
+  // Proposal statuses (client_proposals.status) and invoice statuses
+  // (project_invoices.status) — added for the client detail page's
+  // Proposals and Payments tabs (CRE-332 Phase 4).
+  ready: "blue",
+  sent: "amber",
+  signed: "green",
+  voided: "red",
+  declined: "red",
+  superseded: "gray",
+  scheduled: "gray",
+  void: "red",
+  failed: "red",
 };
 
 export function toneForStatus(status: string): StatusTone {
