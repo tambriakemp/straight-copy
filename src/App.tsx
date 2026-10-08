@@ -26,7 +26,7 @@ const AdminLogin = lazy(() => import("./pages/admin/AdminLogin.tsx"));
 const McpAuthorize = lazy(() => import("./pages/admin/McpAuthorize.tsx"));
 const ResetPassword = lazy(() => import("./pages/admin/ResetPassword.tsx"));
 const Profile = lazy(() => import("./pages/admin/Profile.tsx"));
-const Dashboard = lazy(() => import("./pages/admin/Dashboard.tsx"));
+const ClientsList = lazy(() => import("./pages/admin/ClientsList.tsx"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard.tsx"));
 const Today = lazy(() => import("./pages/admin/Today.tsx"));
 const Portfolio = lazy(() => import("./pages/admin/Portfolio.tsx"));
@@ -91,7 +91,7 @@ const App = () => (
             <Route path="/admin/mcp-authorize" element={<McpAuthorize />} />
             <Route path="/admin/reset-password" element={<ResetPassword />} />
             <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
-            <Route path="/admin/clients" element={<RequireAdmin><Dashboard /></RequireAdmin>} />
+            <Route path="/admin/clients" element={<RequireAdmin><ClientsList /></RequireAdmin>} />
             <Route path="/admin/proposals" element={<RequireAdmin><Proposals /></RequireAdmin>} />
             <Route path="/admin/payments" element={<RequireAdmin><Payments /></RequireAdmin>} />
             <Route path="/admin/social" element={<RequireAdmin><Social /></RequireAdmin>} />

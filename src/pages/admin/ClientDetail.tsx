@@ -21,11 +21,26 @@ import { useParams } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
 import AgentClientView from "@/components/admin/agent/AgentClientView";
 import ClientPortalActions from "@/components/admin/ClientPortalActions";
+import ClientDetailView from "@/components/admin/client/ClientDetailView";
+import { useNewAdminLayout } from "@/hooks/useNewAdminLayout";
 
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
+  const { enabled: newLayout } = useNewAdminLayout();
+
   if (!id) {
     return <AdminLayout><div className="roster"><p>Client not found.</p></div></AdminLayout>;
+  }
+
+  // CRE-332 Phase 4: the new 6-tab client page, behind the same toggle as the
+  // rest of the light shell. Off by default — AgentClientView below is
+  // exactly what this route rendered before Phase 4, unchanged.
+  if (newLayout) {
+    return (
+      <AdminLayout>
+        <ClientDetailView clientId={id} />
+      </AdminLayout>
+    );
   }
 
   return (
