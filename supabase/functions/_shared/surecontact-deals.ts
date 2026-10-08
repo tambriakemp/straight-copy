@@ -5,6 +5,18 @@
 // surecart-webhook) without pulling a DB client type into the signature.
 // `../_shared/surecontact.ts` is the parallel client for the older
 // contacts-upsert endpoint; this one is deals/pipelines.
+//
+// The pure deal-parsing logic (no `Deno` reference, so the frontend test
+// suite can import it under tsconfig.app.json) lives in
+// `surecontact-deal-parse.ts` and is re-exported below.
+import {
+  extractDealsPage,
+  toLiveDeal,
+  type DealShape,
+  type DealsListResponseShape,
+  type LiveDeal,
+} from "./surecontact-deal-parse.ts";
+export { extractDealsPage, toLiveDeal, type LiveDeal } from "./surecontact-deal-parse.ts";
 
 const SURECONTACT_BASE = "https://api.surecontact.com/api/v1/public";
 
@@ -253,95 +265,26 @@ export async function listPipelineStages(): Promise<LivePipelineStage[]> {
   return stages;
 }
 
-/** A deal as the Pipeline page needs it — already unwrapped from whatever
- *  envelope SureContact returns, and already converted to cents. Field
- *  names here are a best-effort read of the live deal shape: confirmed
- *  fields are `uuid`/`id` (used by extractUuid above) and `amount` in
- *  dollars (createDeal/updateDealAmount both send `amount` in dollars), and
- *  the list endpoint itself (`GET /deals?pipeline_uuid=`) is the one this
- *  issue's own two-way-sync design section specifies for reconciliation.
- *  Company/contact/timestamp field names are not yet confirmed against a
- *  real response — parsed defensively with fallbacks, and any deal that
- *  can't be matched to a known stage uuid is surfaced via `unmatched`
- *  rather than silently dropped (see pipeline-board/index.ts). */
-export interface LiveDeal {
-  uuid: string;
-  name: string;
-  amountCents: number | null;
-  stageUuid: string | null;
-  companyName: string | null;
-  contactName: string | null;
-  createdAt: string | null;
-  stageUpdatedAt: string | null;
-}
-
-interface DealCompanyShape { name?: string; business_name?: string }
-interface DealContactShape { name?: string; first_name?: string; last_name?: string }
-interface DealShape {
-  uuid?: string;
-  id?: string;
-  name?: string;
-  title?: string;
-  amount?: number | string | null;
-  pipeline_stage_uuid?: string;
-  stage_uuid?: string;
-  pipeline_stage?: { uuid?: string };
-  company?: DealCompanyShape | string;
-  companies?: DealCompanyShape[];
-  contact?: DealContactShape;
-  contacts?: DealContactShape[];
-  created_at?: string;
-  stage_updated_at?: string;
-  updated_at?: string;
-}
-interface DealsListResponseShape {
-  deals?: DealShape[];
-  data?: { deals?: DealShape[] } | DealShape[];
-}
-
-function contactDisplayName(c?: DealContactShape): string | null {
-  if (!c) return null;
-  if (c.name) return c.name;
-  const full = [c.first_name, c.last_name].filter(Boolean).join(" ").trim();
-  return full || null;
-}
-
+/** The confirmed envelope (`{ success, message, data: [...], meta }`) is
+ *  paginated at 25/page (Ara, Oct 7 2026) — a single-page read would
+ *  silently drop deals once the pipeline grows past that. Loop on
+ *  `meta.last_page` until every page is collected. */
 export async function listPipelineDeals(): Promise<LiveDeal[]> {
-  const result = await call<DealsListResponseShape | DealShape[]>(
-    `/deals?pipeline_uuid=${CRE8_PROSPECT_PIPELINE_UUID}`,
-  );
-  if (!result.ok) throw new Error(`Could not load Cre8 Prospect deals: ${result.error}`);
-  const raw = result.data;
-  const list: DealShape[] = Array.isArray(raw)
-    ? raw
-    : Array.isArray(raw?.deals)
-      ? raw.deals
-      : Array.isArray(raw?.data)
-        ? (raw.data as DealShape[])
-        : Array.isArray((raw?.data as { deals?: DealShape[] } | undefined)?.deals)
-          ? (raw!.data as { deals: DealShape[] }).deals
-          : [];
+  const rawDeals: DealShape[] = [];
+  let page = 1;
+  while (true) {
+    const result = await call<DealsListResponseShape | DealShape[]>(
+      `/deals?pipeline_uuid=${CRE8_PROSPECT_PIPELINE_UUID}&page=${page}`,
+    );
+    if (!result.ok) throw new Error(`Could not load Cre8 Prospect deals: ${result.error}`);
+    const { list, meta } = extractDealsPage(result.data);
+    rawDeals.push(...list);
+    const lastPage = meta?.last_page ?? 1;
+    if (page >= lastPage || list.length === 0) break;
+    page++;
+  }
 
-  return list
-    .map((d): LiveDeal => {
-      const company = d.company;
-      const companyName =
-        typeof company === "string"
-          ? company
-          : company?.name ?? company?.business_name ?? d.companies?.[0]?.name ?? d.companies?.[0]?.business_name ?? null;
-      const amountNum = d.amount == null ? null : Number(d.amount);
-      return {
-        uuid: String(d.uuid ?? d.id ?? ""),
-        name: String(d.name ?? d.title ?? "Untitled deal"),
-        amountCents: amountNum != null && Number.isFinite(amountNum) ? Math.round(amountNum * 100) : null,
-        stageUuid: d.pipeline_stage_uuid ?? d.stage_uuid ?? d.pipeline_stage?.uuid ?? null,
-        companyName,
-        contactName: contactDisplayName(d.contact) ?? contactDisplayName(d.contacts?.[0]),
-        createdAt: d.created_at ?? null,
-        stageUpdatedAt: d.stage_updated_at ?? d.updated_at ?? null,
-      };
-    })
-    .filter((d) => d.uuid);
+  return rawDeals.map(toLiveDeal).filter((d) => d.uuid);
 }
 
 export interface CreateDealInput {

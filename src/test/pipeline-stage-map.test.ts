@@ -33,8 +33,8 @@ describe("pipeline-stage-map", () => {
     expect(isRevisedFlag(5)).toBe(false);
   });
 
-  it("labels Won as 'Deposit paid', per Bree's approved mapping", () => {
-    expect(columnLabel("won")).toBe("Deposit paid");
+  it("labels Won as 'Won', matching SureContact's own stage name exactly", () => {
+    expect(columnLabel("won")).toBe("Won");
   });
 
   it("excludes Lost from the visible board columns", () => {

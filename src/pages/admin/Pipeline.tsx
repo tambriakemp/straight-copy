@@ -2,8 +2,10 @@
 // pipeline (via the pipeline-board edge function) and buckets every deal
 // into the columns Bree approved Oct 7, 2026: Lead, Intake (Demo Scheduled
 // folded in), Proposal sent (In Negotiation folded in, flagged Revised),
-// Signed, Won shown as "Deposit paid". Lost is hidden by default, behind a
-// "Show lost" toggle.
+// Signed, Won. Lost is hidden by default, behind a "Show lost" toggle.
+// Column labels match SureContact's own stage names exactly (Bree's Oct 7
+// 11:41 PM CT correction — SureContact doesn't allow deleting its Won
+// stage, so the admin side must not drift from it, e.g. "Deposit paid").
 //
 // Read-only for now — no drag-to-move, no webhook receiver. Dragging a
 // card or editing a deal still happens in SureContact or through the
@@ -164,7 +166,7 @@ export default function Pipeline() {
                           {card.daysInStage != null ? ` · ${card.daysInStage}d in stage` : ""}
                         </span>
                       </span>
-                      <StatusChip label={card.column === "won" ? "Deposit paid" : card.column === "lost" ? "Lost" : card.stageName} tone={card.column === "won" ? "green" : card.column === "lost" ? "red" : "bronze"} />
+                      <StatusChip label={card.column === "won" ? "Won" : card.column === "lost" ? "Lost" : card.stageName} tone={card.column === "won" ? "green" : card.column === "lost" ? "red" : "bronze"} />
                     </button>
                   ))}
                 </div>
