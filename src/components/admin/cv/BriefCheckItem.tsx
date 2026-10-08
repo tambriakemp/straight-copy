@@ -6,7 +6,7 @@ import { Check, RotateCcw } from "lucide-react";
  * both "Needs you now" items and morning-brief lines: a small checkbox that
  * strikes the row and shows Undo once checked. The caller owns what "done"
  * means (a brief_item_completions row) and what firing the check actually
- * does (complete-brief-item posts the webhook/comment); this component is
+ * does (complete-brief-item posts the Ara webhook); this component is
  * presentation only.
  */
 export default function BriefCheckItem({

@@ -5,8 +5,9 @@
 // read that table, see the admin-read-only policy in
 // 20261008120000_brief_item_completions.sql -- then fires a webhook to
 // Ara (the same Grok Bot agent-stuck endpoint named in every agent's
-// AGENTS.md, CRE-310) and, when the item names a Paperclip issue, posts a
-// short comment there so the owning agent wakes up too.
+// AGENTS.md, CRE-310). When the item names a Paperclip issue, Ara is the
+// one who posts "Bree marked this done from the brief" there, not this
+// function -- see "Why no direct Paperclip comment" below.
 //
 // This never resolves the underlying record (a Paperclip approval, an
 // overdue invoice, a pending prospect batch, ...): per CRE-335 S4, a check
@@ -14,6 +15,18 @@
 // query keeps returning it; the frontend hides/strikes it by matching this
 // table's item_id, and nothing here ever writes to paperclip_pending_items,
 // project_invoices, prospect_approvals, or client_proposals.
+//
+// Why no direct Paperclip comment (CRE-335, live-tested 2026-10-08):
+// a prior version of this function posted the "Bree marked this done"
+// comment itself, using the paperclip_read_token secret. Paperclip's
+// cross-issue guard rejected it with 403 cross_issue_influence_run_context_required
+// -- a comment from an agent key needs a heartbeat run id to attribute the
+// write to, and this edge function has no run, only a bare bearer token.
+// There is no run-scoped credential to hand a browser-triggered Lovable
+// function, so the fix is not a different key -- it's not posting the
+// comment from here at all. Ara's webhook (above) already falls back to
+// posting that same comment when it doesn't see one land, so the owning
+// agent still wakes up.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { resolveCaller } from "../_shared/webhook-auth.ts";
 
@@ -24,9 +37,6 @@ const corsHeaders = {
 };
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-const PAPERCLIP_BASE = "https://paperclip.cre8visions.com";
-const COMPANY_ID = "62e315f3-8d2c-49c9-8a67-00f151290b5c";
 
 function serviceClient() {
   return createClient(
@@ -67,29 +77,6 @@ function validate(body: unknown): string | null {
     return "note must be a string or null";
   }
   return null;
-}
-
-// Resolves a CRE-### identifier to the internal issue id the comments API
-// needs. Tries the identifier directly first (several Paperclip routes
-// accept either an id or an identifier); falls back to a company search
-// when that 404s. Unverified against a live Paperclip instance as of this
-// writing -- see the CRE-335 task comment.
-async function resolvePaperclipIssueId(identifier: string, token: string): Promise<string | null> {
-  const headers = { Authorization: `Bearer ${token}` };
-  const direct = await fetch(`${PAPERCLIP_BASE}/api/issues/${identifier}`, { headers });
-  if (direct.ok) {
-    const data = await direct.json();
-    return data?.id ?? data?.issue?.id ?? identifier;
-  }
-  const search = await fetch(
-    `${PAPERCLIP_BASE}/api/companies/${COMPANY_ID}/issues?q=${encodeURIComponent(identifier)}`,
-    { headers },
-  );
-  if (!search.ok) return null;
-  const results = await search.json();
-  const list = Array.isArray(results) ? results : results.items ?? [];
-  const match = list.find((i: { identifier?: string }) => i.identifier === identifier);
-  return match?.id ?? null;
 }
 
 Deno.serve(async (req) => {
@@ -163,38 +150,9 @@ Deno.serve(async (req) => {
     warnings.push("ara webhook not configured -- set ara_webhook_url and ara_webhook_key in Briefs > Settings");
   }
 
-  // Wake the owning agent by commenting on the linked issue. Reuses the
-  // same paperclip_read_token the pending-items sync already has (see the
-  // CRE-335 task comment for why this needed a plain "works or doesn't",
-  // not a guess).
-  if (b.issue_identifier) {
-    const token = await getSecret(sb, "paperclip_read_token");
-    if (!token) {
-      warnings.push("paperclip_read_token not set -- could not comment on the linked issue");
-    } else {
-      try {
-        const issueId = await resolvePaperclipIssueId(b.issue_identifier, token);
-        if (!issueId) {
-          warnings.push(`could not resolve Paperclip issue ${b.issue_identifier}`);
-        } else {
-          const noteLine = b.note ? `\n- Note: ${b.note}` : "";
-          const dateLine = b.brief_date ? `\n- Brief date: ${b.brief_date}` : "";
-          const commentRes = await fetch(`${PAPERCLIP_BASE}/api/issues/${issueId}/comments`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              body: `Bree marked this done from the brief.\n\n- Brief item: ${b.item_text}${dateLine}${noteLine}`,
-            }),
-          });
-          if (!commentRes.ok) {
-            warnings.push(`paperclip comment failed: ${commentRes.status} ${await commentRes.text()}`);
-          }
-        }
-      } catch (e) {
-        warnings.push(`paperclip comment failed: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-  }
+  // Waking the owning agent on a linked Paperclip issue happens on Ara's
+  // side, from the webhook above -- see "Why no direct Paperclip comment"
+  // at the top of this file. Nothing left to do here for issue_identifier.
 
   return json({ ok: true, warnings });
 });

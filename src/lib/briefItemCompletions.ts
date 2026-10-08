@@ -28,8 +28,9 @@ interface CompleteArgs {
  * One shared "is this item checked off" map for the Today page and
  * /admin/briefs (CRE-335) — Needs-you-now items and morning-brief items both
  * check off through the same complete-brief-item edge function, which
- * writes brief_item_completions on the service role, fires the Ara webhook,
- * and — when issue_identifier is set — comments on that Paperclip issue.
+ * writes brief_item_completions on the service role and fires the Ara
+ * webhook (Ara, not this function, posts the "Bree marked this done"
+ * comment on a linked Paperclip issue — see the edge function for why).
  * This hook only reads the resulting table and calls that function; it
  * never touches the source data (paperclip_pending_items, invoices, briefs)
  * directly, so checking an item here can't fake-resolve it.
@@ -57,7 +58,11 @@ export function useBriefItemCompletions() {
       return false;
     }
     if (Array.isArray(data?.warnings) && data.warnings.length) {
-      toast.warning(`Checked off, but: ${data.warnings.join("; ")}`);
+      // Keep the toast a short, human sentence -- never the raw warning
+      // strings, which can be (or contain) an upstream error body. Details
+      // go to the console for whoever's debugging it.
+      console.warn("complete-brief-item warnings:", data.warnings);
+      toast.warning("Checked off, but a follow-up step didn't go through — see console for details.");
     } else {
       toast.success("Checked off");
     }
