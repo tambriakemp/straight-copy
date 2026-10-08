@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2.45.0'
 import { WebhookError, verifyWebhookRequest } from 'npm:@lovable.dev/webhooks-js'
 
 // Suppression event payload sent by the Go API when Mailgun reports
