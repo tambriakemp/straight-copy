@@ -29,6 +29,9 @@ const STATUS_TONE: Record<string, StatusTone> = {
   scheduled: "gray",
   void: "red",
   failed: "red",
+  // payment_schedules.status (CRE-332 Phase 5 Money page).
+  active: "green",
+  archived: "gray",
 };
 
 export function toneForStatus(status: string): StatusTone {
