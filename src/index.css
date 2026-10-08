@@ -372,6 +372,7 @@
 
 /* ---------- Shared primitives ---------- */
 .cv-page-header { padding: 32px 32px 0; }
+@media (max-width: 640px) { .cv-page-header__row { flex-wrap: wrap; } }
 .cv-page-header__eyebrow { font-size: 13px; color: var(--cv-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
 .cv-page-header__title { font-family: var(--cv-font-serif); font-weight: 500; font-size: 34px; color: var(--cv-ink); margin: 0 0 6px; line-height: 1.1; }
 .cv-page-header__subtitle { font-size: 15px; color: var(--cv-muted); margin: 0 0 24px; max-width: 640px; }
@@ -394,6 +395,76 @@
 .cv-empty__icon { color: var(--cv-faint); }
 .cv-empty__title { font-family: var(--cv-font-serif); font-size: 22px; color: var(--cv-ink); }
 .cv-empty__subtitle { font-size: 14px; max-width: 420px; }
+
+/* ---------- Today (CRE-332 Phase 2) ---------- */
+.cv-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 0 32px 24px; }
+@media (max-width: 900px) { .cv-kpi-row { grid-template-columns: repeat(2, 1fr); } }
+
+.cv-kpi { padding: 18px 20px; text-align: left; font-family: var(--cv-font-sans); display: block; width: 100%; }
+button.cv-kpi { cursor: pointer; }
+button.cv-kpi:hover { border-color: var(--cv-accent); }
+.cv-kpi__label { font-size: 13px; color: var(--cv-muted); margin-bottom: 6px; }
+.cv-kpi__value { font-family: var(--cv-font-serif); font-size: 28px; color: var(--cv-ink); line-height: 1.1; }
+.cv-kpi__hint { font-size: 13px; color: var(--cv-faint); margin-top: 4px; }
+
+.cv-today-body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 20px; padding: 0 32px 32px; align-items: start; }
+@media (max-width: 1100px) { .cv-today-body { grid-template-columns: 1fr; } }
+
+.cv-card-pad { padding: 20px 22px; }
+.cv-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.cv-card-title { font-family: var(--cv-font-serif); font-size: 19px; color: var(--cv-ink); font-weight: 500; }
+.cv-card-sub { font-size: 13px; color: var(--cv-muted); margin-left: 8px; }
+
+.cv-filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.cv-filter-tab {
+  font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--cv-border);
+  background: var(--cv-sunken); color: var(--cv-muted); cursor: pointer; font-family: var(--cv-font-sans);
+}
+.cv-filter-tab--active { background: var(--cv-accent-tint); color: var(--cv-accent); border-color: var(--cv-accent); font-weight: 500; }
+
+.cv-needs-list { display: grid; gap: 8px; }
+.cv-needs-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 11px 14px; background: var(--cv-sunken); border: 1px solid var(--cv-border);
+  border-radius: var(--cv-r-sm); color: inherit; text-decoration: none; font-size: 14px;
+}
+.cv-needs-item:hover { border-color: var(--cv-accent); }
+.cv-needs-item__title { color: var(--cv-ink); }
+.cv-needs-item__kind { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cv-muted); white-space: nowrap; flex-shrink: 0; }
+
+.cv-brief-tabs { display: flex; gap: 4px; }
+.cv-brief-tab {
+  font-size: 12px; padding: 5px 11px; border-radius: 999px; border: 1px solid transparent;
+  background: none; color: var(--cv-muted); cursor: pointer; font-family: var(--cv-font-sans);
+}
+.cv-brief-tab--active { background: var(--cv-accent-tint); color: var(--cv-accent); font-weight: 500; }
+
+.cv-brief-section { margin-bottom: 16px; }
+.cv-brief-section:last-child { margin-bottom: 0; }
+.cv-brief-section__heading { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cv-muted); margin-bottom: 6px; }
+.cv-brief-section ul { margin: 0; padding-left: 18px; display: grid; gap: 5px; }
+.cv-brief-section li { font-size: 14px; color: var(--cv-body); }
+
+.cv-past-brief-row { display: block; width: 100%; text-align: left; padding: 8px 10px; border: none; background: none; cursor: pointer; border-radius: var(--cv-r-sm); font-family: var(--cv-font-sans); }
+.cv-past-brief-row:hover { background: var(--cv-sunken); }
+.cv-past-brief-row--active { background: var(--cv-accent-tint); }
+.cv-past-brief-row__title { font-size: 14px; color: var(--cv-ink); }
+.cv-past-brief-row__date { font-size: 12px; color: var(--cv-muted); }
+
+.cv-coming-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--cv-border); }
+.cv-coming-item:last-child { border-bottom: none; }
+.cv-coming-item__date { font-size: 13px; color: var(--cv-muted); width: 52px; flex-shrink: 0; }
+.cv-coming-item__title { font-size: 14px; color: var(--cv-ink); }
+.cv-coming-item__sub { font-size: 12px; color: var(--cv-muted); }
+.cv-coming-item__amount { font-size: 13px; color: var(--cv-accent); font-weight: 500; white-space: nowrap; }
+
+.cv-sync-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.cv-sync-btn {
+  font-size: 13px; color: var(--cv-accent); background: none; border: 1px solid var(--cv-border-strong);
+  border-radius: var(--cv-r-sm); padding: 6px 12px; cursor: pointer; font-family: var(--cv-font-sans);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.cv-sync-btn:hover { border-color: var(--cv-accent); }
 
 /* ============================================================
    CRM ADMIN — Dark editorial theme (scoped under .crm-shell)
