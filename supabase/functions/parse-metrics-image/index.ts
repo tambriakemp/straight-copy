@@ -146,7 +146,9 @@ Deno.serve(async (req) => {
     const response = await client.messages.create({
       model: "claude-opus-5",
       max_tokens: 4000,
-      thinking: { type: "adaptive" },
+      // "adaptive" is valid at the API but the pinned SDK's types lag behind
+      // it (only "enabled" | "disabled" are declared) — cast, don't change.
+      thinking: { type: "adaptive" } as never,
       output_config: { effort: "medium" },   // reading digits, not reasoning hard
       system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
       tools: [EXTRACT_TOOL],

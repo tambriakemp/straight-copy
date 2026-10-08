@@ -157,7 +157,10 @@ interface PollOutcome {
 }
 
 async function pollOneClient(
-  supabase: ReturnType<typeof createClient>,
+  // The caller's client is createClient<any>(...) — SupabaseClient<any,
+  // "public", any> — which is not assignable to the default-generic
+  // ReturnType<typeof createClient>. Mirror the caller's type.
+  supabase: ReturnType<typeof createClient<any>>,
   apiKey: string,
   c: ClientRow,
 ): Promise<PollOutcome> {
