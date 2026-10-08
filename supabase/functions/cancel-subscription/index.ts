@@ -7,7 +7,7 @@
 //   - resume : PATCH https://api.surecart.com/v1/subscriptions/{id}/resume
 //   - status : returns the current subscription status from the DB
 
-import { createClient } from npm:@supabase/supabase-js@2.45.0;
+import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

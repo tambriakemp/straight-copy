@@ -3,7 +3,7 @@
 //   admin: list-admin, upload-url, create, void, delete
 //   portal/admin: list, get, sign, download
 // verify_jwt = false (public). Admin-only actions verify the caller's JWT against admin_users.
-import { createClient } from npm:@supabase/supabase-js@2.45.0;
+import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { z } from "zod";
 import { logProposalEvent } from "../_shared/proposal-events.ts";
 import { markDealLostForProposal, syncProposalToSureContactDeal } from "../_shared/proposal-deal-sync.ts";
