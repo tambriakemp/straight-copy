@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractDealsPage, toLiveDeal } from "../../supabase/functions/_shared/surecontact-deals";
+import { extractDealsPage, toLiveDeal } from "../../supabase/functions/_shared/surecontact-deal-parse";
 
 // Real deal object from the live "Cre8 Prospect" pipeline (Ara, Oct 7 2026,
 // GET /deals?pipeline_uuid=... — see CRE-332's comment with the full
