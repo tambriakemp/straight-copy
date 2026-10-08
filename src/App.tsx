@@ -46,6 +46,8 @@ const Briefs = lazy(() => import("./pages/admin/Briefs.tsx"));
 const Approvals = lazy(() => import("./pages/admin/Approvals.tsx"));
 const Audits = lazy(() => import("./pages/admin/Audits.tsx"));
 const Agents = lazy(() => import("./pages/admin/Agents.tsx"));
+const More = lazy(() => import("./pages/admin/More.tsx"));
+const Pipeline = lazy(() => import("./pages/admin/Pipeline.tsx"));
 const PreviewViewer = lazy(() => import("./pages/PreviewViewer.tsx"));
 const RequireAdmin = lazy(() => import("./components/admin/RequireAdmin.tsx"));
 const RequireWiki = lazy(() => import("./components/admin/RequireWiki.tsx"));
@@ -97,6 +99,16 @@ const App = () => (
             <Route path="/admin/audits" element={<RequireAdmin><Audits /></RequireAdmin>} />
             <Route path="/admin/agents" element={<RequireAdmin><Agents /></RequireAdmin>} />
             <Route path="/admin/tasks" element={<RequireAdmin><AllTasks /></RequireAdmin>} />
+            {/* CRE-332 — new side-nav shell's alias routes. Today/Money/Marketing
+                reuse today's real content as a placeholder until their Phase 2/5
+                pages replace them; Prospects stays a pure redirect to Approvals
+                until the Oct 12 outreach hold lifts; More and Pipeline are new. */}
+            <Route path="/admin/today" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+            <Route path="/admin/pipeline" element={<RequireAdmin><Pipeline /></RequireAdmin>} />
+            <Route path="/admin/prospects" element={<Navigate to="/admin/approvals" replace />} />
+            <Route path="/admin/money" element={<RequireAdmin><Payments /></RequireAdmin>} />
+            <Route path="/admin/marketing" element={<RequireAdmin><Social /></RequireAdmin>} />
+            <Route path="/admin/more" element={<RequireAdmin><More /></RequireAdmin>} />
             {/* The queue lives in the engineering queue lead's Workspace rail
                 now. Kept as a redirect so bookmarks and old links still arrive,
                 rather than as a second door to the same panel. */}
