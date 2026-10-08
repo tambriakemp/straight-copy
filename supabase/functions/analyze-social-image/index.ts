@@ -40,31 +40,51 @@ const TOOL = {
   },
 } as const;
 
-async function analyzeOne(admin: ReturnType<typeof createClient>, imageId: string) {
+interface SocialImageRow {
+  id: string;
+  storage_path: string;
+  client_project_id: string | null;
+}
+
+interface ClientProjectRow {
+  client_id: string | null;
+  name: string | null;
+}
+
+interface ClientRow {
+  business_name: string | null;
+  intake_summary: string | null;
+  brand_voice_quick_ref: string | null;
+}
+
+async function analyzeOne(admin: ReturnType<typeof createClient<any>>, imageId: string) {
   const { data: image, error } = await admin.from("social_images").select("*").eq("id", imageId).single();
   if (error || !image) throw new Error(`image not found: ${imageId}`);
+  const img = image as SocialImageRow;
 
   await admin.from("social_images").update({ caption_status: "pending", caption_error: null }).eq("id", imageId);
 
   // Get a short-lived signed URL the model can fetch
   const { data: signed, error: sErr } = await admin.storage
     .from("social-images")
-    .createSignedUrl(image.storage_path as string, 60 * 10);
+    .createSignedUrl(img.storage_path, 60 * 10);
   if (sErr || !signed?.signedUrl) throw new Error(`signed url failed: ${sErr?.message ?? "unknown"}`);
 
   // Brand context (best-effort)
   let brandContext = "";
   const { data: proj } = await admin
-    .from("client_projects").select("client_id, name").eq("id", image.client_project_id).single();
-  if (proj?.client_id) {
+    .from("client_projects").select("client_id, name").eq("id", img.client_project_id as string).single();
+  const projRow = proj as ClientProjectRow | null;
+  if (projRow?.client_id) {
     const { data: client } = await admin
       .from("clients")
       .select("business_name, intake_summary, brand_voice_quick_ref")
-      .eq("id", proj.client_id).single();
-    if (client) {
-      brandContext = `Brand: ${client.business_name ?? ""}\n` +
-        (client.brand_voice_quick_ref ? `Voice: ${client.brand_voice_quick_ref}\n` : "") +
-        (client.intake_summary ? `About: ${String(client.intake_summary).slice(0, 800)}\n` : "");
+      .eq("id", projRow!.client_id as string).single();
+    const clientRow = client as ClientRow | null;
+    if (clientRow) {
+      brandContext = `Brand: ${clientRow.business_name ?? ""}\n` +
+        (clientRow.brand_voice_quick_ref ? `Voice: ${clientRow.brand_voice_quick_ref}\n` : "") +
+        (clientRow.intake_summary ? `About: ${String(clientRow.intake_summary).slice(0, 800)}\n` : "");
     }
   }
 
