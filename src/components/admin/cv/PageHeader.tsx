@@ -13,7 +13,7 @@ export default function PageHeader({
 }) {
   return (
     <div className="cv-page-header">
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+      <div className="cv-page-header__row" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
         <div>
           {eyebrow && <div className="cv-page-header__eyebrow">{eyebrow}</div>}
           <h1 className="cv-page-header__title">{title}</h1>

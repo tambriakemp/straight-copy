@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Copy, Eye, EyeOff, RefreshCw, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { useNeedsYouNow } from "@/lib/needsYouNow";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
@@ -21,11 +22,6 @@ interface Brief {
   id: string; period: string; title: string; sections: BriefSection[];
   created_at: string; delivered_to_chat: boolean;
 }
-interface PendingItem {
-  id: string; kind: string; title: string; issue_identifier: string | null; issue_url: string | null;
-}
-interface ProspectBatchPending { batch: string; count: number }
-
 function randomSecret(len = 40) {
   const arr = new Uint8Array(len);
   crypto.getRandomValues(arr);
@@ -118,9 +114,11 @@ function SecretRow({
 export default function Briefs() {
   const [briefs, setBriefs] = useState<Brief[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [pending, setPending] = useState<PendingItem[] | null>(null);
-  const [prospectBatches, setProspectBatches] = useState<ProspectBatchPending[] | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Shared with the Today page (CRE-332 Phase 2) so both read the same
+  // Paperclip-items-plus-prospect-batches-plus-... logic instead of two
+  // copies drifting apart.
+  const { items: combinedPending } = useNeedsYouNow();
 
   const load = async () => {
     const { data, error } = await db.from("briefs").select("*").order("created_at", { ascending: false }).limit(30);
@@ -129,41 +127,9 @@ export default function Briefs() {
     setBriefs(rows);
     if (rows.length && !selected) setSelected(rows[0].id);
   };
-  const loadPending = async () => {
-    const { data, error } = await db.from("paperclip_pending_items").select("*").order("synced_at", { ascending: false });
-    if (error) { toast.error(error.message); return; }
-    setPending((data ?? []) as PendingItem[]);
-  };
-  const loadProspectPending = async () => {
-    const { data, error } = await db.from("prospect_approvals").select("batch").eq("status", "pending");
-    if (error) { toast.error(error.message); return; }
-    const counts = new Map<string, number>();
-    for (const row of (data ?? []) as { batch: string }[]) {
-      counts.set(row.batch, (counts.get(row.batch) ?? 0) + 1);
-    }
-    setProspectBatches(
-      Array.from(counts, ([batch, count]) => ({ batch, count })).sort((a, b) => b.batch.localeCompare(a.batch)),
-    );
-  };
-  useEffect(() => { load(); loadPending(); loadProspectPending(); }, []);
+  useEffect(() => { load(); }, []);
 
-  const current = useMemo(() => briefs?.find((b) => b.id === selected) ?? briefs?.[0] ?? null, [briefs, selected]);
-
-  // Prospect-approval batches with pending decisions join Paperclip's own
-  // pending items in one "needs you now" list (CRE-244 §5) — one row per
-  // batch rather than per prospect, so a big outreach round doesn't flood the
-  // panel with dozens of lines.
-  const combinedPending = useMemo(() => {
-    if (pending === null && prospectBatches === null) return null;
-    const fromProspects = (prospectBatches ?? []).map((b) => ({
-      id: `prospect-${b.batch}`,
-      kind: "prospect approvals",
-      title: `${b.count} prospect${b.count === 1 ? "" : "s"} pending review — batch ${b.batch}`,
-      issue_identifier: null,
-      issue_url: "/admin/approvals",
-    }));
-    return [...fromProspects, ...(pending ?? [])];
-  }, [pending, prospectBatches]);
+  const current = briefs?.find((b) => b.id === selected) ?? briefs?.[0] ?? null;
 
   return (
     <AdminLayout>
