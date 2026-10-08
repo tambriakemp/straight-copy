@@ -170,7 +170,8 @@ Deno.serve(async (req) => {
           },
         ],
       }],
-    });
+    } as never;
+    const response = await client.messages.create(params);
 
     if (response.stop_reason === "refusal") {
       return json({ error: "The model declined to read these images" }, 422);
