@@ -28,6 +28,7 @@ const ResetPassword = lazy(() => import("./pages/admin/ResetPassword.tsx"));
 const Profile = lazy(() => import("./pages/admin/Profile.tsx"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard.tsx"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard.tsx"));
+const Today = lazy(() => import("./pages/admin/Today.tsx"));
 const Portfolio = lazy(() => import("./pages/admin/Portfolio.tsx"));
 const ClientDetail = lazy(() => import("./pages/admin/ClientDetail.tsx"));
 const Ventures = lazy(() => import("./pages/admin/Ventures.tsx"));
@@ -99,11 +100,12 @@ const App = () => (
             <Route path="/admin/audits" element={<RequireAdmin><Audits /></RequireAdmin>} />
             <Route path="/admin/agents" element={<RequireAdmin><Agents /></RequireAdmin>} />
             <Route path="/admin/tasks" element={<RequireAdmin><AllTasks /></RequireAdmin>} />
-            {/* CRE-332 — new side-nav shell's alias routes. Today/Money/Marketing
-                reuse today's real content as a placeholder until their Phase 2/5
-                pages replace them; Prospects stays a pure redirect to Approvals
-                until the Oct 12 outreach hold lifts; More and Pipeline are new. */}
-            <Route path="/admin/today" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+            {/* CRE-332 — new side-nav shell's alias routes. Today is the real
+                Phase 2 page; Money/Marketing still reuse today's real content
+                as a placeholder until their Phase 5 pages replace them;
+                Prospects stays a pure redirect to Approvals until the Oct 12
+                outreach hold lifts; More and Pipeline are new. */}
+            <Route path="/admin/today" element={<RequireAdmin><Today /></RequireAdmin>} />
             <Route path="/admin/pipeline" element={<RequireAdmin><Pipeline /></RequireAdmin>} />
             <Route path="/admin/prospects" element={<Navigate to="/admin/approvals" replace />} />
             <Route path="/admin/money" element={<RequireAdmin><Payments /></RequireAdmin>} />

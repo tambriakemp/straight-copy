@@ -1,0 +1,51 @@
+/* Today page (CRE-332 Phase 2) — scoped additions to the .cv-admin design
+   system from index.css. Kept in its own file instead of growing the
+   3,300-line index.css further; imported only by Today.tsx. */
+.cv-kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 0 32px 24px; }
+.cv-kpi-card { padding: 20px; }
+.cv-kpi-card__label { font-size: 13px; color: var(--cv-muted); margin-bottom: 8px; }
+.cv-kpi-card__value { font-family: var(--cv-font-serif); font-size: 28px; color: var(--cv-ink); line-height: 1.1; }
+.cv-kpi-card__sub { font-size: 13px; color: var(--cv-faint); margin-top: 6px; min-height: 16px; }
+
+.cv-section { padding: 0 32px 32px; }
+.cv-section__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.cv-section__title { font-family: var(--cv-font-serif); font-weight: 500; font-size: 20px; color: var(--cv-ink); margin: 0; }
+
+.cv-filter-pills { display: flex; gap: 6px; }
+.cv-pill {
+  font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--cv-border);
+  background: var(--cv-card); color: var(--cv-muted); cursor: pointer; font-family: var(--cv-font-sans);
+}
+.cv-pill--active { background: var(--cv-accent-tint); color: var(--cv-accent); border-color: var(--cv-accent-tint); font-weight: 500; }
+
+.cv-list-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  border-bottom: 1px solid var(--cv-border); text-decoration: none; color: inherit;
+}
+.cv-list-row:last-child { border-bottom: 0; }
+.cv-list-row:hover { background: var(--cv-sunken); }
+.cv-list-row__main { flex: 1; min-width: 0; }
+.cv-list-row__title { font-size: 15px; color: var(--cv-ink); }
+.cv-list-row__age { font-size: 13px; color: var(--cv-faint); flex-shrink: 0; white-space: nowrap; }
+
+.cv-tabs { display: flex; gap: 4px; }
+.cv-tab {
+  padding: 8px 14px; font-size: 14px; color: var(--cv-muted); background: none; border: 0;
+  border-bottom: 2px solid transparent; cursor: pointer; font-family: var(--cv-font-sans);
+}
+.cv-tab--active { color: var(--cv-accent); border-bottom-color: var(--cv-accent); font-weight: 500; }
+
+.cv-sync { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--cv-muted); }
+.cv-sync button {
+  display: inline-flex; align-items: center; gap: 6px; background: var(--cv-card); border: 1px solid var(--cv-border);
+  border-radius: var(--cv-r-sm); padding: 7px 12px; font-size: 13px; color: var(--cv-body); cursor: pointer; font-family: var(--cv-font-sans);
+}
+.cv-sync button:hover { border-color: var(--cv-accent); color: var(--cv-accent); }
+.cv-sync button:disabled { opacity: 0.6; cursor: default; }
+
+.cv-coming-up-row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--cv-border); text-decoration: none; color: inherit; }
+.cv-coming-up-row:last-child { border-bottom: 0; }
+.cv-coming-up-row:hover { background: var(--cv-sunken); }
+.cv-coming-up-row time { font-size: 13px; color: var(--cv-muted); width: 56px; flex-shrink: 0; }
+.cv-coming-up-row__main { flex: 1; font-size: 15px; color: var(--cv-ink); }
+.cv-coming-up-row strong { font-family: var(--cv-font-serif); color: var(--cv-ink); font-weight: 500; }
