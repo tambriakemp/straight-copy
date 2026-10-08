@@ -15,7 +15,7 @@ import {
 import { loadRules, renderRules, type RulesClient } from "../_shared/agents/rules.ts";
 import { clientDirectory, renderClientIndex } from "../_shared/agents/clients.ts";
 import { describeTurnOutcome, normalizeTurns } from "../_shared/agents/history.ts";
-import { runToolLoop } from "../_shared/agents/loop.ts";
+import { runToolLoop, type ModelClient, type MessageParam } from "../_shared/agents/loop.ts";
 import { pairedStepWriter } from "../_shared/agents/steps.ts";
 import { executeReadTool, readToolDefinitions } from "../_shared/agents/read-tools.ts";
 import { stepLabel } from "../_shared/agents/tool-labels.ts";
@@ -257,7 +257,8 @@ Deno.serve(async (req) => {
       title: text.slice(0, 80),
     }).select("id").single();
     if (error || !conv) return json({ error: error?.message ?? "Could not start conversation" }, 500);
-    conversationId = conv.id;
+    interface ConversationInsertRow { id: string }
+    conversationId = (conv as ConversationInsertRow).id;
   }
 
   await sb.from("agent_messages").insert({
@@ -287,7 +288,7 @@ Deno.serve(async (req) => {
   // Hand the work to the runtime and answer now. The client watches the
   // pending row; it does not wait on this request.
   if (typeof EdgeRuntime !== "undefined" && "waitUntil" in EdgeRuntime) {
-    (EdgeRuntime as { waitUntil(p: Promise<unknown>): void }).waitUntil(work);
+    EdgeRuntime.waitUntil(work);
   } else {
     // No background runtime (local `deno run`): fall back to awaiting, which is
     // the old behaviour rather than a dropped turn.
@@ -301,7 +302,9 @@ Deno.serve(async (req) => {
   }, 202);
 });
 
-declare const EdgeRuntime: unknown;
+// The SDK types do not know about the Edge Runtime global; give it a real
+// shape so the typeof/`in` guard below narrows properly.
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
 /**
  * One chat turn: gather, call the model, execute what it proposed, and write
@@ -409,13 +412,13 @@ async function runTurn(args: {
     ];
 
     const client = new Anthropic({ apiKey });
+    const startedAt = Date.now();
 
     // --- the tool loop ---
     //
     // Gated per agent so a misbehaving one can be dropped back to the old
     // single-shot path from settings without a deploy.
     if ((agent.config as Record<string, unknown> | null)?.tool_loop === true) {
-      const startedAt = Date.now();
       const spent = { bytes: 0 };
       const onStep = pairedStepWriter(sb, pendingId);
 
@@ -444,7 +447,9 @@ async function runTurn(args: {
       ];
 
       const result = await runToolLoop({
-        client,
+        // The SDK's `messages.stream` signature is stricter than the minimal
+        // duck-typed ModelClient the loop needs; it is a real Anthropic client.
+        client: client as unknown as ModelClient,
         model: agent.model,
         effort: agent.effort,
         maxTokens: 32_000,
@@ -458,13 +463,15 @@ async function runTurn(args: {
           cache_control: { type: "ephemeral" },
         }],
         tools: tools as never,
-        messages: seedMessages,
+        // SDK MessageParam content blocks are a superset of the loop's minimal
+        // ContentBlock shape; both describe the same wire format.
+        messages: seedMessages as unknown as MessageParam[],
         onStep,
         labelFor: stepLabel,
         dispatch: async (name, input) => {
           if (name === "propose_action") {
             return await executeActionTool(actionCtx, input, async (row) => {
-              const result = await executeAndRecord(sb, row as ActionRow, agent.name);
+              const result = await executeAndRecord(sb, row as unknown as ActionRow, agent.name);
               return { ok: result.ok, result: result.result, error: result.error };
             });
           }
@@ -533,7 +540,8 @@ async function runTurn(args: {
     const stream = client.messages.stream({
       model: agent.model,
       max_tokens: 64000,
-      thinking: { type: "adaptive" },
+      // The pinned SDK types don't yet model the `adaptive` thinking variant.
+      thinking: { type: "adaptive" as never },
       output_config: { effort: agent.effort as "low" | "medium" | "high" | "xhigh" | "max" },
       system: [
         {
