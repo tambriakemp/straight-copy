@@ -670,6 +670,7 @@ export type Database = {
       }
       briefs: {
         Row: {
+          calendar_events: Json | null
           created_at: string
           delivered_to_chat: boolean
           external_id: string | null
@@ -680,6 +681,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          calendar_events?: Json | null
           created_at?: string
           delivered_to_chat?: boolean
           external_id?: string | null
@@ -690,6 +692,7 @@ export type Database = {
           title: string
         }
         Update: {
+          calendar_events?: Json | null
           created_at?: string
           delivered_to_chat?: boolean
           external_id?: string | null

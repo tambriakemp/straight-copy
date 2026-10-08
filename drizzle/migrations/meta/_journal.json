@@ -50,6 +50,13 @@
       "when": 1791425348816,
       "tag": "0006_prospect_approval_feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791495810119,
+      "tag": "0007_brief_calendar_events",
+      "breakpoints": true
     }
   ]
 }

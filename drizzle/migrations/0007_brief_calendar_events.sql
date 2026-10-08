@@ -1,0 +1,1 @@
+alter table public.briefs add column if not exists calendar_events jsonb;
