@@ -195,8 +195,6 @@ export async function clientOpsContext(sb: SupabaseClient, cfg: Record<string, u
       .eq("archived", false),
   ]);
 
-  const proposalRows = (proposals.data ?? []) as EngagementProposalRow[];
-
   const cName: Record<string, string> = {};
   const cEmail: Record<string, string | null> = {};
   for (const c of clients.data ?? []) {
@@ -492,6 +490,8 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
       .order("occurred_at", { ascending: false }).limit(300),
   ]);
 
+  const proposalRows = (proposals.data ?? []) as unknown as EngagementProposalRow[];
+
   const cName: Record<string, string> = {};
   const cEmail: Record<string, string | null> = {};
   for (const c of clients.data ?? []) {
@@ -581,7 +581,7 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
   // list a different way, but they overlap and the agenda does not.
   const signals: ProposalSignal[] = proposalRows.map((p) => ({
     id: p.id,
-    title: p.title,
+    title: p.title ?? "",
     status: p.status,
     client: cName[p.client_id] ?? null,
     client_id: p.client_id,
