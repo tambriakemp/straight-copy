@@ -149,7 +149,8 @@ Deno.serve(async (req) => {
       // "adaptive" is valid at the API but the pinned SDK's types lag behind
       // it (only "enabled" | "disabled" are declared) — cast, don't change.
       thinking: { type: "adaptive" } as never,
-      output_config: { effort: "medium" },   // reading digits, not reasoning hard
+      // Same SDK-types-lag-the-API gap as `thinking` above.
+      output_config: { effort: "medium" } as never,   // reading digits, not reasoning hard
       system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
       tools: [EXTRACT_TOOL],
       tool_choice: { type: "tool", name: "report_metrics" },

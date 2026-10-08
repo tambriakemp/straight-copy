@@ -162,7 +162,7 @@ export async function runAgentModel(args: {
         ],
       },
     ],
-  });
+  } as Anthropic.MessageCreateParamsNonStreaming) as MessageWithStopDetails;
 
   // A forced tool_choice means a refusal is the only way we get no tool block.
   if (response.stop_reason === "refusal") {
