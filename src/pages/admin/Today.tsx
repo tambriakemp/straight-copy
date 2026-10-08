@@ -20,6 +20,12 @@ import KpiCard from "@/components/admin/cv/KpiCard";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import BriefCheckItem from "@/components/admin/cv/BriefCheckItem";
 import WeeklyCalendarCard from "@/components/admin/cv/WeeklyCalendarCard";
+import MoneyCard from "@/components/admin/cv/MoneyCard";
+import PipelineBriefCard from "@/components/admin/cv/PipelineBriefCard";
+import DoneTimelineCard from "@/components/admin/cv/DoneTimelineCard";
+import ApprovalsCard from "@/components/admin/cv/ApprovalsCard";
+import { LinkifiedText } from "@/components/admin/cv/IssueLinks";
+import { containsKnownIssueId } from "@/lib/issueLinks";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney, loadAdminOperations, type AdminOperations } from "@/lib/adminOperations";
 import { useNeedsYouNow, type NeedsYouBucket } from "@/lib/needsYouNow";
@@ -59,14 +65,42 @@ function hasCalendarCard(brief: Brief): boolean {
   return Array.isArray(brief.calendar_events) && brief.calendar_events.length > 0;
 }
 
+// CRE-366 §3: Money, Done and Approvals each have a markdown fallback
+// section that's superseded the moment the brief sends the matching
+// structured block. Match on a short list of likely headings (same
+// exact-match precision as the CRE-358 "calendar" heading hide) rather than
+// a substring, so an unrelated heading never disappears by accident.
+const MONEY_HEADINGS = new Set(["money"]);
+const DONE_HEADINGS = new Set(["done", "done since last digest", "since last digest"]);
+const APPROVAL_HEADINGS = new Set(["approvals", "awaiting your approval", "awaiting approval", "decisions"]);
+
+function hasMoneyStats(brief: Brief): boolean {
+  return Boolean(brief.money_stats?.cards?.length);
+}
+function hasDoneItems(brief: Brief): boolean {
+  return Boolean(brief.done_items?.length);
+}
+function hasApprovals(brief: Brief): boolean {
+  return Boolean(brief.approvals?.length);
+}
+
+function hiddenHeadingsFor(brief: Brief): Set<string> {
+  const hide = new Set<string>();
+  if (hasMoneyStats(brief)) for (const h of MONEY_HEADINGS) hide.add(h);
+  if (hasDoneItems(brief)) for (const h of DONE_HEADINGS) hide.add(h);
+  if (hasApprovals(brief)) for (const h of APPROVAL_HEADINGS) hide.add(h);
+  return hide;
+}
+
 function BriefSections({
-  brief, isDone, complete, undo, hideCalendarHeading = false,
+  brief, isDone, complete, undo, hideCalendarHeading = false, hiddenHeadings,
 }: {
   brief: Brief;
   isDone: (id: string) => boolean;
   complete: ReturnType<typeof useBriefItemCompletions>["complete"];
   undo: ReturnType<typeof useBriefItemCompletions>["undo"];
   hideCalendarHeading?: boolean;
+  hiddenHeadings: Set<string>;
 }) {
   return (
     <>
@@ -75,7 +109,9 @@ function BriefSections({
         // don't show the section at all" — skip a heading with no items
         // rather than rendering it empty.
         if (!s.items.length) return null;
-        if (hideCalendarHeading && s.heading.trim().toLowerCase() === "calendar") return null;
+        const heading = s.heading.trim().toLowerCase();
+        if (hideCalendarHeading && heading === "calendar") return null;
+        if (hiddenHeadings.has(heading)) return null;
         return (
           <div key={i} className="cv-brief-section">
             <div className="cv-brief-section__heading">{s.heading}</div>
@@ -83,6 +119,13 @@ function BriefSections({
               {s.items.map((item, j) => {
                 const id = briefItemId(brief.id, i, j, item);
                 const issue = briefItemIssue(item);
+                // CRE-366 §2b: an embedded CRE-### gets its own link, which
+                // supersedes wrapping the whole line in `item.link` (can't
+                // nest an <a> inside an <a>) — item.link usually points at
+                // the very same Paperclip card anyway (see briefItemIssue).
+                // A line with no recognizable id keeps the old whole-line
+                // link exactly as before.
+                const hasId = containsKnownIssueId(item.text);
                 return (
                   <li key={j}>
                     <BriefCheckItem
@@ -95,7 +138,11 @@ function BriefSections({
                       })}
                       onUndo={() => undo(id)}
                     >
-                      {item.link ? <a href={item.link} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.text}</a> : item.text}
+                      {item.link && !hasId ? (
+                        <a href={item.link} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.text}</a>
+                      ) : (
+                        <LinkifiedText text={item.text} />
+                      )}
                     </BriefCheckItem>
                   </li>
                 );
@@ -227,7 +274,31 @@ export default function Today() {
                     {new Date(latestMorning.created_at).toLocaleString()}
                   </div>
                   {hasCalendarCard(latestMorning) && <WeeklyCalendarCard events={latestMorning.calendar_events!} />}
-                  <BriefSections brief={latestMorning} isDone={isDone} complete={complete} undo={undo} hideCalendarHeading={hasCalendarCard(latestMorning)} />
+                  {hasMoneyStats(latestMorning) && <MoneyCard stats={latestMorning.money_stats!} />}
+                  <PipelineBriefCard
+                    pipeline={latestMorning.pipeline}
+                    isDone={isDone} complete={complete} undo={undo}
+                    briefDate={latestMorning.created_at.slice(0, 10)}
+                  />
+                  {hasDoneItems(latestMorning) && (
+                    <DoneTimelineCard
+                      items={latestMorning.done_items!} range={latestMorning.done_range}
+                      isDone={isDone} complete={complete} undo={undo}
+                      briefDate={latestMorning.created_at.slice(0, 10)}
+                    />
+                  )}
+                  {hasApprovals(latestMorning) && (
+                    <ApprovalsCard
+                      approvals={latestMorning.approvals!}
+                      isDone={isDone} complete={complete} undo={undo}
+                      briefDate={latestMorning.created_at.slice(0, 10)}
+                    />
+                  )}
+                  <BriefSections
+                    brief={latestMorning} isDone={isDone} complete={complete} undo={undo}
+                    hideCalendarHeading={hasCalendarCard(latestMorning)}
+                    hiddenHeadings={hiddenHeadingsFor(latestMorning)}
+                  />
                 </>
               )
             ) : !briefs?.length ? (
@@ -248,7 +319,31 @@ export default function Today() {
                 {current && (
                   <div className="cv-brief-section" style={{ marginTop: 10, borderTop: "1px solid var(--cv-border)", paddingTop: 12 }}>
                     {hasCalendarCard(current) && <WeeklyCalendarCard events={current.calendar_events!} />}
-                    <BriefSections brief={current} isDone={isDone} complete={complete} undo={undo} hideCalendarHeading={hasCalendarCard(current)} />
+                    {hasMoneyStats(current) && <MoneyCard stats={current.money_stats!} />}
+                    <PipelineBriefCard
+                      pipeline={current.pipeline}
+                      isDone={isDone} complete={complete} undo={undo}
+                      briefDate={current.created_at.slice(0, 10)}
+                    />
+                    {hasDoneItems(current) && (
+                      <DoneTimelineCard
+                        items={current.done_items!} range={current.done_range}
+                        isDone={isDone} complete={complete} undo={undo}
+                        briefDate={current.created_at.slice(0, 10)}
+                      />
+                    )}
+                    {hasApprovals(current) && (
+                      <ApprovalsCard
+                        approvals={current.approvals!}
+                        isDone={isDone} complete={complete} undo={undo}
+                        briefDate={current.created_at.slice(0, 10)}
+                      />
+                    )}
+                    <BriefSections
+                      brief={current} isDone={isDone} complete={complete} undo={undo}
+                      hideCalendarHeading={hasCalendarCard(current)}
+                      hiddenHeadings={hiddenHeadingsFor(current)}
+                    />
                   </div>
                 )}
               </div>

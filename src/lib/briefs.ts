@@ -34,9 +34,83 @@ export interface CalendarEvent {
   note?: string | null;
 }
 
+// CRE-366: Money / Pipeline / Done / Approvals redesign. Four more optional
+// siblings to `sections`, same contract as `calendar_events` above — absent
+// or empty falls back to the old markdown section (see Today.tsx's
+// `hiddenHeadingSets`), present renders the matching card instead. Pipeline
+// stage pills are never part of this payload; they're read live from
+// pipeline-board (CRE-332) by PipelineBriefCard itself. `pipeline` here only
+// carries the outreach-round banner and hot-leads list.
+export type MoneyTrend = "up" | "down" | "flat" | "new";
+export interface MoneyStatCard {
+  id: string;
+  label: string;
+  value_cents?: number | null;
+  display: string;
+  trend?: MoneyTrend;
+  trend_label?: string;
+  lines?: string[];
+}
+export interface MoneyStats {
+  range_label?: string;
+  source_label?: string;
+  cards: MoneyStatCard[];
+  note?: string | null;
+}
+
+export interface OutreachRound {
+  date?: string;
+  pending: number;
+  cutoff?: string | null;
+  link?: string | null;
+  note?: string | null;
+}
+export interface HotLead {
+  id: string;
+  name: string;
+  status: string;
+  stage?: string | null;
+  at?: string | null;
+  task_id?: string | null;
+}
+export interface BriefPipeline {
+  outreach_round?: OutreachRound | null;
+  hot_leads?: HotLead[];
+}
+
+export interface DoneItem {
+  id: string;
+  title: string;
+  project: string;
+  note?: string;
+  task_ids?: string[];
+  done_at?: string;
+}
+export interface DoneRange {
+  since?: string;
+  until?: string;
+}
+
+export interface ApprovalCard {
+  id: string;
+  title: string;
+  context?: string;
+  project: string;
+  task_ids?: string[];
+  waiting_since?: string;
+  deadline?: string | null;
+  options?: string[];
+  link?: string | null;
+}
+
 export interface Brief {
   id: string; period: string; title: string; sections: BriefSection[];
   calendar_events?: CalendarEvent[] | null;
+  money_stats?: MoneyStats | null;
+  pipeline?: BriefPipeline | null;
+  done_items?: DoneItem[] | null;
+  done_range?: DoneRange | null;
+  approvals?: ApprovalCard[] | null;
   created_at: string; delivered_to_chat: boolean;
 }
 
