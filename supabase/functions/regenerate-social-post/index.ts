@@ -1,6 +1,7 @@
 // Regenerate copy and/or design for a single existing social post.
 // Uses Claude for copy and the project's HTML template (if assigned) for design.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import type { BrandContext, PostCopy, PostDesign } from "../_shared/social/prompts.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,7 +70,7 @@ Deno.serve(async (req) => {
     .select("business_name, intake_summary, intake_data, brand_voice_doc, brand_voice_quick_ref, brand_kit_intake")
     .eq("id", proj!.client_id).single();
   const intake = (client!.intake_data ?? {}) as Record<string, unknown>;
-  const ctx: mod.BrandContext = {
+  const ctx: BrandContext = {
     business_name: client!.business_name,
     one_liner: (intake?.one_liner as string) ?? null,
     voice_doc: client!.brand_voice_doc,
@@ -82,9 +83,9 @@ Deno.serve(async (req) => {
   const { data: batch } = await admin.from("social_post_batches").select("*").eq("id", post.batch_id).single();
 
   try {
-    let copy: mod.PostCopy;
+    let copy: PostCopy;
     if (mode === "copy" || mode === "all" || !post.slides?.length) {
-      copy = await callClaudeStructured<mod.PostCopy>({
+      copy = await callClaudeStructured<PostCopy>({
         system: mod.COPY_SYSTEM,
         user: mod.buildCopyUserPrompt(ctx, {
           format: post.format,
@@ -139,7 +140,7 @@ Deno.serve(async (req) => {
         slidesOut.push({ copy: sc, design: { template_id: template.id }, image_path, image_url, ...(err ? { error: err } : {}) });
       }
     } else {
-      const design = await callLovableAI<mod.PostDesign>(
+      const design = await callLovableAI<PostDesign>(
         "google/gemini-2.5-pro", mod.DESIGN_SYSTEM,
         mod.buildDesignUserPrompt(ctx, copy, post.format), mod.DESIGN_TOOL,
       );

@@ -49,24 +49,39 @@ async function callLovableAI<T>(model: string, system: string, user: string, too
   return JSON.parse(call.function.arguments) as T;
 }
 
-async function loadBrandContext(admin: ReturnType<typeof createClient>, clientProjectId: string): Promise<BrandContext> {
+interface ClientProjectIdRow {
+  client_id: string;
+}
+
+interface ClientBrandRow {
+  business_name: string | null;
+  intake_summary: string | null;
+  intake_data: unknown;
+  brand_voice_doc: string | null;
+  brand_voice_quick_ref: string | null;
+  brand_kit_intake: unknown;
+}
+
+async function loadBrandContext(admin: ReturnType<typeof createClient<any>>, clientProjectId: string): Promise<BrandContext> {
   const { data: proj } = await admin.from("client_projects").select("client_id").eq("id", clientProjectId).single();
   if (!proj) throw new Error("project not found");
+  const projRow = proj as ClientProjectIdRow;
   const { data: client } = await admin
     .from("clients")
     .select("business_name, intake_summary, intake_data, brand_voice_doc, brand_voice_quick_ref, brand_kit_intake")
-    .eq("id", proj.client_id)
+    .eq("id", projRow.client_id)
     .single();
   if (!client) throw new Error("client not found");
-  const intake = (client.intake_data ?? {}) as Record<string, unknown>;
+  const clientRow = client as ClientBrandRow;
+  const intake = (clientRow.intake_data ?? {}) as Record<string, unknown>;
   return {
-    business_name: client.business_name,
+    business_name: clientRow.business_name,
     one_liner: (intake?.one_liner as string) ?? null,
-    voice_doc: client.brand_voice_doc,
-    voice_quick_ref: client.brand_voice_quick_ref,
-    intake_summary: client.intake_summary,
-    intake_data: client.intake_data,
-    brand_kit: client.brand_kit_intake,
+    voice_doc: clientRow.brand_voice_doc,
+    voice_quick_ref: clientRow.brand_voice_quick_ref,
+    intake_summary: clientRow.intake_summary,
+    intake_data: clientRow.intake_data,
+    brand_kit: clientRow.brand_kit_intake,
   };
 }
 
@@ -78,7 +93,7 @@ interface TemplateRow {
 }
 
 async function pickTemplateForPost(
-  admin: ReturnType<typeof createClient>,
+  admin: ReturnType<typeof createClient<any>>,
   clientProjectId: string,
   fixedTemplateId: string | null,
   format: "single" | "carousel",
@@ -101,7 +116,7 @@ async function pickTemplateForPost(
 }
 
 async function generateOnePost(
-  admin: ReturnType<typeof createClient>,
+  admin: ReturnType<typeof createClient<any>>,
   batchId: string,
   clientProjectId: string,
   ctx: BrandContext,

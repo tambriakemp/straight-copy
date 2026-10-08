@@ -49,7 +49,7 @@ function normalizeName(s: string) {
 }
 
 async function resolveTemplateUuid(
-  admin: ReturnType<typeof createClient>,
+  admin: ReturnType<typeof createClient<any>>,
   apiKey: string,
 ): Promise<{ uuid: string | null; error?: string }> {
   const { data: settings } = await admin
@@ -58,7 +58,7 @@ async function resolveTemplateUuid(
     .eq("id", 1)
     .maybeSingle();
   if (settings?.review_email_template_uuid) {
-    return { uuid: settings.review_email_template_uuid };
+    return { uuid: settings.review_email_template_uuid as string };
   }
 
   const resp = await fetch(SURECONTACT_TEMPLATES_URL, {

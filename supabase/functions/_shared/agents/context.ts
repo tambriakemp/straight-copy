@@ -440,6 +440,26 @@ export async function developerContext(sb: SupabaseClient, cfg: Record<string, u
  * call for completely different follow-ups, and only the second is a decision
  * you can make from data.
  */
+interface EngagementProposalRow {
+  id: string;
+  title: string | null;
+  client_id: string;
+  client_project_id: string | null;
+  status: string;
+  created_at: string;
+  sent_at: string | null;
+  sent_to: string | null;
+  first_opened_at: string | null;
+  first_viewed_at: string | null;
+  last_activity_at: string | null;
+  next_followup_at: string | null;
+  followup_count: number | null;
+  client_signed_at: string | null;
+  declined_at: string | null;
+  decline_reason: string | null;
+  source_pdf_path: string | null;
+}
+
 export async function engagementContext(sb: SupabaseClient, cfg: Record<string, unknown>) {
   // Two days, not four. Bree asked for a 48-hour window; `agents.config`
   // overrides it per agent, and the migration sets it explicitly there too so
@@ -469,6 +489,8 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
       .gte("occurred_at", iso(90 * DAY))
       .order("occurred_at", { ascending: false }).limit(300),
   ]);
+
+  const proposalRows = (proposals.data ?? []) as unknown as EngagementProposalRow[];
 
   const cName: Record<string, string> = {};
   const cEmail: Record<string, string | null> = {};
@@ -511,7 +533,7 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
       days_since_created: daysSince(c.created_at),
     }));
 
-  const inFlight = (proposals.data ?? []).map((p) => {
+  const inFlight = proposalRows.map((p) => {
     const evs = evByProposal[p.id] ?? [];
     const counts: Record<string, number> = {};
     for (const e of evs) counts[e.event_type] = (counts[e.event_type] ?? 0) + 1;
@@ -557,9 +579,9 @@ export async function engagementContext(sb: SupabaseClient, cfg: Record<string, 
   // order, each carrying the sentence that goes in the report and the brief for
   // the email. The buckets below are kept for anything that wants to slice the
   // list a different way, but they overlap and the agenda does not.
-  const signals: ProposalSignal[] = (proposals.data ?? []).map((p) => ({
+  const signals: ProposalSignal[] = proposalRows.map((p) => ({
     id: p.id,
-    title: p.title,
+    title: p.title ?? "",
     status: p.status,
     client: cName[p.client_id] ?? null,
     client_id: p.client_id,

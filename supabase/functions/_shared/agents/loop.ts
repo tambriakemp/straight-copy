@@ -20,6 +20,14 @@ import { requestTuning } from "./model-params.ts";
 // Deno `npm:` specifier does not resolve — the same constraint rules.ts and
 // table-access.ts document. The loop only touches four shapes, so they are
 // declared here rather than dragging the whole SDK into the app's tsconfig.
+/** A tool_use block, where `name`/`id`/`input` are always present. */
+export interface ToolUseBlock extends ContentBlock {
+  type: "tool_use";
+  id: string;
+  name: string;
+  input: unknown;
+}
+
 export interface ContentBlock {
   type: string;
   text?: string;
@@ -227,7 +235,7 @@ export async function runToolLoop(args: LoopArgs): Promise<LoopResult> {
       return { text, calls, iterations: i + 1, stoppedBy: "max_tokens", usage, messages };
     }
 
-    const toolUses = response.content.filter((b) => b.type === "tool_use");
+    const toolUses = response.content.filter((b): b is ToolUseBlock => b.type === "tool_use");
     if (!toolUses.length) {
       return {
         text, calls, iterations: i + 1,

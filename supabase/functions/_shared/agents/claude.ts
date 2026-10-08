@@ -105,6 +105,18 @@ export async function runAgentModel(args: {
 
   const client = new Anthropic({ apiKey });
 
+  /**
+   * The SDK types (pinned at 0.71.0) do not yet model the `adaptive`
+   * thinking variant or `output_config.effort` that model-params.ts builds
+   * for newer models, nor the `stop_details` field some models return on
+   * refusal. Those are real, documented API fields the SDK just hasn't
+   * caught up to — cast the request body once, and the response once, so
+   * both are typed as what the API actually accepts/returns.
+   */
+  interface MessageWithStopDetails extends Anthropic.Message {
+    stop_details?: unknown;
+  }
+
   const response = await client.messages.create({
     model: args.model,
     max_tokens: 16000,
@@ -150,7 +162,7 @@ export async function runAgentModel(args: {
         ],
       },
     ],
-  });
+  } as Anthropic.MessageCreateParamsNonStreaming) as MessageWithStopDetails;
 
   // A forced tool_choice means a refusal is the only way we get no tool block.
   if (response.stop_reason === "refusal") {

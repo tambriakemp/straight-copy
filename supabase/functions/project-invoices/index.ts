@@ -21,6 +21,32 @@ const COLS =
   "surecart_checkout_id, surecart_invoice_id, surecart_order_id, checkout_url, " +
   "sent_at, paid_at, voided_at, notes, created_at, updated_at";
 
+interface ProjectInvoiceRow {
+  id: string;
+  client_id: string;
+  client_project_id: string;
+  schedule_id: string | null;
+  proposal_id: string | null;
+  sequence: number;
+  label: string;
+  amount_cents: number;
+  currency: string;
+  trigger: string | null;
+  due_days: number | null;
+  due_date: string | null;
+  status: string;
+  surecart_checkout_id: string | null;
+  surecart_invoice_id: string | null;
+  surecart_order_id: string | null;
+  checkout_url: string | null;
+  sent_at: string | null;
+  paid_at: string | null;
+  voided_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const SCHEDULE_COLS =
   "id, client_id, client_project_id, proposal_id, title, total_cents, currency, status, source, created_at, updated_at";
 
@@ -261,9 +287,10 @@ Deno.serve(async (req) => {
     }
 
     if (input.action === "payment-link") {
-      const { data: row, error } = await supabase.from("project_invoices").select(COLS)
+      const { data: rowData, error } = await supabase.from("project_invoices").select(COLS)
         .eq("id", input.invoiceId).eq("client_id", input.clientId).maybeSingle();
       if (error) throw error;
+      const row = rowData as ProjectInvoiceRow | null;
       if (!row) return respond({ error: "Invoice not found" }, 404);
       if (!row.surecart_invoice_id) return respond({ checkoutUrl: row.checkout_url ?? null });
 
@@ -283,9 +310,10 @@ Deno.serve(async (req) => {
     }
 
     if (input.action === "email-payment-link") {
-      const { data: row, error } = await supabase.from("project_invoices").select(COLS)
+      const { data: rowData, error } = await supabase.from("project_invoices").select(COLS)
         .eq("id", input.invoiceId).eq("client_id", input.clientId).maybeSingle();
       if (error) throw error;
+      const row = rowData as ProjectInvoiceRow | null;
       if (!row) return respond({ error: "Invoice not found" }, 404);
 
       // Ensure we have a payable link — open the draft invoice if needed.

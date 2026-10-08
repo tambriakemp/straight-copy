@@ -408,6 +408,46 @@ const ActionSchema = z.discriminatedUnion("action", [
 
 const ADMIN_ONLY = new Set(["upload-url", "create", "mark-ready", "void", "delete", "activity", "notify", "supersede"]);
 
+
+interface ProposalRow {
+  id: string;
+  client_id: string;
+  client_project_id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  source_pdf_path: string;
+  source_pdf_version: number | null;
+  source_pdf_sha256: string | null;
+  signed_pdf_sha256: string | null;
+  total_cents: number | null;
+  currency: string | null;
+  payment_due_days: number | null;
+  payment_terms: unknown;
+  version: number | null;
+  version_group_id: string | null;
+  supersedes_id: string | null;
+  content: unknown;
+  sent_at: string | null;
+  sent_to: string | null;
+  first_opened_at: string | null;
+  first_viewed_at: string | null;
+  last_activity_at: string | null;
+  next_followup_at: string | null;
+  followup_count: number | null;
+  declined_at: string | null;
+  decline_reason: string | null;
+  client_signature_name: string | null;
+  client_signature_type: string | null;
+  client_signed_at: string | null;
+  agency_signer_name: string | null;
+  agency_countersigned_at: string | null;
+  signed_pdf_path: string | null;
+  pdf_generated_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 const PROPOSAL_COLS =
   "id, client_id, client_project_id, title, description, status, source_pdf_path, " +
   "source_pdf_version, source_pdf_sha256, signed_pdf_sha256, " +
@@ -578,7 +618,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+    const supabase = createClient<any>(SUPABASE_URL, SERVICE_ROLE);
     const body = await req.json();
     const parsed = ActionSchema.safeParse(body);
     if (!parsed.success) {
@@ -667,19 +707,21 @@ Deno.serve(async (req) => {
         payment_terms: input.paymentTerms ?? null,
       }).select(PROPOSAL_COLS).single();
       if (error) throw error;
+      const createdRow = data as unknown as ProposalRow;
       await logProposalEvent(supabase, {
-        proposal_id: data.id,
+        proposal_id: createdRow.id,
         client_id: input.clientId,
         event_type: "pdf_uploaded",
         actor: "admin",
         detail: { title: input.title, path: input.sourcePdfPath },
       });
-      return respond({ proposal: data });
+      return respond({ proposal: createdRow });
     }
 
     if (input.action === "mark-ready") {
-      const { data: row } = await supabase.from("client_proposals")
+      const { data: rowData } = await supabase.from("client_proposals")
         .select("id, status").eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
+      const row = rowData as unknown as Pick<ProposalRow, "id" | "status"> | null;
       if (!row) return respond({ error: "Not found" }, 404);
       if (row.status !== "draft") return respond({ error: `Cannot mark ready from status ${row.status}` }, 409);
       const { error } = await supabase.from("client_proposals").update({ status: "ready" }).eq("id", input.proposalId);
@@ -688,16 +730,18 @@ Deno.serve(async (req) => {
     }
 
     if (input.action === "supersede") {
-      const { data: oldRow } = await supabase.from("client_proposals")
+      const { data: oldRowData } = await supabase.from("client_proposals")
         .select("id, status, version, version_group_id")
         .eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
+      const oldRow = oldRowData as unknown as Pick<ProposalRow, "id" | "status" | "version" | "version_group_id"> | null;
       if (!oldRow) return respond({ error: "Proposal not found" }, 404);
       if (oldRow.status === "signed") return respond({ error: "Cannot supersede a signed proposal" }, 409);
       if (oldRow.status === "superseded") return respond({ error: "That proposal is already superseded" }, 409);
 
-      const { data: newRow } = await supabase.from("client_proposals")
+      const { data: newRowData } = await supabase.from("client_proposals")
         .select("id, status, version, version_group_id")
         .eq("id", input.supersededByProposalId).eq("client_id", input.clientId).maybeSingle();
+      const newRow = newRowData as unknown as Pick<ProposalRow, "id" | "status" | "version" | "version_group_id"> | null;
       if (!newRow) return respond({ error: "Replacement proposal not found" }, 404);
       if (newRow.id === oldRow.id) return respond({ error: "A proposal cannot supersede itself" }, 400);
 
@@ -731,10 +775,11 @@ Deno.serve(async (req) => {
     }
 
     if (input.action === "get") {
-      const { data: row, error } = await supabase.from("client_proposals")
+      const { data: rowDataGet, error } = await supabase.from("client_proposals")
         .select(PROPOSAL_COLS)
         .eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
       if (error) throw error;
+      const row = rowDataGet as unknown as ProposalRow | null;
       if (!row) return respond({ error: "Proposal not found" }, 404);
       if (!callerIsAdmin && CLIENT_HIDDEN_STATUSES.includes(row.status)) {
         return respond({ error: "Proposal not found" }, 404);
@@ -982,10 +1027,11 @@ Deno.serve(async (req) => {
     }
 
     if (input.action === "sign") {
-      const { data: row, error } = await supabase.from("client_proposals")
+      const { data: rowDataSign, error } = await supabase.from("client_proposals")
         .select(PROPOSAL_COLS)
         .eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
       if (error) throw error;
+      const row = rowDataSign as unknown as ProposalRow | null;
       if (!row) return respond({ error: "Proposal not found" }, 404);
       if (row.status === "signed") return respond({ error: "Already signed" }, 409);
       if (row.status === "voided") return respond({ error: "Proposal voided" }, 409);
