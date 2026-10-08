@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { CreditCard, Plus, Trash2 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import SidePanel from "@/components/admin/SidePanel";
+import PageHeader from "@/components/admin/cv/PageHeader";
+import KpiCard from "@/components/admin/cv/KpiCard";
+import EmptyState from "@/components/admin/cv/EmptyState";
+import StatusChip from "@/components/admin/cv/StatusChip";
+import { useNewAdminLayout } from "@/hooks/useNewAdminLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { formatMoney, loadAdminOperations, projectMap, type AdminOperations } from "@/lib/adminOperations";
+import { formatMoney, loadAdminOperations, projectMap, type AdminOperations, type InvoiceRollup } from "@/lib/adminOperations";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
@@ -13,7 +18,31 @@ const PROJECT_TYPES = ["automation_build", "site_preview", "app_development", "w
 
 type NewScheduleItem = { label: string; amount_dollars: string; due_date: string };
 
+// payment_schedules (CRE-267) — read directly rather than through the
+// project-invoices edge function's "list-schedules" action, which requires
+// a clientProjectId and is scoped to one project at a time (see
+// PaymentsTab.tsx). This page needs every schedule across every client, so
+// a direct admin-RLS read of the table is the one query that covers that.
+type ScheduleRow = {
+  id: string;
+  client_id: string;
+  client_project_id: string;
+  title: string;
+  total_cents: number | null;
+  currency: string;
+  status: string;
+  source: string;
+  created_at: string;
+};
+
+type CvView = "invoices" | "schedules";
+type CvInvoiceFilter = "outstanding" | "overdue" | "scheduled" | "paid" | null;
+
+const isOverdue = (invoice: InvoiceRollup) =>
+  invoice.status === "sent" && !!invoice.due_date && new Date(`${invoice.due_date}T23:59:59`) < new Date();
+
 export default function Payments() {
+  const { enabled: newLayout } = useNewAdminLayout();
   const navigate = useNavigate();
   const [data, setData] = useState<AdminOperations | null>(null);
   const [status, setStatus] = useState("outstanding");
@@ -24,6 +53,34 @@ export default function Payments() {
     || (status === "outstanding" ? invoice.status === "sent" : invoice.status === status));
   const outstanding = (data?.invoices ?? []).filter((invoice) => invoice.status === "sent")
     .reduce((sum, invoice) => sum + invoice.amount_cents, 0);
+
+  // --- New layout: schedules (CRE-332 Phase 5) --------------------------
+  const [cvView, setCvView] = useState<CvView>("invoices");
+  const [cvFilter, setCvFilter] = useState<CvInvoiceFilter>(null);
+  const [schedules, setSchedules] = useState<ScheduleRow[] | null>(null);
+  useEffect(() => {
+    if (!newLayout) return;
+    supabase.from("payment_schedules")
+      .select("id, client_id, client_project_id, title, total_cents, currency, status, source, created_at")
+      .order("created_at", { ascending: false })
+      .then(({ data: rows2, error }) => {
+        if (error) { toast.error(error.message || "Failed to load payment schedules"); return; }
+        setSchedules((rows2 ?? []) as ScheduleRow[]);
+      });
+  }, [newLayout]);
+
+  const invoices = data?.invoices ?? [];
+  const sentInvoices = invoices.filter((i) => i.status === "sent");
+  const overdueInvoices = invoices.filter(isOverdue);
+  const scheduledInvoices = invoices.filter((i) => i.status === "scheduled");
+  const paidInvoices = invoices.filter((i) => i.status === "paid");
+  const cvRows = invoices.filter((invoice) => {
+    if (cvFilter === "outstanding") return invoice.status === "sent";
+    if (cvFilter === "overdue") return isOverdue(invoice);
+    if (cvFilter === "scheduled") return invoice.status === "scheduled";
+    if (cvFilter === "paid") return invoice.status === "paid";
+    return true;
+  }).sort((a, b) => (a.due_date ?? "").localeCompare(b.due_date ?? ""));
 
   // --- New payment schedule -------------------------------------------------
   const [open, setOpen] = useState(false);
@@ -124,30 +181,7 @@ export default function Payments() {
     }
   };
 
-  return <AdminLayout><div className="roster">
-    <div className="roster__head"><div className="roster__title-block">
-      <div className="roster__eyebrow">Client work</div><h1 className="roster__title">All <em>payments</em></h1>
-      <hr className="roster__rule" /><p className="roster__sub">Payment schedules, due dates, and outstanding balances across every project.</p>
-    </div>
-    <button className="crm-btn crm-btn--primary" onClick={() => setOpen(true)}>
-      <Plus size={14} /> New payment schedule
-    </button>
-    </div>
-    <div className="ops-summary"><div><span>Outstanding balance</span><strong>{data ? formatMoney(outstanding) : "—"}</strong></div></div>
-    <div className="ctbl__bar"><select className="ctbl__filter" value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Filter payments">
-      <option value="outstanding">Outstanding</option><option value="scheduled">Scheduled</option><option value="paid">Paid</option><option value="failed">Failed</option><option value="void">Void</option><option value="all">All statuses</option>
-    </select><span className="ctbl__count">{data ? `${rows.length} payments` : "Loading…"}</span></div>
-    <div className="ctbl__scroll"><table className="ctbl__table"><thead><tr><th>Payment</th><th>Client</th><th className="ctbl__col-contact">Project</th><th>Due</th><th>Amount</th><th>Status</th></tr></thead><tbody>
-      {!data && <tr><td colSpan={6} className="ctbl__empty">Loading…</td></tr>}
-      {data && !rows.length && <tr><td colSpan={6} className="ctbl__empty">No payments match this filter.</td></tr>}
-      {rows.map((invoice) => { const project = projects[invoice.client_project_id]; return <tr key={invoice.id} tabIndex={0}
-        onClick={() => project && navigate(`/admin/clients/${invoice.client_id}/projects/${project.id}`)}
-        onKeyDown={(event) => { if (event.key === "Enter" && project) navigate(`/admin/clients/${invoice.client_id}/projects/${project.id}`); }}>
-        <td className="ctbl__name">{invoice.label}</td><td>{data?.clientNames[invoice.client_id] ?? "—"}</td><td className="ctbl__col-contact">{project?.name ?? "—"}</td>
-        <td className="ctbl__when">{invoice.due_date ? new Date(`${invoice.due_date}T12:00:00`).toLocaleDateString() : "—"}</td><td>{formatMoney(invoice.amount_cents, invoice.currency)}</td>
-        <td><span className={`ctbl__pill ctbl__pill--${invoice.status}`}>{invoice.status}</span></td></tr>; })}
-    </tbody></table></div>
-
+  const newScheduleSidePanel = (
     <SidePanel
       open={open}
       title="New payment schedule"
@@ -238,5 +272,158 @@ export default function Payments() {
         </div>
       </div>
     </SidePanel>
-  </div></AdminLayout>;
+  );
+
+  if (!newLayout) {
+    return <AdminLayout><div className="roster">
+      <div className="roster__head"><div className="roster__title-block">
+        <div className="roster__eyebrow">Client work</div><h1 className="roster__title">All <em>payments</em></h1>
+        <hr className="roster__rule" /><p className="roster__sub">Payment schedules, due dates, and outstanding balances across every project.</p>
+      </div>
+      <button className="crm-btn crm-btn--primary" onClick={() => setOpen(true)}>
+        <Plus size={14} /> New payment schedule
+      </button>
+      </div>
+      <div className="ops-summary"><div><span>Outstanding balance</span><strong>{data ? formatMoney(outstanding) : "—"}</strong></div></div>
+      <div className="ctbl__bar"><select className="ctbl__filter" value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Filter payments">
+        <option value="outstanding">Outstanding</option><option value="scheduled">Scheduled</option><option value="paid">Paid</option><option value="failed">Failed</option><option value="void">Void</option><option value="all">All statuses</option>
+      </select><span className="ctbl__count">{data ? `${rows.length} payments` : "Loading…"}</span></div>
+      <div className="ctbl__scroll"><table className="ctbl__table"><thead><tr><th>Payment</th><th>Client</th><th className="ctbl__col-contact">Project</th><th>Due</th><th>Amount</th><th>Status</th></tr></thead><tbody>
+        {!data && <tr><td colSpan={6} className="ctbl__empty">Loading…</td></tr>}
+        {data && !rows.length && <tr><td colSpan={6} className="ctbl__empty">No payments match this filter.</td></tr>}
+        {rows.map((invoice) => { const project = projects[invoice.client_project_id]; return <tr key={invoice.id} tabIndex={0}
+          onClick={() => project && navigate(`/admin/clients/${invoice.client_id}/projects/${project.id}`)}
+          onKeyDown={(event) => { if (event.key === "Enter" && project) navigate(`/admin/clients/${invoice.client_id}/projects/${project.id}`); }}>
+          <td className="ctbl__name">{invoice.label}</td><td>{data?.clientNames[invoice.client_id] ?? "—"}</td><td className="ctbl__col-contact">{project?.name ?? "—"}</td>
+          <td className="ctbl__when">{invoice.due_date ? new Date(`${invoice.due_date}T12:00:00`).toLocaleDateString() : "—"}</td><td>{formatMoney(invoice.amount_cents, invoice.currency)}</td>
+          <td><span className={`ctbl__pill ctbl__pill--${invoice.status}`}>{invoice.status}</span></td></tr>; })}
+      </tbody></table></div>
+
+      {newScheduleSidePanel}
+    </div></AdminLayout>;
+  }
+
+  return (
+    <AdminLayout>
+      <div className="cv-admin" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+        <PageHeader
+          eyebrow="Work / Money"
+          title="Money"
+          subtitle="Payment schedules, due dates, and outstanding balances across every project."
+          right={
+            <button type="button" className="cv-btn-primary" onClick={() => setOpen(true)}>
+              <Plus size={14} /> New payment schedule
+            </button>
+          }
+        />
+
+        <div className="cv-kpi-row">
+          <KpiCard
+            label="Outstanding"
+            value={data ? formatMoney(outstanding) : "—"}
+            hint={data ? `${sentInvoices.length} invoice${sentInvoices.length === 1 ? "" : "s"}` : undefined}
+            onClick={() => { setCvView("invoices"); setCvFilter("outstanding"); }}
+          />
+          <KpiCard
+            label="Overdue"
+            value={data ? formatMoney(overdueInvoices.reduce((s, i) => s + i.amount_cents, 0)) : "—"}
+            hint={data ? `${overdueInvoices.length} invoice${overdueInvoices.length === 1 ? "" : "s"}` : undefined}
+            onClick={() => { setCvView("invoices"); setCvFilter("overdue"); }}
+          />
+          <KpiCard
+            label="Scheduled"
+            value={data ? formatMoney(scheduledInvoices.reduce((s, i) => s + i.amount_cents, 0)) : "—"}
+            hint={data ? `${scheduledInvoices.length} invoice${scheduledInvoices.length === 1 ? "" : "s"}` : undefined}
+            onClick={() => { setCvView("invoices"); setCvFilter("scheduled"); }}
+          />
+          <KpiCard
+            label="Paid"
+            value={data ? formatMoney(paidInvoices.reduce((s, i) => s + i.amount_cents, 0)) : "—"}
+            hint={data ? `${paidInvoices.length} invoice${paidInvoices.length === 1 ? "" : "s"}` : undefined}
+            onClick={() => { setCvView("invoices"); setCvFilter("paid"); }}
+          />
+        </div>
+
+        <div className="cv-tabs" style={{ padding: "0 32px" }}>
+          <button type="button" className={`cv-tab${cvView === "invoices" ? " cv-tab--active" : ""}`} onClick={() => setCvView("invoices")}>Invoices</button>
+          <button type="button" className={`cv-tab${cvView === "schedules" ? " cv-tab--active" : ""}`} onClick={() => setCvView("schedules")}>Schedules</button>
+        </div>
+
+        <div style={{ padding: "0 32px 32px" }}>
+          {cvView === "invoices" ? (
+            <>
+              {cvFilter && (
+                <div style={{ marginBottom: 12, fontSize: 13, color: "var(--cv-muted)" }}>
+                  Showing {cvFilter} invoices only.{" "}
+                  <button type="button" className="cv-sync-btn" style={{ display: "inline", padding: "2px 8px" }} onClick={() => setCvFilter(null)}>Clear</button>
+                </div>
+              )}
+              {!data ? (
+                <div style={{ fontSize: 14, color: "var(--cv-muted)" }}>Loading…</div>
+              ) : !cvRows.length ? (
+                <EmptyState icon={CreditCard} title="No invoices" subtitle="Nothing matches this filter yet." />
+              ) : (
+                <div className="cv-simple-list">
+                  {cvRows.map((invoice) => {
+                    const project = projects[invoice.client_project_id];
+                    return (
+                      <button
+                        key={invoice.id}
+                        type="button"
+                        className="cv-simple-list__row"
+                        style={{ width: "100%", background: "none", border: "none", borderBottom: "1px solid var(--cv-border)", cursor: project ? "pointer" : "default", textAlign: "left" }}
+                        onClick={() => project && navigate(`/admin/clients/${invoice.client_id}/projects/${project.id}`)}
+                      >
+                        <span className="cv-simple-list__main">
+                          <span className="cv-simple-list__title">{invoice.label} — {formatMoney(invoice.amount_cents, invoice.currency)}</span>
+                          <span className="cv-simple-list__sub">
+                            {data.clientNames[invoice.client_id] ?? "—"} · {project?.name ?? "—"}
+                          </span>
+                        </span>
+                        <span className="cv-simple-list__when">{invoice.due_date ? new Date(`${invoice.due_date}T12:00:00`).toLocaleDateString() : "No due date"}</span>
+                        <StatusChip label={isOverdue(invoice) ? "overdue" : invoice.status} status={isOverdue(invoice) ? "overdue" : invoice.status} />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : !schedules ? (
+            <div style={{ fontSize: 14, color: "var(--cv-muted)" }}>Loading…</div>
+          ) : !schedules.length ? (
+            <EmptyState icon={CreditCard} title="No payment schedules" subtitle="Nothing invoiced on any project yet." />
+          ) : (
+            <div className="cv-simple-list">
+              {schedules.map((schedule) => {
+                const project = projects[schedule.client_project_id];
+                const scheduleInvoices = (data?.invoices ?? []).filter((i) => i.schedule_id === schedule.id);
+                const total = schedule.total_cents ?? scheduleInvoices.reduce((s, i) => s + i.amount_cents, 0);
+                const paid = scheduleInvoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.amount_cents, 0);
+                return (
+                  <button
+                    key={schedule.id}
+                    type="button"
+                    className="cv-simple-list__row"
+                    style={{ width: "100%", background: "none", border: "none", borderBottom: "1px solid var(--cv-border)", cursor: project ? "pointer" : "default", textAlign: "left" }}
+                    onClick={() => project && navigate(`/admin/clients/${schedule.client_id}/projects/${project.id}`)}
+                  >
+                    <span className="cv-simple-list__main">
+                      <span className="cv-simple-list__title">{schedule.title}</span>
+                      <span className="cv-simple-list__sub">
+                        {data?.clientNames[schedule.client_id] ?? "—"} · {project?.name ?? "—"} · {formatMoney(paid, schedule.currency)} of {formatMoney(total, schedule.currency)}
+                      </span>
+                    </span>
+                    <span className="cv-simple-list__when">{new Date(schedule.created_at).toLocaleDateString()}</span>
+                    <StatusChip label={schedule.status} status={schedule.status} />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {newScheduleSidePanel}
+    </AdminLayout>
+  );
 }

@@ -23,6 +23,7 @@ export type InvoiceRollup = {
   id: string;
   client_id: string;
   client_project_id: string;
+  schedule_id: string | null;
   label: string;
   amount_cents: number;
   currency: string;
@@ -59,7 +60,7 @@ export async function loadAdminOperations(): Promise<AdminOperations> {
       .select("id, client_id, client_project_id, title, status, sent_at, client_signed_at, created_at, total_cents, version")
       .order("created_at", { ascending: false }),
     supabase.from("project_invoices")
-      .select("id, client_id, client_project_id, label, amount_cents, currency, due_date, status")
+      .select("id, client_id, client_project_id, schedule_id, label, amount_cents, currency, due_date, status")
       .order("due_date", { ascending: true, nullsFirst: false }),
     supabase.from("client_projects").select("id, client_id, name, status").order("created_at", { ascending: false }),
     supabase.from("preview_projects")

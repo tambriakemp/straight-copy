@@ -468,6 +468,14 @@ button.cv-kpi:hover { border-color: var(--cv-accent); }
 }
 .cv-sync-btn:hover { border-color: var(--cv-accent); }
 
+.cv-btn-primary {
+  font-size: 13px; font-weight: 500; color: var(--cv-card); background: var(--cv-accent); border: none;
+  border-radius: var(--cv-r-sm); padding: 8px 14px; cursor: pointer; font-family: var(--cv-font-sans);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.cv-btn-primary:hover { background: var(--cv-accent-hover); }
+.cv-btn-primary:disabled { opacity: 0.6; cursor: default; }
+
 /* ---------- Client detail (CRE-332 Phase 4) ---------- */
 .cv-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--cv-border); margin-bottom: 20px; flex-wrap: wrap; }
 .cv-tab {
