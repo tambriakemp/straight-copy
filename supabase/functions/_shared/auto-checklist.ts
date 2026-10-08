@@ -6,7 +6,7 @@
 // node completion when all items are done, so we only need to mutate the
 // checklist JSON here.
 
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
 export type AdminClient = SupabaseClient;
 

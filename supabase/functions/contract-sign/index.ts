@@ -6,7 +6,7 @@
 //   - download : returns a fresh signed URL for an existing contract PDF.
 //
 // verify_jwt = false (public). Service role mediates all DB access.
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from npm:@supabase/supabase-js@2.45.0;
 import { z } from "zod";
 import { PDFDocument, PDFFont, PDFPage, rgb, type PDFImage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
