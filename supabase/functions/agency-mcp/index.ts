@@ -182,8 +182,8 @@ mcp.tool("list_queue_projects", {
     }
 
     return textResult({
-      projects: (projects ?? [])
-        .map((p) => ({ ...p, ready_tasks: byProject.get(p.id as string) ?? [] }))
+      projects: projectRows
+        .map((p) => ({ ...p, ready_tasks: byProject.get(p.id) ?? [] }))
         .filter((p) => p.ready_tasks.length > 0),
     });
   },
