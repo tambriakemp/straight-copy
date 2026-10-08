@@ -130,6 +130,8 @@ interface PipelineStageShape {
   position?: number;
   order?: number;
   sort_order?: number;
+  is_won?: boolean;
+  is_lost?: boolean;
 }
 interface PipelineResponseShape {
   pipeline?: { stages?: PipelineStageShape[]; pipeline_stages?: PipelineStageShape[] };
@@ -200,6 +202,146 @@ export async function resolveStageUuid(stageKey: StageKey): Promise<string> {
   }
   const uuids = await getOrderedStageUuids();
   return uuids[index];
+}
+
+/** One stage in the full 8-stage Cre8 Prospect pipeline (CRE-332 Phase 6 —
+ *  the Pipeline page needs every stage including Won/Lost to bucket every
+ *  deal, unlike getOrderedStageUuids above which only covers the five
+ *  active stages CRE-286 ever writes to). `isWon`/`isLost` come straight off
+ *  the API's own `is_won`/`is_lost` flags (confirmed live via Ara's Oct 7
+ *  stage-rename GET, not name-matched) rather than matching "Won"/"Lost" by
+ *  name, so a future rename of those two doesn't silently break this. */
+export interface LivePipelineStage {
+  uuid: string;
+  name: string;
+  position: number;
+  isWon: boolean;
+  isLost: boolean;
+}
+
+let fullStageCache: { fetchedAt: number; stages: LivePipelineStage[] } | null = null;
+
+export async function listPipelineStages(): Promise<LivePipelineStage[]> {
+  if (fullStageCache && Date.now() - fullStageCache.fetchedAt < STAGE_CACHE_TTL_MS) {
+    return fullStageCache.stages;
+  }
+  const result = await call<PipelineResponseShape>(`/pipelines/${CRE8_PROSPECT_PIPELINE_UUID}`);
+  if (!result.ok) {
+    throw new Error(`Could not load the Cre8 Prospect pipeline: ${result.error}`);
+  }
+  const pipeline = result.data?.pipeline ?? result.data?.data ?? result.data;
+  const raw: PipelineStageShape[] = pipeline?.stages ?? pipeline?.pipeline_stages ?? [];
+  if (!raw.length) throw new Error("Cre8 Prospect pipeline returned no stages");
+
+  const haveExplicitPositions = raw.every((s) => stagePosition(s) != null);
+  const ordered = haveExplicitPositions
+    ? [...raw].sort((a, b) => (stagePosition(a) as number) - (stagePosition(b) as number))
+    : raw;
+
+  const stages: LivePipelineStage[] = ordered.map((s, i) => {
+    const uuid = s.uuid ?? s.id;
+    if (!uuid) throw new Error(`Cre8 Prospect pipeline stage at position ${i} has no uuid`);
+    return {
+      uuid: String(uuid),
+      name: String(s.name ?? s.label ?? `Stage ${i}`),
+      position: stagePosition(s) ?? i,
+      isWon: Boolean(s.is_won),
+      isLost: Boolean(s.is_lost),
+    };
+  });
+  fullStageCache = { fetchedAt: Date.now(), stages };
+  return stages;
+}
+
+/** A deal as the Pipeline page needs it — already unwrapped from whatever
+ *  envelope SureContact returns, and already converted to cents. Field
+ *  names here are a best-effort read of the live deal shape: confirmed
+ *  fields are `uuid`/`id` (used by extractUuid above) and `amount` in
+ *  dollars (createDeal/updateDealAmount both send `amount` in dollars), and
+ *  the list endpoint itself (`GET /deals?pipeline_uuid=`) is the one this
+ *  issue's own two-way-sync design section specifies for reconciliation.
+ *  Company/contact/timestamp field names are not yet confirmed against a
+ *  real response — parsed defensively with fallbacks, and any deal that
+ *  can't be matched to a known stage uuid is surfaced via `unmatched`
+ *  rather than silently dropped (see pipeline-board/index.ts). */
+export interface LiveDeal {
+  uuid: string;
+  name: string;
+  amountCents: number | null;
+  stageUuid: string | null;
+  companyName: string | null;
+  contactName: string | null;
+  createdAt: string | null;
+  stageUpdatedAt: string | null;
+}
+
+interface DealCompanyShape { name?: string; business_name?: string }
+interface DealContactShape { name?: string; first_name?: string; last_name?: string }
+interface DealShape {
+  uuid?: string;
+  id?: string;
+  name?: string;
+  title?: string;
+  amount?: number | string | null;
+  pipeline_stage_uuid?: string;
+  stage_uuid?: string;
+  pipeline_stage?: { uuid?: string };
+  company?: DealCompanyShape | string;
+  companies?: DealCompanyShape[];
+  contact?: DealContactShape;
+  contacts?: DealContactShape[];
+  created_at?: string;
+  stage_updated_at?: string;
+  updated_at?: string;
+}
+interface DealsListResponseShape {
+  deals?: DealShape[];
+  data?: { deals?: DealShape[] } | DealShape[];
+}
+
+function contactDisplayName(c?: DealContactShape): string | null {
+  if (!c) return null;
+  if (c.name) return c.name;
+  const full = [c.first_name, c.last_name].filter(Boolean).join(" ").trim();
+  return full || null;
+}
+
+export async function listPipelineDeals(): Promise<LiveDeal[]> {
+  const result = await call<DealsListResponseShape | DealShape[]>(
+    `/deals?pipeline_uuid=${CRE8_PROSPECT_PIPELINE_UUID}`,
+  );
+  if (!result.ok) throw new Error(`Could not load Cre8 Prospect deals: ${result.error}`);
+  const raw = result.data;
+  const list: DealShape[] = Array.isArray(raw)
+    ? raw
+    : Array.isArray(raw?.deals)
+      ? raw.deals
+      : Array.isArray(raw?.data)
+        ? (raw.data as DealShape[])
+        : Array.isArray((raw?.data as { deals?: DealShape[] } | undefined)?.deals)
+          ? (raw!.data as { deals: DealShape[] }).deals
+          : [];
+
+  return list
+    .map((d): LiveDeal => {
+      const company = d.company;
+      const companyName =
+        typeof company === "string"
+          ? company
+          : company?.name ?? company?.business_name ?? d.companies?.[0]?.name ?? d.companies?.[0]?.business_name ?? null;
+      const amountNum = d.amount == null ? null : Number(d.amount);
+      return {
+        uuid: String(d.uuid ?? d.id ?? ""),
+        name: String(d.name ?? d.title ?? "Untitled deal"),
+        amountCents: amountNum != null && Number.isFinite(amountNum) ? Math.round(amountNum * 100) : null,
+        stageUuid: d.pipeline_stage_uuid ?? d.stage_uuid ?? d.pipeline_stage?.uuid ?? null,
+        companyName,
+        contactName: contactDisplayName(d.contact) ?? contactDisplayName(d.contacts?.[0]),
+        createdAt: d.created_at ?? null,
+        stageUpdatedAt: d.stage_updated_at ?? d.updated_at ?? null,
+      };
+    })
+    .filter((d) => d.uuid);
 }
 
 export interface CreateDealInput {
