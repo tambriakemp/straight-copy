@@ -537,11 +537,13 @@ async function runTurn(args: {
     // tool call mid-JSON, which arrived as a reply with no message at all —
     // the empty bubble. Streaming also keeps a multi-minute turn from hitting
     // the SDK's HTTP timeout.
+    // The pinned SDK types (0.71.0) don't yet model the `adaptive` thinking
+    // variant or `output_config.effort`; cast the whole body once, as claude.ts
+    // does for the same gap in the single-shot path.
     const stream = client.messages.stream({
       model: agent.model,
       max_tokens: 64000,
-      // The pinned SDK types don't yet model the `adaptive` thinking variant.
-      thinking: { type: "adaptive" as never },
+      thinking: { type: "adaptive" },
       output_config: { effort: agent.effort as "low" | "medium" | "high" | "xhigh" | "max" },
       system: [
         {
@@ -555,7 +557,8 @@ async function runTurn(args: {
       tools: [replyTool(def.allowedActions)],
       tool_choice: { type: "tool", name: "reply" },
       messages: seedMessages,
-    });
+      // deno-lint-ignore no-explicit-any
+    } as any);
     const response = await stream.finalMessage();
 
     if (response.stop_reason === "refusal") {
