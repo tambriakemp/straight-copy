@@ -1,8 +1,10 @@
 // Pure mapping from the live "Cre8 Prospect" SureContact pipeline (8 stages,
 // after the CRE-332 renames) to the admin Pipeline page's board columns.
 // Bree approved this mapping Oct 7, 2026: Demo Scheduled folds into Intake,
-// In Negotiation folds into Proposal sent with a "Revised" flag, Won
-// displays as "Deposit paid", Lost is hidden by default (filterable).
+// In Negotiation folds into Proposal sent with a "Revised" flag, Lost is
+// hidden by default (filterable). Won is labeled "Won" (not "Deposit paid")
+// per Bree's Oct 7 11:41 PM CT correction — SureContact doesn't allow
+// deleting its Won stage, so the admin label must match it exactly.
 //
 // No network call in this file on purpose — it only turns a stage position
 // into a column key, so it can be unit tested without SureContact access.
@@ -22,7 +24,7 @@ export const BOARD_COLUMNS: BoardColumnDef[] = [
   { key: "intake", label: "Intake", positions: [1, 2] },
   { key: "proposalSent", label: "Proposal sent", positions: [3, 4] },
   { key: "signed", label: "Signed", positions: [5] },
-  { key: "won", label: "Deposit paid", positions: [6] },
+  { key: "won", label: "Won", positions: [6] },
   { key: "lost", label: "Lost", positions: [7] },
 ];
 
