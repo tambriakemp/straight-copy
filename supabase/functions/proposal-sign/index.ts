@@ -6,7 +6,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { z } from "zod";
 import { logProposalEvent } from "../_shared/proposal-events.ts";
-import { markDealLostForProposal, syncProposalToSureContactDeal } from "../_shared/proposal-deal-sync.ts";
+import { markDealLostForProposal, markDealSignedForProposal, syncProposalToSureContactDeal } from "../_shared/proposal-deal-sync.ts";
 import { sendProjectInvoice } from "../_shared/surecart-invoices.ts";
 import { PDFDocument, PDFFont, PDFPage, rgb, type PDFImage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
@@ -1089,6 +1089,14 @@ Deno.serve(async (req) => {
       // response the client is waiting on.
       const automation = await runPostSignatureAutomation(supabase, {
         proposal: row, client, signedPdfUrl,
+      });
+
+      // Best-effort, same as the schedule/invoice/email automation above —
+      // a SureContact hiccup here must never fail the response the client
+      // is waiting on. markDealSignedForProposal swallows its own errors.
+      await markDealSignedForProposal(supabase, {
+        proposalId: row.id,
+        clientProjectId: row.client_project_id,
       });
 
       return respond({ success: true, proposalId: row.id, signedPdfUrl, automation });
