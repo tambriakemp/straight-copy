@@ -194,47 +194,44 @@ export default function Today() {
         <div className="cv-today-body">
           <Card className="cv-card-pad">
             <div className="cv-card-head">
-              <span className="cv-card-title">Needs you now</span>
-              <div className="cv-filter-tabs">
-                {FILTERS.map((f) => (
-                  <button
-                    key={f.key}
-                    type="button"
-                    className={`cv-filter-tab ${filter === f.key ? "cv-filter-tab--active" : ""}`}
-                    onClick={() => setFilter(f.key)}
-                  >
-                    {f.label} {bucketCounts[f.key]}
-                  </button>
-                ))}
+              <span className="cv-card-title">Morning brief</span>
+              <div className="cv-brief-tabs">
+                <button type="button" className={`cv-brief-tab ${briefTab === "morning" ? "cv-brief-tab--active" : ""}`} onClick={() => setBriefTab("morning")}>Morning</button>
+                <button type="button" className={`cv-brief-tab ${briefTab === "past" ? "cv-brief-tab--active" : ""}`} onClick={() => setBriefTab("past")}>Past</button>
               </div>
             </div>
-            {!needsYouNow ? (
-              <div style={{ fontSize: 14, color: "var(--cv-muted)" }}>Loading…</div>
-            ) : !visibleItems.length ? (
-              <EmptyState title="Nothing waiting" subtitle="Nothing in this filter needs you right now." />
-            ) : (
-              <div className="cv-needs-list">
-                {visibleItems.map((item) => (
-                  <div key={item.id} className="cv-needs-item">
-                    <BriefCheckItem
-                      done={isDone(item.id)}
-                      onComplete={() => complete({
-                        item_id: item.id,
-                        item_text: item.title,
-                        issue_identifier: item.issue_identifier,
-                      })}
-                      onUndo={() => undo(item.id)}
-                    >
-                      <a
-                        href={item.issue_url ?? "#"} target="_blank" rel="noreferrer"
-                        style={{ display: "flex", flexDirection: "column", gap: 2, color: "inherit", textDecoration: "none" }}
-                      >
-                        <span className="cv-needs-item__title">{item.title}</span>
-                        <span className="cv-needs-item__kind">{item.kind}{item.issue_identifier ? ` · ${item.issue_identifier}` : ""}</span>
-                      </a>
-                    </BriefCheckItem>
+
+            {briefTab === "morning" ? (
+              !latestMorning ? (
+                <EmptyState title="No brief yet" subtitle="Ara's next scheduled run posts here." />
+              ) : (
+                <>
+                  <div className="cv-card-sub" style={{ marginLeft: 0, marginBottom: 10 }}>
+                    {new Date(latestMorning.created_at).toLocaleString()}
                   </div>
+                  <BriefSections brief={latestMorning} isDone={isDone} complete={complete} undo={undo} />
+                </>
+              )
+            ) : !briefs?.length ? (
+              <EmptyState title="No briefs yet" />
+            ) : (
+              <div style={{ display: "grid", gap: 2 }}>
+                {briefs.map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    className={`cv-past-brief-row ${b.id === current?.id ? "cv-past-brief-row--active" : ""}`}
+                    onClick={() => setSelected(b.id)}
+                  >
+                    <div className="cv-past-brief-row__title">{b.title}</div>
+                    <div className="cv-past-brief-row__date">{new Date(b.created_at).toLocaleString()}</div>
+                  </button>
                 ))}
+                {current && (
+                  <div className="cv-brief-section" style={{ marginTop: 10, borderTop: "1px solid var(--cv-border)", paddingTop: 12 }}>
+                    <BriefSections brief={current} isDone={isDone} complete={complete} undo={undo} />
+                  </div>
+                )}
               </div>
             )}
           </Card>
@@ -242,44 +239,47 @@ export default function Today() {
           <div style={{ display: "grid", gap: 20 }}>
             <Card className="cv-card-pad">
               <div className="cv-card-head">
-                <span className="cv-card-title">Morning brief</span>
-                <div className="cv-brief-tabs">
-                  <button type="button" className={`cv-brief-tab ${briefTab === "morning" ? "cv-brief-tab--active" : ""}`} onClick={() => setBriefTab("morning")}>Morning</button>
-                  <button type="button" className={`cv-brief-tab ${briefTab === "past" ? "cv-brief-tab--active" : ""}`} onClick={() => setBriefTab("past")}>Past</button>
-                </div>
-              </div>
-
-              {briefTab === "morning" ? (
-                !latestMorning ? (
-                  <EmptyState title="No brief yet" subtitle="Ara's next scheduled run posts here." />
-                ) : (
-                  <>
-                    <div className="cv-card-sub" style={{ marginLeft: 0, marginBottom: 10 }}>
-                      {new Date(latestMorning.created_at).toLocaleString()}
-                    </div>
-                    <BriefSections brief={latestMorning} isDone={isDone} complete={complete} undo={undo} />
-                  </>
-                )
-              ) : !briefs?.length ? (
-                <EmptyState title="No briefs yet" />
-              ) : (
-                <div style={{ display: "grid", gap: 2 }}>
-                  {briefs.map((b) => (
+                <span className="cv-card-title">Needs you now</span>
+                <div className="cv-filter-tabs">
+                  {FILTERS.map((f) => (
                     <button
-                      key={b.id}
+                      key={f.key}
                       type="button"
-                      className={`cv-past-brief-row ${b.id === current?.id ? "cv-past-brief-row--active" : ""}`}
-                      onClick={() => setSelected(b.id)}
+                      className={`cv-filter-tab ${filter === f.key ? "cv-filter-tab--active" : ""}`}
+                      onClick={() => setFilter(f.key)}
                     >
-                      <div className="cv-past-brief-row__title">{b.title}</div>
-                      <div className="cv-past-brief-row__date">{new Date(b.created_at).toLocaleString()}</div>
+                      {f.label} {bucketCounts[f.key]}
                     </button>
                   ))}
-                  {current && (
-                    <div className="cv-brief-section" style={{ marginTop: 10, borderTop: "1px solid var(--cv-border)", paddingTop: 12 }}>
-                      <BriefSections brief={current} isDone={isDone} complete={complete} undo={undo} />
+                </div>
+              </div>
+              {!needsYouNow ? (
+                <div style={{ fontSize: 14, color: "var(--cv-muted)" }}>Loading…</div>
+              ) : !visibleItems.length ? (
+                <EmptyState title="Nothing waiting" subtitle="Nothing in this filter needs you right now." />
+              ) : (
+                <div className="cv-needs-list">
+                  {visibleItems.map((item) => (
+                    <div key={item.id} className="cv-needs-item">
+                      <BriefCheckItem
+                        done={isDone(item.id)}
+                        onComplete={() => complete({
+                          item_id: item.id,
+                          item_text: item.title,
+                          issue_identifier: item.issue_identifier,
+                        })}
+                        onUndo={() => undo(item.id)}
+                      >
+                        <a
+                          href={item.issue_url ?? "#"} target="_blank" rel="noreferrer"
+                          style={{ display: "flex", flexDirection: "column", gap: 2, color: "inherit", textDecoration: "none" }}
+                        >
+                          <span className="cv-needs-item__title">{item.title}</span>
+                          <span className="cv-needs-item__kind">{item.kind}{item.issue_identifier ? ` · ${item.issue_identifier}` : ""}</span>
+                        </a>
+                      </BriefCheckItem>
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
             </Card>
