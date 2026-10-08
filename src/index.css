@@ -539,6 +539,7 @@ button.cv-kpi:hover { border-color: var(--cv-accent); }
   color: var(--cv-ink); padding: 0 2px 4px;
 }
 .cv-kanban__col-count { font-size: 11px; color: var(--cv-muted); background: var(--cv-card); border-radius: 999px; padding: 1px 7px; }
+.cv-kanban__col--drop-target { border-color: var(--cv-accent); background: var(--cv-accent-tint); }
 .cv-kanban__empty { font-size: 12px; color: var(--cv-faint); padding: 8px 2px; }
 
 .cv-kanban-card {

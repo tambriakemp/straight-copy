@@ -1,10 +1,11 @@
 // SureContact Sales Pipeline sync (CRE-286).
 //
 // One deal per client_project — see the migration that added
-// client_projects.surecontact_deal_id/surecontact_deal_stage for why. Three
+// client_projects.surecontact_deal_id/surecontact_deal_stage for why. Four
 // call sites feed this:
 //   - proposal-sign `notify`  -> syncProposalToSureContactDeal (Proposal Sent
 //     on the first send, In Negotiation when a revised version goes out).
+//   - proposal-sign `sign` (CRE-332 Phase 6.2) -> markDealSignedForProposal.
 //   - proposal-sign `void`/`decline` -> markDealLostForProposal.
 //   - surecart-webhook (deposit invoice flips to paid) -> markDealWonFromDepositPaid.
 //
@@ -71,6 +72,7 @@ const STAGE_LABEL: Record<StageKey, string> = {
   demoScheduled: "Demo Scheduled",
   proposalSent: "Proposal Sent",
   inNegotiation: "In Negotiation",
+  signed: "Signed",
   won: "Won",
   lost: "Lost",
 };
@@ -223,6 +225,40 @@ export async function syncProposalToSureContactDeal(
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
     await alertSyncFailure(supabase, { context: `proposal-sent-${input.proposalId}`, detail });
+  }
+}
+
+export interface ProposalSignedForDealSync {
+  proposalId: string;
+  clientProjectId: string | null;
+}
+
+/**
+ * Signed (CRE-332 Phase 6.2): the client has countersigned, before the
+ * deposit invoice is necessarily paid — Won stays reserved for the deposit
+ * landing (markDealWonFromDepositPaid below), same as it already was.
+ * Called from proposal-sign's `sign` action, right after the signature and
+ * countersignature are durable.
+ */
+export async function markDealSignedForProposal(
+  supabase: SupabaseClient,
+  input: ProposalSignedForDealSync,
+): Promise<void> {
+  if (!input.clientProjectId) return;
+  try {
+    const project = await loadProject(supabase, input.clientProjectId);
+    if (!project?.surecontact_deal_id) return; // no deal was ever created for this project
+    // Idempotent re-fire, and never move backward out of a later stage.
+    if (["signed", "won", "lost"].includes(project.surecontact_deal_stage ?? "")) return;
+
+    await moveDealStage(project.surecontact_deal_id, "signed");
+    const { error } = await supabase.from("client_projects")
+      .update({ surecontact_deal_stage: "signed" }).eq("id", project.id);
+    if (error) throw error;
+    await addDealNote(project.surecontact_deal_id, `Proposal countersigned — ${nowCT()}.`);
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    await alertSyncFailure(supabase, { context: `proposal-signed-${input.proposalId}`, detail });
   }
 }
 

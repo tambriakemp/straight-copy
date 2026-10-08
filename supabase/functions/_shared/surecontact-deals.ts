@@ -33,6 +33,7 @@ export const STAGE_NAMES = {
   demoScheduled: "Demo Scheduled",
   proposalSent: "Proposal Sent",
   inNegotiation: "In Negotiation",
+  signed: "Signed",
   won: "Won",
   lost: "Lost",
 } as const;
@@ -48,6 +49,7 @@ const STAGE_RANK: Record<string, number> = {
   demoScheduled: 2,
   proposalSent: 3,
   inNegotiation: 4,
+  signed: 5,
 };
 
 export function stageRank(stageKey: string): number {
@@ -107,17 +109,19 @@ function extractUuid(d: unknown): string | null {
 }
 
 /** Pipeline position (0-based) of each stage this codebase ever resolves to
- *  a uuid. CRE-332 renames "New"->"Lead", "Qualifying"->"Intake", and
- *  inserts a new "Signed" stage after "In Negotiation" — none of that moves
- *  these five stages, so position stays a stable identifier through all of
- *  it where display name would not. Won/Lost are reached through their own
- *  `/won` and `/lost` endpoints and never need a position here. */
+ *  a uuid. CRE-332 renames "New"->"Lead", "Qualifying"->"Intake" — neither
+ *  moves these stages, so position stays a stable identifier through all of
+ *  it where display name would not. "Signed" (added after "In Negotiation",
+ *  CRE-332 Phase 6.2) is a plain stage like the rest — Won/Lost are the only
+ *  ones reached through their own `/won` and `/lost` endpoints and never
+ *  need a position here. */
 const STAGE_ORDER: StageKey[] = [
   "new",
   "qualifying",
   "demoScheduled",
   "proposalSent",
   "inNegotiation",
+  "signed",
 ];
 
 /** Display names accepted at each position, old or new. A name outside this
@@ -130,6 +134,7 @@ const STAGE_NAME_ALIASES: Record<StageKey, string[]> = {
   demoScheduled: ["demo scheduled"],
   proposalSent: ["proposal sent"],
   inNegotiation: ["in negotiation"],
+  signed: ["signed"],
   won: ["won"],
   lost: ["lost"],
 };
