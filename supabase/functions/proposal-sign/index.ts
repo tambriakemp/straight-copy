@@ -578,7 +578,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+    const supabase = createClient<any>(SUPABASE_URL, SERVICE_ROLE);
     const body = await req.json();
     const parsed = ActionSchema.safeParse(body);
     if (!parsed.success) {
