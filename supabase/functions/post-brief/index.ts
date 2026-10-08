@@ -30,6 +30,16 @@
 // "Calendar" section. Omit the field (or send it as `null`/absent) to keep
 // the old checkbox-list rendering — the frontend falls back automatically.
 // Every date/time is America/Chicago, same as the rest of the brief.
+//
+// CRE-366: four more optional siblings — `money_stats`, `pipeline`,
+// `done_items`/`done_range`, `approvals` — each drives one redesigned brief
+// card the same way: present and non-empty renders the card and hides the
+// matching markdown section, absent falls back to markdown exactly as
+// before. `pipeline` only carries the outreach-round banner and hot-leads
+// list; stage pills are read live from pipeline-board on the frontend, so
+// there is nothing stage-shaped to validate here. Validation below is
+// loose on purpose (checks shape, not business meaning) — same spirit as
+// `validateCalendarEvents`.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -110,6 +120,89 @@ function validateCalendarEvents(value: unknown): string | null {
   return null;
 }
 
+const MONEY_TRENDS = ["up", "down", "flat", "new"];
+
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === "string" && v.trim().length > 0;
+}
+function isStringArray(v: unknown): v is string[] {
+  return Array.isArray(v) && v.every((x) => typeof x === "string");
+}
+function isStringOrNull(v: unknown): boolean {
+  return v === undefined || v === null || typeof v === "string";
+}
+
+function validateMoneyStats(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (!value || typeof value !== "object") return "money_stats must be an object or null";
+  const m = value as Record<string, unknown>;
+  if (!Array.isArray(m.cards)) return "money_stats.cards must be an array";
+  for (const c of m.cards) {
+    if (!c || typeof c !== "object") return "each money_stats.cards entry must be an object";
+    const card = c as Record<string, unknown>;
+    if (!isNonEmptyString(card.id)) return "every money_stats.cards entry needs a non-empty id";
+    if (!isNonEmptyString(card.label)) return "every money_stats.cards entry needs a non-empty label";
+    if (!isNonEmptyString(card.display)) return "every money_stats.cards entry needs a non-empty display";
+    if (card.trend !== undefined && !MONEY_TRENDS.includes(card.trend as string)) {
+      return `money_stats.cards entry.trend must be one of ${MONEY_TRENDS.join(", ")}`;
+    }
+    if (card.lines !== undefined && !isStringArray(card.lines)) return "money_stats.cards entry.lines must be an array of strings";
+  }
+  return null;
+}
+
+function validatePipeline(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (!value || typeof value !== "object") return "pipeline must be an object or null";
+  const p = value as Record<string, unknown>;
+  if (p.outreach_round !== undefined && p.outreach_round !== null) {
+    if (typeof p.outreach_round !== "object") return "pipeline.outreach_round must be an object or null";
+    const r = p.outreach_round as Record<string, unknown>;
+    if (typeof r.pending !== "number") return "pipeline.outreach_round.pending must be a number";
+  }
+  if (p.hot_leads !== undefined) {
+    if (!Array.isArray(p.hot_leads)) return "pipeline.hot_leads must be an array";
+    for (const l of p.hot_leads) {
+      if (!l || typeof l !== "object") return "each pipeline.hot_leads entry must be an object";
+      const lead = l as Record<string, unknown>;
+      if (!isNonEmptyString(lead.id)) return "every pipeline.hot_leads entry needs a non-empty id";
+      if (!isNonEmptyString(lead.name)) return "every pipeline.hot_leads entry needs a non-empty name";
+      if (!isNonEmptyString(lead.status)) return "every pipeline.hot_leads entry needs a non-empty status";
+    }
+  }
+  return null;
+}
+
+function validateDoneItems(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value)) return "done_items must be an array or null";
+  for (const i of value) {
+    if (!i || typeof i !== "object") return "each done_items entry must be an object";
+    const item = i as Record<string, unknown>;
+    if (!isNonEmptyString(item.id)) return "every done_items entry needs a non-empty id";
+    if (!isNonEmptyString(item.title)) return "every done_items entry needs a non-empty title";
+    if (!isNonEmptyString(item.project)) return "every done_items entry needs a non-empty project";
+    if (item.task_ids !== undefined && !isStringArray(item.task_ids)) return "done_items entry.task_ids must be an array of strings";
+  }
+  return null;
+}
+
+function validateApprovals(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value)) return "approvals must be an array or null";
+  for (const a of value) {
+    if (!a || typeof a !== "object") return "each approvals entry must be an object";
+    const appr = a as Record<string, unknown>;
+    if (!isNonEmptyString(appr.id)) return "every approvals entry needs a non-empty id";
+    if (!isNonEmptyString(appr.title)) return "every approvals entry needs a non-empty title";
+    if (!isNonEmptyString(appr.project)) return "every approvals entry needs a non-empty project";
+    if (appr.task_ids !== undefined && !isStringArray(appr.task_ids)) return "approvals entry.task_ids must be an array of strings";
+    if (appr.options !== undefined && !isStringArray(appr.options)) return "approvals entry.options must be an array of strings";
+    if (!isStringOrNull(appr.deadline)) return "approvals entry.deadline must be a string or null";
+  }
+  return null;
+}
+
 function validate(body: unknown): string | null {
   if (!body || typeof body !== "object") return "body must be an object";
   const b = body as Record<string, unknown>;
@@ -151,6 +244,17 @@ function validate(body: unknown): string | null {
   }
   const calendarProblem = validateCalendarEvents(b.calendar_events);
   if (calendarProblem) return calendarProblem;
+  const moneyProblem = validateMoneyStats(b.money_stats);
+  if (moneyProblem) return moneyProblem;
+  const pipelineProblem = validatePipeline(b.pipeline);
+  if (pipelineProblem) return pipelineProblem;
+  const doneProblem = validateDoneItems(b.done_items);
+  if (doneProblem) return doneProblem;
+  const approvalsProblem = validateApprovals(b.approvals);
+  if (approvalsProblem) return approvalsProblem;
+  if (b.done_range !== undefined && b.done_range !== null && typeof b.done_range !== "object") {
+    return "done_range must be an object or null";
+  }
   return null;
 }
 
@@ -197,6 +301,22 @@ Deno.serve(async (req) => {
     title: string;
     sections: BriefSection[];
     calendar_events?: CalendarEvent[] | null;
+    money_stats?: unknown;
+    pipeline?: unknown;
+    done_items?: unknown;
+    done_range?: unknown;
+    approvals?: unknown;
+  };
+
+  // CRE-366: every new field is optional and nullable, same pattern as
+  // calendar_events — a brief that never sends them stores null and the
+  // frontend falls back to markdown exactly as it did before this landed.
+  const newFields = {
+    money_stats: b.money_stats ?? null,
+    pipeline: b.pipeline ?? null,
+    done_items: b.done_items ?? null,
+    done_range: b.done_range ?? null,
+    approvals: b.approvals ?? null,
   };
 
   if (b.external_id) {
@@ -209,12 +329,15 @@ Deno.serve(async (req) => {
       // CRE-358: a same-day repost (e.g. to add calendar_events after the
       // first post) must land on the existing row, not silently no-op —
       // otherwise a retry can never update what it was retried to fix.
+      // CRE-366: the new fields follow the same rule — a repost updates
+      // them too, rather than only ever being set on the original insert.
       const { data: updated, error: updateError } = await sb
         .from("briefs")
         .update({
           title: b.title,
           sections: b.sections,
           calendar_events: b.calendar_events ?? null,
+          ...newFields,
         })
         .eq("id", existing.id)
         .select("id, created_at")
@@ -232,6 +355,7 @@ Deno.serve(async (req) => {
       title: b.title,
       sections: b.sections,
       calendar_events: b.calendar_events ?? null,
+      ...newFields,
     })
     .select("id, created_at")
     .single();

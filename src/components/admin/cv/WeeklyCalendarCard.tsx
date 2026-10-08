@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { ArrowRight, Check, Home, X } from "lucide-react";
 import type { CalendarEvent, CalendarEventType } from "@/lib/briefs";
+import { LinkifiedText } from "./IssueLinks";
 
 const TYPE_COLOR: Record<CalendarEventType, { bg: string; border: string; accent: string; tm: string }> = {
   rental: { bg: "#e6f6f3", border: "#c3ebe3", accent: "#0d9488", tm: "#0f766e" },
@@ -94,7 +95,7 @@ function RentalBarContent({ ev, multi }: { ev: CalendarEvent; multi: boolean }) 
     return (
       <>
         <X size={14} className="cv-weekcal__bar-icon" />
-        <span className="cv-weekcal__bar-strike">{ev.title}</span>
+        <span className="cv-weekcal__bar-strike"><LinkifiedText text={ev.title} /></span>
         <small>canceled</small>
       </>
     );
@@ -103,7 +104,7 @@ function RentalBarContent({ ev, multi }: { ev: CalendarEvent; multi: boolean }) 
     return (
       <>
         <Home size={14} className="cv-weekcal__bar-icon" />
-        <span>{ev.title}</span>
+        <span><LinkifiedText text={ev.title} /></span>
         <small>· stay {formatRange(ev.start_date, ev.end_date ?? ev.start_date)}</small>
       </>
     );
@@ -113,7 +114,7 @@ function RentalBarContent({ ev, multi }: { ev: CalendarEvent; multi: boolean }) 
       <ArrowRight size={14} className="cv-weekcal__bar-icon" />
       <span className="cv-weekcal__bar-stack">
         <small>Arrives</small>
-        {ev.title}
+        <LinkifiedText text={ev.title} />
       </span>
     </>
   );
@@ -131,7 +132,7 @@ function EventChip({ ev }: { ev: CalendarEvent }) {
       {timeLabel && (
         <span className="cv-weekcal__chip-tm" style={canceled ? undefined : { color: colors.tm }}>{timeLabel}</span>
       )}
-      <span className={`cv-weekcal__chip-nm ${canceled ? "cv-weekcal__bar-strike" : ""}`}>{ev.title}</span>
+      <span className={`cv-weekcal__chip-nm ${canceled ? "cv-weekcal__bar-strike" : ""}`}><LinkifiedText text={ev.title} /></span>
       {canceled ? (
         <span className="cv-weekcal__chip-meta cv-weekcal__chip-meta--muted">canceled</span>
       ) : ev.status === "confirmed" ? (
@@ -296,9 +297,9 @@ export default function WeeklyCalendarCard({ events }: { events: CalendarEvent[]
             <span key={ev.id} className="cv-weekcal__later-chip">
               <i className="cv-weekcal__dot" style={{ background: TYPE_COLOR[ev.type]?.accent ?? TYPE_COLOR.business.accent }} />
               {ev.status === "canceled" ? (
-                <><s>{ev.title}</s> canceled</>
+                <><s><LinkifiedText text={ev.title} /></s> canceled</>
               ) : (
-                <>{ev.title} · {formatRange(ev.start_date, ev.end_date ?? ev.start_date)}</>
+                <><LinkifiedText text={ev.title} /> · {formatRange(ev.start_date, ev.end_date ?? ev.start_date)}</>
               )}
             </span>
           ))}
