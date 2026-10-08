@@ -14,8 +14,29 @@ const db = supabase as unknown as { from: (table: string) => any };
 // Today.tsx / Briefs.tsx's `briefItemId` helper.
 export interface BriefItem { id?: string; issue?: string | null; text: string; link: string | null }
 export interface BriefSection { heading: string; items: BriefItem[] }
+
+// CRE-358: the weekly calendar card. Optional and separate from `sections`
+// — a brief that doesn't send this field falls back to the old markdown
+// "Calendar" section (see Today.tsx's `BriefSections`). Dates/times are
+// America/Chicago, matching the rest of the brief.
+export type CalendarEventType = "rental" | "business" | "live" | "home";
+export type CalendarEventStatus = "confirmed" | "canceled" | "tentative";
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  type: CalendarEventType;
+  start_date: string; // YYYY-MM-DD
+  end_date?: string | null; // inclusive; omitted/equal to start_date = single day
+  start_time?: string | null; // "HH:MM", 24h
+  end_time?: string | null; // "HH:MM", 24h
+  time_label?: string | null; // free-text override, e.g. "Usual time"
+  status: CalendarEventStatus;
+  note?: string | null;
+}
+
 export interface Brief {
   id: string; period: string; title: string; sections: BriefSection[];
+  calendar_events?: CalendarEvent[] | null;
   created_at: string; delivered_to_chat: boolean;
 }
 
