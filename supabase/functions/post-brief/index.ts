@@ -205,7 +205,23 @@ Deno.serve(async (req) => {
       .select("id, created_at")
       .eq("external_id", b.external_id)
       .maybeSingle();
-    if (existing) return json({ id: existing.id, created_at: existing.created_at }, 200);
+    if (existing) {
+      // CRE-358: a same-day repost (e.g. to add calendar_events after the
+      // first post) must land on the existing row, not silently no-op —
+      // otherwise a retry can never update what it was retried to fix.
+      const { data: updated, error: updateError } = await sb
+        .from("briefs")
+        .update({
+          title: b.title,
+          sections: b.sections,
+          calendar_events: b.calendar_events ?? null,
+        })
+        .eq("id", existing.id)
+        .select("id, created_at")
+        .single();
+      if (updateError) return json({ error: updateError.message }, 500);
+      return json({ id: updated.id, created_at: updated.created_at }, 200);
+    }
   }
 
   const { data: inserted, error } = await sb
