@@ -3248,6 +3248,98 @@ export type Database = {
           },
         ]
       }
+      prospect_approval_attachments: {
+        Row: {
+          created_at: string
+          feedback_id: string | null
+          file_name: string
+          id: string
+          mime_type: string | null
+          prospect_id: string
+          size_bytes: number | null
+          storage_path: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          feedback_id?: string | null
+          file_name: string
+          id?: string
+          mime_type?: string | null
+          prospect_id: string
+          size_bytes?: number | null
+          storage_path: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          feedback_id?: string | null
+          file_name?: string
+          id?: string
+          mime_type?: string | null
+          prospect_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_approval_attachments_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "prospect_approval_feedback"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_approval_attachments_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospect_approvals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospect_approval_feedback: {
+        Row: {
+          approval_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          preview_version: string
+          prospect_key: string
+          round: number
+        }
+        Insert: {
+          approval_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          preview_version: string
+          prospect_key: string
+          round: number
+        }
+        Update: {
+          approval_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          preview_version?: string
+          prospect_key?: string
+          round?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_approval_feedback_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "prospect_approvals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prospect_approvals: {
         Row: {
           batch: string
@@ -3256,6 +3348,7 @@ export type Database = {
           contact_email: string | null
           contact_name: string | null
           created_at: string
+          current_site_url: string | null
           decided_at: string | null
           decided_by: string | null
           email_body: string | null
@@ -3277,6 +3370,7 @@ export type Database = {
           contact_email?: string | null
           contact_name?: string | null
           created_at?: string
+          current_site_url?: string | null
           decided_at?: string | null
           decided_by?: string | null
           email_body?: string | null
@@ -3298,6 +3392,7 @@ export type Database = {
           contact_email?: string | null
           contact_name?: string | null
           created_at?: string
+          current_site_url?: string | null
           decided_at?: string | null
           decided_by?: string | null
           email_body?: string | null
