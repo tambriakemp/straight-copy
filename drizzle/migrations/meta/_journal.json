@@ -36,6 +36,13 @@
       "when": 1791425315526,
       "tag": "0004_prospect_approvals_current_site_url",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791425333231,
+      "tag": "0005_prospect_approval_attachments",
+      "breakpoints": true
     }
   ]
 }
