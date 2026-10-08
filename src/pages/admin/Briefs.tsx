@@ -5,6 +5,8 @@ import { Link } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useNeedsYouNow } from "@/lib/needsYouNow";
+import { useBriefItemCompletions } from "@/lib/briefItemCompletions";
+import BriefCheckItem from "@/components/admin/cv/BriefCheckItem";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
@@ -16,7 +18,8 @@ import {
 // rather than hand-editing that 4,600-line generated file from a PR branch.
 const db = supabase as unknown as { from: (table: string) => any };
 
-interface BriefItem { text: string; link: string | null }
+// `id`/`issue` are optional (CRE-335) — see src/lib/briefs.ts.
+interface BriefItem { id?: string; issue?: string | null; text: string; link: string | null }
 interface BriefSection { heading: string; items: BriefItem[] }
 interface Brief {
   id: string; period: string; title: string; sections: BriefSection[];
@@ -26,6 +29,18 @@ function randomSecret(len = 40) {
   const arr = new Uint8Array(len);
   crypto.getRandomValues(arr);
   return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, len);
+}
+
+// Same fallback id used on the Today page (CRE-335 §3): the ingest
+// routine's own `id` once it sends one, otherwise a key scoped to this one
+// brief instance.
+function briefItemId(briefId: string, sectionIdx: number, itemIdx: number, item: BriefItem): string {
+  return item.id ?? `${briefId}:${sectionIdx}:${itemIdx}`;
+}
+function briefItemIssue(item: BriefItem): string | null {
+  if (item.issue) return item.issue;
+  const m = item.link?.match(/\/issues\/([A-Z]+-\d+)/);
+  return m ? m[1] : null;
 }
 
 function SecretRow({
@@ -119,6 +134,8 @@ export default function Briefs() {
   // Paperclip-items-plus-prospect-batches-plus-... logic instead of two
   // copies drifting apart.
   const { items: combinedPending } = useNeedsYouNow();
+  // Shared checkbox state (CRE-335) — see src/lib/briefItemCompletions.ts.
+  const { isDone, complete, undo } = useBriefItemCompletions();
 
   const load = async () => {
     const { data, error } = await db.from("briefs").select("*").order("created_at", { ascending: false }).limit(30);
@@ -170,18 +187,30 @@ export default function Briefs() {
           ) : (
             <div style={{ display: "grid", gap: 8 }}>
               {combinedPending.map((p) => (
-                <a key={p.id} href={p.issue_url ?? "#"} target="_blank" rel="noreferrer"
-                  style={{
-                    display: "flex", justifyContent: "space-between", gap: 12,
-                    padding: "10px 12px", background: "hsl(40 8% 10%)",
-                    border: "1px solid hsl(40 20% 97% / 0.08)", color: "hsl(40 20% 97%)", textDecoration: "none",
-                    fontSize: 16,
-                  }}>
-                  <span>{p.title}</span>
-                  <span style={{ color: "hsl(30 8% 62%)", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                    {p.kind}{p.issue_identifier ? ` · ${p.issue_identifier}` : ""}
-                  </span>
-                </a>
+                <div key={p.id} style={{
+                  display: "flex", alignItems: "flex-start", gap: 10,
+                  padding: "10px 12px", background: "hsl(40 8% 10%)",
+                  border: "1px solid hsl(40 20% 97% / 0.08)",
+                }}>
+                  <BriefCheckItem
+                    done={isDone(p.id)}
+                    borderColor="hsl(40 20% 97% / 0.25)"
+                    mutedColor="hsl(30 8% 62%)"
+                    onComplete={() => complete({ item_id: p.id, item_text: p.title, issue_identifier: p.issue_identifier })}
+                    onUndo={() => undo(p.id)}
+                  >
+                    <a href={p.issue_url ?? "#"} target="_blank" rel="noreferrer"
+                      style={{
+                        display: "flex", justifyContent: "space-between", gap: 12,
+                        color: "hsl(40 20% 97%)", textDecoration: "none", fontSize: 16,
+                      }}>
+                      <span>{p.title}</span>
+                      <span style={{ color: "hsl(30 8% 62%)", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                        {p.kind}{p.issue_identifier ? ` · ${p.issue_identifier}` : ""}
+                      </span>
+                    </a>
+                  </BriefCheckItem>
+                </div>
               ))}
             </div>
           )}
@@ -227,12 +256,29 @@ export default function Briefs() {
                     <div style={{ fontSize: 14, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 8% 62%)", marginBottom: 8 }}>
                       {s.heading}
                     </div>
-                    <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
-                      {s.items.map((item, j) => (
-                        <li key={j} style={{ fontSize: 17, color: "hsl(40 20% 97%)" }}>
-                          {item.link ? <a href={item.link} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.text}</a> : item.text}
-                        </li>
-                      ))}
+                    <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 6 }}>
+                      {s.items.map((item, j) => {
+                        const id = briefItemId(current.id, i, j, item);
+                        const issue = briefItemIssue(item);
+                        return (
+                          <li key={j} style={{ fontSize: 17, color: "hsl(40 20% 97%)" }}>
+                            <BriefCheckItem
+                              done={isDone(id)}
+                              borderColor="hsl(40 20% 97% / 0.25)"
+                              mutedColor="hsl(30 8% 62%)"
+                              onComplete={() => complete({
+                                item_id: id,
+                                item_text: item.text,
+                                issue_identifier: issue,
+                                brief_date: current.created_at.slice(0, 10),
+                              })}
+                              onUndo={() => undo(id)}
+                            >
+                              {item.link ? <a href={item.link} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{item.text}</a> : item.text}
+                            </BriefCheckItem>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 ))}
@@ -262,12 +308,22 @@ export default function Briefs() {
             <SecretRow
               label="Paperclip read key" secretKey="paperclip_read_token" placeholder="paste the key minted on your agent page"
               generated={false}
-              hint="Mint on your Paperclip agent page (Settings → API Keys → New key, scope Standard, name briefs-sync-reader) and paste the one-time value here. Never paste it anywhere else — not Supabase, not Lovable chat."
+              hint="Mint on your Paperclip agent page (Settings → API Keys → New key, scope Standard, name briefs-sync-reader) and paste the one-time value here. Never paste it anywhere else — not Supabase, not Lovable chat. Also used to post the 'marked done from the brief' comment when you check off an item tied to a Paperclip issue (CRE-335)."
             />
             <SecretRow
               label="Bree's Paperclip user ID" secretKey="paperclip_bree_user_id" placeholder="paste Bree's Paperclip user id"
               generated={false}
               hint="So the sync can pull Bree's personal inbox, not just company-wide approvals. Find it on her Paperclip profile."
+            />
+            <SecretRow
+              label="Ara webhook URL" secretKey="ara_webhook_url" placeholder="https://…"
+              generated={false}
+              hint="The same Grok Bot agent-stuck webhook URL already wired into every agent's AGENTS.md (CRE-310). Checking off a brief or Needs-you-now item posts here instead of telling Ara in chat."
+            />
+            <SecretRow
+              label="Ara webhook key" secretKey="ara_webhook_key" placeholder="paste the bearer key"
+              generated={false}
+              hint="The bearer key that goes with the webhook URL above."
             />
           </div>
         </SheetContent>

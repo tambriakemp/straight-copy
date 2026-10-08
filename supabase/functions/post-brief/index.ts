@@ -6,6 +6,24 @@
 //
 // external_id dedupes retried POSTs: an existing id returns the existing row
 // (200) instead of inserting a duplicate.
+//
+// CRE-335: each item in a section's `items` array may also carry a stable
+// `id` and, when the line refers to a Paperclip issue, an `issue` field
+// (the bare "CRE-###" identifier). Neither is required or validated below —
+// `sections` is stored as-is — but the brief routine should start sending
+// both:
+//   - `id`: the bare Paperclip identifier ("CRE-335") when the item is
+//     about one; otherwise a stable key already in the routine's own
+//     source data (e.g. "invoice:INV-1234", "prospect-batch:2026-10-12");
+//     otherwise a content hash of only the parts of the line that don't
+//     change run to run (not the full rendered sentence — a live count or
+//     date in the text would change the hash every time and the item would
+//     never be recognized as "already checked off").
+//   - `issue`: the bare identifier, separately from `id`, whenever the line
+//     names a Paperclip issue — this is what lets a checked item also post
+//     a "marked done from the brief" comment back on that issue.
+// See the `action: "completed"` branch below for how the routine should
+// use these ids to skip already-checked-off items on the next brief.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -29,7 +47,7 @@ function serviceClient() {
 
 interface BriefSection {
   heading: string;
-  items: { text: string; link: string | null }[];
+  items: { id?: string; issue?: string | null; text: string; link: string | null }[];
 }
 
 function validate(body: unknown): string | null {
@@ -60,6 +78,12 @@ function validate(body: unknown): string | null {
       if (i.link !== null && i.link !== undefined && typeof i.link !== "string") {
         return "item.link must be a string or null";
       }
+      if (i.id !== undefined && i.id !== null && typeof i.id !== "string") {
+        return "item.id must be a string or null";
+      }
+      if (i.issue !== undefined && i.issue !== null && typeof i.issue !== "string") {
+        return "item.issue must be a string or null";
+      }
     }
   }
   if (b.external_id !== undefined && b.external_id !== null && typeof b.external_id !== "string") {
@@ -89,6 +113,17 @@ Deno.serve(async (req) => {
     body = await req.json();
   } catch {
     return json({ error: "body must be valid JSON" }, 400);
+  }
+
+  // CRE-335 §3: lets the brief routine fetch which stable item ids Bree has
+  // already checked off, so the next brief can leave them out instead of
+  // repeating something she already handled. Same secret, same caller as
+  // the ingest path below — one credential, not two.
+  const action = (body as Record<string, unknown> | null)?.action;
+  if (action === "completed") {
+    const { data, error } = await sb.from("brief_item_completions").select("item_id");
+    if (error) return json({ error: error.message }, 500);
+    return json({ item_ids: (data ?? []).map((r) => r.item_id as string) });
   }
 
   const problem = validate(body);
