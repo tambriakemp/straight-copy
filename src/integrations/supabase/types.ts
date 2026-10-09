@@ -670,34 +670,49 @@ export type Database = {
       }
       briefs: {
         Row: {
+          approvals: Json | null
           calendar_events: Json | null
           created_at: string
           delivered_to_chat: boolean
+          done_items: Json | null
+          done_range: Json | null
           external_id: string | null
           id: string
+          money_stats: Json | null
           period: string
+          pipeline: Json | null
           sections: Json
           source: string
           title: string
         }
         Insert: {
+          approvals?: Json | null
           calendar_events?: Json | null
           created_at?: string
           delivered_to_chat?: boolean
+          done_items?: Json | null
+          done_range?: Json | null
           external_id?: string | null
           id?: string
+          money_stats?: Json | null
           period: string
+          pipeline?: Json | null
           sections: Json
           source?: string
           title: string
         }
         Update: {
+          approvals?: Json | null
           calendar_events?: Json | null
           created_at?: string
           delivered_to_chat?: boolean
+          done_items?: Json | null
+          done_range?: Json | null
           external_id?: string | null
           id?: string
+          money_stats?: Json | null
           period?: string
+          pipeline?: Json | null
           sections?: Json
           source?: string
           title?: string
