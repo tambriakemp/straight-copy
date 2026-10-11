@@ -4949,6 +4949,7 @@ export type Database = {
         Returns: undefined
       }
       fire_sync_paperclip_pending: { Args: never; Returns: undefined }
+      fire_sync_paperclip_project_tasks: { Args: never; Returns: undefined }
       fire_web_dev_scheduled_dispatch: { Args: never; Returns: undefined }
       fire_weekly_progress_reports: { Args: never; Returns: undefined }
       get_client_login: {
