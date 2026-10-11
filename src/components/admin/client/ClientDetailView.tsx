@@ -42,13 +42,14 @@ function humanise(s: string | null | undefined): string {
 }
 
 /**
- * The two buttons the canvas draws under the avatar.
+ * The portal actions under the avatar: the canvas's two, and under them
+ * the two that came off ClientPortalActions' row of four dark icon
+ * buttons — a shape from the old dark admin with no labels on it at all.
  *
- * These replace ClientPortalActions' row of four dark icon buttons — a
- * shape from the old dark admin with no labels on it at all. Its other two
- * actions are kept as the quiet line at the foot of the card rather than
- * dropped; they are rare, but "sync this client to SureContact" is not
- * something you can do anywhere else.
+ * All four as buttons rather than the last two as a quiet line of text.
+ * The line said "these are lesser" when what they actually are is rarer,
+ * and "sync this client to SureContact" is not something you can do
+ * anywhere else in the admin.
  */
 function PortalActions({ clientId }: { clientId: string }) {
   const copy = async (path: string, label: string) => {
@@ -60,32 +61,6 @@ function PortalActions({ clientId }: { clientId: string }) {
     }
   };
 
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
-      <button type="button" className="cv-open cv-open--dark" onClick={() => copy(`/portal/${clientId}`, "Portal link")}>
-        Copy portal link
-      </button>
-      <a className="cv-open" href={`/portal/${clientId}?as=admin`} target="_blank" rel="noreferrer">
-        Open portal
-      </a>
-    </div>
-  );
-}
-
-/** The two leftovers from the old icon row, where they do not crowd the card. */
-function SecondaryActions({ clientId }: { clientId: string }) {
-  const quiet: React.CSSProperties = {
-    background: "none", border: 0, font: "inherit", fontSize: 13,
-    color: "var(--cv-muted)", cursor: "pointer", padding: 0,
-  };
-  const copyContract = async () => {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}/portal/${clientId}?focus=contract`);
-      toast.success("Contract link copied");
-    } catch {
-      toast.error("Could not copy link");
-    }
-  };
   const syncSureContact = async () => {
     const t = toast.loading("Syncing to SureContact…");
     try {
@@ -97,10 +72,21 @@ function SecondaryActions({ clientId }: { clientId: string }) {
       toast.error(e instanceof Error ? e.message : "Sync failed", { id: t });
     }
   };
+
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center" }}>
-      <button type="button" style={quiet} onClick={copyContract}>Contract link</button>
-      <button type="button" style={quiet} onClick={syncSureContact}>Sync to SureContact</button>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+      <button type="button" className="cv-open cv-open--dark" onClick={() => copy(`/portal/${clientId}`, "Portal link")}>
+        Copy portal link
+      </button>
+      <a className="cv-open" href={`/portal/${clientId}?as=admin`} target="_blank" rel="noreferrer">
+        Open portal
+      </a>
+      <button type="button" className="cv-open" onClick={() => copy(`/portal/${clientId}?focus=contract`, "Contract link")}>
+        Contract link
+      </button>
+      <button type="button" className="cv-open" onClick={syncSureContact}>
+        Sync to SureContact
+      </button>
     </div>
   );
 }
@@ -142,8 +128,6 @@ function IdentityCard({ client, clientId }: { client: ClientRecord; clientId: st
         <div><dt>Tier</dt><dd>{humanise(client.tier)}</dd></div>
         <div><dt>Stage</dt><dd>{humanise(client.pipeline_stage)}</dd></div>
       </dl>
-
-      <SecondaryActions clientId={clientId} />
     </section>
   );
 }
