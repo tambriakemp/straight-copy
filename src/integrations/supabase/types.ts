@@ -802,31 +802,46 @@ export type Database = {
       client_audits: {
         Row: {
           client_name: string
+          client_project_id: string | null
+          cover_note: string | null
           created_at: string
           id: string
+          kind: string | null
           password: string
           password_rotated_at: string
           report_url: string | null
+          reviewed_at: string | null
+          shared_at: string | null
           slug: string
           status: string
         }
         Insert: {
           client_name: string
+          client_project_id?: string | null
+          cover_note?: string | null
           created_at?: string
           id?: string
+          kind?: string | null
           password: string
           password_rotated_at?: string
           report_url?: string | null
+          reviewed_at?: string | null
+          shared_at?: string | null
           slug: string
           status?: string
         }
         Update: {
           client_name?: string
+          client_project_id?: string | null
+          cover_note?: string | null
           created_at?: string
           id?: string
+          kind?: string | null
           password?: string
           password_rotated_at?: string
           report_url?: string | null
+          reviewed_at?: string | null
+          shared_at?: string | null
           slug?: string
           status?: string
         }
