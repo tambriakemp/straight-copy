@@ -39,6 +39,7 @@ const Tokens = lazy(() => import("./pages/admin/Tokens.tsx"));
 const Invites = lazy(() => import("./pages/admin/Invites.tsx"));
 const ProjectDetail = lazy(() => import("./pages/admin/ProjectDetail.tsx"));
 const ProposalDetail = lazy(() => import("./pages/admin/ProposalDetail.tsx"));
+const ProposalUpload = lazy(() => import("./pages/admin/ProposalUpload.tsx"));
 const AllTasks = lazy(() => import("./pages/admin/AllTasks.tsx"));
 const Proposals = lazy(() => import("./pages/admin/Proposals.tsx"));
 const Payments = lazy(() => import("./pages/admin/Payments.tsx"));
@@ -99,6 +100,8 @@ const App = () => (
             <Route path="/admin/briefs" element={<Navigate to="/admin/today" replace />} />
             <Route path="/admin/clients" element={<RequireAdmin><ClientsList /></RequireAdmin>} />
             <Route path="/admin/proposals" element={<RequireAdmin><Proposals /></RequireAdmin>} />
+            {/* /new before /:id — otherwise "new" is read as a proposal id. */}
+            <Route path="/admin/proposals/new" element={<RequireAdmin><ProposalUpload /></RequireAdmin>} />
             <Route path="/admin/proposals/:id" element={<RequireAdmin><ProposalDetail /></RequireAdmin>} />
             <Route path="/admin/payments" element={<Navigate to="/admin/money" replace />} />
             <Route path="/admin/social" element={<Navigate to="/admin/marketing" replace />} />
