@@ -456,7 +456,8 @@ export default function Approvals() {
             <div style={{ fontSize: 14, color: "#C9CFDB" }}>Cutoff</div>
             <div style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.2 }}>{cutoff}</div>
             <div style={{ fontSize: 13, color: "#C9CFDB" }}>
-              Anything still pending then counts as a no. Emails send right after.
+              Anything still pending then rolls over to next month's batch for
+              priority review. Only approved previews go out.
             </div>
           </div>
           <div style={{ flex: "1 1 260px", minWidth: 0 }}>

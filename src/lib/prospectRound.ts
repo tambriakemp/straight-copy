@@ -6,7 +6,11 @@
 // 9:00 AM" when the real deadline was this morning reads exactly as
 // convincingly as one that is right.
 
-/** Monday 9:00 AM, Central. Anything still pending then counts as a no. */
+/**
+ * Monday 9:00 AM, Central. Anything still pending then rolls over into next
+ * month's batch for priority review rather than being treated as a no — only
+ * approved previews ever go out.
+ */
 export const CUTOFF_WEEKDAY = 1; // Monday
 export const CUTOFF_HOUR = 9;
 
