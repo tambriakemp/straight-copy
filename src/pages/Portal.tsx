@@ -1,6 +1,23 @@
+// The client portal's home, laid out to the Admin Journeys canvas.
+//
+// It was a wordmark header over a grid of project cards, and a client
+// with one project never saw it at all — the page redirected straight
+// into that project. The canvas makes Home a destination: what is
+// waiting on you, what you owe, what has just happened. That is worth
+// landing on whether you have one project or six, so the redirect is
+// gone.
+//
+// Proposals and Payments are the existing ProposalsSection and
+// InvoiceSection, rehomed rather than rebuilt. They own the sign, decline
+// and checkout flows, and nothing is gained by writing those twice.
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
-import { Workflow, FileSignature, Globe, Megaphone, ArrowRight } from "lucide-react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import PortalShell, { type PortalView } from "@/components/portal/PortalShell";
+import ProposalsSection from "@/components/portal/ProposalsSection";
+import InvoiceSection from "@/components/portal/InvoiceSection";
+import ProjectTypeIcon from "@/components/admin/cv/ProjectTypeIcon";
+import { projectTypeStyle } from "@/lib/projectType";
+import { usd } from "@/lib/clientBalance";
 
 type Project = { id: string; type: string; name: string; status: string; updated_at: string };
 type PortalClient = {
@@ -15,20 +32,14 @@ type PortalClient = {
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
-const TYPE_LABEL: Record<string, string> = {
-  automation_build: "Automation Build",
-  app_development: "App Development",
-  web_development: "Web Development",
-  marketing: "Marketing",
-  site_preview: "Site Preview",
-};
 
-const TYPE_ICON: Record<string, typeof Workflow> = {
-  automation_build: Workflow,
-  app_development: FileSignature,
-  web_development: Globe,
-  marketing: Megaphone,
-};
+interface PortalProposal {
+  id: string; title: string; status: string; client_project_id: string;
+  sent_at: string | null; client_signed_at: string | null; declined_at: string | null;
+}
+interface PortalInvoice {
+  id: string; label: string; amount_cents: number; status: string; due_date: string | null;
+}
 
 export default function Portal() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -58,6 +69,10 @@ export default function Portal() {
   const [notFound, setNotFound] = useState(false);
   const [client, setClient] = useState<PortalClient | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [view, setView] = useState<PortalView>("home");
+  const [proposals, setProposals] = useState<PortalProposal[]>([]);
+  const [openInvoices, setOpenInvoices] = useState<PortalInvoice[]>([]);
+  const [comingUp, setComingUp] = useState<PortalInvoice[]>([]);
 
   useEffect(() => {
     if (!clientId) return;
@@ -85,140 +100,277 @@ export default function Portal() {
     return () => { cancelled = true; };
   }, [clientId, adminPreview]);
 
-  const adminBanner = adminPreview ? (
-    <div className="portal-admin-banner" role="status" aria-live="polite">
-      <div className="portal-admin-banner__inner">
-        <span className="portal-admin-banner__badge">Admin preview</span>
-        <span className="portal-admin-banner__text">
-          You're viewing this portal as the client. Your admin session is unchanged.
-        </span>
-        <div className="portal-admin-banner__actions">
-          <a className="portal-admin-banner__btn" href="/admin" target="_blank" rel="noreferrer">
-            ← Back to admin
-          </a>
-          <button
-            type="button"
-            className="portal-admin-banner__btn portal-admin-banner__btn--ghost"
-            onClick={exitPreview}
-          >
-            Exit preview
-          </button>
-        </div>
-      </div>
-    </div>
-  ) : null;
+  // Proposals and invoices, through the same public actions the sections
+  // below use. Home summarises them; the sections are still what you act
+  // on, so there is one source for each and no second copy to drift.
+  useEffect(() => {
+    if (!clientId) return;
+    let cancelled = false;
+    (async () => {
+      const call = async (fn: string, body: Record<string, unknown>) => {
+        try {
+          const r = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
+            body: JSON.stringify(body),
+          });
+          return r.ok ? await r.json() : null;
+        } catch { return null; }
+      };
+      const [pr, inv, sched] = await Promise.all([
+        call("proposal-sign", { action: "list", clientId }),
+        call("project-invoices", { action: "portal-active", clientId }),
+        call("project-invoices", { action: "portal-schedule", clientId }),
+      ]);
+      if (cancelled) return;
+      setProposals((pr?.proposals ?? []) as PortalProposal[]);
+      setOpenInvoices((inv?.invoices ?? []) as PortalInvoice[]);
+      // Everything agreed but not yet sent, across every schedule.
+      const upcoming: PortalInvoice[] = [];
+      for (const p of (sched?.projects ?? []) as Array<{ schedules?: Array<{ invoices?: PortalInvoice[] }> }>) {
+        for (const s of p.schedules ?? []) {
+          for (const i of s.invoices ?? []) {
+            if (i.status !== "paid" && i.status !== "sent") upcoming.push(i);
+          }
+        }
+      }
+      setComingUp(upcoming);
+    })();
+    return () => { cancelled = true; };
+  }, [clientId]);
 
-  if (loading) {
-    return (
-      <div className="crm-shell">
-        {adminBanner}
-        <div className="portal-shell">
-          <div className="portal-loading">Loading…</div>
-        </div>
-      </div>
-    );
-  }
+  const qs = searchParams.toString() ? `?${searchParams.toString()}` : "";
+
+  const awaitingSignature = useMemo(
+    () => proposals.filter((p) => !p.client_signed_at && !p.declined_at && p.status === "sent"),
+    [proposals],
+  );
+  const dueNowCents = openInvoices.reduce((s, i) => s + (i.amount_cents ?? 0), 0);
+  const comingUpCents = comingUp.reduce((s, i) => s + (i.amount_cents ?? 0), 0);
+
+  /** The one list that says what the client has to do next. */
+  const todo = useMemo(() => {
+    const out: Array<{ key: string; icon: string; title: string; sub: string; to: string; cta: string }> = [];
+    for (const p of awaitingSignature) {
+      out.push({
+        key: `p:${p.id}`, icon: "\u270e",
+        title: `Sign the ${p.title}`,
+        sub: p.sent_at ? `Sent ${new Date(p.sent_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "Waiting on you",
+        to: `/portal/${clientId}/proposals/${p.id}${qs}`, cta: "Review and sign",
+      });
+    }
+    for (const i of openInvoices) {
+      out.push({
+        key: `i:${i.id}`, icon: "\u0024",
+        title: `Pay ${i.label}`,
+        sub: `${usd(i.amount_cents)}${i.due_date ? ` · due ${i.due_date}` : ""}`,
+        to: `/portal/${clientId}${qs}`, cta: "See payments",
+      });
+    }
+    return out;
+  }, [awaitingSignature, openInvoices, clientId, qs]);
+
+  /** Signed proposals and paid invoices, newest first. */
+  const recent = useMemo(() => {
+    const out: Array<{ key: string; what: string; when: string; at: string }> = [];
+    for (const p of proposals) {
+      if (p.client_signed_at) {
+        out.push({
+          key: `s:${p.id}`, what: `${p.title} signed`,
+          when: new Date(p.client_signed_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+          at: p.client_signed_at,
+        });
+      }
+    }
+    return out.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5);
+  }, [proposals]);
+
+  const shell = (body: React.ReactNode, v: PortalView | null = view) => (
+    <PortalShell
+      clientId={clientId!}
+      clientName={client?.contact_name || client?.business_name || "there"}
+      businessName={client?.business_name ?? null}
+      adminPreview={adminPreview}
+      onExitPreview={adminPreview ? exitPreview : undefined}
+      view={v}
+      onView={setView}
+      counts={{ proposals: awaitingSignature.length, feedback: undefined }}
+    >
+      {body}
+    </PortalShell>
+  );
+
+  if (loading) return shell(<p className="cv-page-sub">Loading…</p>, null);
 
   if (notFound || !client) {
     return (
-      <div className="crm-shell">
-        {adminBanner}
-        <div className="portal-shell">
-          <div className="portal-empty">
-            <div className="portal-empty__eyebrow">Portal</div>
-            <h1 className="portal-empty__title">Link <em>invalid</em>.</h1>
-            <p className="portal-empty__sub">
-              We couldn't find a client matching this portal link. Please double-check the URL or
-              reach out to your CRE8 contact.
+      <div className="cv-admin cv-portal">
+        <div className="cv-portal__body">
+          <section className="cv-card cv-card-pad" style={{ margin: "0 auto", maxWidth: 520 }}>
+            <h1 className="cv-page-title">This link isn't working</h1>
+            <p className="cv-page-sub">
+              We couldn't find a client for this portal link. Check the URL, or
+              reply to our last email and we'll send a fresh one.
             </p>
-          </div>
+          </section>
         </div>
       </div>
     );
   }
 
   const visible = projects.filter((p) => p.type !== "site_preview");
+  const firstName = (client.contact_name || "").trim().split(/\s+/).slice(-1)[0] || client.business_name || "";
 
-  // Single project → land directly on it (preserves the original 1-click experience).
-  if (visible.length === 1) {
-    const qs = searchParams.toString();
-    return <Navigate to={`/portal/${clientId}/projects/${visible[0].id}${qs ? `?${qs}` : ""}`} replace />;
-  }
-
-  const businessName = client.business_name || "Your Brand";
-
-  if (visible.length === 0) {
-    return (
-      <div className="crm-shell">
-        {adminBanner}
-        <div className="portal-shell">
-          <div className="portal-empty">
-            <div className="portal-empty__eyebrow">Portal</div>
-            <h1 className="portal-empty__title">Nothing here <em>yet</em>.</h1>
-            <p className="portal-empty__sub">
-              Your CRE8 team is setting up your first project. We'll email you the moment it's ready.
-            </p>
-          </div>
+  if (!visible.length) {
+    return shell(
+      <div className="cv-pg">
+        <div>
+          <h1 className="cv-page-title">Welcome{firstName ? `, ${firstName}` : ""}</h1>
+          <p className="cv-page-sub">Your Cre8 Visions team is setting up your first project.</p>
         </div>
-      </div>
+        <section className="cv-card cv-card-pad">
+          <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>
+            We'll email you the moment there's something to look at.
+          </p>
+        </section>
+      </div>,
     );
   }
 
-  return (
-    <div className="crm-shell">
-      {adminBanner}
-      <div className="portal-shell">
-        <header className="portal-header">
-          <div className="portal-header__left">
-            <div className="portal-header__wordmark">Cre8<span className="dot">·</span>Portal</div>
+  const projectRow = (p: Project) => {
+    const t = projectTypeStyle(p.type);
+    const needsYou = awaitingSignature.some((x) => x.client_project_id === p.id);
+    return (
+      <Link key={p.id} className="cv-it" to={`/portal/${clientId}/projects/${p.id}${qs}`}>
+        <span className="cv-ic" style={{ background: t.bg, color: t.fg }}>
+          <ProjectTypeIcon type={p.type} size={46} />
+        </span>
+        <span className="cv-it__what"><b>{p.name}</b><small>{t.label}</small></span>
+        <span className={`cv-chip ${needsYou ? "cv-chip--amber" : "cv-chip--green"}`}>
+          {needsYou ? "Waiting on you" : "In progress"}
+        </span>
+      </Link>
+    );
+  };
+
+  const home = (
+    <div className="cv-pg">
+      <div>
+        <h1 className="cv-page-title">Welcome back{firstName ? `, ${firstName}` : ""}</h1>
+        <p className="cv-page-sub">Here's where everything stands with Cre8 Visions.</p>
+      </div>
+
+      {/* Only when there IS something. An empty "Waiting on you" card is a
+          dark block at the top of the page that says you are behind on
+          nothing, which is worse than no card. */}
+      {todo.length > 0 && (
+        <section className="cv-card cv-card-pad" style={{ background: "var(--cv-ink)", color: "#fff" }}>
+          <div className="cv-card-head">
+            <h2 className="cv-card-title" style={{ color: "#fff" }}>Waiting on you</h2>
+            <span className="cv-chip" style={{ background: "#E8590C", color: "#fff" }}>{todo.length}</span>
           </div>
-        </header>
+          {todo.map((t) => (
+            <div key={t.key} className="cv-it cv-it--onink">
+              <span className="cv-ic" style={{ background: "#262B36", color: "#fff" }}>{t.icon}</span>
+              <span className="cv-it__what"><b>{t.title}</b><small>{t.sub}</small></span>
+              <Link className="cv-open cv-open--white" style={{ padding: "0 16px" }} to={t.to}>{t.cta}</Link>
+            </div>
+          ))}
+        </section>
+      )}
 
-        <main className="portal-main">
-          <section className="portal-hero">
-            <div className="portal-hero__eyebrow">Your Projects</div>
-            <h1 className="portal-hero__title">
-              {businessName.split(" ").slice(0, -1).join(" ") || businessName}{" "}
-              {businessName.split(" ").length > 1 && (
-                <em>{businessName.split(" ").slice(-1)[0]}</em>
-              )}
-              {businessName.split(" ").length === 1 && <em>.</em>}
-            </h1>
-            <hr className="portal-hero__rule" />
-            <p className="portal-hero__sub">
-              Welcome{client.contact_name ? `, ${client.contact_name}` : ""}. Choose a project to continue.
-            </p>
-          </section>
+      <div className="cv-stat-row" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+        <div className="cv-card cv-stat cv-stat--left">
+          <span>Active projects</span><b>{visible.length}</b>
+          <small>Tap Projects to see each one</small>
+        </div>
+        <div className="cv-card cv-stat cv-stat--left">
+          <span>Due now</span><b>{usd(dueNowCents)}</b>
+          <small>{dueNowCents ? `${openInvoices.length} invoice${openInvoices.length === 1 ? "" : "s"} to pay` : "You're all caught up"}</small>
+        </div>
+        <div className="cv-card cv-stat cv-stat--left">
+          <span>Coming up</span><b>{usd(comingUpCents)}</b>
+          <small>{comingUp[0]?.label ?? "Nothing scheduled"}</small>
+        </div>
+      </div>
 
-          <section style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", marginTop: 24 }}>
-            {visible.map((p) => {
-              const Icon = TYPE_ICON[p.type] ?? Workflow;
-              const qs = searchParams.toString();
-              const href = `/portal/${clientId}/projects/${p.id}${qs ? `?${qs}` : ""}`;
-              return (
-                <Link
-                  key={p.id}
-                  to={href}
-                  className="portal-access is-open"
-                  style={{ textDecoration: "none", display: "block", scrollMarginTop: 24 }}
-                >
-                  <div className="portal-access__toggle" style={{ cursor: "pointer" }}>
-                    <div className="portal-access__toggle-left">
-                      <div className="portal-access__eyebrow" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        <Icon size={12} /> {TYPE_LABEL[p.type] ?? p.type}
-                      </div>
-                      <h2 className="portal-access__title">{p.name}</h2>
-                    </div>
-                    <div className="portal-access__toggle-right">
-                      <span className="portal-access__status">Open <ArrowRight size={12} style={{ display: "inline", marginLeft: 4 }} /></span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </section>
-        </main>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
+        <section className="cv-card cv-card-pad" style={{ flex: "3 1 420px", minWidth: 0 }}>
+          <div className="cv-card-head">
+            <h2 className="cv-card-title">Your projects</h2>
+            <span style={{ flex: 1 }} />
+            {visible.length > 3 && (
+              <button type="button" className="cv-open" style={{ padding: "0 16px" }} onClick={() => setView("projects")}>
+                See all
+              </button>
+            )}
+          </div>
+          {visible.slice(0, 3).map(projectRow)}
+        </section>
+
+        <section className="cv-card cv-card-pad" style={{ flex: "2 1 300px", minWidth: 0 }}>
+          <div className="cv-card-head"><h2 className="cv-card-title">Recent</h2></div>
+          {!recent.length ? (
+            <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>Nothing yet.</p>
+          ) : (
+            <div style={{ fontSize: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+              {recent.map((r) => (
+                <div key={r.key}>
+                  {r.what}
+                  <br />
+                  <span style={{ fontSize: 13, color: "var(--cv-muted)" }}>{r.when}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
+  );
+
+  const projectsView = (
+    <div className="cv-pg">
+      <div>
+        <h1 className="cv-page-title">Your projects</h1>
+        <p className="cv-page-sub">Everything Cre8 Visions is building for you.</p>
+      </div>
+      <section className="cv-card cv-card-pad">{visible.map(projectRow)}</section>
+    </div>
+  );
+
+  const proposalsView = (
+    <div className="cv-pg">
+      <div>
+        <h1 className="cv-page-title">Proposals</h1>
+        <p className="cv-page-sub">Everything we've sent you, and what you've signed.</p>
+      </div>
+      {/* The existing section, unchanged: it already lists every proposal
+          across every project and owns the sign and decline flow. */}
+      <ProposalsSection clientId={clientId!} contactName={client.contact_name} />
+    </div>
+  );
+
+  const paymentsView = (
+    <div className="cv-pg">
+      <div>
+        <h1 className="cv-page-title">Payments</h1>
+        <p className="cv-page-sub">What's been paid, what's due, and what's coming.</p>
+      </div>
+      {/* Likewise: InvoiceSection is the paying surface and carries the
+          checkout links. Rehoming it here rather than rebuilding it is how
+          nothing stops working. */}
+      <InvoiceSection clientId={clientId!} />
+      {/* Subscription is NOT here yet. It needs the tier and the current
+          subscription state, both of which the project page loads — so it
+          stays there until that page is rebuilt and it can be placed
+          deliberately rather than wired half-way. */}
+    </div>
+  );
+
+  return shell(
+    view === "projects" ? projectsView
+      : view === "proposals" ? proposalsView
+        : view === "payments" ? paymentsView
+          : home,
   );
 }

@@ -896,6 +896,62 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-simple-list__sub { font-size: 12px; color: var(--cv-muted); }
 .cv-simple-list__when { font-size: 13px; color: var(--cv-muted); white-space: nowrap; }
 
+/* ---------- Client portal (Admin Journeys canvas) ----------
+   The portal shares the admin's primitives — .cv-card, .cv-chip, .cv-open,
+   .cv-stat, .cv-ic — so the two stay one system. These are the pieces only
+   the portal has. */
+.cv-portal { display: flex; flex-direction: column; min-height: 100vh; background: var(--cv-bg); }
+.cv-portal__body { flex: 1; display: flex; flex-wrap: wrap; gap: 20px; padding: 20px; box-sizing: border-box; }
+.cv-portal__nav { flex: 1 1 230px; padding: 22px 16px; display: flex; flex-direction: column; }
+.cv-portal__main { flex: 999 1 560px; min-width: 0; }
+.cv-pg { display: flex; flex-direction: column; gap: 20px; }
+
+/* A nav item. Full width, left aligned, with room for a count on the right. */
+.cv-ni {
+  display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box;
+  text-align: left; padding: 12px 14px; border-radius: 14px; border: 0; background: transparent;
+  font-family: inherit; font-size: 15px; color: var(--cv-muted); text-decoration: none;
+  margin-bottom: 4px; cursor: pointer; min-height: 46px;
+}
+.cv-ni:hover { background: var(--cv-bg); color: var(--cv-ink); }
+.cv-ni--on { background: var(--cv-ink); color: var(--cv-card); font-weight: 500; }
+.cv-ni--on:hover { background: var(--cv-ink); color: var(--cv-card); }
+/* Orange, not the accent: this is a count of things the CLIENT has to do,
+   and it has to read as different from the blue the admin uses for its
+   own counts. */
+.cv-ni__n {
+  margin-left: auto; font-size: 12px; font-weight: 600; background: #E8590C;
+  color: var(--cv-card); border-radius: 999px; padding: 1px 8px;
+}
+
+/* One row of anything: an item waiting on you, a project, a file. */
+.cv-it {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+  padding: 16px; border-radius: 18px; background: var(--cv-sunken);
+  text-decoration: none; color: var(--cv-ink);
+}
+.cv-it + .cv-it { margin-top: 10px; }
+.cv-it__what { flex: 1 1 240px; min-width: 0; }
+.cv-it__what b { font-size: 16px; font-weight: 600; overflow-wrap: break-word; }
+.cv-it__what small { display: block; font-size: 13px; color: var(--cv-muted); overflow-wrap: break-word; }
+/* On the dark "Waiting on you" card the sunken fill disappears, so the
+   rows get their own lift and their text has to come back up. */
+.cv-it--onink { background: #1B1F27; color: var(--cv-card); }
+.cv-it--onink .cv-it__what small { color: #C9CFDB; }
+.cv-open--white { background: var(--cv-card); color: var(--cv-ink); }
+.cv-open--white:hover { background: var(--cv-bg); color: var(--cv-ink); }
+
+.cv-portal__help { background: var(--cv-sunken); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.cv-portal__me { margin-top: auto; padding: 18px 8px 0; display: flex; align-items: center; gap: 10px; }
+
+/* The admin-preview strip. Blue and loud on purpose — it is the one thing
+   on screen that is not true for the client. */
+.cv-portal__asadmin {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  background: var(--cv-accent); color: var(--cv-card); padding: 8px 20px; font-size: 13px;
+}
+.cv-portal__asadmin a { color: var(--cv-card); padding: 10px 0; }
+
 /* ---------- Feedback board (Admin Journeys canvas) ----------
    A full-bleed surface, not a page in the shell: the page under review
    gets the room, and the comment rail sits beside it. Measured off the
