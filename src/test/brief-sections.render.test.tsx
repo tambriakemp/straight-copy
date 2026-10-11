@@ -66,7 +66,7 @@ describe("brief sections (CRE-366)", () => {
       outreach_round: {
         date: "2026-10-12", pending: 35,
         cutoff: new Date(Date.now() + 4 * 86_400_000).toISOString(),
-        note: "Still pending at the cutoff counts as a no.",
+        note: "Still pending at the cutoff rolls over to next month's batch.",
       },
       hot_leads: [{
         id: "lead-kahin", name: "Dr. Kahin · Menovia",
@@ -77,7 +77,7 @@ describe("brief sections (CRE-366)", () => {
     render(<PipelineBriefCard pipeline={pipeline} {...noop} briefDate="2026-10-08" />);
 
     expect(screen.getByText("35 pending")).toBeInTheDocument();
-    expect(screen.getByText(/Still pending at the cutoff/)).toBeInTheDocument();
+    expect(screen.getByText(/Still pending at the cutoff rolls over/)).toBeInTheDocument();
     expect(screen.getByText("Cutoff in 4 days")).toBeInTheDocument();
     expect(screen.getByText("Dr. Kahin · Menovia")).toBeInTheDocument();
     expect(screen.getByText("Proposal sent")).toHaveClass("cv-chip--amber");
