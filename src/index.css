@@ -422,9 +422,17 @@
 .cv-empty__subtitle { font-size: 14px; max-width: 420px; }
 
 /* ---------- Today (CRE-332 Phase 2) ---------- */
-/* Three, not four, and 20px gaps to match the canvas. auto-fit so a
-   narrow window drops to two then one rather than squeezing three. */
-.cv-kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 20px; padding: 0 20px 20px; }
+/* One gap, declared once. The canvas's page column is a flex column with
+   gap 20 and padding 20, and every block in it carries no margin of its
+   own — which is the whole point: spacing each block separately is how the
+   top line ended up flush against the KPI row with no gap at all, because
+   .cv-topline had no bottom margin and .cv-kpi-row had no top padding and
+   nothing owned the space between them. */
+.cv-today { display: flex; flex-direction: column; gap: 20px; padding: 20px; }
+
+/* Three, not four. auto-fit so a narrow window drops to two then one
+   rather than squeezing three. */
+.cv-kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 20px; }
 
 /* Centred, not left-aligned — measured off the canvas: 22px padding,
    flex column, 6px gap, align-items center. The old left-aligned 18/20
@@ -441,7 +449,7 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 
 /* 1.5/1, measured off the canvas at 1600: 769 and 506 either side of a
    20px gap. 2fr/1fr made the right column too narrow for the calendar. */
-.cv-today-body { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; padding: 0 20px 24px; align-items: start; }
+.cv-today-body { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .cv-today-body > * { min-width: 0; }
 @media (max-width: 1100px) { .cv-today-body { grid-template-columns: 1fr; } }
 
@@ -496,7 +504,7 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 /* ---------- Today header + top line (Admin Journeys canvas) ---------- */
 .cv-today-head {
   display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; padding: 20px 20px 0;
+  gap: 12px; flex-wrap: wrap;
 }
 .cv-today-head__title { font-size: 28px; font-weight: 600; margin: 0; letter-spacing: normal; }
 .cv-today-head__sub { font-size: 14px; color: var(--cv-muted); margin: 2px 0 0; }
@@ -524,7 +532,7 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 /* The one dark surface on the page, full width above everything. It frames
    the day, so it reads before the day rather than beside it. */
 .cv-topline {
-  margin: 20px 20px 0; padding: 22px; border-radius: var(--cv-r);
+  padding: 22px; border-radius: var(--cv-r);
   background: var(--cv-ink); color: #fff;
   display: flex; flex-direction: column; gap: 12px;
 }
