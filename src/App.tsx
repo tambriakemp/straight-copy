@@ -51,6 +51,7 @@ const Agents = lazy(() => import("./pages/admin/Agents.tsx"));
 const More = lazy(() => import("./pages/admin/More.tsx"));
 const Pipeline = lazy(() => import("./pages/admin/Pipeline.tsx"));
 const PreviewViewer = lazy(() => import("./pages/PreviewViewer.tsx"));
+const AuditReport = lazy(() => import("./pages/AuditReport.tsx"));
 const RequireAdmin = lazy(() => import("./components/admin/RequireAdmin.tsx"));
 const RequireWiki = lazy(() => import("./components/admin/RequireWiki.tsx"));
 const WikiList = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => ({ default: module.WikiList })));
@@ -96,13 +97,13 @@ const App = () => (
                 layout now. Today/Money/Marketing/More/Pipeline are the real
                 homes; the old routes below redirect so bookmarks and old
                 links still arrive. Prospects is the real page now and
-                /admin/approvals the redirect — it was the other way round
+                /admin/approvals the redirect -- it was the other way round
                 while the page was still called Approvals. */}
             <Route path="/admin" element={<Navigate to="/admin/today" replace />} />
             <Route path="/admin/briefs" element={<Navigate to="/admin/today" replace />} />
             <Route path="/admin/clients" element={<RequireAdmin><ClientsList /></RequireAdmin>} />
             <Route path="/admin/proposals" element={<RequireAdmin><Proposals /></RequireAdmin>} />
-            {/* /new before /:id — otherwise "new" is read as a proposal id. */}
+            {/* /new before /:id -- otherwise "new" is read as a proposal id. */}
             <Route path="/admin/proposals/new" element={<RequireAdmin><ProposalUpload /></RequireAdmin>} />
             <Route path="/admin/proposals/:id" element={<RequireAdmin><ProposalDetail /></RequireAdmin>} />
             <Route path="/admin/payments" element={<Navigate to="/admin/money" replace />} />
@@ -140,6 +141,7 @@ const App = () => (
             <Route path="/admin/wiki/:slug/edit" element={<RequireWiki><WikiEdit mode="edit" /></RequireWiki>} />
             <Route path="/admin/wiki/:slug/history" element={<RequireWiki><WikiHistory /></RequireWiki>} />
             <Route path="/p/:slug/*" element={<PreviewViewer />} />
+            <Route path="/audit/:slug" element={<AuditReport />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
