@@ -11,7 +11,8 @@ import MoneyCard from "../components/admin/cv/MoneyCard";
 import DoneTimelineCard from "../components/admin/cv/DoneTimelineCard";
 import ApprovalsCard from "../components/admin/cv/ApprovalsCard";
 import PipelineBriefCard from "../components/admin/cv/PipelineBriefCard";
-import type { MoneyStats, DoneItem, ApprovalCard as ApprovalCardData, BriefPipeline } from "../lib/briefs";
+import InFlightCard from "../components/admin/cv/InFlightCard";
+import type { MoneyStats, DoneItem, ApprovalCard as ApprovalCardData, BriefPipeline, InFlightItem } from "../lib/briefs";
 import type { PipelineBoard } from "../lib/pipelineBoard";
 
 vi.mock("../lib/pipelineBoard", async () => {
@@ -100,5 +101,21 @@ describe("brief sections (CRE-366)", () => {
     expect(screen.getByText("35")).toBeInTheDocument(); // outreach round pending
     expect(screen.getByText("Dr. Kahin · Menovia")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "CRE-267" })).toHaveAttribute("href", "https://paperclip.cre8visions.com/CRE/issues/CRE-267");
+  });
+
+  it("InFlightCard (CRE-388) renders a status icon per row and links task_ids", () => {
+    const items: InFlightItem[] = [
+      { id: "if-1", title: "Menovia App Store review", status: "stuck", category: "Menovia", task_ids: ["CRE-351"] },
+      { id: "if-2", title: "Waiting on Bree's Lovable SQL", status: "blocked", category: "cre8visions.com" },
+    ];
+    render(<InFlightCard items={items} {...noop} briefDate="2026-10-11" />);
+    expect(screen.getByText("Menovia App Store review")).toBeInTheDocument();
+    expect(screen.getByText("Waiting on Bree's Lovable SQL")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "CRE-351" })).toHaveAttribute("href", "https://paperclip.cre8visions.com/CRE/issues/CRE-351");
+  });
+
+  it("InFlightCard renders nothing when there are no items", () => {
+    const { container } = render(<InFlightCard items={[]} {...noop} briefDate="2026-10-11" />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

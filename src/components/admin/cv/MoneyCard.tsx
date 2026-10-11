@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowDownRight, ArrowUpRight, CalendarClock, DollarSign, FileText, Minus, Sparkles, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowDownRight, ArrowUpRight, CalendarClock, CircleDollarSign, DollarSign, FileText, Minus, Sparkles, type LucideIcon } from "lucide-react";
 import type { MoneyStatCard, MoneyStats, MoneyTrend } from "@/lib/briefs";
 import { LinkifiedText } from "./IssueLinks";
 
@@ -55,7 +55,11 @@ export default function MoneyCard({ stats }: { stats: MoneyStats }) {
     <div className="cv-money">
       <div className="cv-money__head">
         <div>
-          <div className="cv-money__eyebrow">Money</div>
+          <div className="cv-money__eyebrow">
+            <span className="cv-section__icon"><CircleDollarSign size={13} /></span>
+            Money
+            <span className="cv-section__count">{stats.cards.length}</span>
+          </div>
           <div className="cv-money__title">
             <h3>This week</h3>
             {stats.range_label && <span className="cv-money__range">{stats.range_label}</span>}

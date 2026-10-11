@@ -40,6 +40,14 @@
 // there is nothing stage-shaped to validate here. Validation below is
 // loose on purpose (checks shape, not business meaning) — same spirit as
 // `validateCalendarEvents`.
+//
+// CRE-388: two more optional siblings — `needs_you`, `in_flight`. The old
+// markdown "Needs You" section is retired outright (the frontend hides it
+// unconditionally now, not just when this field is present) — its rows
+// merge into the Today page's live "Needs you now" panel instead.
+// `in_flight` gets its own new card, same present/absent fallback as the
+// CRE-366 fields. Both reuse `task_ids` (not `issue`, singular) to match
+// the done_items/approvals shape rather than the old per-section-item one.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -203,6 +211,47 @@ function validateApprovals(value: unknown): string | null {
   return null;
 }
 
+const NEEDS_YOU_PRIORITIES = ["high", "normal"];
+
+function validateNeedsYou(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value)) return "needs_you must be an array or null";
+  for (const n of value) {
+    if (!n || typeof n !== "object") return "each needs_you entry must be an object";
+    const item = n as Record<string, unknown>;
+    if (!isNonEmptyString(item.id)) return "every needs_you entry needs a non-empty id";
+    if (!isNonEmptyString(item.title)) return "every needs_you entry needs a non-empty title";
+    if (!isNonEmptyString(item.category)) return "every needs_you entry needs a non-empty category";
+    if (!isStringOrNull(item.body)) return "needs_you entry.body must be a string or null";
+    if (!isStringOrNull(item.next_step)) return "needs_you entry.next_step must be a string or null";
+    if (item.priority !== undefined && !NEEDS_YOU_PRIORITIES.includes(item.priority as string)) {
+      return `needs_you entry.priority must be one of ${NEEDS_YOU_PRIORITIES.join(", ")}`;
+    }
+    if (item.task_ids !== undefined && !isStringArray(item.task_ids)) return "needs_you entry.task_ids must be an array of strings";
+  }
+  return null;
+}
+
+const IN_FLIGHT_STATUSES = ["stuck", "blocked", "in_progress"];
+
+function validateInFlight(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value)) return "in_flight must be an array or null";
+  for (const n of value) {
+    if (!n || typeof n !== "object") return "each in_flight entry must be an object";
+    const item = n as Record<string, unknown>;
+    if (!isNonEmptyString(item.id)) return "every in_flight entry needs a non-empty id";
+    if (!isNonEmptyString(item.title)) return "every in_flight entry needs a non-empty title";
+    if (!isNonEmptyString(item.category)) return "every in_flight entry needs a non-empty category";
+    if (!IN_FLIGHT_STATUSES.includes(item.status as string)) {
+      return `every in_flight entry needs a status, one of ${IN_FLIGHT_STATUSES.join(", ")}`;
+    }
+    if (!isStringOrNull(item.body)) return "in_flight entry.body must be a string or null";
+    if (item.task_ids !== undefined && !isStringArray(item.task_ids)) return "in_flight entry.task_ids must be an array of strings";
+  }
+  return null;
+}
+
 function validate(body: unknown): string | null {
   if (!body || typeof body !== "object") return "body must be an object";
   const b = body as Record<string, unknown>;
@@ -255,6 +304,10 @@ function validate(body: unknown): string | null {
   if (b.done_range !== undefined && b.done_range !== null && typeof b.done_range !== "object") {
     return "done_range must be an object or null";
   }
+  const needsYouProblem = validateNeedsYou(b.needs_you);
+  if (needsYouProblem) return needsYouProblem;
+  const inFlightProblem = validateInFlight(b.in_flight);
+  if (inFlightProblem) return inFlightProblem;
   return null;
 }
 
@@ -306,17 +359,23 @@ Deno.serve(async (req) => {
     done_items?: unknown;
     done_range?: unknown;
     approvals?: unknown;
+    needs_you?: unknown;
+    in_flight?: unknown;
   };
 
-  // CRE-366: every new field is optional and nullable, same pattern as
-  // calendar_events — a brief that never sends them stores null and the
-  // frontend falls back to markdown exactly as it did before this landed.
+  // CRE-366/CRE-388: every new field is optional and nullable, same pattern
+  // as calendar_events — a brief that never sends them stores null and the
+  // frontend falls back to markdown exactly as it did before this landed
+  // (except needs_you's own markdown section, which the frontend now hides
+  // unconditionally — see Today.tsx).
   const newFields = {
     money_stats: b.money_stats ?? null,
     pipeline: b.pipeline ?? null,
     done_items: b.done_items ?? null,
     done_range: b.done_range ?? null,
     approvals: b.approvals ?? null,
+    needs_you: b.needs_you ?? null,
+    in_flight: b.in_flight ?? null,
   };
 
   if (b.external_id) {

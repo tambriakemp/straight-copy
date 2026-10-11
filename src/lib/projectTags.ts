@@ -18,6 +18,15 @@ const KNOWN_PROJECT_TAGS: Record<string, ProjectTagStyle> = {
   rentals: { label: "Rentals", bg: "#e6f6f3", fg: "#0f766e", border: "#c3ebe3" },
   inbox: { label: "Inbox", bg: "#f3f4f6", fg: "#4b5563", border: "#e5e7eb" },
   security: { label: "Security", bg: "#fff6e8", fg: "#b45309", border: "#fde6c2" },
+  // CRE-388: the live paperclip_pending_items/prospect/proposal/invoice
+  // "kind" values, reused as-is for the merged Needs-you-now list's
+  // category pill instead of inventing a second label for the same thing.
+  approval: { label: "Approval", bg: "#eef0ff", fg: "#4338ca", border: "#dfe2ff" },
+  interaction: { label: "Interaction", bg: "#f3effe", fg: "#6d28d9", border: "#e6dcfd" },
+  "prospect approvals": { label: "Prospect approvals", bg: "#fdf0f6", fg: "#be185d", border: "#fadbe9" },
+  "proposal draft": { label: "Proposal draft", bg: "#fdf0f6", fg: "#be185d", border: "#fadbe9" },
+  "client profile": { label: "Client profile", bg: "#e6f6f3", fg: "#0f766e", border: "#c3ebe3" },
+  "overdue invoice": { label: "Overdue invoice", bg: "#fff6e8", fg: "#b45309", border: "#fde6c2" },
 };
 
 const FALLBACK_TAG: Omit<ProjectTagStyle, "label"> = { bg: "#f3f4f6", fg: "#4b5563", border: "#e5e7eb" };

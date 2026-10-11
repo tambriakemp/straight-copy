@@ -35,7 +35,11 @@ export default function DoneTimelineCard({
     <div className="cv-donetl">
       <div className="cv-donetl__head">
         <div>
-          <div className="cv-donetl__eyebrow">Done</div>
+          <div className="cv-donetl__eyebrow">
+            <span className="cv-section__icon"><Check size={13} strokeWidth={3} /></span>
+            Done
+            <span className="cv-section__count">{items.length}</span>
+          </div>
           <div className="cv-donetl__title"><h3>Since last digest</h3><span className="cv-donetl__range">{rangeLabel(range, items.length)}</span></div>
         </div>
         <div className="cv-donetl__legend">

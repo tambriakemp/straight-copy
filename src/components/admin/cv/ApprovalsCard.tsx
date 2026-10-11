@@ -1,3 +1,4 @@
+import { CircleCheck } from "lucide-react";
 import CvCheckbox from "./CvCheckbox";
 import ProjectTag from "./ProjectTag";
 import { IssueRefChips, LinkifiedText } from "./IssueLinks";
@@ -70,7 +71,11 @@ export default function ApprovalsCard({
     <div className="cv-approvals">
       <div className="cv-approvals__head">
         <div>
-          <div className="cv-approvals__eyebrow">Decisions</div>
+          <div className="cv-approvals__eyebrow">
+            <span className="cv-section__icon"><CircleCheck size={13} /></span>
+            Decisions
+            <span className="cv-section__count">{approvals.length}</span>
+          </div>
           <div className="cv-approvals__title">
             <h3>Awaiting your approval</h3>
             <span className="cv-approvals__range">{approvals.length} decision{approvals.length === 1 ? "" : "s"} · only real choices, no FYIs</span>
