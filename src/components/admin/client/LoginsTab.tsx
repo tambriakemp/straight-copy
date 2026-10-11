@@ -194,15 +194,27 @@ export default function LoginsTab({
           </button>
         </div>
 
-        {!logins.length ? (
+        {!rows.length ? (
           <EmptyState title="No logins saved" subtitle="Add the accounts you hold for this client." />
-        ) : logins.map((l) => {
+        ) : rows.map((l) => {
           const { icon: Icon, bg, fg } = iconFor(l.label);
           const shown = revealed[l.id];
           const sub = subtitleFor(l);
           const href = hrefFor(l.url);
           return (
-            <div key={l.id} className="cv-lg">
+            <div
+              key={l.id} className="cv-lg"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => dropOn(l.id)}
+            >
+              <span
+                draggable
+                onDragStart={() => { dragId.current = l.id; }}
+                title="Drag to reorder"
+                style={{ cursor: "grab", color: "var(--cv-muted)", display: "flex", alignItems: "center", touchAction: "none" }}
+              >
+                <GripVertical size={18} />
+              </span>
               <span className="cv-ic" style={{ background: bg, color: fg }}><Icon size={22} /></span>
               <span className="cv-lg__who">
                 <b>{l.label}</b>
