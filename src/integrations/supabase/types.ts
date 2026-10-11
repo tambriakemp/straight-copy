@@ -678,7 +678,9 @@ export type Database = {
           done_range: Json | null
           external_id: string | null
           id: string
+          in_flight: Json | null
           money_stats: Json | null
+          needs_you: Json | null
           period: string
           pipeline: Json | null
           sections: Json
@@ -694,7 +696,9 @@ export type Database = {
           done_range?: Json | null
           external_id?: string | null
           id?: string
+          in_flight?: Json | null
           money_stats?: Json | null
+          needs_you?: Json | null
           period: string
           pipeline?: Json | null
           sections: Json
@@ -710,7 +714,9 @@ export type Database = {
           done_range?: Json | null
           external_id?: string | null
           id?: string
+          in_flight?: Json | null
           money_stats?: Json | null
+          needs_you?: Json | null
           period?: string
           pipeline?: Json | null
           sections?: Json
