@@ -896,6 +896,98 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-simple-list__sub { font-size: 12px; color: var(--cv-muted); }
 .cv-simple-list__when { font-size: 13px; color: var(--cv-muted); white-space: nowrap; }
 
+/* ---------- Feedback board (Admin Journeys canvas) ----------
+   A full-bleed surface, not a page in the shell: the page under review
+   gets the room, and the comment rail sits beside it. Measured off the
+   canvas: .pin, .tool, .ptab, .cm, .av, .num. */
+.cv-fb { display: flex; flex-direction: column; height: 100vh; background: var(--cv-bg); }
+.cv-fb__bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  background: var(--cv-card); padding: 10px 20px; flex-shrink: 0;
+}
+.cv-fb__body { flex: 1; display: flex; flex-wrap: wrap; min-height: 0; }
+.cv-fb__stage {
+  flex: 999 1 520px; min-width: 0; box-sizing: border-box; padding: 20px;
+  display: flex; flex-direction: column; gap: 14px; min-height: 0;
+}
+
+/* The page under review, on a white card. position:relative so the pins
+   and the click-catcher can sit over it. */
+.cv-fb__page {
+  position: relative; flex: 1; min-height: 640px; background: var(--cv-card);
+  border-radius: 18px; box-shadow: 0 2px 14px rgba(14, 17, 22, 0.06); overflow: hidden;
+}
+.cv-fb__page iframe, .cv-fb__page img { display: block; width: 100%; height: 100%; border: 0; }
+.cv-fb__page img { object-fit: contain; object-position: top; }
+/* Transparent, covering everything, and only present while the Comment
+   tool is on — it has to swallow the click, so leaving it up in Browse
+   mode would make the page unusable. */
+.cv-fb__catch { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; border: 0; cursor: crosshair; }
+.cv-fb__empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; height: 100%; padding: 40px; text-align: center; font-size: 13px; color: var(--cv-muted);
+}
+
+.cv-pin {
+  position: absolute; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
+  border: 3px solid var(--cv-card); background: var(--cv-accent); color: var(--cv-card);
+  font-size: 14px; font-weight: 600; box-shadow: 0 4px 14px rgba(14, 17, 22, 0.25);
+  display: grid; place-items: center; cursor: pointer; font-family: inherit; padding: 0;
+}
+.cv-pin--new { background: var(--cv-ink); }
+.cv-pin--done { background: #1E8E4E; }
+.cv-pin--sel { outline: 3px solid var(--cv-ink); outline-offset: 2px; }
+
+/* The floating tool bar over the page. */
+.cv-fb__tools {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px; background: var(--cv-ink);
+  border-radius: 16px; padding: 6px;
+}
+.cv-tool {
+  width: 44px; height: 44px; border-radius: 12px; border: 0; background: transparent;
+  color: #C9CFDB; display: grid; place-items: center; cursor: pointer; font-family: inherit;
+}
+.cv-tool--on { background: var(--cv-accent); color: var(--cv-card); }
+.cv-tool--wide { width: auto; padding: 0 16px; gap: 8px; display: inline-flex; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; }
+
+/* The rail. Darker than the page so it reads as chrome around the work. */
+.cv-fb__rail { flex: 1 1 380px; min-width: 0; background: #E9ECF3; display: flex; flex-direction: column; min-height: 0; }
+.cv-fb__tabs { background: var(--cv-ink); padding: 0 20px; display: flex; align-items: center; flex-shrink: 0; }
+.cv-ptab {
+  font-family: inherit; font-size: 15px; min-height: 56px; padding: 0 4px; margin-right: 22px;
+  border: 0; border-bottom: 3px solid transparent; background: transparent;
+  color: #C9CFDB; cursor: pointer;
+}
+.cv-ptab--on { color: var(--cv-card); font-weight: 500; border-bottom-color: #6E8BFF; }
+.cv-fb__railbody { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow: auto; min-height: 0; }
+/* .cv-search is `flex: 1 1 260px`, written for a row. In this column that
+   basis is a HEIGHT, so the search box grew into a 260px-tall panel. */
+.cv-fb__railbody > .cv-search { flex: none; }
+
+.cv-cm { background: var(--cv-card); border-radius: 16px; padding: 14px; display: flex; gap: 12px; }
+.cv-cm--sel { outline: 2px solid var(--cv-ink); }
+.cv-cm__av {
+  width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 13px; font-weight: 600; flex-shrink: 0;
+  background: var(--cv-tone-violet-bg); color: var(--cv-tone-violet-fg);
+}
+.cv-cm__num {
+  width: 22px; height: 22px; border-radius: 50%; background: var(--cv-accent); color: var(--cv-card);
+  font-size: 11px; font-weight: 600; display: inline-grid; place-items: center;
+}
+.cv-cm__body { font-size: 14px; margin: 4px 0 8px; overflow-wrap: anywhere; }
+
+/* The three statuses. Buttons, because clicking one is how it changes. */
+.cv-s-open { background: var(--cv-tone-amber-bg); color: var(--cv-tone-amber-fg); }
+.cv-s-prog { background: var(--cv-tone-blue-bg); color: var(--cv-tone-blue-fg); }
+.cv-s-done { background: var(--cv-tone-green-bg); color: var(--cv-tone-green-fg); }
+
+.cv-fb__grouphead {
+  display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-top: 4px;
+}
+.cv-fb__grouphead span:last-child { font-weight: 400; color: var(--cv-muted); }
+
 /* ---------- Money (Admin Journeys canvas) ---------- */
 
 /* Left-aligned stat, unlike the Clients page's centred one. These three

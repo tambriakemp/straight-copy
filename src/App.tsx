@@ -41,6 +41,7 @@ const Invites = lazy(() => import("./pages/admin/Invites.tsx"));
 const ProjectDetail = lazy(() => import("./pages/admin/ProjectDetail.tsx"));
 const ProposalDetail = lazy(() => import("./pages/admin/ProposalDetail.tsx"));
 const ProposalUpload = lazy(() => import("./pages/admin/ProposalUpload.tsx"));
+const FeedbackBoard = lazy(() => import("./pages/admin/FeedbackBoard.tsx"));
 const AllTasks = lazy(() => import("./pages/admin/AllTasks.tsx"));
 const Proposals = lazy(() => import("./pages/admin/Proposals.tsx"));
 const Payments = lazy(() => import("./pages/admin/Payments.tsx"));
@@ -133,6 +134,9 @@ const App = () => (
             <Route path="/admin/tokens" element={<RequireAdmin><Tokens /></RequireAdmin>} />
             <Route path="/admin/invites" element={<RequireAdmin><Invites /></RequireAdmin>} />
             <Route path="/admin/clients/:id/projects/:projectId" element={<RequireAdmin><ProjectDetail /></RequireAdmin>} />
+            {/* Full-bleed, outside AdminLayout on purpose: the page under
+                review needs the whole window, which is the point of it. */}
+            <Route path="/admin/clients/:id/projects/:projectId/feedback" element={<RequireAdmin><FeedbackBoard /></RequireAdmin>} />
             <Route path="/admin/wiki" element={<RequireWiki><WikiList /></RequireWiki>} />
             <Route path="/admin/wiki/new" element={<RequireWiki><WikiEdit mode="new" /></RequireWiki>} />
             <Route path="/admin/wiki/admin/users" element={<RequireWiki><WikiUsers /></RequireWiki>} />

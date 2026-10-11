@@ -168,9 +168,16 @@ export default function AppDevelopmentView({
               {t.label}
             </button>
           ))}
-          <a className="cv-tabpill" href={`${portalUrl}?focus=feedback`} target="_blank" rel="noreferrer">
-            Feedback board <ExternalLink size={14} />
-          </a>
+          {/* The board is a page of this admin, not a view of the portal —
+              it needs the whole window, so it is a route rather than a tab
+              panel. */}
+          <button
+            type="button"
+            className="cv-tabpill"
+            onClick={() => navigate(`/admin/clients/${clientId}/projects/${project.id}/feedback`)}
+          >
+            Feedback board
+          </button>
         </div>
 
         {tab === "overview" && (
