@@ -1158,6 +1158,7 @@ export type Database = {
           id: string
           label: string
           note: string | null
+          sort_order: number | null
           updated_at: string
           url: string | null
           username: string | null
@@ -1170,6 +1171,7 @@ export type Database = {
           id?: string
           label: string
           note?: string | null
+          sort_order?: number | null
           updated_at?: string
           url?: string | null
           username?: string | null
@@ -1182,6 +1184,7 @@ export type Database = {
           id?: string
           label?: string
           note?: string | null
+          sort_order?: number | null
           updated_at?: string
           url?: string | null
           username?: string | null
@@ -4784,6 +4787,7 @@ export type Database = {
           id: string | null
           label: string | null
           note: string | null
+          sort_order: number | null
           updated_at: string | null
           url: string | null
           username: string | null
@@ -4795,6 +4799,7 @@ export type Database = {
           id?: string | null
           label?: string | null
           note?: string | null
+          sort_order?: number | null
           updated_at?: string | null
           url?: string | null
           username?: string | null
@@ -4806,6 +4811,7 @@ export type Database = {
           id?: string | null
           label?: string | null
           note?: string | null
+          sort_order?: number | null
           updated_at?: string | null
           url?: string | null
           username?: string | null
@@ -4949,6 +4955,7 @@ export type Database = {
         Returns: undefined
       }
       fire_sync_paperclip_pending: { Args: never; Returns: undefined }
+      fire_sync_paperclip_project_tasks: { Args: never; Returns: undefined }
       fire_web_dev_scheduled_dispatch: { Args: never; Returns: undefined }
       fire_weekly_progress_reports: { Args: never; Returns: undefined }
       get_client_login: {

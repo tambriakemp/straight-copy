@@ -9,6 +9,7 @@ export interface ClientLoginRow {
   username: string | null;
   note: string | null;
   has_password: boolean;
+  sort_order?: number | null;
 }
 
 /** The dots the row shows in place of a password. */

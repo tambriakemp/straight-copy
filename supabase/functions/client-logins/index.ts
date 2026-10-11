@@ -109,5 +109,21 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   }
 
-  return json({ error: "action must be upsert, reveal or delete" }, 400);
+  if (action === "reorder") {
+    const clientId = String(payload.client_id ?? "").trim();
+    const ids = Array.isArray(payload.ids) ? payload.ids.map(String) : [];
+    if (!clientId || !ids.length) return json({ error: "client_id and ids required" }, 400);
+    // Position is the index in the array the tab sends. Every id is scoped
+    // to the client, so a stray id in the list cannot touch another
+    // client's rows.
+    for (let i = 0; i < ids.length; i++) {
+      const { error } = await admin.from("client_logins")
+        .update({ sort_order: i + 1 })
+        .eq("id", ids[i]).eq("client_id", clientId);
+      if (error) return json({ error: error.message }, 500);
+    }
+    return json({ ok: true });
+  }
+
+  return json({ error: "action must be upsert, reveal, delete or reorder" }, 400);
 });

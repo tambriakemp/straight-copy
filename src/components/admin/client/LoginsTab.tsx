@@ -11,9 +11,9 @@
 // Reveal is per row and resets on reload. There is no "show all": these
 // sit on a screen that gets shared and screenshotted, and the whole point
 // of the dots is that they are the default.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { KeyRound, Lock, Globe, Mail, CreditCard } from "lucide-react";
+import { KeyRound, Lock, Globe, Mail, CreditCard, GripVertical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import SidePanel from "@/components/admin/SidePanel";
@@ -64,6 +64,10 @@ export default function LoginsTab({
   const [busy, setBusy] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
+  // Local copy of the order while dragging; null means "use the prop".
+  const [ordered, setOrdered] = useState<ClientLoginRow[] | null>(null);
+  const dragId = useRef<string | null>(null);
+  const rows = ordered ?? logins;
 
   const reveal = async (id: string) => {
     if (revealed[id] !== undefined) { // already showing — hide again
@@ -136,6 +140,30 @@ export default function LoginsTab({
     }
   };
 
+  // Drag-to-reorder: move the dragged row under the pointer's row, then
+  // persist the whole order in one call. A failed save reloads from the
+  // server, so a half-saved order never lingers on screen.
+  const dropOn = async (targetId: string) => {
+    const from = dragId.current;
+    dragId.current = null;
+    if (!from || from === targetId) return;
+    const list = [...rows];
+    const a = list.findIndex((l) => l.id === from);
+    const b = list.findIndex((l) => l.id === targetId);
+    if (a < 0 || b < 0) return;
+    const [moved] = list.splice(a, 1);
+    list.splice(b, 0, moved);
+    setOrdered(list);
+    try {
+      await call("reorder", { client_id: clientId, ids: list.map((l) => l.id) });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save that order");
+    } finally {
+      setOrdered(null);
+      onChanged();
+    }
+  };
+
   const sendAll = () => {
     if (!logins.length) { toast.error("Nothing to send yet"); return; }
     const body = shareBody(clientName, logins);
@@ -166,15 +194,27 @@ export default function LoginsTab({
           </button>
         </div>
 
-        {!logins.length ? (
+        {!rows.length ? (
           <EmptyState title="No logins saved" subtitle="Add the accounts you hold for this client." />
-        ) : logins.map((l) => {
+        ) : rows.map((l) => {
           const { icon: Icon, bg, fg } = iconFor(l.label);
           const shown = revealed[l.id];
           const sub = subtitleFor(l);
           const href = hrefFor(l.url);
           return (
-            <div key={l.id} className="cv-lg">
+            <div
+              key={l.id} className="cv-lg"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => dropOn(l.id)}
+            >
+              <span
+                draggable
+                onDragStart={() => { dragId.current = l.id; }}
+                title="Drag to reorder"
+                style={{ cursor: "grab", color: "var(--cv-muted)", display: "flex", alignItems: "center", touchAction: "none" }}
+              >
+                <GripVertical size={18} />
+              </span>
               <span className="cv-ic" style={{ background: bg, color: fg }}><Icon size={22} /></span>
               <span className="cv-lg__who">
                 <b>{l.label}</b>

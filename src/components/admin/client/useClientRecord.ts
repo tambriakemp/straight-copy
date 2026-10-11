@@ -101,8 +101,10 @@ export function useClientRecord(clientId: string) {
             .in("client_project_id", projectIds).order("created_at", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
       supabase.from("client_logins_list")
-        .select("id, label, url, username, note, has_password")
-        .eq("client_id", clientId).order("created_at", { ascending: true }),
+        .select("id, label, url, username, note, has_password, sort_order")
+        .eq("client_id", clientId)
+        .order("sort_order", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true }),
     ]);
     // Reported, not thrown: losing the notes should not cost the page its
     // projects. A missing table is swallowed entirely — these two arrive
