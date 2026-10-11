@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Karla:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Karla:wght@300;400;500;600;700&family=Poppins:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -191,37 +191,54 @@
    CRE-332. Sits alongside the dark .crm-shell theme below —
    existing pages keep rendering inside .crm-shell--embedded
    (see .cv-content) until each one migrates to .cv-admin.
-   Same bronze accent (#8C7054 ≈ the --crm-accent hsl below),
-   Cormorant for titles only, Karla for everything else.
+   Retoned to the Admin Journeys canvas (CRE-389): cool ground, blue
+   accent, Poppins throughout. Values read off the rendered design rather
+   than guessed — including the two that carry the whole look.
+
+   A card has NO border and NO shadow. Separation comes from white on the
+   #F1F3F8 ground alone, so the shadow tokens are flat and --cv-border is
+   only for a rule INSIDE a card. Putting either back makes every surface
+   read as a box again, which is the thing the design moves away from.
+
+   Corners are large: 22px on a card, 18px on a card inside one, 14px on a
+   control. The old 12/8 pair is what made the previous theme feel like a
+   form.
    ============================================================ */
 .cv-admin {
-  --cv-bg: #F6F4F1;
+  --cv-bg: #F1F3F8;
   --cv-card: #FFFFFF;
-  --cv-sunken: #FAF8F6;
-  --cv-border: #ECE7E1;
-  --cv-border-strong: #DDD5CB;
-  --cv-ink: #1D1B18;
-  --cv-body: #3A3631;
-  --cv-muted: #8B847A;
-  --cv-faint: #B5AEA4;
-  --cv-accent: #8C7054;
-  --cv-accent-hover: #765D45;
-  --cv-accent-tint: #F4EEE7;
+  --cv-sunken: #F7F8FB;
+  --cv-border: #EEF0F5;
+  --cv-border-strong: #DDE1EA;
+  --cv-ink: #0E1116;
+  --cv-body: #3D4556;
+  --cv-muted: #5B6478;
+  --cv-faint: #8B93A5;
+  --cv-accent: #3B5BFF;
+  --cv-accent-hover: #2447C0;
+  --cv-accent-tint: #E7EEFF;
 
-  --cv-tone-amber-bg: #FBF0DC;  --cv-tone-amber-fg: #7A5A17;
-  --cv-tone-green-bg: #E4F0E4;  --cv-tone-green-fg: #2F6B3A;
-  --cv-tone-red-bg: #FBE7E4;    --cv-tone-red-fg: #9B3A2E;
-  --cv-tone-blue-bg: #E6EEF6;   --cv-tone-blue-fg: #2E5A8C;
-  --cv-tone-violet-bg: #EFE8F6; --cv-tone-violet-fg: #5F3E8C;
-  --cv-tone-gray-bg: #EDEBE8;   --cv-tone-gray-fg: #6B655D;
-  --cv-tone-bronze-bg: #F4EEE7; --cv-tone-bronze-fg: #8C7054;
+  --cv-tone-amber-bg: #FFF1E3;  --cv-tone-amber-fg: #A8440A;
+  /* Green is the one tone the canvas never showed. Mixed to the same
+     chroma and lightness as the five it did, so it sits with them. */
+  --cv-tone-green-bg: #E3F3E8;  --cv-tone-green-fg: #1F6B3A;
+  --cv-tone-red-bg: #FBE9E7;    --cv-tone-red-fg: #A32A1C;
+  --cv-tone-blue-bg: #E7EEFF;   --cv-tone-blue-fg: #2447C0;
+  --cv-tone-violet-bg: #F3E8FF; --cv-tone-violet-fg: #6B2FB8;
+  --cv-tone-gray-bg: #EEF0F5;   --cv-tone-gray-fg: #3D4556;
+  --cv-tone-bronze-bg: #E7EEFF; --cv-tone-bronze-fg: #2447C0;
 
-  --cv-font-serif: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
-  --cv-font-sans:  'Karla', 'Inter', system-ui, -apple-system, sans-serif;
-  --cv-r: 12px;
-  --cv-r-sm: 8px;
-  --cv-shadow-sm: 0 1px 2px rgba(29, 27, 24, 0.04), 0 1px 1px rgba(29, 27, 24, 0.03);
-  --cv-shadow-md: 0 4px 16px rgba(29, 27, 24, 0.06);
+  /* One family, three weights. The serif token stays so the dozen rules
+     still naming it keep resolving; it now points at the same face. */
+  --cv-font-serif: 'Poppins', system-ui, -apple-system, sans-serif;
+  --cv-font-sans:  'Poppins', system-ui, -apple-system, sans-serif;
+  --cv-font-mono:  ui-monospace, SFMono-Regular, Menlo, monospace;
+  --cv-r: 22px;
+  --cv-r-md: 18px;
+  --cv-r-sm: 14px;
+  --cv-r-chip: 6px;
+  --cv-shadow-sm: none;
+  --cv-shadow-md: none;
 
   background: var(--cv-bg);
   color: var(--cv-body);
@@ -237,7 +254,9 @@
 .cv-admin *::-webkit-scrollbar-thumb:hover { background: var(--cv-accent); }
 
 .cv-admin h1, .cv-admin h2, .cv-admin h3 {
-  font-family: var(--cv-font-serif); font-weight: 500; color: var(--cv-ink);
+  /* 600, not the old 500: Poppins at 500 reads as body text beside 400. */
+  font-family: var(--cv-font-sans); font-weight: 600; color: var(--cv-ink);
+  letter-spacing: -0.01em;
 }
 
 /* ---------- Shell frame ---------- */
