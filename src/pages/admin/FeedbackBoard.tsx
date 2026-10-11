@@ -23,15 +23,44 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { MessageSquare, MousePointer2, CheckCircle2, EyeOff, Search, X } from "lucide-react";
+import {
+  MessageSquare, MousePointer2, CheckCircle2, EyeOff, Eye, Search, X, Upload, Check, Undo2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import {
   bucketByPage, filterComments, openCount, authorInitials, clickToPct, pageTitle,
   sortPages, visibleTo, pageKey, normaliseStatus, NEXT_STATUS, STATUS_LABEL, STATUS_CLASS,
-  type BoardPage, type BoardComment, type FeedbackStatus,
+  approvalFor, buildActivity, APPROVAL_LABEL, APPROVAL_CLASS,
+  type BoardPage, type BoardComment, type ApprovalRow, type ApprovalEvent,
 } from "@/lib/feedbackBoard";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+
+/** preview-admin owns the storage bucket, so uploads go through it. */
+async function callPreviewAdmin(body: Record<string, unknown>) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/preview-admin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const out = await r.json();
+  if (!r.ok) throw new Error(out.error || "Request failed");
+  return out as Record<string, unknown>;
+}
+
+/** Base64 without the data: prefix, which file_upload_single expects. */
+function toBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result).split(",")[1] ?? "");
+    fr.onerror = () => reject(new Error(`Could not read ${file.name}`));
+    fr.readAsDataURL(file);
+  });
+}
 
 type Tool = "comment" | "browse";
 type Tab = "comments" | "pages" | "activity";
@@ -65,6 +94,15 @@ export default function FeedbackBoard() {
   const [draft, setDraft] = useState<{ x_pct: number; y_pct: number; body: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
+
+  const [approvals, setApprovals] = useState<Map<string, ApprovalRow>>(new Map());
+  const [lastEvent, setLastEvent] = useState<Map<string, ApprovalEvent>>(new Map());
+  const [events, setEvents] = useState<ApprovalEvent[]>([]);
+  /** Which page's "ask for changes" box is open. */
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!projectId) return;
@@ -81,9 +119,12 @@ export default function FeedbackBoard() {
     setPreviews(previewRows);
 
     const ids = previewRows.map((p) => p.id);
-    if (!ids.length) { setPages([]); setComments([]); setLoading(false); return; }
+    if (!ids.length) {
+      setPages([]); setComments([]); setApprovals(new Map()); setEvents([]); setLastEvent(new Map());
+      setLoading(false); return;
+    }
 
-    const [files, external, cmts] = await Promise.all([
+    const [files, external, cmts, appr, evs] = await Promise.all([
       supabase.from("preview_files")
         .select("project_id, path, label, group_label, order_index, visible_to_client, content_type")
         .in("project_id", ids),
@@ -93,8 +134,25 @@ export default function FeedbackBoard() {
       supabase.from("preview_comments")
         .select("id, project_id, page_path, pin_number, x_pct, y_pct, author_name, body, status, created_at")
         .in("project_id", ids).order("pin_number", { ascending: true }),
+      supabase.from("preview_approvals")
+        .select("project_id, path, approved_at").in("project_id", ids),
+      supabase.from("preview_approval_events")
+        .select("id, project_id, path, action, note, approver_name, created_at")
+        .in("project_id", ids).order("created_at", { ascending: false }),
     ]);
-    for (const r of [files, external, cmts]) if (r.error) toast.error(r.error.message);
+    for (const r of [files, external, cmts, appr, evs]) if (r.error) toast.error(r.error.message);
+
+    setApprovals(new Map(((appr.data ?? []) as ApprovalRow[])
+      .map((a) => [pageKey(a.project_id, a.path), a])));
+    const evRows = (evs.data ?? []) as ApprovalEvent[];
+    setEvents(evRows);
+    // Newest first already, so the first one seen per page is the latest.
+    const latest = new Map<string, ApprovalEvent>();
+    for (const e of evRows) {
+      const k = pageKey(e.project_id, e.path);
+      if (!latest.has(k)) latest.set(k, e);
+    }
+    setLastEvent(latest);
 
     const nameOf = new Map(previewRows.map((p) => [p.id, p.name]));
     const built: BoardPage[] = [
@@ -195,6 +253,144 @@ export default function FeedbackBoard() {
     await load();
   };
 
+  const approve = async (pg: BoardPage) => {
+    setBusy(pg.key);
+    try {
+      const who = user?.email ?? "Cre8 Visions";
+      // The row is the fact and the event is the history, so both. Upsert
+      // because approving an already-approved page should be a no-op, not
+      // a duplicate-key error.
+      const { error } = await supabase.from("preview_approvals").upsert({
+        project_id: pg.previewId, path: pg.path, kind: pg.external ? "external" : "file",
+        approver_name: who, approved_at: new Date().toISOString(),
+      }, { onConflict: "project_id,path" });
+      if (error) throw error;
+      await supabase.from("preview_approval_events").insert({
+        project_id: pg.previewId, path: pg.path, kind: pg.external ? "external" : "file",
+        action: "approve", approver_name: who,
+      });
+      await load();
+      toast.success(`${pageTitle(pg)} approved`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not approve that page");
+    } finally { setBusy(null); }
+  };
+
+  const requestChanges = async (pg: BoardPage) => {
+    const note = reason.trim();
+    if (!note) { toast.error("Say what needs changing"); return; }
+    setBusy(pg.key);
+    try {
+      const who = user?.email ?? "Cre8 Visions";
+      // Clearing the approval is what changes the state; the event is
+      // what carries the reason. "Not approved" with no reason is the
+      // least useful thing anyone can say about a page.
+      await supabase.from("preview_approvals")
+        .delete().eq("project_id", pg.previewId).eq("path", pg.path);
+      const { error } = await supabase.from("preview_approval_events").insert({
+        project_id: pg.previewId, path: pg.path, kind: pg.external ? "external" : "file",
+        action: "changes_requested", approver_name: who, note,
+      });
+      if (error) throw error;
+      setRejecting(null); setReason("");
+      await load();
+      toast.success("Sent back with your note");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not record that");
+    } finally { setBusy(null); }
+  };
+
+  const undoApproval = async (pg: BoardPage) => {
+    setBusy(pg.key);
+    try {
+      await supabase.from("preview_approvals")
+        .delete().eq("project_id", pg.previewId).eq("path", pg.path);
+      await supabase.from("preview_approval_events").insert({
+        project_id: pg.previewId, path: pg.path, kind: pg.external ? "external" : "file",
+        action: "unapprove", approver_name: user?.email ?? "Cre8 Visions",
+      });
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not undo that");
+    } finally { setBusy(null); }
+  };
+
+  const uploadPages = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const target = preview ?? previews[0];
+    if (!target) { toast.error("Add a preview to this project first"); return; }
+    setBusy("upload");
+    let done = 0;
+    for (const file of Array.from(files)) {
+      try {
+        await callPreviewAdmin({
+          action: "file_upload_single",
+          project_id: target.id,
+          path: file.name,
+          content_base64: await toBase64(file),
+          mime: file.type || "text/html",
+        });
+        done++;
+      } catch (e) {
+        toast.error(`${file.name}: ${e instanceof Error ? e.message : "upload failed"}`);
+      }
+    }
+    setBusy(null);
+    if (uploadRef.current) uploadRef.current.value = "";
+    if (done) { await load(); toast.success(`Uploaded ${done} file${done === 1 ? "" : "s"}`); }
+  };
+
+  const setGroup = async (pg: BoardPage, group: string) => {
+    try {
+      if (pg.external) {
+        // External pages are set as a whole list, so send every row back
+        // with this one changed — see ProjectPreviewPanel's note.
+        const rows = pages.filter((x) => x.previewId === pg.previewId && x.external)
+          .map((x) => ({
+            path: x.path, label: x.label,
+            group_label: x.key === pg.key ? (group || null) : x.group,
+            visible_to_client: x.visibleToClient,
+          }));
+        await callPreviewAdmin({ action: "external_pages_set", project_id: pg.previewId, pages: rows });
+      } else {
+        await callPreviewAdmin({
+          action: "file_meta", project_id: pg.previewId, path: pg.path, group_label: group || null,
+        });
+      }
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not move that page");
+    }
+  };
+
+  const toggleVisible = async (pg: BoardPage) => {
+    try {
+      if (pg.external) {
+        const rows = pages.filter((x) => x.previewId === pg.previewId && x.external)
+          .map((x) => ({
+            path: x.path, label: x.label, group_label: x.group,
+            visible_to_client: x.key === pg.key ? !x.visibleToClient : x.visibleToClient,
+          }));
+        await callPreviewAdmin({ action: "external_pages_set", project_id: pg.previewId, pages: rows });
+      } else {
+        await callPreviewAdmin({
+          action: "file_meta", project_id: pg.previewId, path: pg.path,
+          visible_to_client: !pg.visibleToClient,
+        });
+      }
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not change that");
+    }
+  };
+
+  const titleFor = useCallback((previewId: string, path: string) => {
+    const pg = pages.find((x) => x.key === pageKey(previewId, path));
+    return pg ? pageTitle(pg) : path;
+  }, [pages]);
+
+  const activity = useMemo(() => buildActivity(events, comments, titleFor), [events, comments, titleFor]);
+
   const close = () => navigate(`/admin/clients/${clientId}/projects/${projectId}`);
 
   return (
@@ -223,12 +419,69 @@ export default function FeedbackBoard() {
         <section className="cv-fb__stage">
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
             <span style={{ fontWeight: 600 }}>{page ? pageTitle(page) : "No page"}</span>
-            <span style={{ fontSize: 13, color: "var(--cv-muted)" }}>
+            <span style={{ fontSize: 13, color: "var(--cv-muted)", flex: 1 }}>
               {tool === "comment"
                 ? "Click anywhere on the page to leave a comment"
                 : "Browsing — switch to Comment to leave one"}
             </span>
+            {page && (() => {
+              const a = approvalFor(page.key, approvals, lastEvent);
+              return (
+                <>
+                  <span className={`cv-chip ${APPROVAL_CLASS[a.state]}`} title={a.note ?? undefined}>
+                    {APPROVAL_LABEL[a.state]}
+                  </span>
+                  {a.state === "approved" ? (
+                    <button type="button" className="cv-mini" disabled={busy === page.key}
+                      onClick={() => undoApproval(page)}>
+                      <Undo2 size={14} style={{ marginRight: 6 }} /> Undo approval
+                    </button>
+                  ) : (
+                    <>
+                      <button type="button" className="cv-open cv-open--go" style={{ padding: "0 16px", minHeight: 40 }}
+                        disabled={busy === page.key} onClick={() => approve(page)}>
+                        <Check size={15} style={{ marginRight: 6 }} /> Approve
+                      </button>
+                      <button type="button" className="cv-mini"
+                        onClick={() => { setRejecting(rejecting === page.key ? null : page.key); setReason(a.note ?? ""); }}>
+                        Needs changes
+                      </button>
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </div>
+
+          {page && rejecting === page.key && (
+            <div className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <label className="cv-field">
+                What needs changing on this page?
+                <textarea className="cv-textarea" rows={3} autoFocus value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="The hero image is the old logo, and the phone number is out of date." />
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 16px" }}
+                  disabled={busy === page.key} onClick={() => requestChanges(page)}>
+                  {busy === page.key ? "Sending…" : "Send back"}
+                </button>
+                <button type="button" className="cv-open" style={{ padding: "0 16px" }}
+                  onClick={() => { setRejecting(null); setReason(""); }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {page && (() => {
+            const a = approvalFor(page.key, approvals, lastEvent);
+            return a.state === "changes_requested" && a.note ? (
+              <p style={{ margin: 0, fontSize: 13, color: "var(--cv-tone-amber-fg)" }}>
+                Sent back{a.who ? ` by ${a.who}` : ""}: {a.note}
+              </p>
+            ) : null;
+          })()}
 
           <div className="cv-fb__page" ref={stageRef}>
             {loading ? (
@@ -299,29 +552,40 @@ export default function FeedbackBoard() {
                   </>
                 )}
 
-                <div className="cv-fb__tools">
-                  <button type="button" className={`cv-tool cv-tool--wide ${tool === "comment" ? "cv-tool--on" : ""}`}
-                    onClick={() => setTool("comment")}>
-                    <MessageSquare size={16} /> COMMENT
-                  </button>
-                  <button type="button" className={`cv-tool ${tool === "browse" ? "cv-tool--on" : ""}`}
-                    onClick={() => { setTool("browse"); setDraft(null); }}
-                    aria-label="Browse the page without commenting" title="Browse the page without commenting">
-                    <MousePointer2 size={18} />
-                  </button>
-                  <button type="button" className={`cv-tool ${showResolved ? "cv-tool--on" : ""}`}
-                    onClick={() => setShowResolved((v) => !v)}
-                    aria-label="Show resolved comments" title="Show resolved comments">
-                    <CheckCircle2 size={18} />
-                  </button>
-                  <button type="button" className={`cv-tool ${showPins ? "" : "cv-tool--on"}`}
-                    onClick={() => setShowPins((v) => !v)}
-                    aria-label="Hide pins" title="Hide pins">
-                    <EyeOff size={18} />
-                  </button>
-                </div>
               </>
             )}
+
+            {/* Outside the page branch on purpose. It used to live inside
+                it, so a project with no preview pages yet had no toolbar
+                at all — which is exactly when someone clicks one of these
+                to find out why nothing is happening. */}
+            <div className="cv-fb__tools">
+              <button type="button" className={`cv-tool cv-tool--wide ${tool === "comment" ? "cv-tool--on" : ""}`}
+                onClick={() => setTool("comment")} title="Click the page to leave a comment">
+                <MessageSquare size={16} /> COMMENT
+              </button>
+              <button type="button" className={`cv-tool ${tool === "browse" ? "cv-tool--on" : ""}`}
+                onClick={() => { setTool("browse"); setDraft(null); }}
+                aria-pressed={tool === "browse"}
+                aria-label="Browse the page without commenting"
+                title="Browse — click through the page without leaving comments">
+                <MousePointer2 size={18} />
+              </button>
+              <button type="button" className={`cv-tool ${showResolved ? "cv-tool--on" : ""}`}
+                onClick={() => { setShowResolved((v) => !v); toast(showResolved ? "Hiding resolved" : "Showing resolved"); }}
+                aria-pressed={showResolved}
+                aria-label={showResolved ? "Hide resolved comments" : "Show resolved comments"}
+                title={showResolved ? "Hide resolved comments" : "Show resolved comments"}>
+                <CheckCircle2 size={18} />
+              </button>
+              <button type="button" className={`cv-tool ${showPins ? "" : "cv-tool--on"}`}
+                onClick={() => setShowPins((v) => !v)}
+                aria-pressed={!showPins}
+                aria-label={showPins ? "Hide pins" : "Show pins"}
+                title={showPins ? "Hide pins" : "Show pins"}>
+                {showPins ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
         </section>
 
@@ -412,34 +676,118 @@ export default function FeedbackBoard() {
             )}
 
             {tab === "pages" && (
-              !shownPages.length
-                ? <EmptyState title="No pages" subtitle="Nothing to review on this project yet." />
-                : shownPages.map((pg) => {
-                  const n = comments.filter((c) => pageKey(c.project_id, c.page_path) === pg.key).length;
-                  return (
-                    <button key={pg.key} type="button" className={`cv-q ${pg.key === selectedPage ? "cv-q--on" : ""}`}
-                      onClick={() => { setSelectedPage(pg.key); setTab("comments"); }}>
-                      <span className="cv-q__who">
-                        <b>{pageTitle(pg)}</b>
-                        <small>{pg.path}{pg.visibleToClient ? "" : " · hidden from the client"}</small>
-                      </span>
-                      <span className={`cv-chip ${n ? "cv-chip--blue" : "cv-chip--gray"}`}>{n}</span>
+              <>
+                {!asClient && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                    <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 16px", flex: 1 }}
+                      disabled={busy === "upload"} onClick={() => uploadRef.current?.click()}>
+                      <Upload size={15} style={{ marginRight: 7 }} />
+                      {busy === "upload" ? "Uploading…" : "Upload pages"}
                     </button>
-                  );
-                })
+                    <input ref={uploadRef} type="file" multiple hidden
+                      accept=".html,.htm,text/html,image/png,image/jpeg,image/webp"
+                      onChange={(e) => uploadPages(e.target.files)} />
+                  </div>
+                )}
+                {!asClient && (
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--cv-muted)" }}>
+                    HTML or an image. Each file becomes a page you and the client
+                    can pin comments on. Type a group to sort them — "Desktop",
+                    "Mobile", whatever matches how you work.
+                  </p>
+                )}
+
+                {!shownPages.length ? (
+                  <EmptyState title="No pages" subtitle={asClient
+                    ? "Nothing is shared with the client yet."
+                    : "Upload one above and it appears here."} />
+                ) : groupsOf(shownPages).map(([group, list]) => (
+                  <div key={group || "ungrouped"} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div className="cv-fb__grouphead">
+                      <span style={{ flex: 1 }}>{group || "Ungrouped"}</span>
+                      <span>{list.length} page{list.length === 1 ? "" : "s"}</span>
+                    </div>
+                    {list.map((pg) => {
+                      const n = comments.filter((c) => pageKey(c.project_id, c.page_path) === pg.key).length;
+                      const a = approvalFor(pg.key, approvals, lastEvent);
+                      return (
+                        <div key={pg.key} className={`cv-cm ${pg.key === selectedPage ? "cv-cm--sel" : ""}`}
+                          style={{ flexDirection: "column", gap: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <button type="button"
+                              onClick={() => { setSelectedPage(pg.key); setTab("comments"); }}
+                              style={{ flex: 1, minWidth: 0, background: "none", border: 0, font: "inherit",
+                                cursor: "pointer", textAlign: "left", fontWeight: 600 }}>
+                              {pg.label || pg.path}
+                            </button>
+                            <span className={`cv-chip ${APPROVAL_CLASS[a.state]}`}>{APPROVAL_LABEL[a.state]}</span>
+                            <span className={`cv-chip ${n ? "cv-chip--blue" : "cv-chip--gray"}`}>{n}</span>
+                          </div>
+                          {!asClient && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <input
+                                className="cv-input" defaultValue={pg.group ?? ""} placeholder="Group (e.g. Desktop)"
+                                style={{ flex: "1 1 140px", minHeight: 38, fontSize: 13 }}
+                                // On blur, not on every keystroke: each save
+                                // is a round trip and, for a crawled page, a
+                                // rewrite of the whole page list.
+                                onBlur={(e) => { if (e.target.value !== (pg.group ?? "")) setGroup(pg, e.target.value); }}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                              />
+                              <button type="button" className="cv-mini" onClick={() => toggleVisible(pg)}
+                                title={pg.visibleToClient ? "Visible to the client" : "Hidden from the client"}>
+                                {pg.visibleToClient ? <Eye size={14} /> : <EyeOff size={14} />}
+                              </button>
+                            </div>
+                          )}
+                          {a.state === "changes_requested" && a.note && (
+                            <div style={{ fontSize: 12, color: "var(--cv-tone-amber-fg)" }}>{a.note}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </>
             )}
 
             {tab === "activity" && (
-              <EmptyState
-                title="Activity is not wired up yet"
-                subtitle="Comments, replies and status changes will read here in order. For now the Comments tab is the record."
-              />
+              !activity.length ? (
+                <EmptyState title="Nothing has happened yet"
+                  subtitle="Comments, approvals and pages sent back read here, newest first." />
+              ) : activity.map((a) => (
+                <div key={a.id} className="cv-cm">
+                  <span className="cv-cm__av">{authorInitials(a.who)}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 500, fontSize: 14 }}>{a.who}</span>
+                      <span style={{ fontSize: 14, color: "var(--cv-muted)" }}>{a.what}</span>
+                      <span style={{ fontSize: 12, color: "var(--cv-muted)" }}>{timeAgo(a.at)}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--cv-muted)", marginTop: 2 }}>{a.page}</div>
+                    {a.detail && <div className="cv-cm__body">{a.detail}</div>}
+                  </div>
+                  <span className={`cv-chip cv-chip--${a.tone}`} style={{ alignSelf: "flex-start" }} aria-hidden="true" />
+                </div>
+              ))
             )}
           </div>
         </aside>
       </div>
     </div>
   );
+}
+
+/** Pages under their group heading, in the order sortPages put them. */
+function groupsOf(pages: BoardPage[]): Array<[string | null, BoardPage[]]> {
+  const out: Array<[string | null, BoardPage[]]> = [];
+  for (const p of pages) {
+    const key = p.group || p.previewName;
+    const last = out[out.length - 1];
+    if (last && last[0] === key) last[1].push(p);
+    else out.push([key, [p]]);
+  }
+  return out;
 }
 
 function row(

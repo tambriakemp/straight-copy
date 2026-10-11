@@ -2596,6 +2596,7 @@ export type Database = {
           created_at: string
           id: string
           kind: string
+          note: string | null
           path: string
           project_id: string
         }
@@ -2605,6 +2606,7 @@ export type Database = {
           created_at?: string
           id?: string
           kind: string
+          note?: string | null
           path: string
           project_id: string
         }
@@ -2614,6 +2616,7 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
+          note?: string | null
           path?: string
           project_id?: string
         }
@@ -2644,6 +2647,7 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
+          note?: string | null
           path?: string
           project_id?: string
         }

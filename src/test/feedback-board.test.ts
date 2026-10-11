@@ -6,7 +6,8 @@ import { describe, it, expect } from "vitest";
 import {
   normaliseStatus, bucketByPage, filterComments, openCount, authorInitials,
   clickToPct, pageTitle, sortPages, visibleTo, pageKey, NEXT_STATUS,
-  type BoardPage, type BoardComment,
+  approvalFor, buildActivity,
+  type BoardPage, type BoardComment, type ApprovalRow, type ApprovalEvent,
 } from "@/lib/feedbackBoard";
 
 const page = (o: Partial<BoardPage> & { previewId: string; path: string }): BoardPage => ({
@@ -195,5 +196,82 @@ describe("pageTitle", () => {
   it("falls back to the path when a page has no label", () => {
     expect(pageTitle(page({ previewId: "p", path: "about.html", group: "Desktop", label: "" })))
       .toBe("Desktop / about.html");
+  });
+});
+
+describe("approvalFor", () => {
+  const A = (o: Partial<ApprovalRow> = {}) =>
+    new Map([["p:i", { path: "i", project_id: "p", approved_at: "2026-10-11T16:00:00Z", ...o }]]);
+  const E = (action: string, note: string | null = null) =>
+    new Map([["p:i", {
+      id: "e1", project_id: "p", path: "i", action, note,
+      approver_name: "Dr. Khadra Kahin", created_at: "2026-10-11T16:00:00Z",
+    }]]);
+
+  it("reads approved off the row, which is the fact", () => {
+    expect(approvalFor("p:i", A(), new Map()).state).toBe("approved");
+  });
+
+  it("stays approved even when an older event says otherwise", () => {
+    // A page can be approved, sent back and approved again. Only the row
+    // says where it stands now, which is why this does not read the
+    // state out of the last event.
+    expect(approvalFor("p:i", A(), E("changes_requested", "nope")).state).toBe("approved");
+  });
+
+  it("distinguishes sent-back from never-looked-at", () => {
+    // Without this a rejected page looks identical to one nobody opened.
+    const sent = approvalFor("p:i", new Map(), E("changes_requested", "Logo is wrong"));
+    expect(sent.state).toBe("changes_requested");
+    expect(sent.note).toBe("Logo is wrong");
+    expect(approvalFor("p:i", new Map(), new Map()).state).toBe("pending");
+  });
+
+  it("does not call a plain unapprove a rejection", () => {
+    // Withdrawing an approval is not the same as asking for something.
+    expect(approvalFor("p:i", new Map(), E("unapprove")).state).toBe("pending");
+  });
+});
+
+describe("buildActivity", () => {
+  const title = () => "Desktop / Home";
+  const ev = (o: Partial<ApprovalEvent> & { id: string; action: string }): ApprovalEvent => ({
+    project_id: "p", path: "i", note: null, approver_name: "Dr. Khadra Kahin",
+    created_at: "2026-10-11T16:00:00Z", ...o,
+  });
+
+  it("merges comments and approvals into one stream, newest first", () => {
+    // Shown apart you cannot tell whether the client approved a page
+    // before or after the comment that contradicts it.
+    const feed = buildActivity(
+      [ev({ id: "a", action: "approve", created_at: "2026-10-11T18:00:00Z" })],
+      [cmt({ id: "c", project_id: "p", page_path: "i", created_at: "2026-10-11T17:00:00Z" })],
+      title,
+    );
+    expect(feed.map((f) => f.id)).toEqual(["e:a", "c:c"]);
+  });
+
+  it("says what happened in words, not action codes", () => {
+    const [a] = buildActivity([ev({ id: "a", action: "approve" })], [], title);
+    expect(a.what).toBe("approved this page");
+    const [b] = buildActivity([ev({ id: "b", action: "changes_requested", note: "Logo" })], [], title);
+    expect(b.what).toBe("asked for changes");
+    expect(b.detail).toBe("Logo");
+    const [c] = buildActivity([ev({ id: "c", action: "unapprove" })], [], title);
+    expect(c.what).toBe("withdrew their approval");
+  });
+
+  it("prints an unknown action rather than dropping the entry", () => {
+    const [x] = buildActivity([ev({ id: "x", action: "something_new" })], [], title);
+    expect(x.what).toBe("something_new");
+  });
+
+  it("names an anonymous actor rather than leaving a blank", () => {
+    const [x] = buildActivity([ev({ id: "x", action: "approve", approver_name: null })], [], title);
+    expect(x.who).toBe("Someone");
+  });
+
+  it("is empty for nothing", () => {
+    expect(buildActivity([], [], title)).toEqual([]);
   });
 });

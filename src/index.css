@@ -922,14 +922,14 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 /* Transparent, covering everything, and only present while the Comment
    tool is on — it has to swallow the click, so leaving it up in Browse
    mode would make the page unusable. */
-.cv-fb__catch { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; border: 0; cursor: crosshair; }
+.cv-fb__catch { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; border: 0; cursor: crosshair; z-index: 1; }
 .cv-fb__empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; height: 100%; padding: 40px; text-align: center; font-size: 13px; color: var(--cv-muted);
 }
 
 .cv-pin {
-  position: absolute; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
+  position: absolute; z-index: 2; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%;
   border: 3px solid var(--cv-card); background: var(--cv-accent); color: var(--cv-card);
   font-size: 14px; font-weight: 600; box-shadow: 0 4px 14px rgba(14, 17, 22, 0.25);
   display: grid; place-items: center; cursor: pointer; font-family: inherit; padding: 0;
@@ -943,6 +943,10 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
   display: flex; align-items: center; gap: 4px; background: var(--cv-ink);
   border-radius: 16px; padding: 6px;
+  /* Above the click-catcher, which covers the whole page. Without this
+     the toolbar depends on DOM order to stay clickable, and every later
+     addition to the stage is one reorder away from burying it. */
+  z-index: 4;
 }
 .cv-tool {
   width: 44px; height: 44px; border-radius: 12px; border: 0; background: transparent;

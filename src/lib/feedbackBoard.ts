@@ -165,3 +165,99 @@ export function clickToPct(
     y_pct: Number(clamp(((clientY - rect.top) / (rect.height || 1)) * 100).toFixed(2)),
   };
 }
+
+// ---------------------------------------------------------------------
+// Approvals, and the activity feed
+// ---------------------------------------------------------------------
+
+export type PageApproval = "approved" | "changes_requested" | "pending";
+
+export const APPROVAL_LABEL: Record<PageApproval, string> = {
+  approved: "Approved", changes_requested: "Changes requested", pending: "Not reviewed",
+};
+export const APPROVAL_CLASS: Record<PageApproval, string> = {
+  approved: "cv-s-done", changes_requested: "cv-s-open", pending: "cv-chip--gray",
+};
+
+export interface ApprovalRow { path: string; project_id: string; approved_at: string }
+export interface ApprovalEvent {
+  id: string;
+  project_id: string;
+  path: string;
+  action: string;
+  note: string | null;
+  approver_name: string | null;
+  created_at: string;
+}
+
+/**
+ * Where a page stands.
+ *
+ * An approval row is the fact; events are the history. A page can have
+ * been approved, sent back, and approved again — only the row says
+ * whether it is approved NOW, which is why this does not try to read the
+ * state out of the last event.
+ *
+ * "Changes requested" is the in-between: not approved, and somebody said
+ * why. Without it a page that was rejected looks identical to one nobody
+ * has opened.
+ */
+export function approvalFor(
+  pageKeyStr: string,
+  approvals: Map<string, ApprovalRow>,
+  lastEvent: Map<string, ApprovalEvent>,
+): { state: PageApproval; note: string | null; who: string | null; at: string | null } {
+  const row = approvals.get(pageKeyStr);
+  if (row) return { state: "approved", note: null, who: null, at: row.approved_at };
+  const ev = lastEvent.get(pageKeyStr);
+  if (ev && ev.action === "changes_requested") {
+    return { state: "changes_requested", note: ev.note, who: ev.approver_name, at: ev.created_at };
+  }
+  return { state: "pending", note: null, who: null, at: null };
+}
+
+export interface ActivityItem {
+  id: string;
+  at: string;
+  who: string;
+  what: string;
+  detail?: string | null;
+  page: string;
+  tone: "green" | "amber" | "blue" | "gray";
+}
+
+/**
+ * One feed from two sources, newest first.
+ *
+ * Comments and approvals are separate tables with nothing joining them,
+ * but to the person reading this they are the same stream: things that
+ * happened to this project's pages. Shown apart, you cannot tell whether
+ * the client approved a page before or after leaving the comment that
+ * contradicts it.
+ */
+export function buildActivity(
+  events: ApprovalEvent[],
+  comments: BoardComment[],
+  titleFor: (previewId: string, path: string) => string,
+): ActivityItem[] {
+  const out: ActivityItem[] = [];
+  for (const e of events) {
+    const what = e.action === "approve" ? "approved this page"
+      : e.action === "changes_requested" ? "asked for changes"
+        : e.action === "unapprove" ? "withdrew their approval"
+          : e.action;
+    out.push({
+      id: `e:${e.id}`, at: e.created_at, who: e.approver_name || "Someone",
+      what, detail: e.note, page: titleFor(e.project_id, e.path),
+      tone: e.action === "approve" ? "green" : e.action === "changes_requested" ? "amber" : "gray",
+    });
+  }
+  for (const c of comments) {
+    out.push({
+      id: `c:${c.id}`, at: c.created_at, who: c.author_name || "Guest",
+      what: `left comment ${c.pin_number}`, detail: c.body,
+      page: titleFor(c.project_id, c.page_path), tone: "blue",
+    });
+  }
+  return out.sort((a, b) => b.at.localeCompare(a.at));
+}
