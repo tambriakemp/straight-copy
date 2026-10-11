@@ -140,6 +140,30 @@ export default function LoginsTab({
     }
   };
 
+  // Drag-to-reorder: move the dragged row under the pointer's row, then
+  // persist the whole order in one call. A failed save reloads from the
+  // server, so a half-saved order never lingers on screen.
+  const dropOn = async (targetId: string) => {
+    const from = dragId.current;
+    dragId.current = null;
+    if (!from || from === targetId) return;
+    const list = [...rows];
+    const a = list.findIndex((l) => l.id === from);
+    const b = list.findIndex((l) => l.id === targetId);
+    if (a < 0 || b < 0) return;
+    const [moved] = list.splice(a, 1);
+    list.splice(b, 0, moved);
+    setOrdered(list);
+    try {
+      await call("reorder", { client_id: clientId, ids: list.map((l) => l.id) });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save that order");
+    } finally {
+      setOrdered(null);
+      onChanged();
+    }
+  };
+
   const sendAll = () => {
     if (!logins.length) { toast.error("Nothing to send yet"); return; }
     const body = shareBody(clientName, logins);
