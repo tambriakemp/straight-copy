@@ -40,7 +40,8 @@ import { formatMoney, loadAdminOperations, type AdminOperations } from "@/lib/ad
 import { useNeedsYouNow } from "@/lib/needsYouNow";
 import { useBriefs, type Brief, type BriefItem, type BriefSection } from "@/lib/briefs";
 import { useBriefItemCompletions } from "@/lib/briefItemCompletions";
-import { buildNeedsYouRows, splitTodayRows, type NeedsYouFilterTag } from "@/lib/needsYouRows";
+import { useDecideActions } from "@/lib/decideActions";
+import { buildNeedsYouRows, splitTodayRows, type NeedsYouFilterTag, type NeedsYouRowData } from "@/lib/needsYouRows";
 import { briefHeadline, formatMoment } from "@/lib/briefFormat";
 import DecideCard from "@/components/admin/cv/DecideCard";
 
@@ -190,9 +191,11 @@ export default function Today() {
   const [agentsEnabled, setAgentsEnabled] = useState<number | null>(null);
   const [filter, setFilter] = useState<"all" | NeedsYouFilterTag>("all");
   const [briefTab, setBriefTab] = useState<"morning" | "past">("morning");
+  const [hiddenDecideIds, setHiddenDecideIds] = useState<Set<string>>(new Set());
   const { items: needsYouNow, reload: reloadNeedsYouNow } = useNeedsYouNow();
   const { briefs, selected, setSelected, current, latestMorning, reload: reloadBriefs } = useBriefs();
   const { isDone, complete, undo, reload: reloadCompletions } = useBriefItemCompletions();
+  const { isSnoozed, snooze, pick, ask } = useDecideActions();
 
   const loadOps = () => {
     loadAdminOperations().then(setOps).catch((error) => toast.error(error.message || "Failed to load client status"));
@@ -235,9 +238,10 @@ export default function Today() {
   // CRE-391: live items, the brief's approvals / in-flight cards and its
   // narrative needs-you lines all merge into one row list, each row
   // carrying its own filter tag — see needsYouRows.ts. `allRows` is the
-  // full merge; checking an item off is acknowledgement, not resolution
-  // (CRE-335 §4), so it still shows here, struck through, just excluded
-  // from the counts/badges below (`openRows`).
+  // full merge (deduped by Paperclip issue id — CRE-393 §A.3); checking an
+  // item off is acknowledgement, not resolution (CRE-335 §4), so it still
+  // shows here, struck through, just excluded from the counts/badges below
+  // (`openRows`).
   const allRows = useMemo(
     () => buildNeedsYouRows({
       live: needsYouNow, narrative: narrativeNeedsYou,
@@ -248,7 +252,14 @@ export default function Today() {
   // Decide is what an agent is stopped on; Do is your own work. Split by
   // source, in needsYouRows.ts, so the rule is testable.
   const { decide: decideRows, todo: doRows } = useMemo(() => splitTodayRows(allRows), [allRows]);
-  const openDecide = useMemo(() => decideRows.filter((r) => !isDone(r.id)), [decideRows, isDone]);
+  // CRE-393 §B.4: a card Bree snoozed, or one this tab already fired an
+  // (un-undone) pick/merge for, drops out of Decide immediately rather
+  // than waiting for the next brief/sync to catch up.
+  const visibleDecideRows = useMemo(
+    () => decideRows.filter((r) => !isSnoozed(r.id) && !hiddenDecideIds.has(r.id)),
+    [decideRows, isSnoozed, hiddenDecideIds],
+  );
+  const openDecide = useMemo(() => visibleDecideRows.filter((r) => !isDone(r.id)), [visibleDecideRows, isDone]);
   const openRows = useMemo(() => doRows.filter((row) => !isDone(row.id)), [doRows, isDone]);
   const totalOpenNeedsYou = openRows.length;
 
@@ -303,6 +314,51 @@ export default function Today() {
   const soonestDeadline = formatMoment(decideRows.map((r) => r.deadline).filter(Boolean)[0]);
 
   const topLineItems = sidebarTopLine?.items ?? [];
+
+  // CRE-393 §B.1: every button's result path — update the Paperclip card,
+  // wake the owning agent, remove the card, show a short undo first.
+  //
+  // Merge is the deliberate exception to the undo window: by the time the
+  // server can say a merge actually happened, it has happened — a button
+  // on a GitHub merge that claims to "undo" it for five seconds would be
+  // lying, so merge picks go straight through instead (the non-auto-merge
+  // confirm step upstream of this is the real safety gate for that case —
+  // see DecideCard's confirm box). Every other decision type gets the
+  // optimistic hide + 5s "Undo" toast.
+  const handleDecidePick = (row: NeedsYouRowData) => async (option: string, confirmed?: boolean) => {
+    const base = {
+      row_id: row.id, title: row.title, task_ids: row.taskIds, option,
+      action_type: row.actionType ?? undefined,
+      repo: row.repo ?? undefined, pr_number: row.prNumber ?? undefined,
+      branch: row.branch ?? undefined, base_branch: row.baseBranch ?? undefined,
+    };
+    if (row.actionType === "merge") {
+      const result = await pick({ ...base, confirmed });
+      return result;
+    }
+
+    setHiddenDecideIds((s) => new Set(s).add(row.id));
+    let undone = false;
+    toast(`Bree chose "${option}"`, {
+      description: row.title,
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          undone = true;
+          setHiddenDecideIds((s) => { const next = new Set(s); next.delete(row.id); return next; });
+        },
+      },
+      onAutoClose: async () => {
+        if (undone) return;
+        const result = await pick(base);
+        if (!result.ok) {
+          setHiddenDecideIds((s) => { const next = new Set(s); next.delete(row.id); return next; });
+        }
+      },
+    });
+    return { ok: true as const };
+  };
 
   return (
     <AdminLayout topBar={false}>
@@ -402,11 +458,13 @@ export default function Today() {
         <div className="cv-today-body">
           <div className="cv-center-stack">
 
-            {/* Decide — an agent is holding a set of answers open. The
-                buttons come from the brief's own `options` and are inert:
-                nothing records which one was picked, and a button that
-                silently does nothing is worse than one that says so. */}
-            {decideRows.length > 0 && (
+            {/* Decide — an agent is holding a set of answers open. Picking
+                a button, snoozing, or asking a question all go through
+                useDecideActions -> the decide-action edge function -> Ara,
+                who posts the result on the linked Paperclip issue(s) and
+                wakes the agent. See handleDecidePick above for the
+                undo-window contract. */}
+            {visibleDecideRows.length > 0 && (
               <SectionCard
                 title="Decide"
                 count={openDecide.length}
@@ -414,8 +472,14 @@ export default function Today() {
                 sub="Your agents are waiting on a yes or no"
               >
                 <div>
-                  {decideRows.map((row) => (
-                    <DecideCard key={row.id} row={row} />
+                  {visibleDecideRows.map((row) => (
+                    <DecideCard
+                      key={row.id}
+                      row={row}
+                      onPick={handleDecidePick(row)}
+                      onSnooze={(until) => snooze(row.id, until)}
+                      onAsk={(question) => ask({ row_id: row.id, title: row.title, task_ids: row.taskIds, question })}
+                    />
                   ))}
                 </div>
               </SectionCard>
@@ -457,6 +521,7 @@ export default function Today() {
                       taskIds={row.taskIds}
                       href={row.href}
                       done={isDone(row.id)}
+                      checkable={row.checkable}
                       onComplete={() => complete({
                         item_id: row.id, item_text: row.title, issue_identifier: row.taskIds[0] ?? null,
                         brief_date: activeBrief?.created_at.slice(0, 10) ?? null,

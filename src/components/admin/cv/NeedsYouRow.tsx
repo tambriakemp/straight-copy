@@ -1,7 +1,6 @@
 import CvCheckbox from "./CvCheckbox";
 import ProjectTag from "./ProjectTag";
 import { IssueRefChips, LinkifiedText } from "./IssueLinks";
-import type { useBriefItemCompletions } from "@/lib/briefItemCompletions";
 import type { RowMarker } from "@/lib/needsYouRows";
 
 // CRE-388/CRE-391: shared row shape for the single merged "Needs you now"
@@ -13,7 +12,7 @@ import type { RowMarker } from "@/lib/needsYouRows";
 export type { RowMarker };
 
 export default function NeedsYouRow({
-  marker, title, description, nextStep, category, taskIds, href, done, onComplete, onUndo,
+  marker, title, description, nextStep, category, taskIds, href, done, checkable, onComplete, onUndo,
 }: {
   marker: RowMarker;
   title: string;
@@ -23,6 +22,14 @@ export default function NeedsYouRow({
   taskIds: string[];
   href?: string | null;
   done: boolean;
+  /**
+   * CRE-393 §A.4: false for a row that belongs to an agent, not Bree (a
+   * stalled-but-agent-owned Paperclip issue, or an in-flight status row) —
+   * checking it off would falsely tell that agent its own work is done, so
+   * no checkbox renders at all rather than one that lies about what it
+   * does.
+   */
+  checkable: boolean;
   onComplete: () => Promise<boolean> | boolean;
   onUndo: () => Promise<boolean> | boolean;
 }) {
@@ -50,7 +57,7 @@ export default function NeedsYouRow({
       </div>
       <div className="cv-nyrow__r">
         {taskIds.length > 0 && <span className="cv-nyrow__refs"><IssueRefChips ids={taskIds} /></span>}
-        <CvCheckbox done={done} onComplete={onComplete} onUndo={onUndo} />
+        {checkable && <CvCheckbox done={done} onComplete={onComplete} onUndo={onUndo} />}
       </div>
     </div>
   );

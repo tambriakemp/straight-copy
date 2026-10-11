@@ -13,14 +13,14 @@ import type { ApprovalCard, InFlightItem, NeedsYouNarrativeItem } from "../lib/b
 
 describe("needsYouRows (CRE-388/CRE-391)", () => {
   it("defaults a live item's marker color to normal, except money items which default to high", () => {
-    const agentsItem: NeedsYouItem = { id: "a1", kind: "interaction", bucket: "agents", title: "Needs your input", issue_identifier: "CRE-1", issue_url: "https://x/CRE-1" };
-    const moneyItem: NeedsYouItem = { id: "m1", kind: "overdue invoice", bucket: "money", title: "Overdue $500", issue_identifier: null, issue_url: "/admin/payments" };
+    const agentsItem: NeedsYouItem = { id: "a1", kind: "interaction", bucket: "agents", title: "Needs your input", issue_identifier: "CRE-1", issue_url: "https://x/CRE-1", checkable: true };
+    const moneyItem: NeedsYouItem = { id: "m1", kind: "overdue invoice", bucket: "money", title: "Overdue $500", issue_identifier: null, issue_url: "/admin/payments", checkable: true };
     expect(liveItemToRow(agentsItem).marker).toMatchObject({ color: "#eab308" });
     expect(liveItemToRow(moneyItem).marker).toMatchObject({ color: "#ea580c" });
   });
 
   it("carries a live item's bucket through as its tag, its kind as category, and its issue identifier as a single-entry taskIds", () => {
-    const item: NeedsYouItem = { id: "a1", kind: "interaction", bucket: "agents", title: "Needs your input", issue_identifier: "CRE-335", issue_url: "https://x/CRE-335" };
+    const item: NeedsYouItem = { id: "a1", kind: "interaction", bucket: "agents", title: "Needs your input", issue_identifier: "CRE-335", issue_url: "https://x/CRE-335", checkable: true };
     const row = liveItemToRow(item);
     expect(row.tag).toBe("agents");
     expect(row.category).toBe("interaction");
@@ -29,7 +29,7 @@ describe("needsYouRows (CRE-388/CRE-391)", () => {
   });
 
   it("tags a kind:approval live item as 'approvals', not 'agents'", () => {
-    const item: NeedsYouItem = { id: "p1", kind: "approval", bucket: "approvals", title: "Pending approval", issue_identifier: "CRE-9", issue_url: "https://x/CRE-9" };
+    const item: NeedsYouItem = { id: "p1", kind: "approval", bucket: "approvals", title: "Pending approval", issue_identifier: "CRE-9", issue_url: "https://x/CRE-9", checkable: false };
     expect(liveItemToRow(item).tag).toBe("approvals");
   });
 
@@ -85,7 +85,7 @@ describe("needsYouRows (CRE-388/CRE-391)", () => {
 
   it("merges every source, live first, then approvals, then in-flight, then narrative", () => {
     const live: NeedsYouItem[] = [
-      { id: "a1", kind: "interaction", bucket: "agents", title: "Live card", issue_identifier: null, issue_url: null },
+      { id: "a1", kind: "interaction", bucket: "agents", title: "Live card", issue_identifier: null, issue_url: null, checkable: true },
     ];
     const approvals: ApprovalCard[] = [{ id: "appr-1", title: "Approval row", project: "Outreach" }];
     const inFlight: InFlightItem[] = [{ id: "if-1", title: "In-flight row", status: "blocked", category: "Menovia" }];
@@ -97,6 +97,54 @@ describe("needsYouRows (CRE-388/CRE-391)", () => {
   it("tolerates every arg being null, undefined, or omitted", () => {
     expect(buildNeedsYouRows({})).toEqual([]);
     expect(buildNeedsYouRows({ live: null, narrative: undefined, approvals: null, inFlight: undefined })).toEqual([]);
+  });
+
+  // CRE-393 §A.3: the same Paperclip issue showing up twice (a live sync
+  // row and a brief's own narrative/approval line about it) is a real bug
+  // CRE-355 hit — collapse to one row, approval wins over live wins over
+  // in_flight wins over narrative.
+  it("dedupes rows that share a Paperclip issue id, keeping the highest-priority source", () => {
+    const live: NeedsYouItem[] = [
+      { id: "live-1", kind: "interaction", bucket: "agents", title: "Live version", issue_identifier: "CRE-355", issue_url: null, checkable: false },
+    ];
+    const narrative: NeedsYouNarrativeItem[] = [
+      { id: "narr-1", title: "Narrative version", category: "cre8visions.com", task_ids: ["CRE-355"] },
+    ];
+    const rows = buildNeedsYouRows({ live, narrative });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ source: "live", title: "Live version" });
+  });
+
+  it("keeps an approval over a live/narrative row naming the same issue, so it never also sits in Do", () => {
+    const approvals: ApprovalCard[] = [
+      { id: "appr-351", title: "Decide on CRE-351", project: "Health", task_ids: ["CRE-351"] },
+    ];
+    const live: NeedsYouItem[] = [
+      { id: "live-351", kind: "interaction", bucket: "agents", title: "Live duplicate", issue_identifier: "CRE-351", issue_url: null, checkable: true },
+    ];
+    const rows = buildNeedsYouRows({ live, approvals });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].source).toBe("approval");
+    const { decide, todo } = splitTodayRows(rows);
+    expect(decide.map((r) => r.id)).toEqual(["appr-351"]);
+    expect(todo).toEqual([]);
+  });
+
+  it("does not dedupe rows with no issue id just because both lack one", () => {
+    const live: NeedsYouItem[] = [
+      { id: "live-x", kind: "overdue invoice", bucket: "money", title: "Overdue", issue_identifier: null, issue_url: null, checkable: true },
+    ];
+    const narrative: NeedsYouNarrativeItem[] = [
+      { id: "narr-y", title: "Unrelated note", category: "Menovia" },
+    ];
+    expect(buildNeedsYouRows({ live, narrative })).toHaveLength(2);
+  });
+
+  it("marks a live row not checkable when the source item says so (agent-owned, stalled)", () => {
+    const live: NeedsYouItem[] = [
+      { id: "stalled-1", kind: "interaction", bucket: "agents", title: "Stalled review", issue_identifier: "CRE-350", issue_url: null, checkable: false },
+    ];
+    expect(liveItemToRow(live[0]).checkable).toBe(false);
   });
 });
 
