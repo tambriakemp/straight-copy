@@ -459,7 +459,10 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
    sidebar naturally drops below the center column on a narrow screen. */
 .cv-center-stack, .cv-sidebar-stack { display: grid; gap: 20px; align-content: start; }
 
-.cv-card-pad { padding: 20px 22px; }
+/* 22 all round, which is what the canvas's .card is. It was 20/22, and a
+   card is square-cornered about its own padding in a way nobody notices
+   until two cards with different content sit side by side. */
+.cv-card-pad { padding: 22px; }
 /* Canvas `.hd`: the sub sits next to the title, not pushed to the far edge.
    Every head here is a title plus a count or a date range, and at card width
    space-between threw those to the opposite corner with nothing between. A
@@ -658,6 +661,151 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
   background: var(--cv-tone-gray-bg); color: var(--cv-tone-gray-fg);
 }
 
+
+/* ---------- Clients and projects (Admin Journeys canvas) ----------
+   The pieces the Clients list, the client page and the project page all
+   draw, measured off the canvas. Scoped names so they can be read beside
+   .cv-card and .cv-chip without guessing which page owns them. */
+
+/* The page column, same shape as .cv-today: one gap, declared once, and
+   nothing inside carries a margin of its own. */
+.cv-page { display: flex; flex-direction: column; gap: 20px; padding: 20px; }
+
+/* A search field and the primary action, above the title. */
+.cv-searchbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.cv-search {
+  flex: 1 1 260px; display: flex; align-items: center; gap: 10px; min-width: 0;
+  background: var(--cv-card); border-radius: var(--cv-r-sm); padding: 0 16px;
+  min-height: 48px; color: var(--cv-muted);
+}
+.cv-search input {
+  flex: 1 1 0; min-width: 0; border: 0; outline: 0; background: transparent;
+  font-family: inherit; font-size: 14px; color: var(--cv-ink);
+}
+.cv-btn-ink {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 22px; border: 0; border-radius: var(--cv-r-sm);
+  background: var(--cv-ink); color: var(--cv-card); text-decoration: none;
+  font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.cv-btn-ink:hover { background: var(--cv-body); color: var(--cv-card); }
+.cv-btn-ink--sm { min-height: 44px; padding: 0 18px; }
+
+.cv-page-title { margin: 0; font-size: 28px; font-weight: 600; line-height: 1.2; }
+.cv-page-sub { margin: 2px 0 0; font-size: 14px; color: var(--cv-muted); }
+.cv-back { display: inline-block; font-size: 14px; color: var(--cv-muted); padding: 10px 0; text-decoration: none; }
+.cv-back:hover { color: var(--cv-ink); }
+.cv-crumbs { font-size: 14px; color: var(--cv-muted); padding: 10px 0; }
+.cv-crumbs a { color: var(--cv-muted); text-decoration: none; }
+.cv-crumbs a:hover { color: var(--cv-ink); }
+
+/* Stat cards. Taller and centred, unlike Today's KPI row, because these
+   are a row of four on their own rather than a strip under a brief. */
+.cv-stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 20px; }
+.cv-stat-row--tight { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.cv-stat {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; text-align: center; min-height: 150px; padding: 22px;
+}
+.cv-stat > span { font-size: 14px; color: var(--cv-muted); }
+.cv-stat > b { font-size: 26px; font-weight: 600; color: var(--cv-ink); line-height: 1; }
+.cv-stat--dark { background: var(--cv-ink); }
+.cv-stat--dark > span { color: #C9CFDB; }
+.cv-stat--dark > b { color: var(--cv-card); }
+.cv-ic { width: 46px; height: 46px; border-radius: var(--cv-r-sm); display: grid; place-items: center; flex-shrink: 0; }
+
+/* Pill-shaped filter tabs on the page background — not .cv-tab, which is
+   an underlined tab inside a card. */
+.cv-tabrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cv-tabpill {
+  font-family: inherit; font-size: 14px; min-height: 44px; padding: 0 18px;
+  border-radius: var(--cv-r-sm); border: 0; background: var(--cv-card);
+  color: var(--cv-muted); cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.cv-tabpill:hover { color: var(--cv-ink); }
+.cv-tabpill--on { background: var(--cv-ink); color: var(--cv-card); font-weight: 500; }
+.cv-tabpill--on:hover { color: var(--cv-card); }
+
+/* Two choices sharing one white track — the track is what says they are
+   the same choice. Same idea as .cv-seg on Today, at list-page sizing. */
+.cv-viewseg { display: inline-flex; gap: 4px; background: var(--cv-card); border-radius: var(--cv-r-sm); padding: 4px; }
+.cv-viewseg__btn {
+  font-family: inherit; font-size: 14px; min-height: 40px; padding: 0 16px;
+  border-radius: 11px; border: 0; background: transparent; color: var(--cv-muted); cursor: pointer;
+}
+.cv-viewseg__btn--on { background: var(--cv-ink); color: var(--cv-card); font-weight: 500; }
+
+.cv-av { border-radius: 16px; display: grid; place-items: center; font-weight: 600; flex-shrink: 0; }
+
+/* A progress bar. Ink on grey, not accent — a bar is a quantity, and the
+   accent is reserved for things you can click. */
+.cv-bar { height: 8px; border-radius: 99px; background: var(--cv-tone-gray-bg); overflow: hidden; display: block; }
+.cv-bar > i { display: block; height: 100%; border-radius: 99px; background: var(--cv-ink); }
+.cv-bar--invert { background: #262B36; }
+.cv-bar--invert > i { background: var(--cv-card); }
+
+/* Clients list: the card grid, and one project line inside a card. */
+.cv-client-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
+.cv-client-card { display: flex; flex-direction: column; gap: 16px; }
+.cv-client-card__head { display: flex; align-items: center; gap: 14px; }
+.cv-client-card__name { margin: 0; font-size: 19px; font-weight: 600; }
+.cv-client-card__who { font-size: 13px; color: var(--cv-muted); }
+.cv-client-card__projects { display: flex; flex-direction: column; gap: 12px; }
+.cv-pr { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--cv-ink); }
+.cv-pr > i { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.cv-pr__nm { flex: 1 1 150px; min-width: 0; }
+.cv-pr__ty { font-size: 12px; color: var(--cv-muted); display: block; }
+.cv-pr .cv-bar { flex: 1 1 90px; }
+.cv-pr__pc { font-size: 13px; color: var(--cv-muted); width: 74px; text-align: right; }
+.cv-more { font-size: 13px; color: var(--cv-muted); }
+
+/* The quiet full-width button at the foot of a card, and its inline twin. */
+.cv-open {
+  display: flex; align-items: center; justify-content: center; min-height: 46px;
+  border-radius: var(--cv-r-sm); background: var(--cv-bg); color: var(--cv-ink);
+  font-family: inherit; font-size: 14px; font-weight: 500; text-decoration: none;
+  border: 0; cursor: pointer;
+}
+.cv-open:hover { background: var(--cv-ink); color: var(--cv-card); }
+.cv-open--dark { background: var(--cv-ink); color: var(--cv-card); }
+.cv-open--dark:hover { background: var(--cv-body); }
+
+/* Client page: a project as a sunken row, wrapping rather than squeezing. */
+.cv-proj {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 18px;
+  border-radius: 18px; background: var(--cv-sunken); text-decoration: none; color: var(--cv-ink);
+}
+.cv-proj:hover { background: var(--cv-tone-gray-bg); color: var(--cv-ink); }
+.cv-proj__name { display: block; font-weight: 600; font-size: 16px; }
+.cv-proj__type { display: block; font-size: 13px; color: var(--cv-muted); }
+.cv-proj__meter { flex: 2 1 220px; min-width: 0; }
+.cv-proj__meter-top { display: flex; justify-content: space-between; font-size: 13px; color: var(--cv-muted); margin-bottom: 6px; }
+
+/* Project page: the phase strip and a task line. */
+.cv-ph {
+  flex: 1 1 110px; box-sizing: border-box; padding: 12px 14px; border-radius: 16px;
+  background: var(--cv-sunken); font-size: 14px; color: var(--cv-muted);
+}
+.cv-ph small { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 2px; }
+.cv-ph--done { background: var(--cv-tone-green-bg); color: var(--cv-tone-green-fg); }
+.cv-ph--now { background: var(--cv-ink); color: var(--cv-card); font-weight: 500; }
+.cv-task { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--cv-border); font-size: 14px; }
+.cv-task:first-of-type { border-top: 0; }
+.cv-task > i { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* Two columns that collapse together, used by the client page's aside and
+   by any pair of cards that should sit side by side on a wide screen. */
+.cv-split { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.cv-split__side { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+.cv-split__main { flex: 3 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+.cv-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+
+/* A definition list in a card: label above value, not a two-column grid.
+   .cv-dl below is the wide two-column one the older pages use. */
+.cv-deflist { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.cv-deflist dt { font-size: 12px; color: var(--cv-muted); }
+.cv-deflist dd { margin: 0; font-size: 14px; color: var(--cv-ink); overflow-wrap: anywhere; }
 
 /* ---------- Client detail (CRE-332 Phase 4) ---------- */
 .cv-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--cv-border); margin-bottom: 20px; flex-wrap: wrap; }
