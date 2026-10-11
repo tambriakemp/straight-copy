@@ -258,9 +258,11 @@
   /* All six. The global reset at the top of this file sets h1..h6 to
      Cormorant, so stopping at h3 left every h4 in here rendering serif —
      which is exactly what the Decide card's title did. */
-  /* 600, not the old 500: Poppins at 500 reads as body text beside 400. */
+  /* 600, not the old 500: Poppins at 500 reads as body text beside 400.
+     No negative tracking — the canvas leaves every heading at normal, and
+     Poppins tightened at 19px starts closing up "ll" and "ti". */
   font-family: var(--cv-font-sans); font-weight: 600; color: var(--cv-ink);
-  letter-spacing: -0.01em;
+  letter-spacing: normal;
 }
 
 /* ---------- Shell frame ---------- */
@@ -450,9 +452,13 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-center-stack, .cv-sidebar-stack { display: grid; gap: 20px; align-content: start; }
 
 .cv-card-pad { padding: 20px 22px; }
-.cv-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-.cv-card-title { font-family: var(--cv-font-serif); font-size: 19px; color: var(--cv-ink); font-weight: 500; overflow-wrap: anywhere; }
-.cv-card-sub { font-size: 13px; color: var(--cv-muted); margin-left: 8px; }
+/* Canvas `.hd`: the sub sits next to the title, not pushed to the far edge.
+   Every head here is a title plus a count or a date range, and at card width
+   space-between threw those to the opposite corner with nothing between. A
+   head that needs something on the right gives that child margin-left:auto. */
+.cv-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.cv-card-title { font-family: var(--cv-font-sans); font-size: 19px; line-height: 1.5; color: var(--cv-ink); font-weight: 600; overflow-wrap: anywhere; }
+.cv-card-sub { font-size: 13px; color: var(--cv-muted); }
 
 .cv-filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 .cv-filter-tab {
@@ -469,34 +475,21 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-brief-tab--active { background: var(--cv-accent-tint); color: var(--cv-accent); font-weight: 500; }
 .cv-brief-ctrl .cv-card-head { margin-bottom: 4px; }
 
-/* ---------- SectionCard: the shared "clear section" header (CRE-388) ---------- */
-/* Every center/sidebar card on Today gets this: an icon + title + count
-   badge header bar, on top of Card's own border, so Bree can see where
-   one section stops and the next starts without reading the whole page. */
-.cv-section__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-.cv-section__title { display: flex; align-items: center; gap: 8px; font-family: var(--cv-font-serif); font-size: 17px; font-weight: 500; color: var(--cv-ink); }
-.cv-section__icon {
-  width: 24px; height: 24px; border-radius: 7px; background: var(--cv-accent-tint); color: var(--cv-accent);
-  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.cv-section__count { font-size: 11px; font-weight: 700; color: var(--cv-muted); background: var(--cv-sunken); border: 1px solid var(--cv-border); border-radius: 999px; padding: 1px 8px; }
+/* ---------- SectionCard (CRE-388) ---------- */
+/* Its header is now plain .cv-card-head, the same one every other card on
+   Today uses — which is the point of the canvas: one header shape, not a
+   second one with its own font size, its own count badge and an icon chip
+   in front of the title. All that is left is the body. */
 .cv-section__body { min-width: 0; }
 
-/* Money/Pipeline/Done/Approvals/Calendar keep their own hand-built eyebrow
-   header (CRE-366/CRE-358) rather than SectionCard — this reuses the same
-   icon-chip + count-badge look inside that header instead of a second
-   component, so every section header reads the same regardless of which
-   one renders it. */
-.cv-money__eyebrow, .cv-pbrief__eyebrow, .cv-donetl__eyebrow, .cv-approvals__eyebrow, .cv-weekcal__eyebrow {
-  display: flex; align-items: center; gap: 6px;
-}
-.cv-money__eyebrow .cv-section__icon, .cv-pbrief__eyebrow .cv-section__icon,
-.cv-donetl__eyebrow .cv-section__icon, .cv-approvals__eyebrow .cv-section__icon,
-.cv-weekcal__eyebrow .cv-section__icon { width: 20px; height: 20px; border-radius: 6px; }
+/* The hand-built eyebrow headers that Money, Pipeline, Done, Approvals and
+   the calendar each carried (CRE-366/CRE-358) are gone: on the canvas every
+   card opens with the same .cv-card-head — a plain h2 and, where there is
+   one, a range on the right — so there is nothing left to reuse here. */
 
 /* ---------- Needs-you-now / In-flight rows (CRE-388) ---------- */
-/* Same dot-timeline look as .cv-donetl (Done since last digest), reused
-   for the merged Needs-you-now list and the new In-flight/stuck card —
+/* The dot-timeline look the retired "Done since last digest" card used,
+   kept for the merged Needs-you-now list and the In-flight/stuck card —
    .cv-nyrow__node is a plain colored dot for a priority row, or a small
    colored icon badge for an in-flight status row. */
 .cv-nylist { display: grid; gap: 2px; }
@@ -505,7 +498,7 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; flex-wrap: wrap; padding: 20px 20px 0;
 }
-.cv-today-head__title { font-size: 28px; font-weight: 600; margin: 0; letter-spacing: -0.015em; }
+.cv-today-head__title { font-size: 28px; font-weight: 600; margin: 0; letter-spacing: normal; }
 .cv-today-head__sub { font-size: 14px; color: var(--cv-muted); margin: 2px 0 0; }
 .cv-today-head__right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
@@ -613,76 +606,50 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-sync-btn:disabled { opacity: 0.45; cursor: not-allowed; color: var(--cv-muted); }
 .cv-sync-btn:disabled:hover { border-color: var(--cv-border-strong); }
 
-/* ---------- Weekly calendar card (CRE-358) ---------- */
-.cv-weekcal { margin-bottom: 18px; }
-.cv-weekcal__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-.cv-weekcal__eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cv-muted); margin-bottom: 4px; }
-.cv-weekcal__title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.cv-weekcal__title h3 { font-family: var(--cv-font-serif); font-size: 19px; font-weight: 500; color: var(--cv-ink); margin: 0; }
-.cv-weekcal__range { font-size: 13px; color: var(--cv-muted); }
-.cv-weekcal__legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--cv-body); }
-.cv-weekcal__legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.cv-weekcal__dot { width: 8px; height: 8px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
-.cv-weekcal__dot--cx { width: 13px; height: 8px; border-radius: 3px; background: #f3f4f6; border: 1px dashed #c7cbd3; }
+/* ---------- "This week" day list (CRE-358, relaid out to the canvas) -------
+   Rows, not a seven-column grid. The card sits in Today's right-hand column
+   at roughly 500px; seven columns there is 60px a day, which truncated every
+   title and ran multi-day bars off the edge.
+   Measured off the canvas: .day / .day > b / .ev, and the five event fills,
+   each of which carries its own text colour. */
+.cv-cal-empty { font-size: 13px; color: var(--cv-muted); }
 
-.cv-weekcal__grid { border: 1px solid var(--cv-border); border-radius: var(--cv-r-sm); overflow: hidden; }
-.cv-weekcal__row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.cv-weekcal__row--head { border-bottom: 1px solid var(--cv-border); }
-.cv-weekcal__row--lane { padding: 6px 4px 0; gap: 4px; }
-.cv-weekcal__row--cells { padding-bottom: 10px; }
+.cv-cal-day { display: flex; gap: 14px; padding: 12px 0; border-top: 1px solid var(--cv-border); }
+.cv-cal-day:first-of-type { border-top: none; }
 
-.cv-weekcal__dayhead { padding: 10px 8px 8px; display: flex; align-items: center; gap: 6px; border-left: 1px solid var(--cv-border); }
-.cv-weekcal__dayhead:first-child { border-left: none; }
-.cv-weekcal__dayhead--weekend { background: var(--cv-sunken); }
-.cv-weekcal__dayhead--today { background: var(--cv-accent-tint); }
-.cv-weekcal__dow { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cv-muted); }
-.cv-weekcal__dayhead--today .cv-weekcal__dow { color: var(--cv-accent); }
-.cv-weekcal__dayhead--quiet .cv-weekcal__dow, .cv-weekcal__dayhead--quiet .cv-weekcal__dnum { color: var(--cv-faint); }
-.cv-weekcal__dnum { font-size: 14px; font-weight: 700; color: var(--cv-ink); width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.cv-weekcal__dayhead--today .cv-weekcal__dnum { background: var(--cv-accent); color: #fff; }
-.cv-weekcal__todaytag { margin-left: auto; white-space: nowrap; font-size: 10px; font-weight: 600; color: var(--cv-accent); background: var(--cv-card); padding: 2px 7px; border-radius: 999px; }
-
-.cv-weekcal__bar { height: 32px; border-radius: 8px; display: flex; align-items: center; gap: 6px; padding: 0 9px; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; min-width: 0; }
-.cv-weekcal__bar--rental { background: #e6f6f3; color: #0f766e; border: 1px solid #c3ebe3; border-left: 3px solid #0d9488; }
-.cv-weekcal__bar--cancel { background: repeating-linear-gradient(135deg, #f7f7f8 0 6px, #f1f2f4 6px 12px); color: #9ca3af; border: 1px dashed #d1d5db; }
-.cv-weekcal__bar small { font-weight: 500; opacity: 0.8; font-size: 11px; }
-.cv-weekcal__bar-icon { flex-shrink: 0; }
-.cv-weekcal__bar-strike { text-decoration: line-through; overflow: hidden; text-overflow: ellipsis; }
-.cv-weekcal__bar-stack { display: flex; flex-direction: column; line-height: 1.15; overflow: hidden; }
-.cv-weekcal__bar-stack small { text-transform: uppercase; letter-spacing: 0.05em; font-size: 9.5px; }
-
-.cv-weekcal__cell { padding: 0 6px; display: flex; flex-direction: column; gap: 6px; min-height: 20px; border-left: 1px solid var(--cv-border); }
-.cv-weekcal__cell:first-child { border-left: none; }
-
-.cv-weekcal__chip { border-radius: 8px; padding: 6px 8px 7px 10px; font-size: 12px; line-height: 1.3; border: 1px solid transparent; }
-.cv-weekcal__chip-tm { display: block; font-size: 10.5px; font-weight: 600; margin-bottom: 2px; }
-.cv-weekcal__chip-nm { display: block; font-weight: 500; color: var(--cv-ink); overflow-wrap: anywhere; }
-.cv-weekcal__chip-meta { display: inline-flex; align-items: center; gap: 3px; margin-top: 4px; font-size: 10.5px; font-weight: 600; color: #15803d; }
-.cv-weekcal__chip-meta--muted { color: var(--cv-muted); }
-.cv-weekcal__chip--cancel { background: #f7f7f8; border-color: #e5e5e7; }
-
-.cv-weekcal__later { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; font-size: 12px; color: var(--cv-muted); }
-.cv-weekcal__later b { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cv-faint); margin-right: 2px; }
-.cv-weekcal__later-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; background: var(--cv-sunken); border: 1px dashed var(--cv-border-strong); color: var(--cv-muted); font-size: 11.5px; }
-.cv-weekcal__later-note { margin-left: auto; font-size: 11px; color: var(--cv-faint); }
-
-.cv-weekcal__mobile { display: none; }
-@media (max-width: 720px) {
-  .cv-weekcal__grid--desktop { display: none; }
-  .cv-weekcal__mobile { display: grid; gap: 10px; }
-  .cv-weekcal__mobileday { border: 1px solid var(--cv-border); border-radius: var(--cv-r-sm); padding: 10px; display: grid; gap: 6px; }
-  .cv-weekcal__mobileday-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 500; color: var(--cv-ink); }
-  .cv-weekcal__mobileday-head.cv-weekcal__dayhead--quiet { color: var(--cv-faint); }
-  .cv-weekcal__mobileday .cv-weekcal__bar { height: auto; padding: 7px 9px; white-space: normal; }
+/* Fixed, so every day's events line up on one left edge. The Today pill
+   drops to a second line under the date rather than widening the column. */
+.cv-cal-day__label {
+  flex: 0 0 52px; font-size: 13px; font-weight: 600; color: var(--cv-ink);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+}
+.cv-cal-day__today {
+  font-size: 12px; font-weight: 500; color: var(--cv-card); background: var(--cv-ink);
+  border-radius: 999px; padding: 2px 8px;
 }
 
-.cv-btn-primary {
-  font-size: 13px; font-weight: 500; color: var(--cv-card); background: var(--cv-accent); border: none;
-  border-radius: var(--cv-r-sm); padding: 8px 14px; cursor: pointer; font-family: var(--cv-font-sans);
-  display: inline-flex; align-items: center; gap: 6px;
+.cv-cal-day__events { flex: 1 1 0; min-width: 0; }
+.cv-cal-ev { font-size: 13px; border-radius: 10px; padding: 6px 10px; margin-bottom: 6px; overflow-wrap: anywhere; }
+.cv-cal-ev:last-child { margin-bottom: 0; }
+.cv-cal-ev small { display: block; font-size: 12px; opacity: 0.85; }
+.cv-cal-ev--rental   { background: #E6F6F3; color: #0F6B63; }
+.cv-cal-ev--business { background: var(--cv-tone-blue-bg);   color: var(--cv-tone-blue-fg); }
+.cv-cal-ev--live     { background: var(--cv-tone-violet-bg); color: var(--cv-tone-violet-fg); }
+.cv-cal-ev--home     { background: var(--cv-tone-gray-bg);   color: var(--cv-tone-gray-fg); }
+.cv-cal-ev--cancel   { background: var(--cv-sunken); color: var(--cv-muted); text-decoration: line-through; }
+
+.cv-cal-later {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding-top: 10px; border-top: 1px solid var(--cv-border);
+  font-size: 12px; color: var(--cv-muted);
 }
-.cv-btn-primary:hover { background: var(--cv-accent-hover); }
-.cv-btn-primary:disabled { opacity: 0.6; cursor: default; }
+.cv-cal-later__label { font-weight: 600; color: var(--cv-ink); }
+.cv-cal-later__pill {
+  display: inline-flex; align-items: center; font-size: 12px; font-weight: 500;
+  padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+  background: var(--cv-tone-gray-bg); color: var(--cv-tone-gray-fg);
+}
+
 
 /* ---------- Client detail (CRE-332 Phase 4) ---------- */
 .cv-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--cv-border); margin-bottom: 20px; flex-wrap: wrap; }
@@ -761,114 +728,43 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-kanban-card__value { font-size: 13px; color: var(--cv-accent); font-weight: 500; }
 .cv-kanban-card__days { font-size: 11px; color: var(--cv-faint); }
 
-/* ---------- Brief: Money / Pipeline / Done / Approvals (CRE-366) ---------- */
-.cv-money, .cv-pbrief, .cv-donetl, .cv-approvals { margin-bottom: 18px; }
-.cv-money__head, .cv-pbrief__head, .cv-donetl__head, .cv-approvals__head {
-  display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
-}
-.cv-money__eyebrow, .cv-pbrief__eyebrow, .cv-donetl__eyebrow, .cv-approvals__eyebrow {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cv-muted); margin-bottom: 4px;
-}
-.cv-money__title, .cv-pbrief__title, .cv-donetl__title, .cv-approvals__title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.cv-money__title h3, .cv-pbrief__title h3, .cv-donetl__title h3, .cv-approvals__title h3 {
-  font-family: var(--cv-font-serif); font-size: 19px; font-weight: 500; color: var(--cv-ink); margin: 0;
-}
-.cv-money__range, .cv-pbrief__range, .cv-donetl__range, .cv-approvals__range { font-size: 13px; color: var(--cv-muted); }
-.cv-money__source { font-size: 12px; color: var(--cv-muted); font-weight: 500; text-align: right; }
+/* ---------- Sidebar tiles and in-flight rows (Admin Journeys canvas) -------
+   Today's right column is three cards built from two shapes, so both live
+   here rather than inside either: a tile is a label, one large figure and a
+   line of detail; a fly row is a coloured dot and two lines. Measured off
+   the canvas (.money and .fly).
 
-.cv-pbrief__legend, .cv-donetl__legend, .cv-approvals__legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--cv-body); }
-.cv-pbrief__legend span, .cv-approvals__legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.cv-pbrief__dot, .cv-approvals__dot { width: 8px; height: 8px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+   This replaces the CRE-366 Money / Pipeline / Done / Approvals rules.
+   Done, Approvals and the Pipeline funnel were all already retired from the
+   page — Done outright in CRE-391, approvals folded into Decide, the funnel
+   now read on /admin/pipeline — so those rules had no markup left to style. */
+.cv-tile { border-radius: 16px; background: var(--cv-sunken); padding: 14px 16px; }
+.cv-tile__label { font-size: 13px; color: var(--cv-muted); }
+.cv-tile__value { display: block; font-size: 22px; font-weight: 600; color: inherit; }
+.cv-tile__sub { display: block; font-size: 12px; color: var(--cv-muted); }
+/* The headline figure, inverted rather than tinted: it is the one number on
+   the page that is already settled — money that arrived. */
+.cv-tile--lead { background: var(--cv-ink); color: var(--cv-card); }
+.cv-tile--lead .cv-tile__label, .cv-tile--lead .cv-tile__sub { color: #C9CFDB; }
+.cv-tile--violet { background: var(--cv-tone-violet-bg); }
+.cv-tile--violet .cv-tile__label { color: var(--cv-tone-violet-fg); }
+.cv-tile--violet .cv-tile__sub { color: var(--cv-body); }
+.cv-tile__trend { font-size: 12px; font-weight: 500; color: var(--cv-muted); }
+.cv-tile--lead .cv-tile__trend { color: #C9CFDB; }
 
-/* Money stat tiles */
-.cv-money__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.cv-money__stat { border: 1px solid var(--cv-border); border-radius: var(--cv-r); padding: 14px 14px 12px; }
-.cv-money__lbl { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--cv-muted); display: flex; align-items: center; gap: 7px; }
-.cv-money__ibox { width: 22px; height: 22px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.cv-money__val { margin: 10px 0 6px; }
-.cv-money__val b { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: var(--cv-ink); }
-.cv-money__trend { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; }
-.cv-money__sub { font-size: 12.5px; color: var(--cv-body); line-height: 1.45; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--cv-border); }
-.cv-money__sub-muted { color: var(--cv-muted); margin-top: 2px; }
-.cv-money__footnote { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--cv-muted); }
-.cv-money__footnote b { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cv-faint); }
-@media (max-width: 720px) { .cv-money__grid { grid-template-columns: 1fr; } }
+.cv-tilestack { display: flex; flex-direction: column; gap: 10px; }
 
-/* Pipeline stage pills + outreach banner + hot leads */
-.cv-pbrief__error { font-size: 12px; color: var(--cv-tone-red-fg); margin-bottom: 10px; }
-.cv-pbrief__stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border: 1px solid var(--cv-border); border-radius: var(--cv-r); overflow: hidden; margin-bottom: 14px; }
-.cv-pbrief__stage { padding: 12px 14px 12px 20px; position: relative; background: var(--cv-card); border-left: 1px solid var(--cv-border); }
-.cv-pbrief__stage:first-child { border-left: none; padding-left: 14px; }
-.cv-pbrief__stage--won { background: linear-gradient(180deg, #f2fbf8 0%, var(--cv-card) 80%); }
-.cv-pbrief__nm { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--cv-muted); }
-.cv-pbrief__stage--won .cv-pbrief__nm { color: #0f766e; }
-.cv-pbrief__cnt { display: flex; align-items: baseline; gap: 7px; margin-top: 7px; }
-.cv-pbrief__cnt b { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; color: var(--cv-ink); }
-.cv-pbrief__cnt span { font-size: 12.5px; font-weight: 600; color: var(--cv-body); }
-.cv-pbrief__bar { height: 5px; border-radius: 999px; background: var(--cv-sunken); margin-top: 9px; overflow: hidden; }
-.cv-pbrief__bar i { display: block; height: 100%; border-radius: 999px; }
-.cv-pbrief__chev { position: absolute; left: -9px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; border-radius: 50%; background: var(--cv-card); border: 1px solid var(--cv-border); display: flex; align-items: center; justify-content: center; color: var(--cv-faint); z-index: 2; }
-@media (max-width: 720px) {
-  .cv-pbrief__stages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cv-pbrief__stage { border-left: none; border-top: 1px solid var(--cv-border); }
-  .cv-pbrief__stage:nth-child(1), .cv-pbrief__stage:nth-child(2) { border-top: none; }
-  .cv-pbrief__chev { display: none; }
-}
+.cv-fly { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--cv-border); font-size: 14px; }
+.cv-fly:first-of-type { border-top: none; }
+.cv-fly__dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; background: var(--cv-accent); }
+.cv-fly__body { flex: 1 1 0; min-width: 0; }
+.cv-fly__title { font-weight: 500; color: var(--cv-ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cv-fly__what { color: var(--cv-body); overflow-wrap: anywhere; }
+.cv-fly__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; font-size: 12px; color: var(--cv-muted); }
 
-.cv-pbrief__round { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; padding: 12px 14px; border-radius: var(--cv-r); background: #fdf0f6; border: 1px solid #fadbe9; box-shadow: inset 3px 0 0 #db2777; flex-wrap: wrap; }
-.cv-pbrief__big { font-size: 22px; font-weight: 700; color: #be185d; letter-spacing: -0.02em; }
-.cv-pbrief__roundtxt { font-size: 12.5px; color: var(--cv-body); line-height: 1.4; flex: 1; min-width: 200px; }
-.cv-pbrief__roundtxt b { color: var(--cv-ink); }
-.cv-pbrief__roundright { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.cv-pbrief__duepill { font-size: 11px; font-weight: 600; color: #be185d; background: #fff; border: 1px solid #fadbe9; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.cv-card-note { margin: 12px 0 0; font-size: 13px; color: var(--cv-body); }
+.cv-card-source { margin: 6px 0 0; font-size: 12px; color: var(--cv-muted); }
 
-.cv-pbrief__subhead { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cv-faint); }
-.cv-pbrief__leads { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.cv-pbrief__lead { border: 1px solid var(--cv-border); border-radius: var(--cv-r); padding: 12px 13px 11px; display: flex; gap: 10px; background: var(--cv-card); }
-.cv-pbrief__av { width: 30px; height: 30px; border-radius: var(--cv-r-sm); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
-.cv-pbrief__leadbody { min-width: 0; flex: 1; }
-.cv-pbrief__leadtop { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
-.cv-pbrief__who { font-size: 13px; font-weight: 600; color: var(--cv-ink); }
-.cv-pbrief__what { font-size: 12px; color: var(--cv-body); line-height: 1.4; margin-top: 3px; }
-.cv-pbrief__leadmeta { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-.cv-pbrief__stagechip { font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 6px; background: var(--cv-sunken); color: var(--cv-body); }
-.cv-pbrief__heat { font-size: 10.5px; font-weight: 600; color: #c2410c; display: inline-flex; align-items: center; gap: 3px; }
-@media (max-width: 720px) { .cv-pbrief__leads { grid-template-columns: 1fr; } }
-
-/* Done timeline */
-.cv-donetl__list { position: relative; padding-left: 4px; }
-.cv-donetl__list::before { content: ""; position: absolute; left: 15px; top: 14px; bottom: 14px; width: 2px; background: #e7f3ef; border-radius: 2px; }
-.cv-donetl__item { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 9px 0; position: relative; }
-.cv-donetl__item + .cv-donetl__item { border-top: 1px solid var(--cv-border); }
-.cv-donetl__node { width: 24px; height: 24px; border-radius: 50%; background: #0d9488; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 4px var(--cv-card), 0 2px 6px rgba(13,148,136,.3); z-index: 1; margin-top: 1px; flex-shrink: 0; }
-.cv-donetl__h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.cv-donetl__h b { font-size: 13.5px; font-weight: 600; color: var(--cv-ink); }
-.cv-donetl__note { font-size: 12.5px; color: var(--cv-body); line-height: 1.45; margin-top: 3px; }
-.cv-donetl__r { display: flex; align-items: center; gap: 8px; padding-top: 3px; }
-.cv-donetl__refs { display: inline-flex; gap: 4px; flex-wrap: wrap; }
-@media (max-width: 640px) {
-  .cv-donetl__item { grid-template-columns: 20px 1fr; }
-  .cv-donetl__r { grid-column: 2; justify-content: flex-start; }
-}
-
-/* Approvals */
-.cv-approvals__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.cv-approval { border: 1px solid var(--cv-border); border-radius: var(--cv-r); padding: 13px 15px 12px; display: flex; gap: 12px; background: var(--cv-card); }
-.cv-approval--hot { border-color: #fadbe9; background: linear-gradient(180deg, #fff7fa 0%, var(--cv-card) 60%); }
-.cv-approval__body { flex: 1; min-width: 0; }
-.cv-approval__top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.cv-approval__q { font-size: 14px; font-weight: 600; line-height: 1.35; margin-top: 8px; color: var(--cv-ink); }
-.cv-approval__ctx { font-size: 12px; color: var(--cv-body); line-height: 1.45; margin-top: 4px; }
-.cv-approval__bot { display: flex; align-items: center; gap: 6px; margin-top: 11px; flex-wrap: wrap; }
-.cv-approval__opt { font-size: 11.5px; font-weight: 600; color: var(--cv-body); background: var(--cv-sunken); border: 1px solid var(--cv-border); padding: 3px 9px; border-radius: 7px; white-space: nowrap; }
-.cv-approval__open { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--cv-accent); text-decoration: none; white-space: nowrap; }
-.cv-approval__wait { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; margin-left: auto; }
-.cv-approval__wait--neutral { color: var(--cv-muted); background: var(--cv-sunken); }
-.cv-approval__wait--amber { color: #b45309; background: #fff6e8; }
-.cv-approval__wait--due { color: #be185d; background: #fdf0f6; }
-.cv-approvals__footnote { font-size: 12px; color: var(--cv-muted); margin-top: 12px; line-height: 1.5; }
-.cv-approvals__footnote b { color: var(--cv-body); }
-@media (max-width: 720px) { .cv-approvals__grid { grid-template-columns: 1fr; } }
 
 /* Shared ref chip + project tag (CRE-366) */
 .ref { font: 600 10.5px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--cv-muted); background: var(--cv-sunken); border: 1px solid var(--cv-border); padding: 1px 6px; border-radius: 6px; white-space: nowrap; text-decoration: none; }

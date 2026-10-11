@@ -8,7 +8,14 @@ import MobileBottomBar from "./MobileBottomBar";
 // that haven't migrated to .cv-admin of their own accord still render
 // unchanged inside .crm-shell--embedded — see the comment on that class in
 // index.css.
-export default function AdminShell({ isMobile, children }: { isMobile: boolean; children: ReactNode }) {
+/**
+ * @param topBar Search / notifications / New. Off on Today, which opens
+ *   with its own header and the brief — a second bar above that one puts a
+ *   search box between you and the first thing you came to read.
+ */
+export default function AdminShell({
+  isMobile, children, topBar = true,
+}: { isMobile: boolean; children: ReactNode; topBar?: boolean }) {
   if (isMobile) {
     return (
       <div className="cv-admin">
@@ -30,7 +37,7 @@ export default function AdminShell({ isMobile, children }: { isMobile: boolean; 
       <div className="cv-shell">
         <SideNav />
         <div className="cv-main">
-          <TopBar />
+          {topBar && <TopBar />}
           <div className="cv-content">
             <div className="crm-shell crm-shell--embedded">
               <div className="crm-page">{children}</div>

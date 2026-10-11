@@ -21,10 +21,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  Calendar as CalendarIcon, FileText, HelpCircle, Link2, ListChecks,
-  Newspaper, RefreshCw, Sparkles, TrendingUp, type LucideIcon,
-} from "lucide-react";
+import { Newspaper, RefreshCw, Sparkles } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import PageHeader from "@/components/admin/cv/PageHeader";
 import Card from "@/components/admin/cv/Card";
@@ -44,6 +41,7 @@ import { useNeedsYouNow } from "@/lib/needsYouNow";
 import { useBriefs, type Brief, type BriefItem, type BriefSection } from "@/lib/briefs";
 import { useBriefItemCompletions } from "@/lib/briefItemCompletions";
 import { buildNeedsYouRows, splitTodayRows, type NeedsYouFilterTag } from "@/lib/needsYouRows";
+import { briefHeadline, formatMoment } from "@/lib/briefFormat";
 import DecideCard from "@/components/admin/cv/DecideCard";
 
 // CRE-391: Approvals and In flight joined Agents/Clients/Money as their own
@@ -141,13 +139,6 @@ function splitBriefSections(brief: Brief): { center: BriefSection[]; sidebar: Br
   return { center, sidebar };
 }
 
-function iconForHeading(heading: string): LucideIcon {
-  const h = heading.trim().toLowerCase();
-  if (TOP_LINE_HEADINGS.has(h)) return TrendingUp;
-  if (CONNECTIONS_HEADINGS.has(h)) return Link2;
-  return FileText;
-}
-
 function MarkdownSectionCard({
   brief, section, sectionIdx, isDone, complete, undo,
 }: {
@@ -159,7 +150,7 @@ function MarkdownSectionCard({
   undo: ReturnType<typeof useBriefItemCompletions>["undo"];
 }) {
   return (
-    <SectionCard icon={iconForHeading(section.heading)} title={section.heading} count={section.items.length}>
+    <SectionCard title={section.heading} count={section.items.length}>
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
         {section.items.map((item, j) => {
           const id = briefItemId(brief.id, sectionIdx, j, item);
@@ -302,19 +293,19 @@ export default function Today() {
   // catch-up brief posted Saturday evening reads very differently from
   // Monday's 8am one.
   const briefLabel = activeBrief
-    ? `${activeBrief.title} · ${new Date(activeBrief.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} · posted ${new Date(activeBrief.created_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
+    ? briefHeadline(activeBrief.title, activeBrief.created_at)
     : "No brief yet";
 
   // The cutoff pill on the top line. Derived, not a field: the soonest
   // deadline among the things waiting on a decision IS the cutoff, and
   // inventing a column for it would just be somewhere else to forget to
   // write.
-  const soonestDeadline = decideRows.map((r) => r.deadline).filter(Boolean)[0] ?? null;
+  const soonestDeadline = formatMoment(decideRows.map((r) => r.deadline).filter(Boolean)[0]);
 
   const topLineItems = sidebarTopLine?.items ?? [];
 
   return (
-    <AdminLayout>
+    <AdminLayout topBar={false}>
       <div className="cv-admin cv-today" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
 
         <header className="cv-today-head">
@@ -417,10 +408,10 @@ export default function Today() {
                 silently does nothing is worse than one that says so. */}
             {decideRows.length > 0 && (
               <SectionCard
-                icon={HelpCircle}
                 title="Decide"
                 count={openDecide.length}
-                right={<span className="cv-card-sub">Your agents are waiting on a yes or no</span>}
+                countTone="blue"
+                sub="Your agents are waiting on a yes or no"
               >
                 <div>
                   {decideRows.map((row) => (
@@ -431,9 +422,9 @@ export default function Today() {
             )}
 
             <SectionCard
-              icon={ListChecks}
               title="Do"
               count={totalOpenNeedsYou}
+              countTone="amber"
               right={
                 <div className="cv-filter-tabs">
                   {visibleFilters.map((f) => (
@@ -490,6 +481,19 @@ export default function Today() {
                 isDone={isDone} complete={complete} undo={undo}
               />
             ))}
+
+            {/* Connections reads here, not in the right column: the canvas's
+                sidebar is exactly This week / Money / Pipeline, and a fourth
+                card below Pipeline is the first thing that stopped the two
+                columns lining up. It is still the brief's own section. */}
+            {sidebarConnections && activeBrief && (
+              <MarkdownSectionCard
+                brief={activeBrief}
+                section={sidebarConnections}
+                sectionIdx={activeBrief.sections.indexOf(sidebarConnections)}
+                isDone={isDone} complete={complete} undo={undo}
+              />
+            )}
           </div>
 
           <aside className="cv-sidebar-stack">
@@ -516,14 +520,6 @@ export default function Today() {
               briefDate={activeBrief?.created_at.slice(0, 10) ?? today}
             />
 
-            {sidebarConnections && activeBrief && (
-              <MarkdownSectionCard
-                brief={activeBrief}
-                section={sidebarConnections}
-                sectionIdx={activeBrief.sections.indexOf(sidebarConnections)}
-                isDone={isDone} complete={complete} undo={undo}
-              />
-            )}
           </aside>
         </div>
       </div>

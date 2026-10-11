@@ -71,7 +71,10 @@ export function liveItemToRow(item: NeedsYouItem): NeedsYouRowData {
     tag: item.bucket,
     marker: liveMarker(item),
     title: item.title,
-    description: item.kind,
+    // Not item.kind: `category` below already renders it as the row's
+    // project tag, so setting it here too printed "Interaction" as a pill
+    // and "interaction" as a line of body text directly under it.
+    description: null,
     nextStep: null,
     category: item.kind,
     taskIds: item.issue_identifier ? [item.issue_identifier] : [],

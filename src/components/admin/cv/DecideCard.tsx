@@ -1,6 +1,7 @@
 import ProjectTag from "./ProjectTag";
 import { IssueRefChips, LinkifiedText } from "./IssueLinks";
 import type { NeedsYouRowData } from "@/lib/needsYouRows";
+import { formatMoment } from "@/lib/briefFormat";
 
 // One card in Today's "Decide" list — the rows where an agent has stopped
 // and is holding a named set of answers open.
@@ -23,6 +24,8 @@ export default function DecideCard({
   onPick?: (option: string) => void;
 }) {
   const options = row.options ?? [];
+  // The brief writes a machine timestamp here; the pill shows words.
+  const deadline = formatMoment(row.deadline);
   const titleNode = row.href ? (
     <a href={row.href} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "none" }}>
       {row.title}
@@ -33,7 +36,7 @@ export default function DecideCard({
     <article className="cv-decide">
       <div className="cv-decide__meta">
         <ProjectTag project={row.category} />
-        {row.deadline && <span className="cv-chip cv-chip--red">Due {row.deadline}</span>}
+        {deadline && <span className="cv-chip cv-chip--red">Due {deadline}</span>}
         {row.waitingSince && (
           <span className="cv-decide__since">Waiting since {row.waitingSince}</span>
         )}
