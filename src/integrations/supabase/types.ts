@@ -4787,6 +4787,7 @@ export type Database = {
           id: string | null
           label: string | null
           note: string | null
+          sort_order: number | null
           updated_at: string | null
           url: string | null
           username: string | null
@@ -4798,6 +4799,7 @@ export type Database = {
           id?: string | null
           label?: string | null
           note?: string | null
+          sort_order?: number | null
           updated_at?: string | null
           url?: string | null
           username?: string | null
@@ -4809,6 +4811,7 @@ export type Database = {
           id?: string | null
           label?: string | null
           note?: string | null
+          sort_order?: number | null
           updated_at?: string | null
           url?: string | null
           username?: string | null
