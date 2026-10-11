@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  Calendar as CalendarIcon, FileText, Link2, ListChecks,
+  Calendar as CalendarIcon, FileText, HelpCircle, Link2, ListChecks,
   Newspaper, RefreshCw, Sparkles, TrendingUp, type LucideIcon,
 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -43,18 +43,22 @@ import { formatMoney, loadAdminOperations, type AdminOperations } from "@/lib/ad
 import { useNeedsYouNow } from "@/lib/needsYouNow";
 import { useBriefs, type Brief, type BriefItem, type BriefSection } from "@/lib/briefs";
 import { useBriefItemCompletions } from "@/lib/briefItemCompletions";
-import { buildNeedsYouRows, type NeedsYouFilterTag } from "@/lib/needsYouRows";
+import { buildNeedsYouRows, splitTodayRows, type NeedsYouFilterTag } from "@/lib/needsYouRows";
+import DecideCard from "@/components/admin/cv/DecideCard";
 
 // CRE-391: Approvals and In flight joined Agents/Clients/Money as their own
 // filter tags once their cards merged into this one list — see the table
 // on CRE-391 for what each tag actually matches. A tag with zero open rows
 // is hidden rather than shown as a dead "0" filter (All always stays).
+//
+// The Admin Journeys canvas splits that one list in two — Decide and Do —
+// so "approvals" leaves this set: an approval is no longer a filter on
+// this list, it IS the other list. The rest stay, still hidden at zero.
 const FILTERS: Array<{ key: "all" | NeedsYouFilterTag; label: string }> = [
   { key: "all", label: "All" },
   { key: "agents", label: "Agents" },
   { key: "clients", label: "Clients" },
   { key: "money", label: "Money" },
-  { key: "approvals", label: "Approvals" },
   { key: "in_flight", label: "In flight" },
 ];
 
@@ -250,13 +254,19 @@ export default function Today() {
     }),
     [needsYouNow, narrativeNeedsYou, activeBrief],
   );
-  const openRows = useMemo(() => allRows.filter((row) => !isDone(row.id)), [allRows, isDone]);
+  // Decide is what an agent is stopped on; Do is your own work. Split by
+  // source, in needsYouRows.ts, so the rule is testable.
+  const { decide: decideRows, todo: doRows } = useMemo(() => splitTodayRows(allRows), [allRows]);
+  const openDecide = useMemo(() => decideRows.filter((r) => !isDone(r.id)), [decideRows, isDone]);
+  const openRows = useMemo(() => doRows.filter((row) => !isDone(row.id)), [doRows, isDone]);
   const totalOpenNeedsYou = openRows.length;
 
   const bucketCounts = useMemo(() => {
     const counts: Record<"all" | NeedsYouFilterTag, number> = {
       all: totalOpenNeedsYou, agents: 0, clients: 0, money: 0, approvals: 0, in_flight: 0,
     };
+    // `approvals` stays in the record so the type still covers every tag,
+    // but no Do row carries it — they all went to Decide.
     for (const row of openRows) counts[row.tag] += 1;
     return counts;
   }, [openRows, totalOpenNeedsYou]);
@@ -277,8 +287,8 @@ export default function Today() {
   }, [bucketCounts]);
 
   const needsYouRows = useMemo(
-    () => (filter === "all" ? allRows : allRows.filter((row) => row.tag === filter)),
-    [allRows, filter],
+    () => (filter === "all" ? doRows : doRows.filter((row) => row.tag === filter)),
+    [doRows, filter],
   );
 
   const sectionsSplit = activeBrief ? splitBriefSections(activeBrief) : null;
@@ -365,9 +375,29 @@ export default function Today() {
               )}
             </Card>
 
+            {/* Decide — the agent is holding a set of answers open. Its
+                buttons come from the brief's own `options` and are inert
+                for now: nothing records which one was picked, and a button
+                that silently does nothing is worse than one that says so.
+                Wiring them is its own piece of work. */}
+            {decideRows.length > 0 && (
+              <SectionCard
+                icon={HelpCircle}
+                title="Decide"
+                count={openDecide.length}
+                right={<span className="cv-card-sub">Your agents are waiting on a yes or no</span>}
+              >
+                <div>
+                  {decideRows.map((row) => (
+                    <DecideCard key={row.id} row={row} />
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+
             <SectionCard
               icon={ListChecks}
-              title="Needs you now"
+              title="Do"
               count={totalOpenNeedsYou}
               right={
                 <div className="cv-filter-tabs">

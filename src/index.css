@@ -487,6 +487,30 @@ button.cv-kpi:hover { border-color: var(--cv-accent); }
    .cv-nyrow__node is a plain colored dot for a priority row, or a small
    colored icon badge for an in-flight status row. */
 .cv-nylist { display: grid; gap: 2px; }
+/* ---------- Decide card (Admin Journeys canvas) ---------- */
+/* A sunken card inside the section card, not another bordered box: the
+   canvas separates these by fill, the same way the page separates cards
+   from the ground. 18px because it sits inside a 22px card. */
+.cv-decide {
+  background: var(--cv-sunken); border-radius: var(--cv-r-md);
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;
+}
+.cv-decide + .cv-decide { margin-top: 10px; }
+.cv-decide__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cv-decide__since { font-size: 12px; color: var(--cv-muted); }
+.cv-decide__title { font-size: 16px; font-weight: 600; color: var(--cv-ink); margin: 0; line-height: 1.35; }
+.cv-decide__body { font-size: 14px; color: var(--cv-body); line-height: 1.55; margin: 0; }
+.cv-decide__foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.cv-decide__opt {
+  font: inherit; font-size: 14px; font-weight: 500; line-height: 1;
+  padding: 10px 14px; min-height: 44px; border-radius: var(--cv-r-sm);
+  border: 1px solid var(--cv-border-strong); background: var(--cv-card);
+  color: var(--cv-ink); cursor: pointer;
+}
+.cv-decide__opt--primary { background: var(--cv-ink); border-color: var(--cv-ink); color: #fff; }
+.cv-decide__opt:disabled { cursor: default; opacity: .55; }
+.cv-decide__opt:not(:disabled):hover { border-color: var(--cv-accent); }
+
 .cv-nyrow { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 10px 0; }
 .cv-nyrow + .cv-nyrow { border-top: 1px solid var(--cv-border); }
 .cv-nyrow__node {

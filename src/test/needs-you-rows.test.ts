@@ -6,6 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildNeedsYouRows, liveItemToRow, narrativeItemToRow, approvalItemToRow, inFlightItemToRow,
+  splitTodayRows,
 } from "../lib/needsYouRows";
 import type { NeedsYouItem } from "../lib/needsYouNow";
 import type { ApprovalCard, InFlightItem, NeedsYouNarrativeItem } from "../lib/briefs";
@@ -50,7 +51,11 @@ describe("needsYouRows (CRE-388/CRE-391)", () => {
     expect(narrativeItemToRow(withNeither).taskIds).toEqual([]);
   });
 
-  it("tags an approval row 'approvals', folds options into nextStep, and marks a deadline red", () => {
+  // Superseded by the Admin Journeys canvas: options were folded into
+  // nextStep as "Choose: Approve, Skip" while approvals shared one merged
+  // list and had nowhere to put buttons. They now ride as a list and the
+  // Decide card renders them — see "an approval's answers survive as data".
+  it("tags an approval row 'approvals', keeps its options, and marks a deadline red", () => {
     const approval: ApprovalCard = {
       id: "appr-1", title: "Approve the Oct 12 prospect previews", context: "35 previews pending.",
       project: "Outreach", task_ids: ["CRE-291"], deadline: new Date(Date.now() + 4 * 86_400_000).toISOString(),
@@ -60,7 +65,8 @@ describe("needsYouRows (CRE-388/CRE-391)", () => {
     expect(row).toMatchObject({
       id: "appr-1", source: "approval", tag: "approvals", category: "Outreach",
       taskIds: ["CRE-291"], href: "https://cre8visions.com/admin/approvals",
-      nextStep: "Choose: Approve, Skip",
+      nextStep: null,
+      options: ["Approve", "Skip"],
     });
     expect(row.marker).toMatchObject({ color: "#db2777", label: "Has a deadline" });
   });
@@ -91,5 +97,79 @@ describe("needsYouRows (CRE-388/CRE-391)", () => {
   it("tolerates every arg being null, undefined, or omitted", () => {
     expect(buildNeedsYouRows({})).toEqual([]);
     expect(buildNeedsYouRows({ live: null, narrative: undefined, approvals: null, inFlight: undefined })).toEqual([]);
+  });
+});
+
+describe("splitTodayRows", () => {
+  const approval = approvalItemToRow({
+    id: "a1",
+    title: "Health release: answer decisions 1, 3 and 4",
+    project: "Menovia",
+    context: "Each has a recommended default.",
+    waiting_since: "Oct 8",
+    deadline: null,
+    options: ["Use defaults", "Answer each"],
+    task_ids: ["CRE-342", "CRE-343"],
+  });
+
+  it("puts an approval in Decide and everything else in Do", () => {
+    // By source, not by tag. A stuck build has nobody waiting on an answer
+    // from you — it is work, so it belongs in Do however it is tagged.
+    const stuck = inFlightItemToRow({
+      id: "f1", title: "Verify push campaigns", status: "stuck", category: "Menovia",
+    });
+    const mine = narrativeItemToRow({
+      id: "n1", title: "Cancel the Runway Pro trial", category: "cre8visions.com",
+    });
+    const { decide, todo } = splitTodayRows([stuck, approval, mine]);
+    expect(decide.map((r) => r.id)).toEqual(["a1"]);
+    expect(todo.map((r) => r.id)).toEqual(["f1", "n1"]);
+  });
+
+  it("keeps each list in the order the brief gave", () => {
+    const a2 = approvalItemToRow({ id: "a2", title: "Merge PR #576", project: "Menovia" });
+    const { decide } = splitTodayRows([approval, a2]);
+    expect(decide.map((r) => r.id)).toEqual(["a1", "a2"]);
+  });
+
+  it("handles a day with nothing to decide", () => {
+    const mine = narrativeItemToRow({ id: "n1", title: "Re-submit the sitemap", category: "Menovia" });
+    const { decide, todo } = splitTodayRows([mine]);
+    expect(decide).toEqual([]);
+    expect(todo).toHaveLength(1);
+  });
+});
+
+describe("an approval's answers survive as data", () => {
+  it("carries options, waiting_since and deadline onto the row", () => {
+    // CRE-391 flattened these into "Choose: a, b" in the next-step line
+    // because the merged row had nowhere to put them. The Decide card
+    // renders them as buttons, so they have to arrive as a list again.
+    const row = approvalItemToRow({
+      id: "a1",
+      title: "Approve the Oct 12 prospect previews",
+      project: "Outreach",
+      waiting_since: "Oct 6",
+      deadline: "Mon Oct 12, 9:00 AM",
+      options: ["Review previews"],
+    });
+    expect(row.options).toEqual(["Review previews"]);
+    expect(row.waitingSince).toBe("Oct 6");
+    expect(row.deadline).toBe("Mon Oct 12, 9:00 AM");
+  });
+
+  it("no longer repeats them in the next-step line", () => {
+    // Said twice, a button and a sentence read as two different
+    // instructions for the same decision.
+    const row = approvalItemToRow({
+      id: "a1", title: "Merge PR #575", project: "Menovia",
+      options: ["Merge", "Review first"],
+    });
+    expect(row.nextStep).toBeNull();
+  });
+
+  it("gives a row with no options an empty list, not undefined", () => {
+    const row = approvalItemToRow({ id: "a1", title: "Something", project: "Menovia" });
+    expect(row.options).toEqual([]);
   });
 });

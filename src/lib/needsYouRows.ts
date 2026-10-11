@@ -39,6 +39,18 @@ export interface NeedsYouRowData {
   category: string;
   taskIds: string[];
   href: string | null;
+  /**
+   * Decide-only, and the reason the Today page can split this list in two.
+   *
+   * An approval is the one row kind where the agent is holding a named set
+   * of answers open — "Use defaults" / "Answer each", "Merge" / "Review
+   * first". CRE-391 folded those into the next-step line as "Choose: a, b"
+   * because the merged row had nowhere to put them; the Admin Journeys
+   * canvas puts them back as real buttons, so they survive as data again.
+   */
+  options?: string[];
+  waitingSince?: string | null;
+  deadline?: string | null;
 }
 
 const PRIORITY_COLOR = { high: "#ea580c", normal: "#eab308" };
@@ -106,12 +118,6 @@ function approvalMarker(approval: ApprovalCard): RowMarker {
   return { kind: "dot", color: "#9ca3af", label: "New" };
 }
 
-// The old ApprovalsCard rendered `options` as pill chips under the body;
-// NeedsYouRow has no chip slot, so they fold into the next-step line.
-function approvalNextStep(approval: ApprovalCard): string | null {
-  return approval.options?.length ? `Choose: ${approval.options.join(", ")}` : null;
-}
-
 export function approvalItemToRow(approval: ApprovalCard): NeedsYouRowData {
   return {
     id: approval.id,
@@ -120,10 +126,16 @@ export function approvalItemToRow(approval: ApprovalCard): NeedsYouRowData {
     marker: approvalMarker(approval),
     title: approval.title,
     description: approval.context ?? null,
-    nextStep: approvalNextStep(approval),
+    // No longer "Choose: a, b" in the next-step line — the Decide card
+    // renders `options` as buttons, so saying it twice would read as two
+    // different instructions.
+    nextStep: null,
     category: approval.project,
     taskIds: approval.task_ids ?? [],
     href: approval.link ?? null,
+    options: approval.options ?? [],
+    waitingSince: approval.waiting_since ?? null,
+    deadline: approval.deadline ?? null,
   };
 }
 
@@ -152,6 +164,29 @@ export function inFlightItemToRow(item: InFlightItem): NeedsYouRowData {
 /** Live cards first (closer to "now"), then approvals, then in-flight, then
  *  the brief's own narrative rows. Every arg is optional/nullable so a
  *  still-loading or data-less source just contributes no rows. */
+/**
+ * Today's two lists.
+ *
+ * Decide is where an agent is stopped until you answer; Do is your own
+ * work. The split is by SOURCE, not by tag: an approval is the only kind
+ * that carries a set of answers someone is waiting on, and everything else
+ * — a Paperclip card, a narrative line, something stuck — is a thing you
+ * go and do. Splitting by tag instead would put a stuck build in Decide
+ * just because nobody has touched it.
+ *
+ * Order is preserved within each list, so whatever the brief put first
+ * stays first.
+ */
+export function splitTodayRows(rows: NeedsYouRowData[]): {
+  decide: NeedsYouRowData[];
+  todo: NeedsYouRowData[];
+} {
+  const decide: NeedsYouRowData[] = [];
+  const todo: NeedsYouRowData[] = [];
+  for (const row of rows) (row.source === "approval" ? decide : todo).push(row);
+  return { decide, todo };
+}
+
 export function buildNeedsYouRows(args: {
   live?: NeedsYouItem[] | null;
   narrative?: NeedsYouNarrativeItem[] | null;
