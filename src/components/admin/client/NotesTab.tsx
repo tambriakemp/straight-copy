@@ -104,8 +104,19 @@ export default function NotesTab({
         <div key={n.id} className="cv-lg" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <span style={{ fontSize: 12, color: "var(--cv-muted)" }}>{fmtWhen(n.created_at)}</span>
+            {n.project && (
+              <span className="cv-chip cv-chip--gray">{n.project.name}</span>
+            )}
             <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-              {editing === n.id ? (
+              {n.project ? (
+                // A project note is edited on the project it belongs to.
+                // Shown here, because it is the same thing to whoever is
+                // reading, and two places to look is how one goes missing.
+                <a className="cv-mini" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}
+                  href={`/admin/clients/${clientId}/projects/${n.project.id}`}>
+                  Open project
+                </a>
+              ) : editing === n.id ? (
                 <>
                   <button type="button" className="cv-mini" onClick={() => saveEdit(n.id)}>Save</button>
                   <button type="button" className="cv-mini" onClick={() => setEditing(null)}>Cancel</button>
@@ -123,7 +134,7 @@ export default function NotesTab({
               )}
             </span>
           </div>
-          {editing === n.id ? (
+          {editing === n.id && !n.project ? (
             <textarea
               className="cv-textarea" rows={4}
               value={editDraft} onChange={(e) => setEditDraft(e.target.value)}

@@ -52,6 +52,14 @@ export interface ClientNote {
   id: string;
   body: string;
   created_at: string;
+  /**
+   * Set on a note written against a project rather than the client.
+   * Those are read-only here — they belong to the project page, which is
+   * where they can be edited — but they are SHOWN here, because a note is
+   * a note and hiding half of them behind another page is how you lose
+   * one.
+   */
+  project?: { id: string; name: string };
 }
 
 export function useClientRecord(clientId: string) {
@@ -80,9 +88,17 @@ export function useClientRecord(clientId: string) {
     // Notes and logins hang off the client, not its projects, so they are
     // loaded whether or not there are any projects — a client with no
     // project still has an inbox login you need.
-    const [n, g] = await Promise.all([
+    const projectIds = projectRows.map((r) => r.id);
+    const [n, pn, g] = await Promise.all([
       supabase.from("client_notes").select("id, body, created_at")
         .eq("client_id", clientId).order("created_at", { ascending: false }),
+      // Notes written on this client's projects. Shown here too, named by
+      // project and read-only: they are the same thing to the person
+      // reading, and splitting them across two pages is how one gets lost.
+      projectIds.length
+        ? supabase.from("project_notes").select("id, body, created_at, client_project_id")
+            .in("client_project_id", projectIds).order("created_at", { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
       supabase.from("client_logins_list")
         .select("id, label, url, username, note, has_password")
         .eq("client_id", clientId).order("created_at", { ascending: true }),
@@ -91,8 +107,17 @@ export function useClientRecord(clientId: string) {
     // projects. A missing table is swallowed entirely — these two arrive
     // with a migration Lovable has not necessarily applied yet, and an
     // error toast on every page load would be worse than an empty tab.
-    for (const r of [n, g]) if (r.error && !isMissingRelation(r.error)) toast.error(r.error.message);
-    setNotes((n.data ?? []) as ClientNote[]);
+    for (const r of [n, pn, g]) if (r.error && !isMissingRelation(r.error)) toast.error(r.error.message);
+    const byProject = new Map(projectRows.map((r) => [r.id, r.name]));
+    const merged: ClientNote[] = [
+      ...((n.data ?? []) as ClientNote[]),
+      ...((pn.data ?? []) as Array<{ id: string; body: string; created_at: string; client_project_id: string }>)
+        .map((r) => ({
+          id: r.id, body: r.body, created_at: r.created_at,
+          project: { id: r.client_project_id, name: byProject.get(r.client_project_id) ?? "Project" },
+        })),
+    ].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    setNotes(merged);
     setLogins(((g.data ?? []) as Array<Record<string, unknown>>).map((r) => ({
       id: String(r.id), label: String(r.label ?? ""),
       url: (r.url as string | null) ?? null,
