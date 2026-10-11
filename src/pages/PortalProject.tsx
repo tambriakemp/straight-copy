@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
+import AuditsSection from "@/components/portal/AuditsSection";
 import ContractSection from "@/components/portal/ContractSection";
-import ProposalsSection from "@/components/portal/ProposalsSection";
-import InvoiceSection from "@/components/portal/InvoiceSection";
+import PortalShell, { type PortalView } from "@/components/portal/PortalShell";
 import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
 import PortalProjectPreviewCard from "@/components/portal/PortalProjectPreviewCard";
-import PortalProgress from "@/components/portal/PortalProgress";
 import WebDevDiscoveryChat from "@/components/portal/WebDevDiscoveryChat";
+import { projectTypeStyle } from "@/lib/projectType";
+
+/** The tabs on one project, as board 16 lays them out. */
+type ProjectTab = "overview" | "audits" | "access" | "brand";
 
 
 type ProjectRow = { id: string; type: string; name: string; status: string; updated_at: string };
@@ -43,18 +46,6 @@ const cleanContent = (text: string) =>
     .replace(/\[\[STAGE:\d+\]\]/g, "")
     .replace(/\[\[BRAND_KIT_COMPLETE\]\]/g, "")
     .trim();
-
-const STAGE_LABELS = [
-  "Welcome",
-  "Logo",
-  "Colors",
-  "Typography",
-  "References",
-  "Visual Rules",
-  "File Formats",
-  "Scope",
-  "Review",
-];
 
 export default function PortalProject() {
   const { clientId, projectId } = useParams<{ clientId: string; projectId: string }>();
@@ -102,6 +93,28 @@ export default function PortalProject() {
   });
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [contractSigned, setContractSigned] = useState(false);
+  const [tab, setTab] = useState<ProjectTab>("overview");
+  const navigate = useNavigate();
+
+  /** The portal home, on a given view, keeping whatever is in the URL. */
+  const portalHref = (v: PortalView) => {
+    const next = new URLSearchParams(searchParams);
+    if (v === "home") next.delete("v"); else next.set("v", v);
+    const q = next.toString();
+    return `/portal/${clientId}${q ? `?${q}` : ""}`;
+  };
+
+  /** The side nav's four destinations all live on the portal home, so
+   *  clicking one from a project page goes there and says which. */
+  const goToPortal = (v: PortalView) => navigate(portalHref(v));
+
+  /** Jump to a section further down the Overview tab. */
+  const scrollToSection = (id: string) => {
+    setTab("overview");
+    window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 40);
+  };
 
 
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -235,15 +248,21 @@ export default function PortalProject() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, notFound, client, submittedAt, bkPath]);
 
-  // Deep-link: scroll to focused section after load
+  // Deep-link: open the right TAB, then scroll to the section in it.
+  //
+  // Scrolling alone was enough while every section was stacked on one
+  // page. Under tabs, #portal-brand-kit is not in the document until the
+  // Brand tab is showing, so a ?focus= link that only scrolled landed on
+  // Overview and did nothing — and the email that sent it looks broken.
   useEffect(() => {
     if (loading || notFound || !client || !focus) return;
-    const targetId = focus === "contract" ? "portal-contract" : focus === "brand-kit" ? "portal-brand-kit" : null;
-    if (!targetId) return;
-    // Small delay so layout settles after sections mount
+    const target = focus === "contract" ? { tab: "overview" as const, id: "portal-contract" }
+      : focus === "brand-kit" ? { tab: "brand" as const, id: "portal-brand-kit" }
+        : null;
+    if (!target) return;
+    setTab(target.tab);
     const t = window.setTimeout(() => {
-      const el = document.getElementById(targetId);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById(target.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 250);
     return () => window.clearTimeout(t);
   }, [loading, notFound, client, focus]);
@@ -357,65 +376,16 @@ export default function PortalProject() {
   };
 
   // ----- Render -----
-  const adminBanner = adminPreview ? (
-    <div className="portal-admin-banner" role="status" aria-live="polite">
-      <div className="portal-admin-banner__inner">
-        <span className="portal-admin-banner__badge">Admin preview</span>
-        <span className="portal-admin-banner__text">
-          You're viewing this portal as the client. Your admin session is unchanged.
-        </span>
-        <div className="portal-admin-banner__actions">
-          <a className="portal-admin-banner__btn" href="/admin" target="_blank" rel="noreferrer">
-            ← Back to admin
-          </a>
-          <button
-            type="button"
-            className="portal-admin-banner__btn portal-admin-banner__btn--ghost"
-            onClick={exitPreview}
-            title="Exit admin preview on this tab"
-          >
-            Exit preview
-          </button>
-        </div>
-      </div>
-    </div>
-  ) : null;
-
-  if (loading) {
-    return (
-      <div className="crm-shell">
-        {adminBanner}
-        <div className="portal-shell">
-          <div className="portal-loading">Loading…</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (notFound || !client) {
-    return (
-      <div className="crm-shell">
-        {adminBanner}
-        <div className="portal-shell">
-          <div className="portal-empty">
-            <div className="portal-empty__eyebrow">Portal</div>
-            <h1 className="portal-empty__title">Link <em>invalid</em>.</h1>
-            <p className="portal-empty__sub">
-              We couldn't find a client matching this portal link. Please double-check the URL or
-              reach out to your CRE8 contact.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const node = client.active_node;
-  const businessName = client.business_name || "Your Brand";
-  const tierLabel = client.tier === "growth" ? "Growth" : "Launch";
-  const isBrandKitDone = !!submittedAt;
-  const isBrandKitActive = node?.key === "brand_kit" && !isBrandKitDone;
-
+  //
+  // Board 16 of the Admin Journeys canvas: the project under a tab row,
+  // with Overview carrying what the client has to do and where things
+  // stand, and the other tabs carrying the things that are about this
+  // project rather than things to do today.
+  //
+  // Everything that used to be stacked down this page is still here —
+  // the contract, the discovery chat, account access, the brand kit and
+  // brand voice, the preview, the proposals and the invoices. They moved
+  // under a tab; none of them was dropped.
   const currentProject = projects.find((p) => p.id === projectId) ?? null;
   const isAutomation = currentProject?.type === "automation_build";
   const isWebDev = currentProject?.type === "web_development";
@@ -423,349 +393,386 @@ export default function PortalProject() {
     || currentProject?.type === "web_development"
     || currentProject?.type === "marketing";
   const visibleProjects = projects.filter((p) => p.type !== "site_preview");
-  const hasMultipleProjects = visibleProjects.length > 1;
+  const qs = searchParams.toString() ? `?${searchParams.toString()}` : "";
 
-  const PROJECT_TYPE_LABEL: Record<string, string> = {
-    automation_build: `${tierLabel} Journey`,
-    app_development: "App Development",
-    web_development: "Web Development",
-    marketing: "Marketing",
-    site_preview: "Site Preview",
-  };
-  const heroEyebrow = currentProject
-    ? PROJECT_TYPE_LABEL[currentProject.type] ?? "Your Project"
-    : "Your Project";
+  const node = client?.active_node ?? null;
+  const businessName = client?.business_name || "Your Brand";
+  const tierLabel = client?.tier === "growth" ? "Growth" : "Launch";
+  const isBrandKitDone = !!submittedAt;
+
+  if (loading) {
+    return (
+      <PortalShell
+        clientId={clientId!} clientName={client?.contact_name || businessName}
+        businessName={client?.business_name ?? null}
+        adminPreview={adminPreview} onExitPreview={adminPreview ? exitPreview : undefined}
+        view={null} onView={goToPortal}
+      >
+        <p className="cv-page-sub">Loading…</p>
+      </PortalShell>
+    );
+  }
+
+  if (notFound || !client) {
+    return (
+      <div className="cv-admin cv-portal">
+        <div className="cv-portal__body">
+          <section className="cv-card cv-card-pad" style={{ margin: "0 auto", maxWidth: 520 }}>
+            <h1 className="cv-page-title">This link isn't working</h1>
+            <p className="cv-page-sub">
+              We couldn't find a client for this portal link. Check the URL, or
+              reply to our last email and we'll send a fresh one.
+            </p>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  const t = projectTypeStyle(currentProject?.type ?? "");
   const heroTitle = currentProject?.name || businessName;
 
-  return (
-    <div className="crm-shell">
-      {adminBanner}
-      <div className="portal-shell">
-        {/* Header */}
-        <header className="portal-header">
-          <div className="portal-header__left">
-            <div className="portal-header__wordmark">Cre8<span className="dot">·</span>Portal</div>
+  // --- the to-do list, from what is actually outstanding ----------------
+  //
+  // Computed, not written down: a numbered list that says "sign the
+  // contract" to someone who signed it last month is the fastest way to
+  // teach a client that this page is decoration.
+  const todo: Array<{
+    key: string; label: string; sub: string;
+    state: "done" | "now" | "later"; href?: string; cta?: string; onClick?: () => void;
+  }> = [];
+  if (isAutomation || isWebDev) {
+    todo.push({
+      key: "contract",
+      label: "Sign the contract",
+      sub: contractSigned ? "Signed. Thank you!" : "It takes a minute, and nothing starts until it's done.",
+      state: contractSigned ? "done" : "now",
+      onClick: () => scrollToSection("portal-contract"),
+      cta: contractSigned ? "View" : "Open the contract",
+    });
+  }
+  if (isWebDev) {
+    todo.push({
+      key: "discovery",
+      label: "Answer the discovery questions",
+      sub: contractSigned
+        ? "A short guided chat about your goals, pages and content. About 10 minutes, and you can stop and come back."
+        : "Opens once the contract is signed.",
+      state: contractSigned ? "now" : "later",
+      onClick: contractSigned ? () => scrollToSection("portal-discovery") : undefined,
+      cta: "Start the chat",
+    });
+  }
+  if (isPreviewable && previewProgress.total > 0) {
+    const left = previewProgress.total - previewProgress.approved;
+    todo.push({
+      key: "review",
+      label: left ? `Review ${left} page${left === 1 ? "" : "s"}` : "Pages reviewed",
+      sub: left
+        ? "Click anywhere on a page to leave a comment, then approve it when it's right."
+        : `All ${previewProgress.total} approved. Thank you!`,
+      state: left ? "now" : "done",
+      href: `/portal/${clientId}/projects/${projectId}/feedback${qs}`,
+      cta: "Open feedback board",
+    });
+  }
+  if (isAutomation) {
+    todo.push({
+      key: "brand",
+      label: "Finish your brand kit",
+      sub: isBrandKitDone ? "Submitted. Thank you!" : "Your logo, colours and type — or a link we can pull them from.",
+      state: isBrandKitDone ? "done" : "now",
+      onClick: () => setTab("brand"),
+      cta: "Open Brand",
+    });
+    todo.push({
+      key: "access",
+      label: "Share account access",
+      sub: "Domain, hosting and the tools your automations run through.",
+      state: "now",
+      onClick: () => setTab("access"),
+      cta: "Open Access",
+    });
+  }
+  const openTodo = todo.filter((x) => x.state !== "done").length;
+
+  const tabs: Array<{ key: ProjectTab; label: string }> = [
+    { key: "overview", label: "Overview" },
+    { key: "audits", label: "Audits" },
+    { key: "access", label: "Access" },
+    { key: "brand", label: "Brand" },
+  ];
+
+  const overview = (
+    <div className="cv-pg">
+      {todo.length > 0 && (
+        <section className="cv-card cv-card-pad" style={{ background: "var(--cv-ink)", color: "#fff" }}>
+          <div className="cv-card-head">
+            <h2 className="cv-card-title" style={{ color: "#fff" }}>Your to-do</h2>
+            <span className="cv-chip" style={{ background: openTodo ? "#E8590C" : "#1E8E4E", color: "#fff" }}>
+              {openTodo ? `${openTodo} open` : "All done"}
+            </span>
           </div>
-          <div className="portal-header__right">
-            {isAutomation && node && (
-              <span className="portal-chip">
-                Step {String(node.order_index + 1).padStart(2, "0")} of 10 · {node.label}
+          {todo.map((x, i) => (
+            <div key={x.key} className="cv-it cv-it--onink">
+              <span className={`cv-num ${x.state === "done" ? "cv-num--done" : x.state === "now" ? "cv-num--on" : "cv-num--off"}`}>
+                {x.state === "done" ? "✓" : i + 1}
+              </span>
+              <span className="cv-it__what"><b>{x.label}</b><small>{x.sub}</small></span>
+              {x.state === "later" ? (
+                <span className="cv-chip" style={{ background: "#262B36", color: "#C9CFDB" }}>Not yet</span>
+              ) : x.href ? (
+                <Link className="cv-open cv-open--white" style={{ padding: "0 16px" }} to={x.href}>{x.cta}</Link>
+              ) : x.onClick ? (
+                <button type="button" className="cv-open cv-open--white" style={{ padding: "0 16px" }}
+                  onClick={x.onClick}>{x.cta}</button>
+              ) : null}
+            </div>
+          ))}
+        </section>
+      )}
+
+      {(client.build_start_date || client.delivery_date || node) && (
+        <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="cv-card-head" style={{ margin: 0 }}>
+            <h2 className="cv-card-title">Where things stand</h2>
+            <span style={{ flex: 1 }} />
+            {client.delivery_date && (
+              <span style={{ fontSize: 13, color: "var(--cv-muted)" }}>
+                Estimated delivery {new Date(`${client.delivery_date}T12:00:00`)
+                  .toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
               </span>
             )}
           </div>
-        </header>
-
-        <main className="portal-main">
-          {hasMultipleProjects && (
-            <div style={{ marginBottom: 16 }}>
-              <Link
-                to={`/portal/${clientId}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "hsl(30 8% 62%)", fontSize: 15, letterSpacing: "0.06em", textTransform: "uppercase" }}
-              >
-                <ArrowLeft size={14} /> All projects
-              </Link>
+          {node && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <div className="cv-ph cv-ph--now"><small>Now</small>{node.label}</div>
             </div>
           )}
-
-          {/* Hero */}
-          <section className="portal-hero">
-            <div className="portal-hero__eyebrow">{heroEyebrow}</div>
-            <h1 className="portal-hero__title">
-              {heroTitle.split(" ").slice(0, -1).join(" ") || heroTitle}{" "}
-              {heroTitle.split(" ").length > 1 && (
-                <em>{heroTitle.split(" ").slice(-1)[0]}</em>
-              )}
-              {heroTitle.split(" ").length === 1 && <em>.</em>}
-            </h1>
-            <hr className="portal-hero__rule" />
-            <div style={{
-              display: "flex", alignItems: "flex-end", justifyContent: "space-between",
-              gap: 24, flexWrap: "wrap",
-            }}>
-              <p className="portal-hero__sub" style={{ margin: 0 }}>
-                Welcome{client.contact_name ? `, ${client.contact_name}` : ""}.
-                {contactEmail ? ` We'll keep you posted at ${contactEmail}.` : ""}
-              </p>
-              <PortalProgress approved={previewProgress.approved} total={previewProgress.total} />
-            </div>
-            {isAutomation && (client.build_start_date || client.delivery_date) && (
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 24,
-                  marginTop: 18,
-                  fontSize: 15,
-                  letterSpacing: "0.04em",
-                  color: "hsl(30 8% 62%)",
-                }}
-              >
-                {client.build_start_date && (
-                  <span>
-                    <strong style={{ color: "hsl(40 20% 97%)", fontWeight: 500 }}>Build starts</strong>{" "}
-                    {new Date(client.build_start_date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                  </span>
-                )}
-                {client.delivery_date && (
-                  <span>
-                    <strong style={{ color: "hsl(40 20% 97%)", fontWeight: 500 }}>Delivery</strong>{" "}
-                    {new Date(client.delivery_date + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                  </span>
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* Delivery video — automation_build only */}
-          {isAutomation && client.delivery_video_url && (
-            <section className="portal-confirm" id="portal-delivery-video" style={{ scrollMarginTop: 24 }}>
-              <div className="portal-confirm__eyebrow">Your Delivery</div>
-              <h2 className="portal-confirm__title">
-                Walk<em>through</em>.
-              </h2>
-              <hr className="portal-confirm__rule" />
-              <p className="portal-confirm__sub">
-                Your delivery video is ready. Watch the walkthrough below.
-              </p>
-              <a
-                href={client.delivery_video_url}
-                target="_blank"
-                rel="noreferrer"
-                className="crm-btn crm-btn--bronze crm-btn--sm"
-                style={{ display: "inline-block", marginTop: 16 }}
-              >
-                Watch delivery video →
-              </a>
-            </section>
+          {client.build_start_date && (
+            <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>
+              Build started {new Date(`${client.build_start_date}T12:00:00`)
+                .toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}.
+            </p>
           )}
+        </section>
+      )}
 
-          {/* Tabbed project sections */}
-          {currentProject && (() => {
-            const tabs: { value: string; label: string; node: React.ReactNode }[] = [];
+      {isPreviewable && (
+        <section className="cv-card cv-card-pad"
+          style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16 }}>
+          <div style={{ flex: "2 1 280px", minWidth: 0 }}>
+            <h2 className="cv-card-title">Page reviews</h2>
+            <p style={{ margin: "2px 0 10px", fontSize: 14, color: "var(--cv-muted)" }}>
+              {previewProgress.total
+                ? `${previewProgress.approved} of ${previewProgress.total} pages approved`
+                : "Nothing to review yet — we'll email you when there is."}
+            </p>
+            <span className="cv-bar">
+              <i style={{
+                width: previewProgress.total
+                  ? `${Math.round((previewProgress.approved / previewProgress.total) * 100)}%`
+                  : "0%",
+              }} />
+            </span>
+          </div>
+          <Link className="cv-open cv-open--dark" style={{ padding: "0 20px" }}
+            to={`/portal/${clientId}/projects/${projectId}/feedback${qs}`}>
+            Open feedback board
+          </Link>
+        </section>
+      )}
 
-            // Build the individual client-task panels first so we can group them
-            // under a single "Client Tasks" tab.
-            const clientTaskPanels: { value: string; label: string; node: React.ReactNode }[] = [];
+      <section className="cv-card cv-card-pad">
+        <div className="cv-card-head"><h2 className="cv-card-title">For this project</h2></div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+          {/* Built off the live search params, so admin preview survives
+              the hop — an admin who clicks through to Payments and loses
+              ?as=admin is suddenly looking at a 404. */}
+          <Link className="cv-lk" to={portalHref("proposals")}>
+            Proposals<small>Read, sign or download</small>
+          </Link>
+          <Link className="cv-lk" to={portalHref("payments")}>
+            Payments<small>What's due and what's paid</small>
+          </Link>
+        </div>
+      </section>
 
-            // Contract is a client task for both automation AND web dev projects.
-            if (isAutomation || isWebDev) {
-              clientTaskPanels.push({
-                value: "contract",
-                label: "Contract",
-                node: (
-                  <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
-                    <ContractSection
-                      clientId={clientId!}
-                      projectId={currentProject.id}
-                      contactName={client.contact_name}
-                      eyebrow={isWebDev ? null : "Node 01 · Intake"}
-                    />
-                  </div>
-                ),
-              });
-            }
+      {/* The delivery walkthrough. A card either way: "after launch" is
+          an answer, and silence here reads as something missing. */}
+      <section className="cv-card cv-card-pad"
+        style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16 }}>
+        <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+          <h2 className="cv-card-title">Delivery walkthrough</h2>
+          <p style={{ margin: "2px 0 0", fontSize: 14, color: "var(--cv-muted)" }}>
+            {client.delivery_video_url
+              ? "Your walkthrough is ready."
+              : "When your project launches, a video walking you through it shows up here."}
+          </p>
+        </div>
+        {client.delivery_video_url ? (
+          <a className="cv-open cv-open--dark" style={{ padding: "0 20px" }}
+            href={client.delivery_video_url} target="_blank" rel="noreferrer">
+            Watch the walkthrough
+          </a>
+        ) : (
+          <span className="cv-chip cv-chip--gray">After launch</span>
+        )}
+      </section>
 
-            // Discovery questionnaire chat — Web Dev projects only.
-            // The component itself renders a locked state until the contract is signed.
-            if (isWebDev) {
-              clientTaskPanels.push({
-                value: "discovery",
-                label: "Discovery",
-                node: (
-                  <div id="portal-discovery" style={{ scrollMarginTop: 24 }}>
-                    <WebDevDiscoveryChat
-                      clientId={clientId!}
-                      projectId={currentProject.id}
-                      contactName={client.contact_name}
-                      contractSigned={contractSigned}
-                    />
-                  </div>
-                ),
-              });
-            }
+      {/* The working surfaces, under the list that points at them. These
+          are the same components as before — the contract you sign, the
+          discovery chat, the preview — not links to somewhere else. */}
+      {(isAutomation || isWebDev) && (
+        <div id="portal-contract" style={{ scrollMarginTop: 24 }}>
+          <ContractSection
+            clientId={clientId!} projectId={currentProject!.id}
+            contactName={client.contact_name}
+            eyebrow={isWebDev ? null : "Node 01 · Intake"}
+          />
+        </div>
+      )}
 
+      {isWebDev && (
+        <div id="portal-discovery" style={{ scrollMarginTop: 24 }}>
+          <WebDevDiscoveryChat
+            clientId={clientId!} projectId={currentProject!.id}
+            contactName={client.contact_name} contractSigned={contractSigned}
+          />
+        </div>
+      )}
 
-
-            if (isAutomation && !!onboardingInvite) {
-              clientTaskPanels.push({
-                value: "brand-voice",
-                label: "Brand Voice",
-                node: (
-                  <BrandVoiceAccordion
-                    token={onboardingInvite.token}
-                    completed={onboardingInvite.completed}
-                  />
-                ),
-              });
-            }
-
-            if (isAutomation) {
-              clientTaskPanels.push({
-                value: "account",
-                label: "Account Access",
-                node: (
-                  <AccountAccessSection
-                    clientId={clientId!}
-                    tier={client.tier}
-                    initial={accountAccess}
-                  />
-                ),
-              });
-            }
-
-            if (isAutomation) {
-              clientTaskPanels.push({
-                value: "brand-kit",
-                label: "Brand Kit",
-                node: (
-                  <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
-                    {isBrandKitDone ? (
-                      <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
-                    ) : bkPath === null ? (
-                      <BrandKitRouter onChoose={setBkPath} />
-                    ) : bkPath === "yes" ? (
-                      <BrandKitFastSubmit
-                        clientId={clientId!}
-                        submitting={submitting}
-                        setSubmitting={setSubmitting}
-                        onSwitchToChat={() => setBkPath("no")}
-                        onSubmitted={(at) => {
-                          setSubmittedAt(at);
-                          setBkPath(null);
-                          if (lsKey) localStorage.removeItem(lsKey);
-                        }}
-                      />
-                    ) : (
-                      <BrandKitChatLauncher
-                        clientId={clientId!}
-                        hasConversation={messages.length > 0}
-                        onSwitchToFast={() => setBkPath("yes")}
-                      />
-                    )}
-                  </div>
-                ),
-              });
-            }
-
-            // Canonical tab order across all project types:
-            // 1) Client Tasks  2) Preview  3) Proposals  4) Payment Schedule
-            // (Automation also gets Subscription appended.)
-
-            if (clientTaskPanels.length > 0) {
-              tabs.push({
-                value: "client-tasks",
-                label: "Client Tasks",
-                node: (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    {clientTaskPanels.map((p) => (
-                      <div key={p.value}>{p.node}</div>
-                    ))}
-                  </div>
-                ),
-              });
-            }
-
-            if (isPreviewable) {
-              tabs.push({
-                value: "preview",
-                label: "Preview",
-                node: (
-                  <div id="portal-preview" style={{ scrollMarginTop: 24 }}>
-                    <PortalProjectPreviewCard
-                      clientProjectId={currentProject.id}
-                      contactName={client.contact_name}
-                      clientId={clientId}
-                      onProgress={setPreviewProgress}
-                    />
-                  </div>
-                ),
-              });
-            }
-
-            // One tab, matching the admin side. What was quoted and what is
-            // owed on it is one question, and a client asking "what do I still
-            // have to pay" should not have to find a second tab to answer it.
-            //
-            // Both anchor ids survive the merge, so a #portal-invoice link in
-            // an email sent before this change still scrolls to the right
-            // place instead of landing on a tab that no longer exists.
-            if (!isAutomation) {
-              tabs.push({
-                value: "proposals",
-                label: "Proposals & Payments",
-                node: (
-                  // Side by side, because what was quoted and what is owed on
-                  // it is one question. They stack below 900px rather than
-                  // squeezing to half a column each.
-                  <div style={{
-                    display: "grid", gap: 18, alignItems: "start",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
-                  }}>
-                    <div id="portal-proposals" style={{ scrollMarginTop: 24 }}>
-                      <ProposalsSection clientId={clientId!} contactName={client.contact_name} projectId={currentProject.id} />
-                    </div>
-                    <div id="portal-invoice" style={{ scrollMarginTop: 24 }}>
-                      <InvoiceSection clientId={clientId!} projectId={currentProject.id} />
-                    </div>
-                  </div>
-                ),
-              });
-            }
-
-            if (isAutomation) {
-              tabs.push({
-                value: "subscription",
-                label: "Subscription",
-                node: (
-                  <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
-                    <SubscriptionSection
-                      clientId={clientId!}
-                      tier={client.tier}
-                      initial={subscription}
-                    />
-                  </div>
-                ),
-              });
-            }
-
-            if (!tabs.length) return null;
-
-            // One page, in the order a client works it: what they owe us, then
-            // what we have built for them, then the money.
-            //
-            // These were tabs, and a tab is a promise that the other tabs can
-            // wait. They could not: a client who signed the contract and never
-            // opened Brand Kit had no way of knowing anything was left, because
-            // an unvisited tab looks exactly like a finished one. Stacked, the
-            // work that is outstanding is simply visible.
-            //
-            // `focus` used to pick a tab. It now scrolls, which is what the
-            // #portal-* anchors on each section were always for.
-            return (
-              <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 32 }}>
-                {tabs.map((t) => (
-                  <section key={t.value} id={`portal-section-${t.value}`}>
-                    {/* Only the grouped one gets a heading. Preview, Proposal
-                        and Payments each title themselves in their own panel
-                        header, so a heading above them says it twice. */}
-                    {t.value === "client-tasks" && (
-                      <h2 style={{
-                        fontFamily: "var(--crm-font-serif)", fontSize: 22, fontWeight: 500,
-                        color: "hsl(40 20% 97%)", margin: "0 0 14px",
-                      }}>
-                        {t.label}
-                      </h2>
-                    )}
-                    {t.node}
-                  </section>
-                ))}
-              </div>
-            );
-          })()}
-
-        </main>
-      </div>
+      {isPreviewable && currentProject && (
+        <div id="portal-preview" style={{ scrollMarginTop: 24 }}>
+          <PortalProjectPreviewCard
+            clientProjectId={currentProject.id}
+            contactName={client.contact_name}
+            clientId={clientId}
+            onProgress={setPreviewProgress}
+          />
+        </div>
+      )}
     </div>
+  );
+
+  const brand = (
+    <div className="cv-pg">
+      <div>
+        <h2 className="cv-card-title" style={{ fontSize: 22 }}>Brand</h2>
+        <p className="cv-page-sub">
+          Your brand kit and your brand voice — the look and the words everything
+          Cre8 Visions builds for you is made from.
+        </p>
+      </div>
+      <div id="portal-brand-kit" style={{ scrollMarginTop: 24 }}>
+        {isBrandKitDone ? (
+          <ConfirmationCard businessName={businessName} submittedAt={submittedAt!} />
+        ) : bkPath === null ? (
+          <BrandKitRouter onChoose={setBkPath} />
+        ) : bkPath === "yes" ? (
+          <BrandKitFastSubmit
+            clientId={clientId!} submitting={submitting} setSubmitting={setSubmitting}
+            onSwitchToChat={() => setBkPath("no")}
+            onSubmitted={(at) => {
+              setSubmittedAt(at); setBkPath(null);
+              if (lsKey) localStorage.removeItem(lsKey);
+            }}
+          />
+        ) : (
+          <BrandKitChatLauncher
+            clientId={clientId!} hasConversation={messages.length > 0}
+            onSwitchToFast={() => setBkPath("yes")}
+          />
+        )}
+      </div>
+      {onboardingInvite ? (
+        <BrandVoiceAccordion token={onboardingInvite.token} completed={onboardingInvite.completed} />
+      ) : (
+        <section className="cv-card cv-card-pad">
+          <div className="cv-card-head"><h2 className="cv-card-title">Brand voice</h2></div>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>
+            A short guided conversation that captures how you sound. Cre8 Visions
+            will open it for you when it's time.
+          </p>
+        </section>
+      )}
+    </div>
+  );
+
+  const access = (
+    <div className="cv-pg">
+      <div>
+        <h2 className="cv-card-title" style={{ fontSize: 22 }}>Access</h2>
+        <p className="cv-page-sub">
+          The accounts Cre8 Visions needs for this project — your domain, hosting
+          and the tools your work runs through. Only you and the Cre8 Visions
+          team can see what you share here.
+        </p>
+      </div>
+      <AccountAccessSection clientId={clientId!} tier={client.tier} initial={accountAccess} />
+      {isAutomation && (
+        <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
+          <SubscriptionSection clientId={clientId!} tier={client.tier} initial={subscription} />
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <PortalShell
+      clientId={clientId!}
+      clientName={client.contact_name || businessName}
+      businessName={client.business_name ?? null}
+      adminPreview={adminPreview}
+      onExitPreview={adminPreview ? exitPreview : undefined}
+      view="projects"
+      onView={goToPortal}
+    >
+      <div className="cv-pg">
+        <div>
+          {visibleProjects.length > 1 && (
+            <Link to={`/portal/${clientId}${qs}`}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14,
+                color: "var(--cv-muted)", padding: "10px 0", textDecoration: "none" }}>
+              <ArrowLeft size={14} /> All projects
+            </Link>
+          )}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+            <h1 className="cv-page-title">{heroTitle}</h1>
+            <span className="cv-chip" style={{ background: t.bg, color: t.fg }}>
+              {isAutomation ? `${tierLabel} Journey` : t.label}
+            </span>
+            {openTodo > 0 && <span className="cv-chip cv-chip--amber">Waiting on you</span>}
+          </div>
+          <p className="cv-page-sub">
+            Welcome{client.contact_name ? `, ${client.contact_name}` : ""}.
+            {contactEmail ? ` We'll keep you posted at ${contactEmail}.` : ""}
+          </p>
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {tabs.map((x) => (
+            <button key={x.key} type="button"
+              className={`cv-tabpill ${tab === x.key ? "cv-tabpill--on" : ""}`}
+              onClick={() => setTab(x.key)}>
+              {x.label}
+            </button>
+          ))}
+        </div>
+
+        {!currentProject ? (
+          <section className="cv-card cv-card-pad">
+            <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>
+              We couldn't find that project. Go back to all projects and pick one.
+            </p>
+          </section>
+        ) : tab === "audits" ? (
+          <AuditsSection clientProjectId={currentProject.id} />
+        ) : tab === "access" ? access
+          : tab === "brand" ? brand
+            : overview}
+      </div>
+    </PortalShell>
   );
 }
 

@@ -1094,6 +1094,27 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
   display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
 }
 
+/* ---------- Client portal, one project (board 16) ---------- */
+
+/* The numbered step on the dark "Your to-do" card. Filled while it is
+   yours to do, outlined once it is not yet open to you. */
+.cv-num {
+  width: 34px; height: 34px; border-radius: 50%; background: var(--cv-ink); color: var(--cv-card);
+  display: grid; place-items: center; font-size: 14px; font-weight: 600; flex-shrink: 0;
+  box-sizing: border-box;
+}
+.cv-num--done { background: #1E8E4E; color: #fff; }
+.cv-num--on { background: var(--cv-card); color: var(--cv-ink); }
+.cv-num--off { background: transparent; color: #C9CFDB; border: 2px solid #3D4556; }
+
+/* A tile that is a link to somewhere else in the portal. */
+.cv-lk {
+  display: flex; flex-direction: column; gap: 2px; padding: 16px; border-radius: 18px;
+  background: var(--cv-sunken); text-decoration: none; color: var(--cv-ink); font-weight: 500;
+}
+.cv-lk:hover { color: var(--cv-accent); }
+.cv-lk small { font-size: 13px; font-weight: 400; color: var(--cv-muted); }
+
 /* ---------- Money (Admin Journeys canvas) ---------- */
 
 /* Left-aligned stat, unlike the Clients page's centred one. These three

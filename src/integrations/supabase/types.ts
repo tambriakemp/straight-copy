@@ -4957,6 +4957,21 @@ export type Database = {
         Returns: undefined
       }
       automation_01_criteria_for: { Args: { _key: string }; Returns: Json }
+      portal_project_audits: {
+        Args: { _client_project_id: string }
+        Returns: {
+          id: string
+          slug: string
+          kind: string | null
+          client_name: string
+          cover_note: string | null
+          report_url: string | null
+          reviewed_at: string | null
+          shared_at: string | null
+          created_at: string
+          version_count: number
+        }[]
+      }
       brain_setup_criteria_for: { Args: { _key: string }; Returns: Json }
       claim_due_social_sends: {
         Args: { _limit?: number }

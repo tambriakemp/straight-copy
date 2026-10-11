@@ -7,9 +7,14 @@
 // landing on whether you have one project or six, so the redirect is
 // gone.
 //
-// Proposals and Payments are the existing ProposalsSection and
-// InvoiceSection, rehomed rather than rebuilt. They own the sign, decline
-// and checkout flows, and nothing is gained by writing those twice.
+// Proposals and Payments were the old dark ProposalsSection and
+// InvoiceSection dropped into the new shell — a stopgap when Home was
+// rebuilt, and the thing that made the portal look half-finished. They
+// are built to board 15 now, off the same pure modules the admin pages
+// use (buildFamilies, bucketInvoices) so a client and Bree cannot read
+// different numbers off the same rows. The two old sections are deleted
+// rather than left unreferenced: an orphaned component that renders the
+// previous design is one import away from coming back.
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import PortalShell, { type PortalView } from "@/components/portal/PortalShell";
@@ -80,7 +85,18 @@ export default function Portal() {
   const [notFound, setNotFound] = useState(false);
   const [client, setClient] = useState<PortalClient | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [view, setView] = useState<PortalView>("home");
+  // The view lives in the URL as ?v=, so a link from a project page can
+  // land on Payments rather than on Home with a note to go and find it.
+  const urlView = searchParams.get("v");
+  const [view, setViewState] = useState<PortalView>(
+    urlView === "projects" || urlView === "proposals" || urlView === "payments" ? urlView : "home",
+  );
+  const setView = (v: PortalView) => {
+    setViewState(v);
+    const next = new URLSearchParams(searchParams);
+    if (v === "home") next.delete("v"); else next.set("v", v);
+    setSearchParams(next, { replace: true });
+  };
   const [proposals, setProposals] = useState<PortalProposal[]>([]);
   const [openInvoices, setOpenInvoices] = useState<PortalInvoice[]>([]);
   /** Every invoice on every schedule, paid ones included. */
