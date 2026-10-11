@@ -11,9 +11,9 @@
 // Reveal is per row and resets on reload. There is no "show all": these
 // sit on a screen that gets shared and screenshotted, and the whole point
 // of the dots is that they are the default.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { KeyRound, Lock, Globe, Mail, CreditCard } from "lucide-react";
+import { KeyRound, Lock, Globe, Mail, CreditCard, GripVertical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import SidePanel from "@/components/admin/SidePanel";
@@ -64,6 +64,10 @@ export default function LoginsTab({
   const [busy, setBusy] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
+  // Local copy of the order while dragging; null means "use the prop".
+  const [ordered, setOrdered] = useState<ClientLoginRow[] | null>(null);
+  const dragId = useRef<string | null>(null);
+  const rows = ordered ?? logins;
 
   const reveal = async (id: string) => {
     if (revealed[id] !== undefined) { // already showing — hide again
