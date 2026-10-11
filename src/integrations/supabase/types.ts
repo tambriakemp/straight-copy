@@ -1158,6 +1158,7 @@ export type Database = {
           id: string
           label: string
           note: string | null
+          sort_order: number | null
           updated_at: string
           url: string | null
           username: string | null
@@ -1170,6 +1171,7 @@ export type Database = {
           id?: string
           label: string
           note?: string | null
+          sort_order?: number | null
           updated_at?: string
           url?: string | null
           username?: string | null
@@ -1182,6 +1184,7 @@ export type Database = {
           id?: string
           label?: string
           note?: string | null
+          sort_order?: number | null
           updated_at?: string
           url?: string | null
           username?: string | null
