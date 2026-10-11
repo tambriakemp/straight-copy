@@ -896,47 +896,68 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-simple-list__sub { font-size: 12px; color: var(--cv-muted); }
 .cv-simple-list__when { font-size: 13px; color: var(--cv-muted); white-space: nowrap; }
 
-/* ---------- Pipeline (CRE-332 Phase 6) ---------- */
+/* ---------- Pipeline (CRE-332 Phase 6, relaid out to the canvas) ---------- */
 .cv-spin { animation: cv-spin 0.9s linear infinite; }
 @keyframes cv-spin { to { transform: rotate(360deg); } }
 
-.cv-pipeline-strip {
-  display: flex; gap: 12px; overflow-x: auto; padding: 0 32px 20px; margin: 0 -32px 0;
+/* The stage strip. Six tiles across, Won inverted — it is the only figure
+   on the strip that is money rather than a count, and the one you look for. */
+.cv-stgrow { display: flex; flex-wrap: wrap; gap: 12px; }
+.cv-stg {
+  flex: 1 1 130px; border-radius: 18px; background: var(--cv-card); padding: 16px;
+  display: flex; flex-direction: column; gap: 4px; border: 0;
+  font-family: inherit; text-align: left; box-sizing: border-box;
 }
-.cv-pipeline-strip__item {
-  flex: 1; min-width: 140px; background: var(--cv-card); border: 1px solid var(--cv-border);
-  border-radius: var(--cv-r); padding: 14px 16px; font-family: var(--cv-font-sans);
-  cursor: default; text-align: left;
-}
-.cv-pipeline-strip__item--muted { cursor: pointer; opacity: 0.75; }
-.cv-pipeline-strip__item--muted:hover { opacity: 1; border-color: var(--cv-accent); }
-.cv-pipeline-strip__label { font-size: 12px; color: var(--cv-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
-.cv-pipeline-strip__count { font-size: 22px; color: var(--cv-ink); font-weight: 500; line-height: 1.1; }
-.cv-pipeline-strip__value { font-size: 13px; color: var(--cv-accent); margin-top: 2px; }
+.cv-stg > span { font-size: 13px; color: var(--cv-muted); }
+.cv-stg > b { font-size: 26px; font-weight: 600; line-height: 1.1; color: var(--cv-ink); }
+.cv-stg > small { font-size: 13px; color: var(--cv-muted); }
+.cv-stg--dark { background: var(--cv-ink); }
+.cv-stg--dark > b { color: var(--cv-card); }
+.cv-stg--dark > span, .cv-stg--dark > small { color: #C9CFDB; }
+button.cv-stg { cursor: pointer; }
+button.cv-stg:hover { outline: 2px solid var(--cv-accent); outline-offset: -2px; }
 
-.cv-kanban { display: flex; gap: 14px; overflow-x: auto; align-items: flex-start; padding-bottom: 8px; }
-.cv-kanban__col {
-  flex: 0 0 240px; min-width: 240px; background: var(--cv-sunken); border: 1px solid var(--cv-border);
-  border-radius: var(--cv-r); padding: 12px; display: flex; flex-direction: column; gap: 8px;
+/* The board. Columns are a shade darker than the page, so a card reads as
+   sitting IN a column rather than beside one — the old pale columns on a
+   pale page made the board look like a list that had been nudged sideways. */
+.cv-board { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.cv-col {
+  flex: 1 1 220px; min-width: 220px; background: #E9ECF3; border-radius: 22px;
+  padding: 12px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box;
 }
-.cv-kanban__col-head {
-  display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 500;
-  color: var(--cv-ink); padding: 0 2px 4px;
+.cv-col--drop { outline: 2px dashed var(--cv-accent); outline-offset: -2px; }
+.cv-col h2 {
+  margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center;
+  gap: 8px; padding: 6px 6px 2px;
 }
-.cv-kanban__col-count { font-size: 11px; color: var(--cv-muted); background: var(--cv-card); border-radius: 999px; padding: 1px 7px; }
-.cv-kanban__col--drop-target { border-color: var(--cv-accent); background: var(--cv-accent-tint); }
-.cv-kanban__empty { font-size: 12px; color: var(--cv-faint); padding: 8px 2px; }
+.cv-col h2 span {
+  font-size: 12px; font-weight: 500; background: var(--cv-card); border-radius: 999px;
+  padding: 2px 9px; color: var(--cv-tone-gray-fg);
+}
 
-.cv-kanban-card {
-  display: block; width: 100%; text-align: left; background: var(--cv-card); border: 1px solid var(--cv-border);
-  border-radius: var(--cv-r-sm); padding: 10px 12px; cursor: pointer; font-family: var(--cv-font-sans);
+.cv-deal {
+  background: var(--cv-card); border-radius: 18px; padding: 16px; display: flex;
+  flex-direction: column; gap: 8px; text-decoration: none; color: var(--cv-ink);
+  border: 0; font-family: inherit; text-align: left; width: 100%; box-sizing: border-box;
 }
-.cv-kanban-card:hover { border-color: var(--cv-accent); }
-.cv-kanban-card__company { font-size: 13px; color: var(--cv-ink); font-weight: 500; overflow-wrap: anywhere; }
-.cv-kanban-card__service { font-size: 12px; color: var(--cv-muted); margin-top: 2px; overflow-wrap: anywhere; }
-.cv-kanban-card__meta { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
-.cv-kanban-card__value { font-size: 13px; color: var(--cv-accent); font-weight: 500; }
-.cv-kanban-card__days { font-size: 11px; color: var(--cv-faint); }
+.cv-deal:hover { outline: 2px solid var(--cv-accent); outline-offset: -2px; }
+.cv-deal__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* break-word, not anywhere: `anywhere` breaks greedily and split
+   "dmwright.com" across two lines in a 220px column even though it fit. */
+.cv-deal strong { font-size: 15px; font-weight: 600; overflow-wrap: break-word; }
+.cv-deal p { margin: 0; font-size: 13px; color: var(--cv-body); overflow-wrap: break-word; }
+.cv-deal__meta {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 13px; color: var(--cv-muted);
+}
+.cv-deal__amount { font-size: 16px; font-weight: 600; color: var(--cv-ink); }
+
+/* Real guidance, not "No deals": an empty column should say what would put
+   something in it. */
+.cv-colempty {
+  border: 2px dashed #C9CFDB; border-radius: 18px; padding: 22px 12px;
+  text-align: center; font-size: 13px; color: var(--cv-muted);
+}
 
 /* ---------- Sidebar tiles and in-flight rows (Admin Journeys canvas) -------
    Today's right column is three cards built from two shapes, so both live
