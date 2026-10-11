@@ -21,9 +21,18 @@ interface Props {
   onCreated: (clientId: string) => void;
   /** Overrides the trigger label, for surfaces where "+ New Client" reads oddly. */
   label?: string;
+  /**
+   * The trigger's class. Defaults to the dark `.crm-btn`, which is what the
+   * agent Workspace rail and the other .crm-shell surfaces need. The light
+   * admin pages pass `cv-btn-ink`, so the button is the canvas's ink pill
+   * rather than a dark control wrapped in a dark patch to make it legible.
+   */
+  triggerClassName?: string;
 }
 
-export default function NewClientDialog({ onCreated, label = "+ New Client" }: Props) {
+export default function NewClientDialog({
+  onCreated, label = "+ New Client", triggerClassName = "crm-btn crm-btn--primary",
+}: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
@@ -79,7 +88,7 @@ export default function NewClientDialog({ onCreated, label = "+ New Client" }: P
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="crm-btn crm-btn--primary">{label}</button>
+        <button type="button" className={triggerClassName}>{label}</button>
       </DialogTrigger>
       <DialogContent data-mobile-bottom-sheet="true" className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md overflow-y-auto">
         <DialogHeader>

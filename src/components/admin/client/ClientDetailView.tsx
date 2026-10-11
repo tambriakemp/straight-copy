@@ -15,10 +15,10 @@
 // card down the left is the whole of what that tab held.
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
-import DarkEmbed from "@/components/admin/cv/DarkEmbed";
-import ClientPortalActions from "@/components/admin/ClientPortalActions";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import EmptyState from "@/components/admin/cv/EmptyState";
+import ProjectTypeIcon from "@/components/admin/cv/ProjectTypeIcon";
 import { avatarFor } from "@/lib/avatar";
 import { projectTypeStyle } from "@/lib/projectType";
 import { countsFor } from "@/lib/taskCounts";
@@ -39,6 +39,70 @@ function humanise(s: string | null | undefined): string {
   const v = (s ?? "").replace(/[_-]+/g, " ").trim();
   if (!v) return "—";
   return v.charAt(0).toUpperCase() + v.slice(1);
+}
+
+/**
+ * The two buttons the canvas draws under the avatar.
+ *
+ * These replace ClientPortalActions' row of four dark icon buttons — a
+ * shape from the old dark admin with no labels on it at all. Its other two
+ * actions are kept as the quiet line at the foot of the card rather than
+ * dropped; they are rare, but "sync this client to SureContact" is not
+ * something you can do anywhere else.
+ */
+function PortalActions({ clientId }: { clientId: string }) {
+  const copy = async (path: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${path}`);
+      toast.success(`${label} copied`);
+    } catch {
+      toast.error("Could not copy link");
+    }
+  };
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+      <button type="button" className="cv-open cv-open--dark" onClick={() => copy(`/portal/${clientId}`, "Portal link")}>
+        Copy portal link
+      </button>
+      <a className="cv-open" href={`/portal/${clientId}?as=admin`} target="_blank" rel="noreferrer">
+        Open portal
+      </a>
+    </div>
+  );
+}
+
+/** The two leftovers from the old icon row, where they do not crowd the card. */
+function SecondaryActions({ clientId }: { clientId: string }) {
+  const quiet: React.CSSProperties = {
+    background: "none", border: 0, font: "inherit", fontSize: 13,
+    color: "var(--cv-muted)", cursor: "pointer", padding: 0,
+  };
+  const copyContract = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/portal/${clientId}?focus=contract`);
+      toast.success("Contract link copied");
+    } catch {
+      toast.error("Could not copy link");
+    }
+  };
+  const syncSureContact = async () => {
+    const t = toast.loading("Syncing to SureContact…");
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-client-to-surecontact", { body: { clientId } });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Sync failed");
+      toast.success("Synced to SureContact", { id: t });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Sync failed", { id: t });
+    }
+  };
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center" }}>
+      <button type="button" style={quiet} onClick={copyContract}>Contract link</button>
+      <button type="button" style={quiet} onClick={syncSureContact}>Sync to SureContact</button>
+    </div>
+  );
 }
 
 function IdentityCard({ client, clientId }: { client: ClientRecord; clientId: string }) {
@@ -67,10 +131,7 @@ function IdentityCard({ client, clientId }: { client: ClientRecord; clientId: st
         <span className={`cv-chip cv-chip--${status.tone}`}>{status.label}</span>
       </div>
 
-      {/* ClientPortalActions is dark-themed (.crm-shell) — see DarkEmbed. */}
-      <DarkEmbed inline style={{ padding: 4 }}>
-        <ClientPortalActions clientId={clientId} />
-      </DarkEmbed>
+      <PortalActions clientId={clientId} />
 
       <div style={{ borderTop: "1px dashed var(--cv-border-strong)" }} />
 
@@ -81,6 +142,8 @@ function IdentityCard({ client, clientId }: { client: ClientRecord; clientId: st
         <div><dt>Tier</dt><dd>{humanise(client.tier)}</dd></div>
         <div><dt>Stage</dt><dd>{humanise(client.pipeline_stage)}</dd></div>
       </dl>
+
+      <SecondaryActions clientId={clientId} />
     </section>
   );
 }
@@ -125,9 +188,7 @@ function ProjectRow({
   const pct = total === 0 ? 0 : Math.floor((done / total) * 100);
   return (
     <button type="button" className="cv-proj" onClick={onOpen} style={{ textAlign: "left", border: 0, font: "inherit", cursor: "pointer", width: "100%" }}>
-      <span className="cv-ic" style={{ background: type.bg, color: type.fg, fontWeight: 600, fontSize: 15 }}>
-        {type.label.slice(0, 1)}
-      </span>
+      <ProjectTypeIcon type={project.type} />
       <span style={{ flex: "1 1 200px", minWidth: 0 }}>
         <span className="cv-proj__name">{project.name}</span>
         <span className="cv-proj__type">{type.label}</span>
@@ -217,7 +278,7 @@ export default function ClientDetailView({ clientId }: { clientId: string }) {
                   className="cv-btn-ink cv-btn-ink--sm"
                   onClick={() => navigate(`/admin/clients/${clientId}?new=project`)}
                 >
-                  <Plus size={16} /> New project
+                  + New project
                 </button>
               </div>
 

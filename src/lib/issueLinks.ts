@@ -17,6 +17,20 @@ export function issueUrl(prefix: string, num: string | number): string {
   return `${PAPERCLIP_BASE}/${prefix}/issues/${prefix}-${num}`;
 }
 
+/**
+ * Where "Open agent board" goes for a project.
+ *
+ * The board a project's work actually lives on is recorded as one of its
+ * `project_links` — there is no column for it, and guessing a prefix from
+ * the project name would send you to someone else's board, which is worse
+ * than sending you to the top. So: the first link that looks like one,
+ * else Paperclip's own front page.
+ */
+export function boardUrlFor(links: Array<{ label: string; url: string }>): string {
+  const match = links.find((l) => /board|paperclip/i.test(l.label) || l.url.startsWith(PAPERCLIP_BASE));
+  return match?.url ?? PAPERCLIP_BASE;
+}
+
 export interface IssueTextSegment {
   text: string;
   prefix?: string;

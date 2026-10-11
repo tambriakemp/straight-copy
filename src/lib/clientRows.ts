@@ -46,27 +46,27 @@ function fmtDate(iso: string): string {
 }
 
 /**
- * The heading is the business, the line under it is the person.
+ * The heading is the person: first and last name. The business is the
+ * line under it.
  *
- * The old roster led with the contact name, on the reasoning that the
- * client is a person. On a card the business is what you are looking for —
- * you go to Menovia, and Dr. Kahin is who you talk to there — and a client
- * running three businesses appeared three times under one person's name.
- * Both are printed either way; this only decides which is the heading.
+ * It led with the business for a day, on the reasoning that you go to
+ * Menovia rather than to Dr. Kahin. Bree's call is the other way round —
+ * the client is a person, and the roster is of people. Both are printed
+ * either way; this only decides which is the heading.
  */
 export function headingFor(c: Pick<DirectoryClient, "business_name" | "contact_name">): string {
-  // Trimmed before the fallback, not after: a business name of "  " is not
-  // a business name, and chaining on the raw value picks it and then
-  // trims it away to nothing.
-  return (c.business_name ?? "").trim() || (c.contact_name ?? "").trim() || "Untitled";
+  // Trimmed before the fallback, not after: a contact name of "  " is not
+  // a name, and chaining on the raw value picks it and then trims it away
+  // to nothing.
+  return (c.contact_name ?? "").trim() || (c.business_name ?? "").trim() || "Untitled";
 }
 
 function subtitleFor(c: DirectoryClient): string {
   const since = fmtDate(c.created_at);
-  // Only when the person is not already the heading — otherwise the card
-  // prints "Mary Sims / Mary Sims · since May 5".
-  const person = headingFor(c) === (c.contact_name ?? "").trim() ? "" : (c.contact_name ?? "").trim();
-  return [person, since && `since ${since}`].filter(Boolean).join(" · ");
+  // Only when the business is not already the heading — otherwise a client
+  // with no contact name prints "Menovia / Menovia · since May 12".
+  const business = headingFor(c) === (c.business_name ?? "").trim() ? "" : (c.business_name ?? "").trim();
+  return [business, since && `since ${since}`].filter(Boolean).join(" · ");
 }
 
 export function buildClientRows(
@@ -87,7 +87,11 @@ export function buildClientRows(
       id: c.id,
       name: headingFor(c),
       who: subtitleFor(c),
-      avatar: avatarFor(headingFor(c), c.internal),
+      // Of the business, not the person: the square is there to be
+      // recognised, and "Me" for Menovia is the mark you already know from
+      // the client page. Falls back to the person when there is no
+      // business, so it is never blank.
+      avatar: avatarFor((c.business_name ?? "").trim() || headingFor(c), c.internal),
       status: c.archived
         ? { label: "Archived", tone: "gray" as const }
         : c.internal

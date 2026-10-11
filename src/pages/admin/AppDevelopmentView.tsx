@@ -1,48 +1,62 @@
-// The project page.
+// The project page, laid out to the Admin Journeys canvas.
 //
-// Was six tabs — Tasks, Proposals, Payment Schedule, Preview, Social,
-// Settings — which meant the answer to "where is this project up to" was
-// spread across six screens and nobody could see two of them at once. Tasks
-// went to the one board at /admin/tasks; the rest is now one page, in the
-// order the work actually reads: what the client is looking at, what we quoted,
-// and what has been paid.
+// It was six tabs, then one long scroll of panels, and now it is a page
+// with a shape: four figures that say where the project is, then one tab
+// per thing you might have come to do. The scroll was better than the tabs
+// — you could see two panels at once — but it also meant the preview, the
+// proposal, the payment schedule and the social queue all loaded whether
+// you wanted them or not, and the answer to "where is this up to" was
+// somewhere in the middle of it.
 //
-// Laid out to the Cre8 Visions design canvas — tokens in
-// components/admin/project/projectPageTokens.ts, panel chrome in PanelChrome.
-import { useEffect, useState } from "react";
+// What is NOT here, on purpose: a task board. Tasks live on the Paperclip
+// board and are read from it; this page shows the counts, the two lists
+// that are waiting on a person, and a link out. Bree's call — the admin
+// does not keep a second board.
+//
+// Intake moved here from the client page, along with Proposals, Payments
+// and Files. All four describe a project; a client only has them in the
+// sense that one of their projects does.
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { ExternalLink, Settings } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import SidePanel from "@/components/admin/SidePanel";
+import EmptyState from "@/components/admin/cv/EmptyState";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
 import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
 import ContractAuditPanel from "@/components/admin/ContractAuditPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
 import ProgressReportSettingsCard from "@/components/admin/ProgressReportSettingsCard";
 import DeliveryTargetsCard from "@/components/admin/DeliveryTargetsCard";
-import ProjectPageHeader from "@/components/admin/project/ProjectPageHeader";
+import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
 import ProjectPreviewPanel from "@/components/admin/project/ProjectPreviewPanel";
-import { T } from "@/lib/cre8Design";
+import IntakeTab from "@/components/admin/client/IntakeTab";
+import { useProjectRecord, type ProjectTask } from "@/components/admin/project/useProjectRecord";
+import { projectTypeStyle } from "@/lib/projectType";
+import { boardUrlFor } from "@/lib/issueLinks";
+import { PROJECT_PHASES, phaseStateAt } from "@/lib/projectPhases";
 
-const TYPE_LABEL: Record<string, string> = {
-  app_development: "App Development",
-  web_development: "Web Development",
-  marketing: "Marketing",
-};
+type Tab = "overview" | "intake" | "proposals" | "payments" | "files" | "notes" | "social";
 
-type Project = {
-  id: string; client_id: string; name: string; type: string; status: string;
-};
-type Client = {
-  id: string; business_name: string | null; contact_name: string | null;
-  contact_email: string | null;
-};
+function Stat({ label, value, dark = false }: { label: string; value: number; dark?: boolean }) {
+  return (
+    <div className={`cv-card cv-stat ${dark ? "cv-stat--dark" : ""}`}>
+      <span>{label}</span>
+      <b>{value}</b>
+    </div>
+  );
+}
 
-/**
- * @param embedded Render without AdminLayout, for the agent Workspace rail.
- *   Ids come from props there because the panel has no route of its own.
- */
+function TaskList({ tasks, dot, limit = 4 }: { tasks: ProjectTask[]; dot: string; limit?: number }) {
+  return (
+    <>
+      {tasks.slice(0, limit).map((t) => (
+        <div key={t.id} className="cv-task"><i style={{ background: dot }} />{t.name}</div>
+      ))}
+    </>
+  );
+}
+
 export default function AppDevelopmentView({
   clientId: clientIdProp, projectId: projectIdProp, embedded = false, onBack,
 }: {
@@ -52,113 +66,260 @@ export default function AppDevelopmentView({
   onBack?: () => void;
 } = {}) {
   const params = useParams<{ id: string; projectId: string }>();
-  const clientId = clientIdProp ?? params.id;
   const projectId = projectIdProp ?? params.projectId;
   const navigate = useNavigate();
-  const [project, setProject] = useState<Project | null>(null);
-  const [client, setClient] = useState<Client | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<Tab>("overview");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const {
+    project, client, counts, needsReview, blocked, links, notes, loading, notFound,
+  } = useProjectRecord(projectId);
 
-  const isMarketing = project?.type === "marketing";
-  const portalUrl = clientId ? `${window.location.origin}/portal/${clientId}` : "";
+  const clientId = clientIdProp ?? project?.client_id;
+  const boardUrl = useMemo(() => boardUrlFor(links), [links]);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!projectId || !clientId) return;
-      setLoading(true);
-      try {
-        const [{ data: proj }, { data: c }] = await Promise.all([
-          supabase.from("client_projects")
-            .select("id, client_id, name, type, status").eq("id", projectId).maybeSingle(),
-          supabase.from("clients")
-            .select("id, business_name, contact_name, contact_email").eq("id", clientId).maybeSingle(),
-        ]);
-        setProject(proj as Project | null);
-        setClient(c as Client | null);
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to load");
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
-  }, [projectId, clientId]);
-
-  // One wrapper, chosen once, so the loading and not-found returns agree with
-  // the main one about whether this is a page or a panel.
   const Shell = ({ children }: { children: React.ReactNode }) =>
-    embedded ? <>{children}</> : <AdminLayout>{children}</AdminLayout>;
+    embedded ? <>{children}</> : <AdminLayout topBar={false}>{children}</AdminLayout>;
 
-  if (loading) return <Shell><div style={{ padding: 40, color: T.muted }}>Loading…</div></Shell>;
-  if (!project || !client) return <Shell><div style={{ padding: 40, color: T.text }}>Project not found.</div></Shell>;
+  if (loading) {
+    return <Shell><div className="cv-admin cv-page"><p className="cv-page-sub">Loading project…</p></div></Shell>;
+  }
+  if (notFound || !project || !clientId) {
+    return (
+      <Shell>
+        <div className="cv-admin cv-page">
+          <EmptyState title="Project not found" subtitle="It may have been deleted." />
+        </div>
+      </Shell>
+    );
+  }
 
-  const clientName = client.contact_name ?? client.business_name ?? "Client";
+  const type = projectTypeStyle(project.type);
+  const clientName = client?.business_name || client?.contact_name || "Client";
+  const isMarketing = project.type === "marketing";
+  const portalUrl = `${window.location.origin}/portal/${clientId}`;
+
+  const TABS: Array<{ key: Tab; label: string }> = [
+    { key: "overview", label: "Overview" },
+    { key: "intake", label: "Intake" },
+    { key: "proposals", label: "Proposals" },
+    { key: "payments", label: "Payments" },
+    { key: "files", label: "Files" },
+    { key: "notes", label: "Notes" },
+    ...(isMarketing ? [{ key: "social" as const, label: "Social" }] : []),
+  ];
+
+  // The phase strip is the canvas's own placeholder, pill and all: there is
+  // no phase schema yet, and the five below are the same five it draws.
+  // Labelled "Sample phases" on the card, because an unlabelled guess about
+  // where a project has got to is worse than no guess.
+  const phaseIndex = PROJECT_PHASES.length > 0 ? phaseStateAt(counts.pct) : 0;
 
   return (
     <Shell>
-      {/* Two boxes, and both do a job.
+      <div className="cv-admin cv-page" style={embedded ? undefined : { flex: 1, minHeight: 0, overflow: "auto" }}>
 
-          The outer one scrolls. .crm-page is `overflow: hidden`, so a page that
-          does not bring its own scroller simply loses everything past the fold
-          — which is what .roster was quietly providing before this page stopped
-          using it. Full width, so the scrollbar sits at the window edge.
-
-          The inner one centres and caps. width:100% on it is load-bearing, not
-          belt-and-braces: an auto margin on a flex column's cross axis cancels
-          the default stretch, so without it this box shrinks to fit its own
-          content (measured: 500px inside a 1024px page) and the auto-fit grid
-          below then has room for only one column. The narrow ribbon and the
-          stacked panels were one cause, not two. */}
-      <div style={embedded ? undefined : { flex: 1, minHeight: 0, overflowY: "auto" }}>
-      <div style={{
-        padding: embedded ? "0 0 32px" : "28px 40px 48px",
-        maxWidth: 1320, margin: "0 auto", width: "100%", boxSizing: "border-box",
-      }}>
-        <ProjectPageHeader
-          typeLabel={TYPE_LABEL[project.type] ?? "Project"}
-          name={project.name}
-          clientName={clientName}
-          clientEmail={client.contact_email}
-          status={project.status}
-          backLabel={clientName}
-          // Embedded, going back is a step inside the panel — navigating would
-          // take the whole window somewhere the panel cannot follow.
-          onBack={() => (embedded && onBack ? onBack() : navigate(`/admin/clients/${clientId}`))}
-          onSettings={() => setSettingsOpen(true)}
-        />
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <ProjectPreviewPanel
-            clientId={clientId!}
-            clientProjectId={projectId!}
-            projectName={project.name}
-            clientLabel={client.business_name}
-          />
-
-          {/* Side by side, because the question they answer together — has this
-              client paid for what they signed — needs both in one glance. They
-              stack below 900px rather than squeezing to half a column each. */}
-          <div style={{
-            display: "grid", gap: 18,
-            gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
-            alignItems: "start",
-          }}>
-            <ProjectProposalsPanel
-              clientId={clientId!} clientProjectId={projectId!} portalUrl={portalUrl}
-            />
-            <ProjectInvoicesCard clientId={clientId!} clientProjectId={projectId!} />
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 14 }}>
+          <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+            <div className="cv-crumbs">
+              <a href="/admin/clients">All clients</a>
+              {" / "}
+              <a
+                href={`/admin/clients/${clientId}`}
+                onClick={(e) => {
+                  // Embedded, going back is a step inside the panel —
+                  // navigating takes the whole window where it cannot follow.
+                  if (embedded && onBack) { e.preventDefault(); onBack(); }
+                }}
+              >
+                {clientName}
+              </a>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+              <h1 className="cv-page-title">{project.name}</h1>
+              <span className="cv-chip" style={{ background: type.bg, color: type.fg }}>{type.label}</span>
+              <span className={`cv-chip cv-chip--${project.status === "archived" ? "gray" : "green"}`}>
+                {project.status === "archived" ? "Archived" : "Active"}
+              </span>
+            </div>
           </div>
-
-          {isMarketing && <SocialTab clientProjectId={projectId!} />}
-
-          {project.type === "web_development" && (
-            <ContractAuditPanel clientId={clientId!} clientProjectId={projectId!} />
-          )}
+          <a className="cv-open cv-open--dark" style={{ padding: "0 18px" }} href={boardUrl} target="_blank" rel="noreferrer">
+            Open agent board <ExternalLink size={15} style={{ marginLeft: 7 }} />
+          </a>
+          <button type="button" className="cv-open" style={{ padding: "0 18px" }} onClick={() => setSettingsOpen(true)}>
+            <Settings size={15} style={{ marginRight: 7 }} /> Settings
+          </button>
         </div>
 
-        {/* Settings were a tab you visited once per project and then never
-            again. Behind the gear, like the rest of the admin. */}
+        <div className="cv-stat-row cv-stat-row--tight">
+          <Stat dark label="Tasks done" value={counts.done} />
+          <Stat label="Open tasks" value={counts.open} />
+          <Stat label="Blocked" value={counts.blocked} />
+          <Stat label="Needs your review" value={counts.needsReview} />
+        </div>
+
+        <div className="cv-tabrow">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              className={`cv-tabpill ${tab === t.key ? "cv-tabpill--on" : ""}`}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+            </button>
+          ))}
+          <a className="cv-tabpill" href={`${portalUrl}?focus=feedback`} target="_blank" rel="noreferrer">
+            Feedback board <ExternalLink size={14} />
+          </a>
+        </div>
+
+        {tab === "overview" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+                <h2 className="cv-card-title">Phase</h2>
+                <span className="cv-chip cv-chip--gray">Sample phases</span>
+                <span style={{ marginLeft: "auto", fontSize: 13, color: "var(--cv-muted)" }}>
+                  {counts.total === 0
+                    ? "No tasks on the board yet"
+                    : `${counts.done} of ${counts.total} tasks · ${counts.pct}%`}
+                </span>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {PROJECT_PHASES.map((phase, i) => (
+                  <div
+                    key={phase}
+                    className={`cv-ph ${i < phaseIndex ? "cv-ph--done" : i === phaseIndex ? "cv-ph--now" : ""}`}
+                  >
+                    <small>{i < phaseIndex ? "Done" : i === phaseIndex ? "Now" : i === phaseIndex + 1 ? "Next" : "Later"}</small>
+                    {phase}
+                  </div>
+                ))}
+              </div>
+              <span className="cv-bar"><i style={{ width: `${counts.pct}%` }} /></span>
+              <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>
+                These are placeholder phases until projects carry real ones —
+                they read off the task percentage, not off a plan.
+              </p>
+            </section>
+
+            <div className="cv-pair">
+              <section className="cv-card cv-card-pad">
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <h2 className="cv-card-title">Needs your review</h2>
+                  <span className="cv-chip cv-chip--blue">{counts.needsReview}</span>
+                </div>
+                {!needsReview.length
+                  ? <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>Nothing waiting on you.</p>
+                  : <>
+                      <TaskList tasks={needsReview} dot="#2F5BEA" />
+                      {needsReview.length > 4 && (
+                        <a href={boardUrl} target="_blank" rel="noreferrer"
+                          style={{ display: "inline-block", fontSize: 14, padding: "12px 0 0" }}>
+                          See all {needsReview.length}
+                        </a>
+                      )}
+                    </>}
+              </section>
+
+              <section className="cv-card cv-card-pad">
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <h2 className="cv-card-title">Blocked</h2>
+                  <span className="cv-chip cv-chip--amber">{counts.blocked}</span>
+                </div>
+                {!blocked.length
+                  ? <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>Nothing blocked.</p>
+                  : <>
+                      <TaskList tasks={blocked} dot="#E8590C" />
+                      {blocked.length > 4 && (
+                        <a href={boardUrl} target="_blank" rel="noreferrer"
+                          style={{ display: "inline-block", fontSize: 14, padding: "12px 0 0" }}>
+                          See all {blocked.length}
+                        </a>
+                      )}
+                    </>}
+              </section>
+            </div>
+
+            <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <h2 className="cv-card-title">Project details</h2>
+              <dl className="cv-deflist">
+                <div>
+                  <dt>Client</dt>
+                  <dd>{[client?.contact_name, client?.business_name].filter(Boolean).join(" · ") || "—"}</dd>
+                </div>
+                <div><dt>Type</dt><dd>{type.label}</dd></div>
+                <div>
+                  <dt>Repo</dt>
+                  <dd>{project.repo_url
+                    ? <a href={project.repo_url} target="_blank" rel="noreferrer">{project.repo_url}</a>
+                    : "Not set"}</dd>
+                </div>
+                <div><dt>Agent autonomy</dt><dd>{project.agent_autonomy || "Inherited from the agent"}</dd></div>
+                <div><dt>Queue</dt><dd>{project.queue_enabled ? "On" : "Off"}</dd></div>
+              </dl>
+            </section>
+          </div>
+        )}
+
+        {tab === "intake" && <IntakeTab clientId={clientId} />}
+
+        {tab === "proposals" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <ProjectProposalsPanel clientId={clientId} clientProjectId={project.id} portalUrl={portalUrl} />
+            {project.type === "web_development" && (
+              <ContractAuditPanel clientId={clientId} clientProjectId={project.id} />
+            )}
+          </div>
+        )}
+
+        {tab === "payments" && <ProjectInvoicesCard clientId={clientId} clientProjectId={project.id} />}
+
+        {tab === "files" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <ProjectPreviewPanel
+              clientId={clientId}
+              clientProjectId={project.id}
+              projectName={project.name}
+              clientLabel={client?.business_name ?? null}
+            />
+            <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <h2 className="cv-card-title">Links</h2>
+              {!links.length
+                ? <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>No links saved for this project.</p>
+                : links.map((l) => (
+                    <a key={l.id} className="cv-proj" href={l.url} target="_blank" rel="noreferrer">
+                      <span style={{ flex: "1 1 200px", minWidth: 0 }}>
+                        <span className="cv-proj__name">{l.label}</span>
+                        <span className="cv-proj__type">{l.url}</span>
+                      </span>
+                      <ExternalLink size={16} />
+                    </a>
+                  ))}
+            </section>
+          </div>
+        )}
+
+        {tab === "notes" && (
+          <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <h2 className="cv-card-title">Notes</h2>
+            {project.notes && <p style={{ margin: 0, fontSize: 14, whiteSpace: "pre-wrap" }}>{project.notes}</p>}
+            {!notes.length && !project.notes
+              ? <EmptyState title="No notes yet" subtitle="Notes written on this project show up here." />
+              : notes.map((n) => (
+                  <div key={n.id} className="cv-proj" style={{ flexDirection: "column", alignItems: "stretch", gap: 6 }}>
+                    <div style={{ fontSize: 12, color: "var(--cv-muted)" }}>
+                      {new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                    </div>
+                    <div style={{ fontSize: 14, whiteSpace: "pre-wrap" }}>{n.body}</div>
+                  </div>
+                ))}
+          </section>
+        )}
+
+        {tab === "social" && <SocialTab clientProjectId={project.id} />}
+
+        {/* Settings were a tab you visited once per project and never again. */}
         <SidePanel
           open={settingsOpen}
           onClose={() => setSettingsOpen(false)}
@@ -166,10 +327,10 @@ export default function AppDevelopmentView({
           subtitle={project.name}
           width={520}
         >
-          <DeliveryTargetsCard clientProjectId={projectId!} />
-          <ProgressReportSettingsCard clientId={clientId!} clientProjectId={projectId!} />
+          <DeliveryTargetsCard clientProjectId={project.id} />
+          <ProgressReportSettingsCard clientId={clientId} clientProjectId={project.id} />
+          <ProjectSecretsPanel clientProjectId={project.id} />
         </SidePanel>
-      </div>
       </div>
     </Shell>
   );

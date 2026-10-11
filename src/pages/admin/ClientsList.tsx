@@ -7,15 +7,16 @@
 // projects and their progress on the face of it, which is the question
 // this page exists to answer.
 //
-// The list view is kept as a second mode because a roster you can sort and
-// scan is the right shape once there are more clients than fit on a screen
-// — that was the point of the table, and it survives as ClientsTable.
+// List is kept as a second mode because a roster you scan a column of is
+// the right shape once there are more clients than fit on a screen. It is
+// a table in this page's own language now, not the dark .crm-shell roster
+// that used to be embedded here: that one brought its own surface, its own
+// serif type and its own idea of which name a client goes by, so switching
+// view looked like switching product.
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Users, FolderKanban, Clock, Check } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
-import DarkEmbed from "@/components/admin/cv/DarkEmbed";
-import ClientsTable from "@/components/admin/ClientsTable";
 import NewClientDialog from "@/components/admin/NewClientDialog";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import { useClientDirectory } from "@/lib/useClientDirectory";
@@ -89,6 +90,48 @@ function ClientCard({ row, onOpen }: { row: ClientCardRow; onOpen: () => void })
   );
 }
 
+function ClientTable({ rows, onOpen }: { rows: ClientCardRow[]; onOpen: (id: string) => void }) {
+  return (
+    <section className="cv-card cv-card-pad" style={{ overflowX: "auto" }}>
+      <table className="cv-table">
+        <thead>
+          <tr>
+            <th>Client</th>
+            <th>Projects</th>
+            <th>Open</th>
+            <th>Done</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} onClick={() => onOpen(row.id)}>
+              <td>
+                <span className="cv-table__who">
+                  <span
+                    className="cv-av"
+                    style={{ background: row.avatar.bg, color: row.avatar.fg, width: 36, height: 36, borderRadius: 11, fontSize: 13 }}
+                  >
+                    {row.avatar.initials}
+                  </span>
+                  <span style={{ minWidth: 0 }}>
+                    <span className="cv-table__name" style={{ display: "block" }}>{row.name}</span>
+                    {row.who && <span className="cv-table__sub">{row.who}</span>}
+                  </span>
+                </span>
+              </td>
+              <td className="cv-table__num">{row.projects.length + row.extraProjects}</td>
+              <td className="cv-table__num">{row.totals.open}</td>
+              <td className="cv-table__num">{row.totals.done}</td>
+              <td><span className={`cv-chip cv-chip--${row.status.tone}`}>{row.status.label}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 export default function ClientsList() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -133,15 +176,17 @@ export default function ClientsList() {
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search clients, projects…"
+              placeholder="Search clients, projects, tasks..."
             />
           </label>
-          {/* NewClientDialog is dark-themed (.crm-shell) — see DarkEmbed. */}
-          <DarkEmbed inline style={{ padding: 4 }}>
-            <NewClientDialog
-              onCreated={(clientId) => { reload(); navigate(`/admin/clients/${clientId}`); }}
-            />
-          </DarkEmbed>
+          {/* The dialog's own body is still dark (.crm-shell); only its
+              trigger is themed to this page, so the button beside the search
+              is the canvas's ink pill rather than a dark control in a patch. */}
+          <NewClientDialog
+            label="+ New client"
+            triggerClassName="cv-btn-ink"
+            onCreated={(clientId) => { reload(); navigate(`/admin/clients/${clientId}`); }}
+          />
         </div>
 
         <div>
@@ -186,19 +231,15 @@ export default function ClientsList() {
           </span>
         </div>
 
-        {view === "list" ? (
-          // The sortable roster, unchanged. It is dark-themed; DarkEmbed is
-          // why that still works inside this light page.
-          <DarkEmbed style={{ padding: 16, minHeight: 420 }}>
-            <ClientsTable />
-          </DarkEmbed>
-        ) : loading ? (
+        {loading ? (
           <p className="cv-page-sub">Loading…</p>
         ) : !visible.length ? (
           <EmptyState
             title={query ? "Nothing matches that" : "No clients here"}
             subtitle={query ? "Try a shorter search." : "Nothing in this filter."}
           />
+        ) : view === "list" ? (
+          <ClientTable rows={visible} onOpen={(id) => navigate(`/admin/clients/${id}`)} />
         ) : (
           <div className="cv-client-grid">
             {visible.map((row) => (

@@ -760,6 +760,26 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-pr__pc { font-size: 13px; color: var(--cv-muted); width: 74px; text-align: right; }
 .cv-more { font-size: 13px; color: var(--cv-muted); }
 
+/* Clients list, List mode. A table in the page's own language rather than
+   the dark .crm-shell roster that used to be embedded here: one surface,
+   one type scale, and the same avatar and chips the cards use. */
+.cv-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.cv-table th {
+  text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--cv-muted); padding: 0 14px 12px; white-space: nowrap;
+}
+.cv-table th:first-child, .cv-table td:first-child { padding-left: 0; }
+.cv-table th:last-child, .cv-table td:last-child { padding-right: 0; text-align: right; }
+.cv-table td { padding: 14px; border-top: 1px solid var(--cv-border); color: var(--cv-ink); vertical-align: middle; }
+.cv-table tbody tr { cursor: pointer; }
+.cv-table tbody tr:hover td { background: var(--cv-sunken); }
+.cv-table tbody tr:hover td:first-child { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
+.cv-table tbody tr:hover td:last-child { border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
+.cv-table__who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cv-table__name { font-weight: 500; }
+.cv-table__sub { font-size: 13px; color: var(--cv-muted); }
+.cv-table__num { color: var(--cv-muted); white-space: nowrap; }
+
 /* The quiet full-width button at the foot of a card, and its inline twin. */
 .cv-open {
   display: flex; align-items: center; justify-content: center; min-height: 46px;

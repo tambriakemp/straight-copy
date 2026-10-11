@@ -28,11 +28,14 @@ export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
 
   if (!id) {
-    return <AdminLayout><div className="roster"><p>Client not found.</p></div></AdminLayout>;
+    return <AdminLayout topBar={false}><div className="cv-admin cv-page"><p>Client not found.</p></div></AdminLayout>;
   }
 
   return (
-    <AdminLayout>
+    // No top bar: the page opens with the client's name, and a search box
+    // above that puts a stub between you and the thing you came to read.
+    // Same call as Today.
+    <AdminLayout topBar={false}>
       <ClientDetailView clientId={id} />
     </AdminLayout>
   );

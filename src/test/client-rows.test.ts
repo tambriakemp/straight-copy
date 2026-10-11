@@ -40,16 +40,15 @@ function rows(
 }
 
 describe("headingFor", () => {
-  it("leads with the business, not the person", () => {
-    // You go to Menovia; Dr. Kahin is who you talk to there. Leading with
-    // the person listed a client running three businesses three times
-    // under one name.
-    expect(headingFor({ business_name: "Menovia", contact_name: "Dr. Khadra Kahin" })).toBe("Menovia");
+  it("leads with the person, not the business", () => {
+    // Bree's call: the client is a person and the roster is of people.
+    // Both are printed either way; this only picks the heading.
+    expect(headingFor({ business_name: "Menovia", contact_name: "Dr. Khadra Kahin" })).toBe("Dr. Khadra Kahin");
   });
 
-  it("falls back to the person when there is no business", () => {
-    expect(headingFor({ business_name: null, contact_name: "Mary Sims" })).toBe("Mary Sims");
-    expect(headingFor({ business_name: "  ", contact_name: "Mary Sims" })).toBe("Mary Sims");
+  it("falls back to the business when there is no person", () => {
+    expect(headingFor({ business_name: "Menovia", contact_name: null })).toBe("Menovia");
+    expect(headingFor({ business_name: "Menovia", contact_name: "  " })).toBe("Menovia");
   });
 
   it("says Untitled rather than printing nothing", () => {
@@ -58,17 +57,30 @@ describe("headingFor", () => {
 });
 
 describe("buildClientRows", () => {
-  it("puts the person and the start date under the heading", () => {
+  it("puts the business and the start date under the heading", () => {
     const [r] = rows([client({ id: "c1", business_name: "Menovia", contact_name: "Dr. Khadra Kahin" })], []);
-    expect(r.who).toContain("Dr. Khadra Kahin");
+    expect(r.name).toBe("Dr. Khadra Kahin");
+    expect(r.who).toContain("Menovia");
     expect(r.who).toContain("since May");
   });
 
-  it("does not repeat the person when they are the heading", () => {
-    const [r] = rows([client({ id: "c1", business_name: null, contact_name: "Mary Sims" })], []);
-    expect(r.name).toBe("Mary Sims");
-    expect(r.who).not.toContain("Mary Sims");
+  it("does not repeat the business when it is the heading", () => {
+    const [r] = rows([client({ id: "c1", business_name: "Menovia", contact_name: null })], []);
+    expect(r.name).toBe("Menovia");
+    expect(r.who).not.toContain("Menovia");
     expect(r.who).toContain("since");
+  });
+
+  it("takes the avatar from the business, so the square stays the brand", () => {
+    // It sits next to the person's name but is there to be recognised,
+    // and it is the same mark the client page shows.
+    const [r] = rows([client({ id: "c1", business_name: "Menovia", contact_name: "Dr. Khadra Kahin" })], []);
+    expect(r.avatar.initials).toBe("Me");
+  });
+
+  it("falls back to the person's initials when there is no business", () => {
+    const [r] = rows([client({ id: "c1", business_name: null, contact_name: "Mary Sims" })], []);
+    expect(r.avatar.initials).toBe("Ma");
   });
 
   it("shows three projects and counts the rest", () => {
@@ -172,8 +184,9 @@ describe("matchesSearch", () => {
     expect(matchesSearch(row, "MENOVIA", [])).toBe(true);
   });
 
-  it("matches the person as well as the business", () => {
+  it("matches the business as well as the person", () => {
     expect(matchesSearch(row, "khadra", [])).toBe(true);
+    expect(matchesSearch(row, "menovia", [])).toBe(true);
   });
 
   it("finds a project the card does not show", () => {
