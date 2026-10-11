@@ -22,6 +22,7 @@ describe("NeedsYouRow (CRE-391)", () => {
         taskIds={["CRE-335"]}
         href={null}
         done={false}
+        checkable
         onComplete={noop.complete}
         onUndo={noop.undo}
       />,
@@ -40,6 +41,7 @@ describe("NeedsYouRow (CRE-391)", () => {
         taskIds={["CRE-351"]}
         href={null}
         done={false}
+        checkable={false}
         onComplete={noop.complete}
         onUndo={noop.undo}
       />,
@@ -58,6 +60,7 @@ describe("NeedsYouRow (CRE-391)", () => {
         taskIds={[]}
         href="/admin/approvals"
         done
+        checkable
         onComplete={noop.complete}
         onUndo={noop.undo}
       />,
@@ -65,5 +68,23 @@ describe("NeedsYouRow (CRE-391)", () => {
     const link = screen.getByRole("link", { name: "Approve the Oct 12 prospect previews" });
     expect(link).toHaveAttribute("href", "/admin/approvals");
     expect(link.closest("b")).toHaveStyle({ textDecoration: "line-through" });
+  });
+
+  it("renders no checkbox at all when checkable is false (CRE-393 §A.4)", () => {
+    render(
+      <NeedsYouRow
+        marker={{ kind: "icon", icon: AlertTriangle, color: "#dc2626", label: "Stuck" }}
+        title="Agent-owned, stalled review"
+        description={null}
+        category="Menovia"
+        taskIds={["CRE-350"]}
+        href={null}
+        done={false}
+        checkable={false}
+        onComplete={noop.complete}
+        onUndo={noop.undo}
+      />,
+    );
+    expect(screen.queryByLabelText("Mark done")).not.toBeInTheDocument();
   });
 });

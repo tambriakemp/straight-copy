@@ -285,16 +285,21 @@ export default function Tokens() {
               <SecretRow
                 label="Ara webhook URL" secretKey="ara_webhook_url" placeholder="https://…"
                 generated={false}
-                hint="The same Grok Bot agent-stuck webhook URL already wired into every agent's AGENTS.md (CRE-310). Checking off a brief or Needs-you-now item posts here instead of telling Ara in chat."
+                hint="The same Grok Bot agent-stuck webhook URL already wired into every agent's AGENTS.md (CRE-310). Checking off a brief or Needs-you-now item, and every Decide button (CRE-393), posts here instead of telling Ara in chat."
               />
               <SecretRow
-                label="Ara webhook key" secretKey="ara_webhook_key" placeholder="paste the bearer key"
+                label="Ara webhook key" secretKey="ara_webhook_key" placeholder="paste the bearer token"
                 generated={false}
-                hint="The bearer key that goes with the webhook URL above."
+                hint="The bearer token that goes with the webhook URL above."
               />
               <SecretRow
                 label="Prospect approvals ingest key" secretKey="prospect_approvals_ingest_secret" generated
                 hint="Save this as a Paperclip secret named PROSPECT-APPROVALS-INGEST-KEY — Ara adds it to Nicole's env from there. Rotating breaks her pushes and decision reads until she has the new value."
+              />
+              <SecretRow
+                label="GitHub token (Decide → Merge)" secretKey="github_token" placeholder="paste a fine-grained PAT"
+                generated={false}
+                hint="CRE-393: used only by the decide-action edge function to check CI and merge a PR when you pick 'Merge' on a Decide card. Needs Contents: write and Pull requests: write on at least tambriakemp/straight-copy (add atelemed/menovia or others only if you want Merge wired for those repos too). Without this set, Merge buttons report the error and don't touch GitHub."
               />
             </DarkEmbed>
           )}

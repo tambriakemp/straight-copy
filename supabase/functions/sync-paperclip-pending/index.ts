@@ -1,5 +1,5 @@
 // Polls Paperclip for what needs Bree right now (CRE-235 §4) and mirrors it
-// into paperclip_pending_items for the Briefs tab's "Needs you now" panel.
+// into paperclip_pending_items for the Today page's "Do" list.
 // Paperclip has no outbound webhook for "approval created" / "interaction
 // created" — only routines carry webhook triggers — so polling on a schedule
 // (pg_cron/pg_net, every 10 minutes) is the only option today.
@@ -13,13 +13,28 @@
 // `issueIdentifier`, not a nested `.issue`), and — the bigger find — it
 // returns *every* issue responsible to the given user regardless of status
 // (76 rows going back to September, including `done`/`backlog`), not just
-// the ones that need her attention. Filtered below to the statuses that
-// actually mean "needs you right now": in_progress, in_review, blocked, todo.
-// in_progress was added 2026-10-06 after Bree flagged a real example
-// (CRE-262) that was missing — the endpoint's own `isUnreadForMe` field is
-// scoped to the calling agent identity ("get current agent assigned inbox
-// items"), not to the userId query param, so it can't substitute for "unread
-// to Bree" and is deliberately not used here.
+// the ones that need her attention.
+//
+// CRE-393: the actionable-status filter alone was never the right gate — it
+// let through every issue an agent merely had `in_progress`/`in_review`
+// *responsible* to Bree, whether or not she actually had anything to do.
+// Confirmed live on CRE-393 against the six rows Bree named as correct and
+// the eleven she named as noise: the right signal is each issue's own
+// `assigneeUserId` (literally hers) or its server-computed `reviewAttention`
+// / `blockerAttention` state — "stalled" means nothing (no participant,
+// interaction, approval, wake, or active run) owns the next action, which is
+// exactly the case that needs a human; "covered" means an agent interaction
+// already owns it, so it stays off her list. Verified against
+// inbox/mine's own embedded reviewAttention/blockerAttention fields — no
+// second API call per issue needed. `isUnreadForMe` is still not used here:
+// it is scoped to the calling agent identity, not the userId query param.
+//
+// Kind is now three-way, not two: "interaction" (assigneeUserId is Bree —
+// hers to check off), "interaction_stalled" (agent-owned, nothing covering
+// it — she needs to see it, but checking it off would wrongly tell an agent
+// its own work is done, so the frontend renders no checkbox for this kind —
+// see needsYouNow.ts/needsYouRows.ts), and "approval" (unchanged, from the
+// /approvals endpoint).
 // The /approvals endpoint's field shape is still unverified — this company
 // has never had a real pending-approval row to check field names against,
 // so that mapping is left as the original best guess.
@@ -50,15 +65,36 @@ async function getSecret(sb: ReturnType<typeof serviceClient>, key: string) {
 
 interface PendingItem {
   id: string;
-  kind: "approval" | "interaction";
+  kind: "approval" | "interaction" | "interaction_stalled";
   title: string;
   issue_identifier: string | null;
   issue_url: string | null;
   raw: unknown;
 }
 
+interface AttentionState { state: "none" | "covered" | "stalled"; [k: string]: unknown }
+interface InboxIssue {
+  id: string;
+  identifier: string | null;
+  title: string | null;
+  summary?: string | null;
+  status: string;
+  assigneeUserId: string | null;
+  reviewAttention?: AttentionState | null;
+  blockerAttention?: AttentionState | null;
+}
+
 function issueLink(identifier: string | null): string | null {
   return identifier ? `${PAPERCLIP_BASE}/CRE/issues/${identifier}` : null;
+}
+
+// Needs-Bree gate for one Paperclip issue responsible to her. See the
+// CRE-393 header comment above for how this was derived and verified.
+function needsBree(issue: InboxIssue, breeUserId: string): boolean {
+  if (issue.assigneeUserId === breeUserId) return true;
+  if (issue.reviewAttention?.state === "stalled") return true;
+  if (issue.blockerAttention?.state === "stalled") return true;
+  return false;
 }
 
 Deno.serve(async (req) => {
@@ -66,7 +102,7 @@ Deno.serve(async (req) => {
 
   // Guarded by the same shared-secret pattern as dispatch-social-schedule —
   // this is a cron target, not a public endpoint.
-  const secret = Deno.env.get("CLAUDE_WEBHOOK_SECRET");
+  const secret = await getSecret(serviceClient(), "CLAUDE_WEBHOOK_SECRET");
   const supplied = req.headers.get("x-agent-secret") ?? new URL(req.url).searchParams.get("secret");
   if (!secret || supplied !== secret) return json({ error: "Unauthorized" }, 401);
 
@@ -109,14 +145,15 @@ Deno.serve(async (req) => {
       );
       if (!inboxRes.ok) throw new Error(`inbox ${inboxRes.status}: ${await inboxRes.text()}`);
       const inbox = await inboxRes.json();
-      const list = Array.isArray(inbox) ? inbox : inbox.items ?? [];
+      const list: InboxIssue[] = Array.isArray(inbox) ? inbox : inbox.items ?? [];
       const ACTIONABLE_STATUSES = new Set(["in_progress", "in_review", "blocked", "todo"]);
       for (const i of list) {
         if (!ACTIONABLE_STATUSES.has(i.status)) continue;
+        if (!needsBree(i, breeUserId)) continue;
         const identifier = i.identifier ?? null;
         items.push({
           id: String(i.id),
-          kind: "interaction",
+          kind: i.assigneeUserId === breeUserId ? "interaction" : "interaction_stalled",
           title: i.title ?? i.summary ?? "Needs your input",
           issue_identifier: identifier,
           issue_url: issueLink(identifier),
@@ -137,7 +174,7 @@ Deno.serve(async (req) => {
   }
 
   // Stale-row cleanup: anything not seen this run is resolved/expired on the
-  // Paperclip side and should drop off "Needs you now".
+  // Paperclip side (or no longer needs Bree) and should drop off "Do".
   const seenIds = items.map((i) => i.id);
   if (seenIds.length) {
     await sb.from("paperclip_pending_items").delete().not("id", "in", `(${seenIds.map((id) => `"${id}"`).join(",")})`);

@@ -51,6 +51,26 @@ export interface NeedsYouRowData {
   options?: string[];
   waitingSince?: string | null;
   deadline?: string | null;
+  /**
+   * CRE-393: which decision-button set a Decide card should render, and
+   * (for "merge") what to merge. See docs/decide-contract.md for the full
+   * agent-side contract — this is just the subset a row needs on top of
+   * `options` to act on a pick instead of just displaying it.
+   */
+  actionType?: string | null;
+  repo?: string | null;
+  prNumber?: number | null;
+  branch?: string | null;
+  baseBranch?: string | null;
+  /**
+   * CRE-393 §A.4: whether this Do row is Bree's own to check off. A Decide
+   * row never reaches this — Decide ends in a button, not a checkbox (see
+   * DecideCard's own comment) — so this only matters for Do rows; it
+   * defaults true and goes false for rows that belong to an agent instead
+   * (a stalled-but-agent-owned Paperclip issue, or an in-flight status row)
+   * where checking it off would falsely tell that agent its work is done.
+   */
+  checkable: boolean;
 }
 
 const PRIORITY_COLOR = { high: "#ea580c", normal: "#eab308" };
@@ -79,6 +99,7 @@ export function liveItemToRow(item: NeedsYouItem): NeedsYouRowData {
     category: item.kind,
     taskIds: item.issue_identifier ? [item.issue_identifier] : [],
     href: item.issue_url,
+    checkable: item.checkable,
   };
 }
 
@@ -101,6 +122,9 @@ export function narrativeItemToRow(item: NeedsYouNarrativeItem): NeedsYouRowData
     category: item.category,
     taskIds: item.task_ids ?? [],
     href: null,
+    // A narrative row is Ara writing a line for Bree by hand — there is no
+    // agent on the other end of it to falsely mark done.
+    checkable: true,
   };
 }
 
@@ -139,6 +163,14 @@ export function approvalItemToRow(approval: ApprovalCard): NeedsYouRowData {
     options: approval.options ?? [],
     waitingSince: approval.waiting_since ?? null,
     deadline: approval.deadline ?? null,
+    actionType: approval.action_type ?? null,
+    repo: approval.repo ?? null,
+    prNumber: approval.pr_number ?? null,
+    branch: approval.branch ?? null,
+    baseBranch: approval.base_branch ?? null,
+    // Decide never shows a checkbox regardless (see DecideCard) — kept
+    // true here only so the field means the same thing on every row.
+    checkable: true,
   };
 }
 
@@ -161,12 +193,44 @@ export function inFlightItemToRow(item: InFlightItem): NeedsYouRowData {
     category: item.category,
     taskIds: item.task_ids ?? [],
     href: null,
+    // CRE-393 §A.4: an in-flight row is an agent's own status (stuck /
+    // blocked / in progress), never Bree's task — no checkbox.
+    checkable: false,
   };
+}
+
+// CRE-393 §A.3: the same Paperclip issue can legitimately reach this list
+// twice — once as a live sync row and once as a brief's own narrative or
+// approval line about the same card (CRE-355 did exactly this). Collapse
+// by first task id (falling back to the row's own id for rows with none),
+// keeping the most authoritative source: an approval IS the decision
+// surface for that issue, so it always wins and the same id can never also
+// sit in Do; a live sync row is the most structured/up-to-date Do
+// description; in-flight and narrative are editorial and yield to either.
+const SOURCE_PRIORITY: Record<NeedsYouRowSource, number> = {
+  approval: 0, live: 1, in_flight: 2, narrative: 3,
+};
+
+function dedupeRows(rows: NeedsYouRowData[]): NeedsYouRowData[] {
+  const kept = new Map<string, NeedsYouRowData>();
+  const order: string[] = [];
+  for (const row of rows) {
+    const key = row.taskIds[0] ?? row.id;
+    const existing = kept.get(key);
+    if (!existing) {
+      kept.set(key, row);
+      order.push(key);
+    } else if (SOURCE_PRIORITY[row.source] < SOURCE_PRIORITY[existing.source]) {
+      kept.set(key, row);
+    }
+  }
+  return order.map((key) => kept.get(key)!);
 }
 
 /** Live cards first (closer to "now"), then approvals, then in-flight, then
  *  the brief's own narrative rows. Every arg is optional/nullable so a
- *  still-loading or data-less source just contributes no rows. */
+ *  still-loading or data-less source just contributes no rows. Result is
+ *  deduped by Paperclip issue id — see dedupeRows above. */
 /**
  * Today's two lists.
  *
@@ -196,10 +260,10 @@ export function buildNeedsYouRows(args: {
   approvals?: ApprovalCard[] | null;
   inFlight?: InFlightItem[] | null;
 }): NeedsYouRowData[] {
-  return [
+  return dedupeRows([
     ...(args.live ?? []).map(liveItemToRow),
     ...(args.approvals ?? []).map(approvalItemToRow),
     ...(args.inFlight ?? []).map(inFlightItemToRow),
     ...(args.narrative ?? []).map(narrativeItemToRow),
-  ];
+  ]);
 }

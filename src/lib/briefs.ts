@@ -96,6 +96,19 @@ export interface DoneRange {
   until?: string;
 }
 
+// CRE-393: which decision-button set DecideCard renders, and (for "merge")
+// what to merge. Optional and additive — a card with none of these renders
+// exactly as before (generic `options` buttons, no type-specific handling).
+// See docs/decide-contract.md for the full agent-side contract.
+export type ApprovalActionType =
+  | "merge"
+  | "approve_skip"
+  | "email_draft"
+  | "sql_or_lovable"
+  | "send_hold"
+  | "cancel_keep"
+  | "yes_no";
+
 export interface ApprovalCard {
   id: string;
   title: string;
@@ -106,6 +119,12 @@ export interface ApprovalCard {
   deadline?: string | null;
   options?: string[];
   link?: string | null;
+  action_type?: ApprovalActionType | null;
+  // "merge" only.
+  repo?: string | null; // "owner/name"
+  pr_number?: number | null;
+  branch?: string | null;
+  base_branch?: string | null;
 }
 
 // CRE-388: the brief's own markdown "Needs You" section is retired — these
