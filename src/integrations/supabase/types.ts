@@ -1508,9 +1508,9 @@ export type Database = {
           email_tracking_paused_at: string | null
           email_tracking_paused_reason: string | null
           id: string
-          internal: boolean
           intake_data: Json | null
           intake_summary: string | null
+          internal: boolean
           kickoff_webhook_confirmed_at: string | null
           kickoff_webhook_fired_at: string | null
           notes: string | null
@@ -1564,9 +1564,9 @@ export type Database = {
           email_tracking_paused_at?: string | null
           email_tracking_paused_reason?: string | null
           id?: string
-          internal?: boolean
           intake_data?: Json | null
           intake_summary?: string | null
+          internal?: boolean
           kickoff_webhook_confirmed_at?: string | null
           kickoff_webhook_fired_at?: string | null
           notes?: string | null
@@ -1620,9 +1620,9 @@ export type Database = {
           email_tracking_paused_at?: string | null
           email_tracking_paused_reason?: string | null
           id?: string
-          internal?: boolean
           intake_data?: Json | null
           intake_summary?: string | null
+          internal?: boolean
           kickoff_webhook_confirmed_at?: string | null
           kickoff_webhook_fired_at?: string | null
           notes?: string | null
