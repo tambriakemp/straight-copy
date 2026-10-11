@@ -1154,6 +1154,7 @@ export type Database = {
           client_id: string
           created_at: string
           created_by: string | null
+          encrypted_password: string | null
           id: string
           label: string
           note: string | null
@@ -1165,6 +1166,7 @@ export type Database = {
           client_id: string
           created_at?: string
           created_by?: string | null
+          encrypted_password?: string | null
           id?: string
           label: string
           note?: string | null
@@ -1176,6 +1178,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           created_by?: string | null
+          encrypted_password?: string | null
           id?: string
           label?: string
           note?: string | null
@@ -1183,7 +1186,15 @@ export type Database = {
           url?: string | null
           username?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "client_logins_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_notes: {
         Row: {
@@ -1210,7 +1221,15 @@ export type Database = {
           id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "client_notes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_projects: {
         Row: {
@@ -1571,9 +1590,9 @@ export type Database = {
           email_tracking_paused_at: string | null
           email_tracking_paused_reason: string | null
           id: string
-          internal: boolean
           intake_data: Json | null
           intake_summary: string | null
+          internal: boolean
           kickoff_webhook_confirmed_at: string | null
           kickoff_webhook_fired_at: string | null
           notes: string | null
@@ -1627,9 +1646,9 @@ export type Database = {
           email_tracking_paused_at?: string | null
           email_tracking_paused_reason?: string | null
           id?: string
-          internal?: boolean
           intake_data?: Json | null
           intake_summary?: string | null
+          internal?: boolean
           kickoff_webhook_confirmed_at?: string | null
           kickoff_webhook_fired_at?: string | null
           notes?: string | null
@@ -1683,9 +1702,9 @@ export type Database = {
           email_tracking_paused_at?: string | null
           email_tracking_paused_reason?: string | null
           id?: string
-          internal?: boolean
           intake_data?: Json | null
           intake_summary?: string | null
+          internal?: boolean
           kickoff_webhook_confirmed_at?: string | null
           kickoff_webhook_fired_at?: string | null
           notes?: string | null
@@ -4685,20 +4704,6 @@ export type Database = {
       }
     }
     Views: {
-      client_logins_list: {
-        Row: {
-          client_id: string | null
-          created_at: string | null
-          has_password: boolean | null
-          id: string | null
-          label: string | null
-          note: string | null
-          updated_at: string | null
-          url: string | null
-          username: string | null
-        }
-        Relationships: []
-      }
       agent_pending_actions_v: {
         Row: {
           agent_id: string | null
@@ -4726,6 +4731,50 @@ export type Database = {
             columns: ["run_id"]
             isOneToOne: false
             referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_logins_list: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          has_password: boolean | null
+          id: string | null
+          label: string | null
+          note: string | null
+          updated_at: string | null
+          url: string | null
+          username: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          has_password?: never
+          id?: string | null
+          label?: string | null
+          note?: string | null
+          updated_at?: string | null
+          url?: string | null
+          username?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          has_password?: never
+          id?: string | null
+          label?: string | null
+          note?: string | null
+          updated_at?: string | null
+          url?: string | null
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_logins_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -4861,6 +4910,10 @@ export type Database = {
       fire_sync_paperclip_pending: { Args: never; Returns: undefined }
       fire_web_dev_scheduled_dispatch: { Args: never; Returns: undefined }
       fire_weekly_progress_reports: { Args: never; Returns: undefined }
+      get_client_login: {
+        Args: { _enc_key: string; _id: string }
+        Returns: string
+      }
       get_portal_client: { Args: { _client_id: string }; Returns: Json }
       get_project_secret: {
         Args: { _client_project_id: string; _enc_key: string; _key: string }
@@ -4902,6 +4955,20 @@ export type Database = {
       release_task: {
         Args: { _task_id: string; _worker: string }
         Returns: undefined
+      }
+      set_client_login: {
+        Args: {
+          _client_id: string
+          _created_by?: string
+          _enc_key?: string
+          _id: string
+          _label: string
+          _note?: string
+          _password: string
+          _url: string
+          _username: string
+        }
+        Returns: string
       }
       set_project_secret: {
         Args: {
