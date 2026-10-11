@@ -116,16 +116,18 @@ export default function ProposalDetail() {
     const vs = (v.data ?? []) as unknown as ProposalRow[];
     setVersions(vs.length ? vs : [row]);
 
-    // The signed copy when there is one, otherwise what was sent.
+    // The signed copy when there is one, otherwise what was sent. `get`
+    // hands back both signed URLs with the row, so this is one call
+    // rather than a second round trip to `download` — which is also
+    // where the bug was: that action answers with `pdfUrl`, this page
+    // was reading `url`, and every proposal said "No PDF yet" over a
+    // file sitting in the bucket.
     try {
-      const out = await callFn({
-        action: "download", clientId: row.client_id, proposalId: row.id,
-        variant: row.signed_pdf_path ? "signed" : "source",
-      });
-      setPdfUrl((out.url as string) ?? null);
+      const out = await callFn({ action: "get", clientId: row.client_id, proposalId: row.id });
+      const full = (out.proposal ?? {}) as { source_url?: string | null; signed_pdf_url?: string | null };
+      setPdfUrl(full.signed_pdf_url || full.source_url || null);
     } catch {
-      // Not fatal — the page is still worth reading without the document,
-      // and the error is almost always "no PDF uploaded yet".
+      // Not fatal — the page is still worth reading without the document.
       setPdfUrl(null);
     }
   }, [id]);

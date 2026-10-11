@@ -23,7 +23,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import SidePanel from "@/components/admin/SidePanel";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import ProjectInvoicesCard from "@/components/admin/ProjectInvoicesCard";
-import ProjectProposalsPanel from "@/components/admin/ProjectProposalsPanel";
+import ProjectProposals from "@/components/admin/proposal/ProjectProposals";
 import ContractAuditPanel from "@/components/admin/ContractAuditPanel";
 import SocialTab from "@/components/admin/social/SocialTab";
 import ProgressReportSettingsCard from "@/components/admin/ProgressReportSettingsCard";
@@ -266,7 +266,7 @@ export default function AppDevelopmentView({
 
         {tab === "proposals" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <ProjectProposalsPanel clientId={clientId} clientProjectId={project.id} portalUrl={portalUrl} />
+            <ProjectProposals clientId={clientId} clientProjectId={project.id} projectName={project.name} />
             {project.type === "web_development" && (
               <ContractAuditPanel clientId={clientId} clientProjectId={project.id} />
             )}

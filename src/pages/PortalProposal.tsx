@@ -73,20 +73,23 @@ export default function PortalProposal() {
       // and anything superseded, so a stale link cannot show a client a
       // proposal that is no longer the one on the table.
       const data = await callFn({ action: "get", clientId, proposalId });
-      const row = (data.proposal ?? null) as PortalProposal | null;
+      // `get` hands back the row AND both signed URLs AND the client, so
+      // there is no second call to make. Asking `download` separately was
+      // a round trip for something already in hand — and it reads
+      // `pdfUrl` where this reads `source_url`, which is how the page
+      // ended up saying "no PDF" over a file that was right there.
+      const row = (data.proposal ?? null) as (PortalProposal & {
+        source_url?: string | null; signed_pdf_url?: string | null;
+      }) | null;
       setP(row);
-      const name = (data.contactName as string) ?? "";
+      const client = (data.client ?? {}) as { contact_name?: string | null; business_name?: string | null };
+      const name = client.contact_name || client.business_name || "";
       setWho(name);
       setTypedName((t) => t || name);
-      if (row) {
-        try {
-          const dl = await callFn({
-            action: "download", clientId, proposalId,
-            variant: row.client_signed_at ? "signed" : "source",
-          });
-          setPdfUrl((dl.pdfUrl as string) ?? (dl.url as string) ?? null);
-        } catch { setPdfUrl(null); }
-      }
+      // The signed copy once there is one — that is the document that
+      // matters, and showing the unsigned original after signing reads as
+      // though the signature did not take.
+      setPdfUrl(row?.signed_pdf_url || row?.source_url || null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not open that proposal");
       setP(null);

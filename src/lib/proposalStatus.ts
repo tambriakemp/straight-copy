@@ -20,7 +20,11 @@ export interface ProposalLike {
 }
 
 /** Which section of the Proposals list it belongs under. */
-export type ProposalGroup = "countersign" | "awaiting" | "signed" | "declined" | "draft";
+export type ProposalGroup =
+  | "countersign" | "awaiting" | "signed" | "declined" | "draft"
+  /** Replaced by a later version, or voided. Never a section of its own —
+   *  these read as small lines under the version that replaced them. */
+  | "superseded";
 
 export const GROUP_LABEL: Record<ProposalGroup, string> = {
   countersign: "Needs your countersignature",
@@ -28,6 +32,7 @@ export const GROUP_LABEL: Record<ProposalGroup, string> = {
   signed: "Signed",
   declined: "Declined",
   draft: "Drafts",
+  superseded: "Superseded",
 };
 
 /** The order the canvas stacks them in: what is waiting on you, first. */
@@ -43,6 +48,14 @@ export const GROUP_ORDER: ProposalGroup[] = ["countersign", "awaiting", "signed"
  * of them that can lag.
  */
 export function proposalGroup(p: ProposalLike): ProposalGroup {
+  // Status FIRST for these two, and only these two. "Superseded" and
+  // "voided" are things that happened TO a proposal rather than steps it
+  // took, so no timestamp expresses them — and a superseded v1 still has
+  // a sent_at, which is why three versions of one proposal were all
+  // sitting under "Waiting on the client" as if the client owed three
+  // answers.
+  const status = (p.status ?? "").trim().toLowerCase();
+  if (status === "superseded" || status === "voided") return "superseded";
   if (p.declined_at) return "declined";
   if (p.client_signed_at) return p.agency_countersigned_at ? "signed" : "countersign";
   if (p.sent_at) return "awaiting";
