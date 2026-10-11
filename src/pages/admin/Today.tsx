@@ -296,90 +296,125 @@ export default function Today() {
   const sidebarConnections = sectionsSplit?.sidebar.find((s) => CONNECTIONS_HEADINGS.has(s.heading.trim().toLowerCase()));
   const sidebarMoneyMarkdown = sectionsSplit?.sidebar.find((s) => MONEY_HEADINGS.has(s.heading.trim().toLowerCase()));
 
+  // Brief label, the way the canvas writes it: the brief's own title, its
+  // date, and when it landed. Not a fixed page subtitle — which brief you
+  // are reading is the single most useful thing in this header, and a
+  // catch-up brief posted Saturday evening reads very differently from
+  // Monday's 8am one.
+  const briefLabel = activeBrief
+    ? `${activeBrief.title} · ${new Date(activeBrief.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} · posted ${new Date(activeBrief.created_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
+    : "No brief yet";
+
+  // The cutoff pill on the top line. Derived, not a field: the soonest
+  // deadline among the things waiting on a decision IS the cutoff, and
+  // inventing a column for it would just be somewhere else to forget to
+  // write.
+  const soonestDeadline = decideRows.map((r) => r.deadline).filter(Boolean)[0] ?? null;
+
+  const topLineItems = sidebarTopLine?.items ?? [];
+
   return (
     <AdminLayout>
-      <div className="cv-admin" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-        <PageHeader
-          eyebrow="Daily / Today"
-          title="Today"
-          subtitle="Everything that needs you right now, the morning brief, and what's coming up."
-          right={
-            <div className="cv-sync-row">
-              {agentsEnabled !== null && (
-                <span className="cv-chip cv-chip--green"><Sparkles size={12} /> {agentsEnabled} agent{agentsEnabled === 1 ? "" : "s"} enabled</span>
-              )}
-              <button type="button" className="cv-sync-btn" onClick={syncNow}><RefreshCw size={13} /> Sync now</button>
+      <div className="cv-admin cv-today" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+
+        <header className="cv-today-head">
+          <div style={{ minWidth: 0 }}>
+            <h1 className="cv-today-head__title">Today</h1>
+            <p className="cv-today-head__sub">{briefLabel}</p>
+          </div>
+          <div className="cv-today-head__right">
+            <span className="cv-seg" role="group" aria-label="Which brief">
+              <button
+                type="button"
+                className={`cv-seg__btn ${briefTab === "morning" ? "cv-seg__btn--on" : ""}`}
+                aria-pressed={briefTab === "morning"}
+                onClick={() => setBriefTab("morning")}
+              >
+                Latest brief
+              </button>
+              <button
+                type="button"
+                className={`cv-seg__btn ${briefTab === "past" ? "cv-seg__btn--on" : ""}`}
+                aria-pressed={briefTab === "past"}
+                onClick={() => setBriefTab("past")}
+              >
+                Past briefs
+              </button>
+            </span>
+            <button type="button" className="cv-act" onClick={syncNow}>
+              <RefreshCw size={14} /> Sync now
+            </button>
+          </div>
+        </header>
+
+        {/* The picker only exists while you are picking. It used to be a
+            permanent card at the top of the left column, which spent a
+            whole card on a control you touch once a week. */}
+        {briefTab === "past" && (
+          <Card className="cv-card-pad">
+            {!briefs?.length ? (
+              <EmptyState title="No briefs yet" />
+            ) : (
+              <div style={{ display: "grid", gap: 2 }}>
+                {briefs.map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    className={`cv-past-brief-row ${b.id === current?.id ? "cv-past-brief-row--active" : ""}`}
+                    onClick={() => setSelected(b.id)}
+                  >
+                    <div className="cv-past-brief-row__title">{b.title}</div>
+                    <div className="cv-past-brief-row__date">{new Date(b.created_at).toLocaleString()}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* Top line — full width and dark, above everything. It was in the
+            right sidebar, which put the one paragraph that frames the whole
+            day beside the day rather than before it. */}
+        {activeBrief && topLineItems.length > 0 && (
+          <section className="cv-topline">
+            <div className="cv-topline__head">
+              <span className="cv-topline__label">Top line</span>
+              {soonestDeadline && <span className="cv-topline__pill">Cutoff {soonestDeadline}</span>}
             </div>
-          }
-        />
+            <p className="cv-topline__lede"><LinkifiedText text={topLineItems[0].text} /></p>
+            {topLineItems.slice(1).map((item, i) => (
+              <p key={i} className="cv-topline__note"><LinkifiedText text={item.text} /></p>
+            ))}
+          </section>
+        )}
 
         <div className="cv-kpi-row">
           <KpiCard
-            label="Needs you"
+            label="Decisions waiting"
+            value={activeBrief ? openDecide.length : "—"}
+            hint={soonestDeadline ? `1 due ${soonestDeadline}` : undefined}
+          />
+          <KpiCard
+            label="To do"
             value={needsYouNow ? totalOpenNeedsYou : "—"}
             hint={needsYouNow ? needsYouHint : undefined}
             onClick={() => setFilter("all")}
           />
           <KpiCard
-            label="Awaiting signature"
-            value={ops ? formatMoney(proposalsPending.reduce((sum, p) => sum + (p.total_cents ?? 0), 0)) : "—"}
-            hint={ops ? `${proposalsPending.length} proposal${proposalsPending.length === 1 ? "" : "s"} out` : undefined}
-            onClick={() => navigate("/admin/proposals")}
-          />
-          <KpiCard
-            label="Outstanding"
-            value={ops ? formatMoney(invoicesSent.reduce((sum, i) => sum + i.amount_cents, 0)) : "—"}
-            hint={ops ? `${overdueInvoices.length} overdue` : undefined}
-            onClick={() => navigate("/admin/payments")}
-          />
-          <KpiCard
             label="Prospects to review"
             value={needsYouNow ? prospectsToReview : "—"}
             hint="Sends via the Prospects queue"
-            onClick={() => navigate("/admin/approvals")}
+            onClick={() => navigate("/admin/prospects")}
           />
         </div>
 
         <div className="cv-today-body">
           <div className="cv-center-stack">
-            <Card className="cv-card-pad cv-brief-ctrl">
-              <div className="cv-card-head">
-                <span className="cv-card-title"><Newspaper size={15} style={{ verticalAlign: -2, marginRight: 6 }} />Brief</span>
-                <div className="cv-brief-tabs">
-                  <button type="button" className={`cv-brief-tab ${briefTab === "morning" ? "cv-brief-tab--active" : ""}`} onClick={() => setBriefTab("morning")}>Morning</button>
-                  <button type="button" className={`cv-brief-tab ${briefTab === "past" ? "cv-brief-tab--active" : ""}`} onClick={() => setBriefTab("past")}>Past</button>
-                </div>
-              </div>
-              {briefTab === "morning" ? (
-                !latestMorning ? (
-                  <EmptyState title="No brief yet" subtitle="Ara's next scheduled run posts here." />
-                ) : (
-                  <div className="cv-card-sub" style={{ marginLeft: 0 }}>{new Date(latestMorning.created_at).toLocaleString()}</div>
-                )
-              ) : !briefs?.length ? (
-                <EmptyState title="No briefs yet" />
-              ) : (
-                <div style={{ display: "grid", gap: 2 }}>
-                  {briefs.map((b) => (
-                    <button
-                      key={b.id}
-                      type="button"
-                      className={`cv-past-brief-row ${b.id === current?.id ? "cv-past-brief-row--active" : ""}`}
-                      onClick={() => setSelected(b.id)}
-                    >
-                      <div className="cv-past-brief-row__title">{b.title}</div>
-                      <div className="cv-past-brief-row__date">{new Date(b.created_at).toLocaleString()}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Card>
 
-            {/* Decide — the agent is holding a set of answers open. Its
-                buttons come from the brief's own `options` and are inert
-                for now: nothing records which one was picked, and a button
-                that silently does nothing is worse than one that says so.
-                Wiring them is its own piece of work. */}
+            {/* Decide — an agent is holding a set of answers open. The
+                buttons come from the brief's own `options` and are inert:
+                nothing records which one was picked, and a button that
+                silently does nothing is worse than one that says so. */}
             {decideRows.length > 0 && (
               <SectionCard
                 icon={HelpCircle}
@@ -440,23 +475,11 @@ export default function Today() {
                   ))}
                 </div>
               )}
+              <p className="cv-today-foot">
+                Checking an item tells your agents you've handled it. It stays here,
+                crossed out, until the next brief.
+              </p>
             </SectionCard>
-
-            {activeBrief && hasCalendarCard(activeBrief) && (
-              // CRE-391: wrapped in Card like every other section — bare
-              // before this, the tinted card background it used to have
-              // (inherited from the old single "Morning brief" card, pre-
-              // CRE-366/388) had quietly gone missing.
-              <Card className="cv-card-pad">
-                <WeeklyCalendarCard events={activeBrief.calendar_events!} />
-              </Card>
-            )}
-
-            <PipelineBriefCard
-              pipeline={activeBrief?.pipeline}
-              isDone={isDone} complete={complete} undo={undo}
-              briefDate={activeBrief?.created_at.slice(0, 10) ?? today}
-            />
 
             {activeBrief && sectionsSplit?.center.map((section, i) => (
               <MarkdownSectionCard
@@ -469,15 +492,10 @@ export default function Today() {
             ))}
           </div>
 
-          <div className="cv-sidebar-stack">
-            {sidebarTopLine && activeBrief && (
-              <MarkdownSectionCard
-                brief={activeBrief}
-                section={sidebarTopLine}
-                sectionIdx={activeBrief.sections.indexOf(sidebarTopLine)}
-                isDone={isDone} complete={complete} undo={undo}
-              />
-            )}
+          <aside className="cv-sidebar-stack">
+            {activeBrief?.calendar_events?.length ? (
+              <WeeklyCalendarCard events={activeBrief.calendar_events} />
+            ) : null}
 
             {activeBrief && hasMoneyStats(activeBrief) ? (
               <Card className="cv-card-pad">
@@ -492,6 +510,12 @@ export default function Today() {
               />
             ) : null}
 
+            <PipelineBriefCard
+              pipeline={activeBrief?.pipeline}
+              isDone={isDone} complete={complete} undo={undo}
+              briefDate={activeBrief?.created_at.slice(0, 10) ?? today}
+            />
+
             {sidebarConnections && activeBrief && (
               <MarkdownSectionCard
                 brief={activeBrief}
@@ -500,36 +524,7 @@ export default function Today() {
                 isDone={isDone} complete={complete} undo={undo}
               />
             )}
-
-            <SectionCard icon={CalendarIcon} title="Coming up" right={<span className="cv-card-sub">Next 7 days</span>}>
-              {!ops ? (
-                <div style={{ fontSize: 14, color: "var(--cv-muted)" }}>Loading…</div>
-              ) : !upcoming.length ? (
-                <EmptyState title="Nothing scheduled" subtitle="No invoices due in the next 7 days." />
-              ) : (
-                <div>
-                  {upcoming.map((invoice) => (
-                    <button
-                      key={invoice.id}
-                      type="button"
-                      className="cv-coming-item"
-                      style={{ width: "100%", background: "none", border: "none", borderBottom: "1px solid var(--cv-border)", cursor: "pointer", textAlign: "left", padding: "10px 0" }}
-                      onClick={() => navigate("/admin/payments")}
-                    >
-                      <span className="cv-coming-item__date">
-                        {new Date(`${invoice.due_date}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                      </span>
-                      <span style={{ flex: 1 }}>
-                        <div className="cv-coming-item__title">{ops.clientNames[invoice.client_id]}</div>
-                        <div className="cv-coming-item__sub">{invoice.label}</div>
-                      </span>
-                      <span className="cv-coming-item__amount">{formatMoney(invoice.amount_cents, invoice.currency)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </SectionCard>
-          </div>
+          </aside>
         </div>
       </div>
     </AdminLayout>

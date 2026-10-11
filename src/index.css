@@ -253,7 +253,11 @@
 .cv-admin *::-webkit-scrollbar-thumb { background: var(--cv-border-strong); border-radius: 8px; }
 .cv-admin *::-webkit-scrollbar-thumb:hover { background: var(--cv-accent); }
 
-.cv-admin h1, .cv-admin h2, .cv-admin h3 {
+.cv-admin h1, .cv-admin h2, .cv-admin h3,
+.cv-admin h4, .cv-admin h5, .cv-admin h6 {
+  /* All six. The global reset at the top of this file sets h1..h6 to
+     Cormorant, so stopping at h3 left every h4 in here rendering serif —
+     which is exactly what the Decide card's title did. */
   /* 600, not the old 500: Poppins at 500 reads as body text beside 400. */
   font-family: var(--cv-font-sans); font-weight: 600; color: var(--cv-ink);
   letter-spacing: -0.01em;
@@ -416,17 +420,26 @@
 .cv-empty__subtitle { font-size: 14px; max-width: 420px; }
 
 /* ---------- Today (CRE-332 Phase 2) ---------- */
-.cv-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 0 32px 24px; }
-@media (max-width: 900px) { .cv-kpi-row { grid-template-columns: repeat(2, 1fr); } }
+/* Three, not four, and 20px gaps to match the canvas. auto-fit so a
+   narrow window drops to two then one rather than squeezing three. */
+.cv-kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 20px; padding: 0 20px 20px; }
 
-.cv-kpi { padding: 18px 20px; text-align: left; font-family: var(--cv-font-sans); display: block; width: 100%; }
+/* Centred, not left-aligned — measured off the canvas: 22px padding,
+   flex column, 6px gap, align-items center. The old left-aligned 18/20
+   block is what made these read as form fields rather than figures. */
+.cv-kpi {
+  padding: 22px; font-family: var(--cv-font-sans); width: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+}
 button.cv-kpi { cursor: pointer; }
-button.cv-kpi:hover { border-color: var(--cv-accent); }
-.cv-kpi__label { font-size: 13px; color: var(--cv-muted); margin-bottom: 6px; }
-.cv-kpi__value { font-family: var(--cv-font-serif); font-size: 28px; color: var(--cv-ink); line-height: 1.1; }
-.cv-kpi__hint { font-size: 13px; color: var(--cv-faint); margin-top: 4px; }
+button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
+.cv-kpi__label { font-size: 14px; line-height: 21px; color: var(--cv-muted); }
+.cv-kpi__value { font-size: 28px; font-weight: 600; line-height: 28px; color: var(--cv-ink); }
+.cv-kpi__hint { font-size: 12px; line-height: 18px; color: var(--cv-muted); }
 
-.cv-today-body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 20px; padding: 0 32px 32px; align-items: start; }
+/* 1.5/1, measured off the canvas at 1600: 769 and 506 either side of a
+   20px gap. 2fr/1fr made the right column too narrow for the calendar. */
+.cv-today-body { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; padding: 0 20px 24px; align-items: start; }
 .cv-today-body > * { min-width: 0; }
 @media (max-width: 1100px) { .cv-today-body { grid-template-columns: 1fr; } }
 
@@ -487,6 +500,53 @@ button.cv-kpi:hover { border-color: var(--cv-accent); }
    .cv-nyrow__node is a plain colored dot for a priority row, or a small
    colored icon badge for an in-flight status row. */
 .cv-nylist { display: grid; gap: 2px; }
+/* ---------- Today header + top line (Admin Journeys canvas) ---------- */
+.cv-today-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; padding: 20px 20px 0;
+}
+.cv-today-head__title { font-size: 28px; font-weight: 600; margin: 0; letter-spacing: -0.015em; }
+.cv-today-head__sub { font-size: 14px; color: var(--cv-muted); margin: 2px 0 0; }
+.cv-today-head__right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* Segmented control: one white pill holding two, the active one filled
+   ink. Not two separate buttons — the shared track is what says these are
+   the same choice. */
+.cv-seg { display: inline-flex; gap: 4px; padding: 4px; background: var(--cv-card); border-radius: var(--cv-r-sm); }
+.cv-seg__btn {
+  font: inherit; font-size: 13px; padding: 0 16px; min-height: 40px;
+  border: 0; border-radius: var(--cv-r-sm); background: transparent;
+  color: var(--cv-muted); cursor: pointer; white-space: nowrap;
+}
+.cv-seg__btn--on { background: var(--cv-ink); color: #fff; font-weight: 500; }
+
+.cv-act {
+  display: inline-flex; align-items: center; gap: 7px;
+  font: inherit; font-size: 14px; font-weight: 500; padding: 0 18px; min-height: 44px;
+  border: 0; border-radius: var(--cv-r-sm); background: var(--cv-card);
+  color: var(--cv-ink); cursor: pointer; white-space: nowrap;
+}
+.cv-act:hover { color: var(--cv-accent); }
+
+/* The one dark surface on the page, full width above everything. It frames
+   the day, so it reads before the day rather than beside it. */
+.cv-topline {
+  margin: 20px 20px 0; padding: 22px; border-radius: var(--cv-r);
+  background: var(--cv-ink); color: #fff;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.cv-topline__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cv-topline__label { font-size: 14px; color: #C9CFDB; }
+.cv-topline__pill {
+  font-size: 12px; font-weight: 500; color: #fff; background: var(--cv-accent);
+  border-radius: 999px; padding: 4px 10px;
+}
+.cv-topline__lede { font-size: 17px; line-height: 1.6; margin: 0; color: #fff; }
+.cv-topline__note { font-size: 13px; line-height: 1.6; margin: 0; color: #C9CFDB; }
+.cv-topline a { color: #fff; }
+
+.cv-today-foot { font-size: 13px; color: var(--cv-muted); margin: 14px 0 0; }
+
 /* ---------- Decide card (Admin Journeys canvas) ---------- */
 /* A sunken card inside the section card, not another bordered box: the
    canvas separates these by fill, the same way the page separates cards
