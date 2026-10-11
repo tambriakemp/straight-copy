@@ -211,11 +211,23 @@ const SOURCE_PRIORITY: Record<NeedsYouRowSource, number> = {
   approval: 0, live: 1, in_flight: 2, narrative: 3,
 };
 
+// CRE-393 round 2: Bree saw CRE-354 and CRE-372 each render twice. The two
+// sources that can both carry the same issue (a live sync row and a
+// brief's narrative/approval line about it — see the comment above) don't
+// always agree on the exact string: Ara's narrative ingest and the live
+// sync's own `issue_identifier` have disagreed on case/whitespace before.
+// Normalizing the key is a one-line fix for that whole class of false
+// non-match, instead of a one-off patch for these two issues.
+function dedupeKey(row: NeedsYouRowData): string {
+  const task = row.taskIds[0];
+  return task ? task.trim().toUpperCase() : row.id;
+}
+
 function dedupeRows(rows: NeedsYouRowData[]): NeedsYouRowData[] {
   const kept = new Map<string, NeedsYouRowData>();
   const order: string[] = [];
   for (const row of rows) {
-    const key = row.taskIds[0] ?? row.id;
+    const key = dedupeKey(row);
     const existing = kept.get(key);
     if (!existing) {
       kept.set(key, row);

@@ -15,26 +15,39 @@
 // (76 rows going back to September, including `done`/`backlog`), not just
 // the ones that need her attention.
 //
-// CRE-393: the actionable-status filter alone was never the right gate — it
-// let through every issue an agent merely had `in_progress`/`in_review`
-// *responsible* to Bree, whether or not she actually had anything to do.
-// Confirmed live on CRE-393 against the six rows Bree named as correct and
-// the eleven she named as noise: the right signal is each issue's own
-// `assigneeUserId` (literally hers) or its server-computed `reviewAttention`
-// / `blockerAttention` state — "stalled" means nothing (no participant,
-// interaction, approval, wake, or active run) owns the next action, which is
-// exactly the case that needs a human; "covered" means an agent interaction
-// already owns it, so it stays off her list. Verified against
-// inbox/mine's own embedded reviewAttention/blockerAttention fields — no
-// second API call per issue needed. `isUnreadForMe` is still not used here:
-// it is scoped to the calling agent identity, not the userId query param.
+// CRE-393 round 1 (wrong): gated on each issue's own `reviewAttention` /
+// `blockerAttention` server state, treating "stalled" as "needs a human".
+// That looked right against a handful of hand-checked rows, but in
+// production it fired for nearly every agent-owned issue sitting in
+// in_progress/in_review/blocked — "stalled" just means no agent happens to
+// be actively mid-run on the issue *at the moment this cron tick fired*,
+// which is true of almost any issue between heartbeats (agents are
+// event-driven, not continuously polling). It is not a signal that Bree
+// specifically owns the next step. Bree flagged 17+ agent-owned rows (one
+// of them this very issue, CRE-393, between its own runs) showing up as
+// noise — confirmed live: /api/issues/{id}/interactions on several of the
+// flagged issues returned either no interactions at all or only
+// already-resolved ones, so nothing was actually waiting on her.
 //
-// Kind is now three-way, not two: "interaction" (assigneeUserId is Bree —
-// hers to check off), "interaction_stalled" (agent-owned, nothing covering
-// it — she needs to see it, but checking it off would wrongly tell an agent
-// its own work is done, so the frontend renders no checkbox for this kind —
-// see needsYouNow.ts/needsYouRows.ts), and "approval" (unchanged, from the
-// /approvals endpoint).
+// CRE-393 round 2 (this version): the real "waiting on Bree" signal is a
+// live, unresolved interaction thread on the issue — `status: "pending"`
+// and either addressed to her directly (`addresseeUserId`) or whose
+// `effectiveResolverPolicy` excludes agents outright (`human_only` /
+// `board_only` — an agent literally cannot close it, so the only way it
+// moves is her answering). Verified live: CRE-394's ask_user_questions
+// interaction (addressed to Bree, human_only, pending) is exactly the case
+// that should show; CRE-393's own two confirmations are both already
+// `status: "expired"` (superseded by her comment), so they now correctly
+// drop off without any attention-state lookup. `board_or_agents` / `anyone`
+// / `not_creator` interactions are deliberately NOT treated as hers — an
+// agent can resolve those on its own, so surfacing them would reintroduce
+// the same noise under a different name.
+//
+// Kind is still three-way: "interaction" (assigneeUserId is Bree — hers to
+// check off), "interaction_stalled" (agent-owned, but a pending interaction
+// genuinely needs her answer — no checkbox, see needsYouNow.ts/
+// needsYouRows.ts for why), and "approval" (unchanged, from the /approvals
+// endpoint).
 // The /approvals endpoint's field shape is still unverified — this company
 // has never had a real pending-approval row to check field names against,
 // so that mapping is left as the original best guess.
@@ -72,7 +85,6 @@ interface PendingItem {
   raw: unknown;
 }
 
-interface AttentionState { state: "none" | "covered" | "stalled"; [k: string]: unknown }
 interface InboxIssue {
   id: string;
   identifier: string | null;
@@ -80,21 +92,51 @@ interface InboxIssue {
   summary?: string | null;
   status: string;
   assigneeUserId: string | null;
-  reviewAttention?: AttentionState | null;
-  blockerAttention?: AttentionState | null;
+}
+
+interface IssueInteraction {
+  status: string;
+  addresseeUserId: string | null;
+  effectiveResolverPolicy: string;
 }
 
 function issueLink(identifier: string | null): string | null {
   return identifier ? `${PAPERCLIP_BASE}/CRE/issues/${identifier}` : null;
 }
 
-// Needs-Bree gate for one Paperclip issue responsible to her. See the
-// CRE-393 header comment above for how this was derived and verified.
-function needsBree(issue: InboxIssue, breeUserId: string): boolean {
-  if (issue.assigneeUserId === breeUserId) return true;
-  if (issue.reviewAttention?.state === "stalled") return true;
-  if (issue.blockerAttention?.state === "stalled") return true;
-  return false;
+// Terminal statuses never carry a pending interaction in practice (closing
+// or cancelling an issue resolves/withdraws whatever was open on it) — skip
+// them so the per-issue interactions lookup below isn't spent on the bulk
+// of inbox/mine's rows, which per the file header can include everything
+// back to September.
+const SKIP_STATUSES = new Set(["done", "cancelled"]);
+// Bree's own explicit list (CRE-393 round 2): an issue assigned straight to
+// her counts as "hers to do" only in these statuses — a done/backlog item
+// she's nominally assigned to isn't today's work.
+const BREE_ASSIGNED_STATUSES = new Set(["todo", "in_progress", "in_review"]);
+// An agent can resolve anything else (anyone / board_or_agents /
+// not_creator) on its own — only these two policies mean a human has to be
+// the one to answer.
+const HUMAN_RESOLVER_POLICIES = new Set(["human_only", "board_only"]);
+
+async function hasOpenInteractionForBree(
+  headers: Record<string, string>,
+  issueId: string,
+  breeUserId: string,
+): Promise<boolean> {
+  const res = await fetch(`${PAPERCLIP_BASE}/api/issues/${issueId}/interactions`, { headers });
+  if (!res.ok) {
+    // Best-effort: one issue's interactions failing to load shouldn't 502
+    // the whole sync and wipe everyone else's Do list. Logged so a
+    // persistent failure is still visible in the function's logs.
+    console.error(`interactions ${issueId} ${res.status}: ${await res.text()}`);
+    return false;
+  }
+  const list = await res.json();
+  return (Array.isArray(list) ? list : []).some((i: IssueInteraction) =>
+    i.status === "pending" &&
+    (i.addresseeUserId === breeUserId || HUMAN_RESOLVER_POLICIES.has(i.effectiveResolverPolicy))
+  );
 }
 
 Deno.serve(async (req) => {
@@ -146,14 +188,31 @@ Deno.serve(async (req) => {
       if (!inboxRes.ok) throw new Error(`inbox ${inboxRes.status}: ${await inboxRes.text()}`);
       const inbox = await inboxRes.json();
       const list: InboxIssue[] = Array.isArray(inbox) ? inbox : inbox.items ?? [];
-      const ACTIONABLE_STATUSES = new Set(["in_progress", "in_review", "blocked", "todo"]);
       for (const i of list) {
-        if (!ACTIONABLE_STATUSES.has(i.status)) continue;
-        if (!needsBree(i, breeUserId)) continue;
+        if (SKIP_STATUSES.has(i.status)) continue;
         const identifier = i.identifier ?? null;
+
+        if (i.assigneeUserId === breeUserId) {
+          if (!BREE_ASSIGNED_STATUSES.has(i.status)) continue;
+          items.push({
+            id: String(i.id),
+            kind: "interaction",
+            title: i.title ?? i.summary ?? "Needs your input",
+            issue_identifier: identifier,
+            issue_url: issueLink(identifier),
+            raw: i,
+          });
+          continue;
+        }
+
+        // Not hers by assignment — the only other way it belongs on her Do
+        // list is a live, unresolved interaction that specifically needs a
+        // human. See the CRE-393 round 2 header comment for why this
+        // replaced the old reviewAttention/blockerAttention "stalled" check.
+        if (!(await hasOpenInteractionForBree(headers, i.id, breeUserId))) continue;
         items.push({
           id: String(i.id),
-          kind: i.assigneeUserId === breeUserId ? "interaction" : "interaction_stalled",
+          kind: "interaction_stalled",
           title: i.title ?? i.summary ?? "Needs your input",
           issue_identifier: identifier,
           issue_url: issueLink(identifier),
