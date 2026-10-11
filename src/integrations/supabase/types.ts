@@ -1246,6 +1246,7 @@ export type Database = {
           id: string
           name: string
           notes: string | null
+          paperclip_project_id: string | null
           primary_contact_id: string | null
           progress_report_enabled: boolean
           progress_report_last_sent_at: string | null
@@ -1278,6 +1279,7 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
+          paperclip_project_id?: string | null
           primary_contact_id?: string | null
           progress_report_enabled?: boolean
           progress_report_last_sent_at?: string | null
@@ -1310,6 +1312,7 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          paperclip_project_id?: string | null
           primary_contact_id?: string | null
           progress_report_enabled?: boolean
           progress_report_last_sent_at?: string | null
@@ -2406,6 +2409,44 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      paperclip_project_task_counts: {
+        Row: {
+          by_status: Json
+          client_project_id: string
+          done: number
+          open: number
+          paperclip_project_id: string
+          synced_at: string
+          total: number
+        }
+        Insert: {
+          by_status?: Json
+          client_project_id: string
+          done?: number
+          open?: number
+          paperclip_project_id: string
+          synced_at?: string
+          total?: number
+        }
+        Update: {
+          by_status?: Json
+          client_project_id?: string
+          done?: number
+          open?: number
+          paperclip_project_id?: string
+          synced_at?: string
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paperclip_project_task_counts_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: true
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_schedules: {
         Row: {
