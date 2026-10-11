@@ -283,6 +283,11 @@ export default function Tokens() {
                 hint="So the sync can pull Bree's personal inbox, not just company-wide approvals. Find it on her Paperclip profile."
               />
               <SecretRow
+                label="Paperclip board key (project task sync)" secretKey="paperclip_board_api_key" placeholder="paste the board API key from POST /api/board-api-keys"
+                generated={false}
+                hint="Board-wide Paperclip API key (not an agent key, and there's no Paperclip UI page for minting these yet — create with POST /api/board-api-keys) used by the hourly sync-paperclip-project-tasks edge function to pull task counts for every linked client project. Rotating breaks that hourly sync until the new value is saved here."
+              />
+              <SecretRow
                 label="Ara webhook URL" secretKey="ara_webhook_url" placeholder="https://…"
                 generated={false}
                 hint="The same Grok Bot agent-stuck webhook URL already wired into every agent's AGENTS.md (CRE-310). Checking off a brief or Needs-you-now item, and every Decide button (CRE-393), posts here instead of telling Ara in chat."
