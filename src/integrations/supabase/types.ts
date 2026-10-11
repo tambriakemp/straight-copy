@@ -638,6 +638,80 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_login_attempts: {
+        Row: {
+          created_at: string
+          id: string
+          ip: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      audit_report_versions: {
+        Row: {
+          audited_at: string
+          client_audit_id: string
+          created_at: string
+          id: string
+          storage_path: string
+        }
+        Insert: {
+          audited_at: string
+          client_audit_id: string
+          created_at?: string
+          id?: string
+          storage_path: string
+        }
+        Update: {
+          audited_at?: string
+          client_audit_id?: string
+          created_at?: string
+          id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_report_versions_client_audit_id_fkey"
+            columns: ["client_audit_id"]
+            isOneToOne: false
+            referencedRelation: "client_audits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          slug: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          slug: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          slug?: string
+          token?: string
+        }
+        Relationships: []
+      }
       brief_item_completions: {
         Row: {
           brief_date: string | null
@@ -1158,6 +1232,7 @@ export type Database = {
           id: string
           label: string
           note: string | null
+          sort_order: number | null
           updated_at: string
           url: string | null
           username: string | null
@@ -1170,6 +1245,7 @@ export type Database = {
           id?: string
           label: string
           note?: string | null
+          sort_order?: number | null
           updated_at?: string
           url?: string | null
           username?: string | null
@@ -1182,6 +1258,7 @@ export type Database = {
           id?: string
           label?: string
           note?: string | null
+          sort_order?: number | null
           updated_at?: string
           url?: string | null
           username?: string | null
@@ -4784,6 +4861,7 @@ export type Database = {
           id: string | null
           label: string | null
           note: string | null
+          sort_order: number | null
           updated_at: string | null
           url: string | null
           username: string | null
@@ -4795,6 +4873,7 @@ export type Database = {
           id?: string | null
           label?: string | null
           note?: string | null
+          sort_order?: number | null
           updated_at?: string | null
           url?: string | null
           username?: string | null
@@ -4806,6 +4885,7 @@ export type Database = {
           id?: string | null
           label?: string | null
           note?: string | null
+          sort_order?: number | null
           updated_at?: string | null
           url?: string | null
           username?: string | null
@@ -4949,6 +5029,7 @@ export type Database = {
         Returns: undefined
       }
       fire_sync_paperclip_pending: { Args: never; Returns: undefined }
+      fire_sync_paperclip_project_tasks: { Args: never; Returns: undefined }
       fire_web_dev_scheduled_dispatch: { Args: never; Returns: undefined }
       fire_weekly_progress_reports: { Args: never; Returns: undefined }
       get_client_login: {
