@@ -21,6 +21,17 @@ export interface NeedsYouItem {
   title: string;
   issue_identifier: string | null;
   issue_url: string | null;
+  /**
+   * CRE-393: whether this is Bree's own item to check off. False for a
+   * live Paperclip issue that merely needs her *attention* (an agent-owned
+   * review/blocker that's stalled with nobody covering it) rather than one
+   * actually assigned to her — checking that off would tell the owning
+   * agent its own work is done, which isn't true. True for everything else:
+   * her directly-assigned issues, and the data-driven rows below (overdue
+   * invoices, draft proposals, profiles, prospect batches) that have no
+   * owning agent at all.
+   */
+  checkable: boolean;
 }
 
 interface PendingItem {
@@ -101,13 +112,15 @@ export function useNeedsYouNow() {
   const items = useMemo<NeedsYouItem[] | null>(() => {
     if (loading) return null;
     // CRE-391: split by `kind`, not lumped into one "agents" bucket — see
-    // the NeedsYouBucket comment above.
+    // the NeedsYouBucket comment above. CRE-393: "interaction_stalled" is
+    // still bucket "agents" (it's agent-related and should count there),
+    // it just isn't checkable — see the NeedsYouItem.checkable comment.
     const fromInteractions: NeedsYouItem[] = (pending ?? [])
-      .filter((p) => p.kind !== "approval")
-      .map((p) => ({ ...p, bucket: "agents" as const }));
+      .filter((p) => p.kind === "interaction" || p.kind === "interaction_stalled")
+      .map((p) => ({ ...p, bucket: "agents" as const, checkable: p.kind === "interaction" }));
     const fromPendingApprovals: NeedsYouItem[] = (pending ?? [])
       .filter((p) => p.kind === "approval")
-      .map((p) => ({ ...p, bucket: "approvals" as const }));
+      .map((p) => ({ ...p, bucket: "approvals" as const, checkable: false }));
     const fromProspects: NeedsYouItem[] = (prospectBatches ?? []).map((b) => ({
       id: `prospect-${b.batch}`,
       kind: "prospect approvals",
@@ -115,6 +128,7 @@ export function useNeedsYouNow() {
       title: `${b.count} prospect${b.count === 1 ? "" : "s"} pending review — batch ${b.batch}`,
       issue_identifier: null,
       issue_url: "/admin/approvals",
+      checkable: true,
     }));
     const fromDrafts: NeedsYouItem[] = (drafts ?? []).map((d) => ({
       id: `draft-${d.id}`,
@@ -123,6 +137,7 @@ export function useNeedsYouNow() {
       title: `Draft proposal "${d.title}" for ${clientNames[d.client_id] ?? "a client"} not yet sent`,
       issue_identifier: null,
       issue_url: "/admin/proposals",
+      checkable: true,
     }));
     const fromProfiles: NeedsYouItem[] = (profiles ?? []).map((p) => ({
       id: `profile-${p.client_id}`,
@@ -131,6 +146,7 @@ export function useNeedsYouNow() {
       title: `${clientNames[p.client_id] ?? "A client"}'s intake summary is ready for your review`,
       issue_identifier: null,
       issue_url: `/admin/clients/${p.client_id}`,
+      checkable: true,
     }));
     const fromOverdue: NeedsYouItem[] = (overdue ?? []).map((inv) => ({
       id: `invoice-${inv.id}`,
@@ -139,6 +155,7 @@ export function useNeedsYouNow() {
       title: `${clientNames[inv.client_id] ?? "A client"} · ${inv.label} · ${formatMoney(inv.amount_cents, inv.currency)} overdue since ${new Date(`${inv.due_date}T12:00:00`).toLocaleDateString()}`,
       issue_identifier: null,
       issue_url: "/admin/payments",
+      checkable: true,
     }));
     return [...fromInteractions, ...fromPendingApprovals, ...fromDrafts, ...fromProfiles, ...fromProspects, ...fromOverdue];
   }, [loading, pending, prospectBatches, drafts, overdue, profiles, clientNames]);
