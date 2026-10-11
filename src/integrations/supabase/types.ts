@@ -1149,6 +1149,69 @@ export type Database = {
           },
         ]
       }
+      client_logins: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+          note: string | null
+          updated_at: string
+          url: string | null
+          username: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label: string
+          note?: string | null
+          updated_at?: string
+          url?: string | null
+          username?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          note?: string | null
+          updated_at?: string
+          url?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
+      client_notes: {
+        Row: {
+          body: string
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_projects: {
         Row: {
           agent_autonomy: string | null
@@ -4622,6 +4685,20 @@ export type Database = {
       }
     }
     Views: {
+      client_logins_list: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          has_password: boolean | null
+          id: string | null
+          label: string | null
+          note: string | null
+          updated_at: string | null
+          url: string | null
+          username: string | null
+        }
+        Relationships: []
+      }
       agent_pending_actions_v: {
         Row: {
           agent_id: string | null

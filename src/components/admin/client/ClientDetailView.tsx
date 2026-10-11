@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import ProjectTypeIcon from "@/components/admin/cv/ProjectTypeIcon";
+import NotesTab from "./NotesTab";
+import LoginsTab from "./LoginsTab";
 import { avatarFor } from "@/lib/avatar";
 import { projectTypeStyle } from "@/lib/projectType";
 import { countsFor } from "@/lib/taskCounts";
@@ -195,7 +197,7 @@ export default function ClientDetailView({ clientId }: { clientId: string }) {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("projects");
   const [showArchived, setShowArchived] = useState(false);
-  const { client, projects, counts, notes, secrets, balance, loading } = useClientRecord(clientId);
+  const { client, projects, counts, notes, logins, balance, loading, reload } = useClientRecord(clientId);
 
   const { live, archived } = useMemo(() => {
     const isArchived = (p: ClientProjectRow) => p.status === "archived";
@@ -223,7 +225,7 @@ export default function ClientDetailView({ clientId }: { clientId: string }) {
   const TABS: Array<{ key: Tab; label: string; count?: number }> = [
     { key: "projects", label: "Projects", count: projects.length },
     { key: "notes", label: "Notes", count: notes.length },
-    { key: "logins", label: "Logins", count: secrets.length },
+    { key: "logins", label: "Logins", count: logins.length },
   ];
 
   return (
@@ -296,48 +298,22 @@ export default function ClientDetailView({ clientId }: { clientId: string }) {
           )}
 
           {tab === "notes" && (
-            <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <h2 className="cv-card-title">Notes</h2>
-              {client.notes && <p style={{ margin: 0, fontSize: 14, whiteSpace: "pre-wrap" }}>{client.notes}</p>}
-              {!notes.length && !client.notes ? (
-                <EmptyState title="No notes yet" subtitle="Notes written on this client's projects show up here." />
-              ) : notes.map((n) => {
-                const project = projects.find((p) => p.id === n.client_project_id);
-                return (
-                  <div key={n.id} className="cv-proj" style={{ flexDirection: "column", alignItems: "stretch", gap: 6 }}>
-                    <div style={{ fontSize: 12, color: "var(--cv-muted)" }}>
-                      {project?.name ?? "Project"} · {fmtDate(n.created_at)}
-                    </div>
-                    <div style={{ fontSize: 14, whiteSpace: "pre-wrap" }}>{n.body}</div>
-                  </div>
-                );
-              })}
-            </section>
+            <NotesTab
+              clientId={clientId}
+              clientNotes={client.notes}
+              notes={notes}
+              onChanged={reload}
+            />
           )}
 
           {tab === "logins" && (
-            <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <h2 className="cv-card-title">Logins</h2>
-              <p style={{ margin: 0, fontSize: 13, color: "var(--cv-muted)" }}>
-                Stored per project. Values are never read back here — open the
-                project to set or replace one.
-              </p>
-              {!secrets.length ? (
-                <EmptyState title="No logins stored" subtitle="Nothing saved for this client's projects." />
-              ) : secrets.map((s) => {
-                const project = projects.find((p) => p.id === s.client_project_id);
-                return (
-                  <div key={`${s.client_project_id}:${s.key}`} className="cv-proj">
-                    <span style={{ flex: "1 1 200px", minWidth: 0 }}>
-                      <span className="cv-proj__name">{s.key}</span>
-                      <span className="cv-proj__type">{project?.name ?? "Project"}</span>
-                    </span>
-                    {s.hint && <span className="cv-chip cv-chip--gray">{s.hint}</span>}
-                    <span style={{ fontSize: 13, color: "var(--cv-muted)" }}>Updated {fmtDate(s.updated_at)}</span>
-                  </div>
-                );
-              })}
-            </section>
+            <LoginsTab
+              clientId={clientId}
+              clientName={client.contact_name || client.business_name || "there"}
+              clientEmail={client.contact_email}
+              logins={logins}
+              onChanged={reload}
+            />
           )}
 
           <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>

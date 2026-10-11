@@ -23,3 +23,17 @@ export function isMissingColumn(error: PostgrestLikeError | null | undefined): b
   if (error.code === "42703") return true;
   return /column .* does not exist/i.test(error.message ?? "");
 }
+
+/**
+ * The same gap, a whole table or view wide: 42P01 is undefined_table, and
+ * PostgREST answers PGRST205 for a relation missing from its schema cache.
+ *
+ * A tab whose table has not been created yet should read empty, not throw
+ * a toast on every page load — the page around it works perfectly well.
+ */
+export function isMissingRelation(error: PostgrestLikeError | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code === "42P01" || error.code === "PGRST205") return true;
+  return /(relation|table) .* does not exist/i.test(error.message ?? "")
+    || /could not find the (table|relation)/i.test(error.message ?? "");
+}

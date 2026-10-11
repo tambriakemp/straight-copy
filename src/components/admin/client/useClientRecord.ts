@@ -13,7 +13,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { countByProject, type TaskCounts, type TaskRow } from "@/lib/taskCounts";
 import { summarise, NO_BALANCE, type BalanceInvoice, type ClientBalance } from "@/lib/clientBalance";
-import { isMissingColumn } from "@/lib/missingColumn";
+import { isMissingColumn, isMissingRelation } from "@/lib/missingColumn";
+import type { ClientLoginRow } from "@/lib/clientLogins";
 
 // Same reason as the Clients list: `internal` is one migration ahead of
 // whatever Lovable has applied, and a select naming a column the database
@@ -47,26 +48,18 @@ export interface ClientProjectRow {
   created_at: string;
 }
 
-export interface ProjectNote {
+export interface ClientNote {
   id: string;
-  client_project_id: string;
   body: string;
   created_at: string;
-}
-
-export interface ProjectSecret {
-  client_project_id: string;
-  key: string;
-  hint: string | null;
-  updated_at: string;
 }
 
 export function useClientRecord(clientId: string) {
   const [client, setClient] = useState<ClientRecord | null>(null);
   const [projects, setProjects] = useState<ClientProjectRow[]>([]);
   const [counts, setCounts] = useState<Map<string, TaskCounts>>(new Map());
-  const [notes, setNotes] = useState<ProjectNote[]>([]);
-  const [secrets, setSecrets] = useState<ProjectSecret[]>([]);
+  const [notes, setNotes] = useState<ClientNote[]>([]);
+  const [logins, setLogins] = useState<ClientLoginRow[]>([]);
   const [balance, setBalance] = useState<ClientBalance>(NO_BALANCE);
   const [loading, setLoading] = useState(true);
 
@@ -84,26 +77,41 @@ export function useClientRecord(clientId: string) {
     setClient(c.data);
     setProjects(projectRows);
 
+    // Notes and logins hang off the client, not its projects, so they are
+    // loaded whether or not there are any projects — a client with no
+    // project still has an inbox login you need.
+    const [n, g] = await Promise.all([
+      supabase.from("client_notes").select("id, body, created_at")
+        .eq("client_id", clientId).order("created_at", { ascending: false }),
+      supabase.from("client_logins_list")
+        .select("id, label, url, username, note, has_password")
+        .eq("client_id", clientId).order("created_at", { ascending: true }),
+    ]);
+    // Reported, not thrown: losing the notes should not cost the page its
+    // projects. A missing table is swallowed entirely — these two arrive
+    // with a migration Lovable has not necessarily applied yet, and an
+    // error toast on every page load would be worse than an empty tab.
+    for (const r of [n, g]) if (r.error && !isMissingRelation(r.error)) toast.error(r.error.message);
+    setNotes((n.data ?? []) as ClientNote[]);
+    setLogins(((g.data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+      id: String(r.id), label: String(r.label ?? ""),
+      url: (r.url as string | null) ?? null,
+      username: (r.username as string | null) ?? null,
+      note: (r.note as string | null) ?? null,
+      has_password: Boolean(r.has_password),
+    })));
+
     const ids = projectRows.map((r) => r.id);
     if (!ids.length) {
-      setCounts(new Map()); setNotes([]); setSecrets([]); setBalance(NO_BALANCE);
+      setCounts(new Map()); setBalance(NO_BALANCE);
       setLoading(false);
       return;
     }
 
-    const [t, n, s] = await Promise.all([
-      supabase.from("project_tasks").select("client_project_id, status").in("client_project_id", ids),
-      supabase.from("project_notes").select("id, client_project_id, body, created_at")
-        .in("client_project_id", ids).order("created_at", { ascending: false }),
-      supabase.from("project_secrets").select("client_project_id, key, hint, updated_at")
-        .in("client_project_id", ids),
-    ]);
-    // Reported, not thrown: losing the notes count should not cost the page
-    // its projects.
-    for (const r of [t, n, s]) if (r.error) toast.error(r.error.message);
+    const t = await supabase.from("project_tasks")
+      .select("client_project_id, status").in("client_project_id", ids);
+    if (t.error) toast.error(t.error.message);
     setCounts(countByProject((t.data ?? []) as TaskRow[]));
-    setNotes((n.data ?? []) as ProjectNote[]);
-    setSecrets((s.data ?? []) as ProjectSecret[]);
     setLoading(false);
 
     // Money last and on its own, because it is the slow part — a round
@@ -113,7 +121,7 @@ export function useClientRecord(clientId: string) {
 
   useEffect(() => { void load(); }, [load]);
 
-  return { client, projects, counts, notes, secrets, balance, loading, reload: load };
+  return { client, projects, counts, notes, logins, balance, loading, reload: load };
 }
 
 async function loadClient(

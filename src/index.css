@@ -802,6 +802,40 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-proj__meter { flex: 2 1 220px; min-width: 0; }
 .cv-proj__meter-top { display: flex; justify-content: space-between; font-size: 13px; color: var(--cv-muted); margin-bottom: 6px; }
 
+/* Client page, Notes and Logins tabs. Measured off the canvas: .lg, .mini,
+   and the note textarea. */
+.cv-field { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--cv-muted); }
+.cv-input, .cv-textarea {
+  border: 0; border-radius: 16px; background: var(--cv-sunken); padding: 14px 16px;
+  font-family: inherit; font-size: 14px; color: var(--cv-ink); width: 100%; box-sizing: border-box;
+}
+.cv-textarea { resize: vertical; }
+.cv-input:focus, .cv-textarea:focus { outline: 2px solid var(--cv-accent); outline-offset: 1px; }
+.cv-rule { border-top: 1px dashed var(--cv-border-strong); }
+
+.cv-lg {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+  padding: 16px; border-radius: 18px; background: var(--cv-sunken);
+  /* Ink, not the inherited body grey: this is a row you read, not a
+     caption. The canvas leaves it at the page default, which is ink. */
+  color: var(--cv-ink);
+}
+.cv-lg__who { flex: 1 1 220px; min-width: 0; }
+.cv-lg__who b { font-weight: 600; font-size: 15px; }
+.cv-lg__who small { display: block; font-size: 13px; color: var(--cv-muted); overflow-wrap: anywhere; }
+.cv-lg__who a { color: var(--cv-muted); }
+.cv-lg__who a:hover { color: var(--cv-accent); }
+.cv-lg__pw { font-family: var(--cv-font-mono); letter-spacing: 0.1em; color: var(--cv-body); overflow-wrap: anywhere; }
+.cv-lg__bt { display: flex; gap: 6px; flex-wrap: wrap; }
+.cv-mini {
+  font-family: inherit; font-size: 13px; font-weight: 500; min-height: 44px; padding: 0 14px;
+  border-radius: 12px; border: 0; background: var(--cv-card); color: var(--cv-ink); cursor: pointer;
+}
+.cv-mini:hover { background: var(--cv-ink); color: var(--cv-card); }
+.cv-mini:disabled { opacity: .5; cursor: default; }
+.cv-mini:disabled:hover { background: var(--cv-card); color: var(--cv-ink); }
+.cv-mini--danger:hover { background: var(--cv-tone-red-fg); color: var(--cv-card); }
+
 /* Project page: the phase strip and a task line. */
 .cv-ph {
   flex: 1 1 110px; box-sizing: border-box; padding: 12px 14px; border-radius: 16px;
