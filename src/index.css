@@ -896,6 +896,52 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-simple-list__sub { font-size: 12px; color: var(--cv-muted); }
 .cv-simple-list__when { font-size: 13px; color: var(--cv-muted); white-space: nowrap; }
 
+/* ---------- Money (Admin Journeys canvas) ---------- */
+
+/* Left-aligned stat, unlike the Clients page's centred one. These three
+   sit above a page of figures and read as the top of that column, not as
+   a row of badges. */
+.cv-stat--left {
+  align-items: flex-start; justify-content: center; text-align: left;
+  min-height: 130px; gap: 6px;
+}
+.cv-stat--left > b { font-size: 30px; }
+
+/* An invoice that needs doing something about: sunken, so it reads as a
+   card you act on rather than a line you scan past. */
+.cv-hot {
+  border-radius: 18px; background: var(--cv-sunken); padding: 18px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+}
+.cv-hot + .cv-hot { margin-top: 10px; }
+
+/* An invoice that is just a fact: a ruled line. */
+.cv-inv {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+  padding: 14px 0; border-top: 1px solid var(--cv-border); font-size: 15px;
+}
+.cv-inv--first { border-top: 0; }
+.cv-what { flex: 1 1 240px; min-width: 0; font-weight: 500; overflow-wrap: break-word; }
+.cv-what small { display: block; font-size: 13px; font-weight: 400; color: var(--cv-muted); }
+
+/* tabular-nums so a column of money lines up on the decimal point. */
+.cv-money-amt {
+  font-variant-numeric: tabular-nums; font-weight: 600;
+  min-width: 90px; text-align: right; color: var(--cv-ink);
+}
+.cv-money-amt--none { font-weight: 400; color: var(--cv-muted); }
+
+/* Collected by month. A zero month is a 2px rule rather than nothing, so
+   the gap is visible as a gap — see collectedByMonth's comment. */
+.cv-bars { display: grid; gap: 12px; align-items: end; height: 180px; }
+.cv-bars > div {
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+  gap: 6px; height: 100%; font-size: 12px; color: var(--cv-muted);
+}
+.cv-bars i { display: block; width: 100%; max-width: 56px; border-radius: 10px 10px 4px 4px; background: var(--cv-ink); }
+.cv-bars i.cv-bars__zero { height: 2px; background: #C9CFDB; }
+.cv-bars b { font-size: 13px; font-weight: 600; color: var(--cv-ink); }
+
 /* ---------- Proposals (Admin Journeys canvas) ----------
    The list, the admin view, the upload form and the client view all draw
    from these. Measured off the canvas: .pr, .trail, .step, .row, .ln. */

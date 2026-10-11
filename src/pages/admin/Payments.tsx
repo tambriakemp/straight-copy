@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { CreditCard, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import SidePanel from "@/components/admin/SidePanel";
-import PageHeader from "@/components/admin/cv/PageHeader";
-import KpiCard from "@/components/admin/cv/KpiCard";
-import EmptyState from "@/components/admin/cv/EmptyState";
-import StatusChip from "@/components/admin/cv/StatusChip";
 import { supabase } from "@/integrations/supabase/client";
-import { formatMoney, loadAdminOperations, projectMap, type AdminOperations, type InvoiceRollup } from "@/lib/adminOperations";
+import { loadAdminOperations, projectMap, type AdminOperations } from "@/lib/adminOperations";
+import { usd } from "@/lib/clientBalance";
+import {
+  bucketInvoices, collectedByMonth, byClient, daysUnpaid, isOverdue, billsWhen,
+  type MoneyInvoice,
+} from "@/lib/moneyRollup";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
@@ -17,68 +18,30 @@ const PROJECT_TYPES = ["automation_build", "site_preview", "app_development", "w
 
 type NewScheduleItem = { label: string; amount_dollars: string; due_date: string };
 
-// payment_schedules (CRE-267) — read directly rather than through the
-// project-invoices edge function's "list-schedules" action, which requires
-// a clientProjectId and is scoped to one project at a time (see
-// PaymentsTab.tsx). This page needs every schedule across every client, so
-// a direct admin-RLS read of the table is the one query that covers that.
-type ScheduleRow = {
-  id: string;
-  client_id: string;
-  client_project_id: string;
-  title: string;
-  total_cents: number | null;
-  currency: string;
-  status: string;
-  source: string;
-  created_at: string;
-};
-
-type CvView = "invoices" | "schedules";
-type CvInvoiceFilter = "outstanding" | "overdue" | "scheduled" | "paid" | null;
-
-const isOverdue = (invoice: InvoiceRollup) =>
-  invoice.status === "sent" && !!invoice.due_date && new Date(`${invoice.due_date}T23:59:59`) < new Date();
+async function callInvoices(body: Record<string, unknown>) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/project-invoices`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  const out = await r.json();
+  if (!r.ok) throw new Error(out.error || "Request failed");
+  return out as Record<string, unknown>;
+}
 
 export default function Payments() {
   const navigate = useNavigate();
   const [data, setData] = useState<AdminOperations | null>(null);
   const reload = () => loadAdminOperations().then(setData).catch((error) => toast.error(error.message || "Failed to load payments"));
   useEffect(() => { reload(); }, []);
-  const projects = useMemo(() => projectMap(data?.projects ?? []), [data]);
-  const outstanding = (data?.invoices ?? []).filter((invoice) => invoice.status === "sent")
-    .reduce((sum, invoice) => sum + invoice.amount_cents, 0);
-
   // --- Schedules (CRE-332 Phase 5) --------------------------------------
-  const [cvView, setCvView] = useState<CvView>("invoices");
-  const [cvFilter, setCvFilter] = useState<CvInvoiceFilter>(null);
-  const [schedules, setSchedules] = useState<ScheduleRow[] | null>(null);
-  useEffect(() => {
-    supabase.from("payment_schedules")
-      .select("id, client_id, client_project_id, title, total_cents, currency, status, source, created_at")
-      .order("created_at", { ascending: false })
-      .then(({ data: rows2, error }) => {
-        if (error) { toast.error(error.message || "Failed to load payment schedules"); return; }
-        setSchedules((rows2 ?? []) as ScheduleRow[]);
-      });
-  }, []);
-
-  const invoices = data?.invoices ?? [];
-  const sentInvoices = invoices.filter((i) => i.status === "sent");
-  const overdueInvoices = invoices.filter(isOverdue);
-  const scheduledInvoices = invoices.filter((i) => i.status === "scheduled");
-  const paidInvoices = invoices.filter((i) => i.status === "paid");
-  const cvRows = invoices.filter((invoice) => {
-    if (cvFilter === "outstanding") return invoice.status === "sent";
-    if (cvFilter === "overdue") return isOverdue(invoice);
-    if (cvFilter === "scheduled") return invoice.status === "scheduled";
-    if (cvFilter === "paid") return invoice.status === "paid";
-    return true;
-  }).sort((a, b) => (a.due_date ?? "").localeCompare(b.due_date ?? ""));
-
   // --- New payment schedule -------------------------------------------------
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** Which invoice row has an action in flight. */
+  const [acting, setActing] = useState<string | null>(null);
   const [clientId, setClientId] = useState("");
   const [projectId, setProjectId] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
@@ -268,127 +231,293 @@ export default function Payments() {
     </SidePanel>
   );
 
+  const invoices = (data?.invoices ?? []) as MoneyInvoice[];
+  const buckets = bucketInvoices(invoices);
+  const bars = collectedByMonth(invoices);
+  const peak = Math.max(1, ...bars.map((b) => b.cents));
+  const clientRows = byClient(invoices, Object.keys(data?.clientNames ?? {}));
+  const projects = projectMap(data?.projects ?? []);
+  const year = new Date().getFullYear();
+
+  const whoFor = (i: MoneyInvoice) =>
+    [data?.clientNames[i.client_id], projects[i.client_project_id]?.name].filter(Boolean).join(" · ");
+
+  const run = async (key: string, body: Record<string, unknown>, ok: string) => {
+    setActing(key);
+    try {
+      await callInvoices(body);
+      toast.success(ok);
+      reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "That didn't work");
+    } finally {
+      setActing(null);
+    }
+  };
+
+  const copyPayLink = async (i: MoneyInvoice) => {
+    setActing(i.id);
+    try {
+      const out = await callInvoices({ action: "payment-link", clientId: i.client_id, invoiceId: i.id });
+      const url = (out.url as string) ?? (out.checkoutUrl as string) ?? (out.checkout_url as string);
+      if (!url) throw new Error("No pay link on this invoice yet");
+      await navigator.clipboard.writeText(url);
+      toast.success("Pay link copied");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not get a pay link");
+    } finally {
+      setActing(null);
+    }
+  };
+
   return (
-    <AdminLayout>
-      <div className="cv-admin" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-        <PageHeader
-          eyebrow="Work / Money"
-          title="Money"
-          subtitle="Payment schedules, due dates, and outstanding balances across every project."
-          right={
-            <button type="button" className="cv-btn-primary" onClick={() => setOpen(true)}>
-              <Plus size={14} /> New payment schedule
-            </button>
-          }
-        />
+    <AdminLayout topBar={false}>
+      <div className="cv-admin cv-page" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
 
-        <div className="cv-kpi-row">
-          <KpiCard
-            label="Outstanding"
-            value={data ? formatMoney(outstanding) : "—"}
-            hint={data ? `${sentInvoices.length} invoice${sentInvoices.length === 1 ? "" : "s"}` : undefined}
-            onClick={() => { setCvView("invoices"); setCvFilter("outstanding"); }}
-          />
-          <KpiCard
-            label="Overdue"
-            value={data ? formatMoney(overdueInvoices.reduce((s, i) => s + i.amount_cents, 0)) : "—"}
-            hint={data ? `${overdueInvoices.length} invoice${overdueInvoices.length === 1 ? "" : "s"}` : undefined}
-            onClick={() => { setCvView("invoices"); setCvFilter("overdue"); }}
-          />
-          <KpiCard
-            label="Scheduled"
-            value={data ? formatMoney(scheduledInvoices.reduce((s, i) => s + i.amount_cents, 0)) : "—"}
-            hint={data ? `${scheduledInvoices.length} invoice${scheduledInvoices.length === 1 ? "" : "s"}` : undefined}
-            onClick={() => { setCvView("invoices"); setCvFilter("scheduled"); }}
-          />
-          <KpiCard
-            label="Paid"
-            value={data ? formatMoney(paidInvoices.reduce((s, i) => s + i.amount_cents, 0)) : "—"}
-            hint={data ? `${paidInvoices.length} invoice${paidInvoices.length === 1 ? "" : "s"}` : undefined}
-            onClick={() => { setCvView("invoices"); setCvFilter("paid"); }}
-          />
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+          <div style={{ flex: "1 1 300px", minWidth: 0 }}>
+            <h1 className="cv-page-title">Money</h1>
+            <p className="cv-page-sub">
+              Client invoices across every project: what's been collected,
+              what's owed and what bills next.
+            </p>
+          </div>
+          <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 20px" }} onClick={() => setOpen(true)}>
+            <Plus size={16} style={{ marginRight: 7 }} /> New invoice
+          </button>
         </div>
 
-        <div className="cv-tabs" style={{ padding: "0 32px" }}>
-          <button type="button" className={`cv-tab${cvView === "invoices" ? " cv-tab--active" : ""}`} onClick={() => setCvView("invoices")}>Invoices</button>
-          <button type="button" className={`cv-tab${cvView === "schedules" ? " cv-tab--active" : ""}`} onClick={() => setCvView("schedules")}>Schedules</button>
+        <div className="cv-stat-row" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+          <div className="cv-card cv-stat cv-stat--left cv-stat--dark">
+            <span>Collected in {year}</span>
+            <b>{usd(buckets.collectedCents)}</b>
+            <small>{buckets.paid.length} invoice{buckets.paid.length === 1 ? "" : "s"} paid</small>
+          </div>
+          <div className="cv-card cv-stat cv-stat--left">
+            <span>Owed to you</span>
+            <b>{usd(buckets.owedCents)}</b>
+            <small>{buckets.chase.length} sent, unpaid</small>
+          </div>
+          <div className="cv-card cv-stat cv-stat--left">
+            <span>Not billed yet</span>
+            <b>{usd(buckets.notBilledCents)}</b>
+            <small>{buckets.billsNext.length} scheduled</small>
+          </div>
         </div>
 
-        <div style={{ padding: "0 32px 32px" }}>
-          {cvView === "invoices" ? (
-            <>
-              {cvFilter && (
-                <div style={{ marginBottom: 12, fontSize: 13, color: "var(--cv-muted)" }}>
-                  Showing {cvFilter} invoices only.{" "}
-                  <button type="button" className="cv-sync-btn" style={{ display: "inline", padding: "2px 8px" }} onClick={() => setCvFilter(null)}>Clear</button>
+        {!data ? (
+          <p className="cv-page-sub">Loading…</p>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
+            <div style={{ flex: "3 1 520px", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+
+              <section className="cv-card cv-card-pad">
+                <div className="cv-card-head">
+                  <h2 className="cv-card-title">Chase</h2>
+                  <span className="cv-chip cv-chip--red">{buckets.chase.length}</span>
+                  <span style={{ fontSize: 13, color: "var(--cv-muted)" }}>Sent and still unpaid</span>
                 </div>
-              )}
-              {!data ? (
-                <div style={{ fontSize: 14, color: "var(--cv-muted)" }}>Loading…</div>
-              ) : !cvRows.length ? (
-                <EmptyState icon={CreditCard} title="No invoices" subtitle="Nothing matches this filter yet." />
-              ) : (
-                <div className="cv-simple-list">
-                  {cvRows.map((invoice) => {
-                    const project = projects[invoice.client_project_id];
-                    return (
-                      <button
-                        key={invoice.id}
-                        type="button"
-                        className="cv-simple-list__row"
-                        style={{ width: "100%", background: "none", border: "none", borderBottom: "1px solid var(--cv-border)", cursor: project ? "pointer" : "default", textAlign: "left" }}
-                        onClick={() => project && navigate(`/admin/clients/${invoice.client_id}/projects/${project.id}`)}
-                      >
-                        <span className="cv-simple-list__main">
-                          <span className="cv-simple-list__title">{invoice.label} — {formatMoney(invoice.amount_cents, invoice.currency)}</span>
-                          <span className="cv-simple-list__sub">
-                            {data.clientNames[invoice.client_id] ?? "—"} · {project?.name ?? "—"}
-                          </span>
-                        </span>
-                        <span className="cv-simple-list__when">{invoice.due_date ? new Date(`${invoice.due_date}T12:00:00`).toLocaleDateString() : "No due date"}</span>
-                        <StatusChip label={isOverdue(invoice) ? "overdue" : invoice.status} status={isOverdue(invoice) ? "overdue" : invoice.status} />
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          ) : !schedules ? (
-            <div style={{ fontSize: 14, color: "var(--cv-muted)" }}>Loading…</div>
-          ) : !schedules.length ? (
-            <EmptyState icon={CreditCard} title="No payment schedules" subtitle="Nothing invoiced on any project yet." />
-          ) : (
-            <div className="cv-simple-list">
-              {schedules.map((schedule) => {
-                const project = projects[schedule.client_project_id];
-                const scheduleInvoices = (data?.invoices ?? []).filter((i) => i.schedule_id === schedule.id);
-                const total = schedule.total_cents ?? scheduleInvoices.reduce((s, i) => s + i.amount_cents, 0);
-                const paid = scheduleInvoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.amount_cents, 0);
-                return (
-                  <button
-                    key={schedule.id}
-                    type="button"
-                    className="cv-simple-list__row"
-                    style={{ width: "100%", background: "none", border: "none", borderBottom: "1px solid var(--cv-border)", cursor: project ? "pointer" : "default", textAlign: "left" }}
-                    onClick={() => project && navigate(`/admin/clients/${schedule.client_id}/projects/${project.id}`)}
-                  >
-                    <span className="cv-simple-list__main">
-                      <span className="cv-simple-list__title">{schedule.title}</span>
-                      <span className="cv-simple-list__sub">
-                        {data?.clientNames[schedule.client_id] ?? "—"} · {project?.name ?? "—"} · {formatMoney(paid, schedule.currency)} of {formatMoney(total, schedule.currency)}
+                {!buckets.chase.length ? (
+                  <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>
+                    Nothing outstanding. Every invoice you have sent has been paid.
+                  </p>
+                ) : buckets.chase.map((i) => {
+                  const days = daysUnpaid(i);
+                  return (
+                    <div key={i.id} className="cv-hot">
+                      <span className="cv-what">
+                        <span style={{ fontSize: 16, fontWeight: 600 }}>{i.label}</span>
+                        <small>{whoFor(i)}</small>
+                        <small>
+                          {i.sent_at ? `Sent ${fmtDate(i.sent_at)}` : "Sent"}
+                          {i.due_date ? ` · due ${i.due_date}` : " · no due date set"}
+                        </small>
                       </span>
-                    </span>
-                    <span className="cv-simple-list__when">{new Date(schedule.created_at).toLocaleDateString()}</span>
-                    <StatusChip label={schedule.status} status={schedule.status} />
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+                      {days != null && (
+                        <span className={`cv-chip cv-chip--${isOverdue(i) ? "red" : days >= 30 ? "amber" : "gray"}`}>
+                          {days} day{days === 1 ? "" : "s"} unpaid
+                        </span>
+                      )}
+                      <span className="cv-money-amt" style={{ fontSize: 18 }}>{usd(i.amount_cents)}</span>
+                      <span style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        <button
+                          type="button" className="cv-open cv-open--dark" style={{ padding: "0 16px" }}
+                          disabled={acting === i.id}
+                          onClick={() => run(i.id, { action: "email-payment-link", clientId: i.client_id, invoiceId: i.id }, "Reminder sent")}
+                        >
+                          Email a reminder
+                        </button>
+                        <button type="button" className="cv-open" style={{ padding: "0 16px" }}
+                          disabled={acting === i.id} onClick={() => copyPayLink(i)}>
+                          Copy pay link
+                        </button>
+                        <button
+                          type="button" className="cv-open" style={{ padding: "0 16px" }}
+                          disabled={acting === i.id}
+                          // Voiding is not undoable from here, and an
+                          // invoice the client may already have paid
+                          // against is exactly the wrong thing to cancel
+                          // by misclick.
+                          onClick={() => {
+                            if (!confirm(`Void "${i.label}" for ${usd(i.amount_cents)}? This cannot be undone.`)) return;
+                            run(i.id, { action: "void", clientId: i.client_id, invoiceId: i.id }, "Invoice voided");
+                          }}
+                        >
+                          Void
+                        </button>
+                      </span>
+                    </div>
+                  );
+                })}
+              </section>
 
-      {newScheduleSidePanel}
+              <section className="cv-card cv-card-pad">
+                <div className="cv-card-head">
+                  <h2 className="cv-card-title">Bills next</h2>
+                  <span className="cv-chip cv-chip--gray">{buckets.billsNext.length}</span>
+                  <span style={{ fontSize: 13, color: "var(--cv-muted)" }}>Scheduled, not sent</span>
+                </div>
+                {!buckets.billsNext.length ? (
+                  <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>
+                    Nothing scheduled. Signing a proposal with payment terms puts invoices here.
+                  </p>
+                ) : buckets.billsNext.map((i) => (
+                  <div key={i.id} className="cv-hot">
+                    <span className="cv-what">
+                      <span style={{ fontSize: 16, fontWeight: 600 }}>{i.label}</span>
+                      <small>{whoFor(i)}</small>
+                      <small>{billsWhen(i)}</small>
+                    </span>
+                    <span className="cv-money-amt" style={{ fontSize: 18 }}>{usd(i.amount_cents)}</span>
+                    <span style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <button
+                        type="button" className="cv-open cv-open--dark" style={{ padding: "0 16px" }}
+                        disabled={acting === i.id}
+                        // Sending bills a client. Worth a confirm even
+                        // though it is reversible by voiding — the email
+                        // is not reversible.
+                        onClick={() => {
+                          if (!confirm(`Send "${i.label}" for ${usd(i.amount_cents)} to ${data.clientNames[i.client_id] ?? "the client"} now?`)) return;
+                          run(i.id, { action: "send", clientId: i.client_id, invoiceId: i.id }, "Invoice sent");
+                        }}
+                      >
+                        Send now
+                      </button>
+                      <button type="button" className="cv-open" style={{ padding: "0 16px" }}
+                        onClick={() => navigate(`/admin/clients/${i.client_id}/projects/${i.client_project_id}`)}>
+                        Open project
+                      </button>
+                    </span>
+                  </div>
+                ))}
+              </section>
+
+              <section className="cv-card cv-card-pad">
+                <div className="cv-card-head">
+                  <h2 className="cv-card-title">Paid</h2>
+                  <span className="cv-chip cv-chip--green">{buckets.paid.length}</span>
+                </div>
+                {!buckets.paid.length ? (
+                  <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>Nothing paid yet.</p>
+                ) : buckets.paid.map((i, n) => (
+                  <div key={i.id} className={`cv-inv ${n === 0 ? "cv-inv--first" : ""}`}>
+                    <span className="cv-what">
+                      {i.label}
+                      <small>{whoFor(i)}{i.paid_at ? ` · Paid ${fmtDate(i.paid_at)}` : ""}</small>
+                    </span>
+                    <span className="cv-chip cv-chip--green">Paid</span>
+                    <span className="cv-money-amt">{usd(i.amount_cents)}</span>
+                  </div>
+                ))}
+                {buckets.voided.length > 0 && (
+                  // Said out loud rather than silently dropped: the
+                  // difference between these totals and anyone's own
+                  // arithmetic is exactly this money.
+                  <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--cv-muted)" }}>
+                    Not counted: {buckets.voided.length} voided invoice{buckets.voided.length === 1 ? "" : "s"}
+                    {" "}worth {usd(buckets.voided.reduce((s, i) => s + i.amount_cents, 0))}.
+                  </p>
+                )}
+              </section>
+            </div>
+
+            <aside style={{ flex: "2 1 320px", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+              <section className="cv-card cv-card-pad">
+                <div className="cv-card-head">
+                  <h2 className="cv-card-title">Collected by month</h2>
+                  <span style={{ fontSize: 13, color: "var(--cv-muted)" }}>
+                    {bars[0]?.label} – {bars[bars.length - 1]?.label} {year}
+                  </span>
+                </div>
+                <div
+                  className="cv-bars"
+                  style={{ gridTemplateColumns: `repeat(${bars.length}, minmax(0, 1fr))` }}
+                  role="img"
+                  aria-label={`Collected by month: ${bars.map((b) => `${b.label} ${usd(b.cents)}`).join(", ")}`}
+                >
+                  {bars.map((b) => (
+                    <div key={b.key}>
+                      <b>{shortMoney(b.cents)}</b>
+                      <i
+                        className={b.cents === 0 ? "cv-bars__zero" : undefined}
+                        style={b.cents === 0 ? undefined : { height: `${Math.round((b.cents / peak) * 100)}%` }}
+                      />
+                      {b.label}
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="cv-card cv-card-pad">
+                <div className="cv-card-head"><h2 className="cv-card-title">By client</h2></div>
+                {clientRows.map((r, n) => {
+                  const parts = [
+                    r.paidCents ? `${usd(r.paidCents)} paid` : null,
+                    r.owedCents ? `${usd(r.owedCents)} owed` : null,
+                    r.toBillCents ? `${usd(r.toBillCents)} to bill` : null,
+                  ].filter(Boolean);
+                  return (
+                    <button
+                      key={r.clientId}
+                      type="button"
+                      className={`cv-inv ${n === 0 ? "cv-inv--first" : ""}`}
+                      style={{ width: "100%", background: "none", border: 0, font: "inherit", cursor: "pointer", textAlign: "left" }}
+                      onClick={() => navigate(`/admin/clients/${r.clientId}`)}
+                    >
+                      <span className="cv-what">
+                        {data.clientNames[r.clientId] ?? "Client"}
+                        <small>{parts.length ? parts.join(" · ") : "No invoices yet"}</small>
+                      </span>
+                      <span className={`cv-money-amt ${r.totalCents ? "" : "cv-money-amt--none"}`}>
+                        {r.totalCents ? usd(r.totalCents) : "—"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </section>
+            </aside>
+          </div>
+        )}
+
+        {newScheduleSidePanel}
+      </div>
     </AdminLayout>
   );
+}
+
+/** "$2.5k" — the label above a bar, where the full figure would not fit. */
+function shortMoney(cents: number): string {
+  const d = cents / 100;
+  if (d === 0) return "$0";
+  if (d < 1000) return `$${Math.round(d)}`;
+  const k = d / 1000;
+  // One decimal only when it changes the number: $2.5k, but $10k not $10.0k.
+  return `$${k % 1 === 0 ? k : k.toFixed(1)}k`;
+}
+
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
