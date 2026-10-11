@@ -5,7 +5,8 @@
 import { describe, it, expect } from "vitest";
 import {
   normaliseStatus, bucketByPage, filterComments, openCount, authorInitials,
-  clickToPct, pageTitle, sortPages, visibleTo, pageKey, NEXT_STATUS,
+  clickToPct, pageTitle, pageLabel, pageKind, groupOf, foldersOf, groupNames,
+  sortPages, visibleTo, pageKey, NEXT_STATUS,
   approvalFor, buildActivity,
   type BoardPage, type BoardComment, type ApprovalRow, type ApprovalEvent,
 } from "@/lib/feedbackBoard";
@@ -196,6 +197,78 @@ describe("pageTitle", () => {
   it("falls back to the path when a page has no label", () => {
     expect(pageTitle(page({ previewId: "p", path: "about.html", group: "Desktop", label: "" })))
       .toBe("Desktop / about.html");
+  });
+});
+
+describe("pageLabel", () => {
+  it("drops the extension and the folder, because the rail prints a hundred of these", () => {
+    expect(pageLabel(page({ previewId: "p", path: "x", label: "Magna Tax Relief About Us.html" })))
+      .toBe("Magna Tax Relief About Us");
+    expect(pageLabel(page({ previewId: "p", path: "concepts/home.png", label: "" })))
+      .toBe("home");
+  });
+
+  it("never returns nothing — a page with only an extension keeps its file name", () => {
+    expect(pageLabel(page({ previewId: "p", path: ".html", label: "" }))).toBe(".html");
+  });
+
+  it("leaves a name that is not a file name alone", () => {
+    expect(pageLabel(page({ previewId: "p", path: "x", label: "Pricing" }))).toBe("Pricing");
+  });
+});
+
+describe("groupOf", () => {
+  it("is the group, the preview's name, or 'Ungrouped' — never blank", () => {
+    expect(groupOf(page({ previewId: "p", path: "x", group: "Desktop" }))).toBe("Desktop");
+    expect(groupOf(page({ previewId: "p", path: "x", group: "  " , previewName: "Launch site" })))
+      .toBe("Launch site");
+    expect(groupOf(page({ previewId: "p", path: "x", group: null, previewName: "" }))).toBe("Ungrouped");
+  });
+});
+
+describe("pageKind", () => {
+  it("says what the file is, which is the second line of a page row", () => {
+    expect(pageKind(page({ previewId: "p", path: "home.png" }))).toBe("Image");
+    expect(pageKind(page({ previewId: "p", path: "home.JPG" }))).toBe("Image");
+    expect(pageKind(page({ previewId: "p", path: "home.html" }))).toBe("HTML page");
+    expect(pageKind(page({ previewId: "p", path: "/pricing", external: true }))).toBe("Linked page");
+  });
+});
+
+describe("foldersOf", () => {
+  const pages = [
+    page({ previewId: "d", path: "a.html", group: "Desktop", label: "Home", order: 0 }),
+    page({ previewId: "d", path: "b.html", group: "Desktop", label: "Onboarding", order: 1 }),
+    page({ previewId: "m", path: "a.html", group: "Mobile", label: "Home", order: 0 }),
+  ];
+
+  it("heads each group once instead of prefixing every page with it", () => {
+    const out = foldersOf(pages);
+    expect(out.map((f) => f.name)).toEqual(["Desktop", "Mobile"]);
+    expect(out[0].pages.map((p) => p.label)).toEqual(["Home", "Onboarding"]);
+  });
+
+  it("keeps sortPages' order rather than a map's insertion order", () => {
+    const out = foldersOf([pages[2], pages[1], pages[0]]);
+    expect(out.map((f) => f.name)).toEqual(["Desktop", "Mobile"]);
+  });
+
+  it("files an ungrouped page under a folder of its own, not into nothing", () => {
+    const out = foldersOf([page({ previewId: "p", path: "x.html", group: null, previewName: "Launch site" })]);
+    expect(out).toHaveLength(1);
+    expect(out[0].name).toBe("Launch site");
+  });
+});
+
+describe("groupNames", () => {
+  it("lists the groups in use, once each, for the 'Add to group' picker", () => {
+    expect(groupNames([
+      page({ previewId: "p", path: "a", group: "Mobile" }),
+      page({ previewId: "p", path: "b", group: "Desktop" }),
+      page({ previewId: "p", path: "c", group: "Desktop" }),
+      page({ previewId: "p", path: "d", group: null }),
+      page({ previewId: "p", path: "e", group: "   " }),
+    ])).toEqual(["Desktop", "Mobile"]);
   });
 });
 

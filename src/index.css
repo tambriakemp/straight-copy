@@ -956,7 +956,7 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
    A full-bleed surface, not a page in the shell: the page under review
    gets the room, and the comment rail sits beside it. Measured off the
    canvas: .pin, .tool, .ptab, .cm, .av, .num. */
-.cv-fb { display: flex; flex-direction: column; height: 100vh; background: var(--cv-bg); }
+.cv-fb { display: flex; flex-direction: column; min-height: 100dvh; background: var(--cv-bg); }
 .cv-fb__bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
   background: var(--cv-card); padding: 10px 20px; flex-shrink: 0;
@@ -994,15 +994,35 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-pin--done { background: #1E8E4E; }
 .cv-pin--sel { outline: 3px solid var(--cv-ink); outline-offset: 2px; }
 
-/* The floating tool bar over the page. */
+/* The tool bar over the page.
+   Fixed to the viewport, not to the bottom of the document: the page
+   under review is taller than the screen, and a toolbar anchored to the
+   end of it is a toolbar you have to scroll to the footer to reach —
+   which is the one place you are not working. */
 .cv-fb__tools {
-  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
   display: flex; align-items: center; gap: 4px; background: var(--cv-ink);
   border-radius: 16px; padding: 6px;
   /* Above the click-catcher, which covers the whole page. Without this
      the toolbar depends on DOM order to stay clickable, and every later
      addition to the stage is one reorder away from burying it. */
-  z-index: 4;
+  z-index: 40;
+}
+
+/* Side by side, the board owns the window: the stage is exactly as tall
+   as what is left of the viewport, the page under review scrolls inside
+   it, and the toolbar centres on the stage rather than on the window —
+   the rail is 380px of the window and centring over that puts the
+   toolbar off to one side of the thing it acts on. */
+@media (min-width: 940px) {
+  .cv-fb { height: 100dvh; overflow: hidden; }
+  /* nowrap matters more than it looks: a WRAPPING flex row sizes its line
+     to the tallest item's content, so the stage grew to the height of the
+     page inside it and took the toolbar off the bottom of the screen with
+     it. Side by side there is only ever one line, so nothing is lost. */
+  .cv-fb__body { flex-wrap: nowrap; }
+  .cv-fb__page { min-height: 0; }
+  .cv-fb__tools { position: absolute; }
 }
 .cv-tool {
   width: 44px; height: 44px; border-radius: 12px; border: 0; background: transparent;
@@ -1043,10 +1063,36 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-s-prog { background: var(--cv-tone-blue-bg); color: var(--cv-tone-blue-fg); }
 .cv-s-done { background: var(--cv-tone-green-bg); color: var(--cv-tone-green-fg); }
 
+/* A folder heading. The group is said once, here, instead of being
+   prefixed onto every page name underneath it. */
 .cv-fb__grouphead {
-  display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-top: 4px;
+  display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-top: 6px;
 }
 .cv-fb__grouphead span:last-child { font-weight: 400; color: var(--cv-muted); }
+
+/* A page in the rail: name, what kind of file it is, how many comments
+   are still open on it. Measured off the canvas's .pg. */
+.cv-pgrow {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  background: var(--cv-card); border: 2px solid transparent; border-radius: 16px;
+  padding: 12px 14px; font-family: inherit; font-size: 14px; color: var(--cv-ink);
+  cursor: pointer; min-height: 56px;
+}
+.cv-pgrow--on { border-color: var(--cv-ink); }
+.cv-pgrow__name { flex: 1; min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
+.cv-pgrow__name small { display: block; font-size: 12px; font-weight: 400; color: var(--cv-muted); }
+/* The admin's controls for one page, shown only for the page that is
+   open. Every row carrying its own select was the rail's worst line. */
+.cv-pgrow__edit {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 0 4px 2px; margin-top: -4px;
+}
+
+/* The upload box on the Pages tab, dashed like the canvas's. */
+.cv-fb__drop {
+  border: 2px dashed #B3BBCB; border-radius: 16px; padding: 16px;
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+}
 
 /* ---------- Money (Admin Journeys canvas) ---------- */
 

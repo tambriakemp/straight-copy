@@ -59,9 +59,67 @@ export interface BoardComment {
   replyCount?: number;
 }
 
-/** "Desktop / Home" — the heading the canvas groups comments under. */
+/**
+ * What a page is called on screen.
+ *
+ * The file name with its extension and folder stripped, because
+ * "Design concepts / Magna Tax Relief About Us.html" is three facts in
+ * one line and the rail prints a hundred of them. The group is a heading
+ * above the page, not a prefix on it, so it is said once per group
+ * instead of once per row.
+ */
+export function pageLabel(p: BoardPage): string {
+  const raw = (p.label || "").trim() || p.path;
+  const base = raw.split("/").pop() ?? raw;
+  const stripped = base.replace(/\.(html?|png|jpe?g|webp|gif|svg)$/i, "").trim();
+  return stripped || base || p.path;
+}
+
+/** The folder a page files under. Never blank — "Ungrouped" is a folder. */
+export function groupOf(p: BoardPage): string {
+  return (p.group || "").trim() || p.previewName || "Ungrouped";
+}
+
+/** "Image" or "HTML page" — the second line on a page row. */
+export function pageKind(p: BoardPage): string {
+  if (p.external) return "Linked page";
+  return /\.(png|jpe?g|webp|gif|svg)$/i.test(p.path) ? "Image" : "HTML page";
+}
+
+/**
+ * The long form, group included. Kept for the places that name a page
+ * with no folder heading above it to give it context.
+ */
 export function pageTitle(p: BoardPage): string {
   return [p.group || p.previewName, p.label || p.path].filter(Boolean).join(" / ");
+}
+
+/**
+ * Pages under their folder heading, in the order sortPages put them.
+ *
+ * One list rather than a map so the order survives: a Map keyed by group
+ * reorders on insertion and the rail would shuffle its folders every
+ * time a page moved between them.
+ */
+export function foldersOf(pages: BoardPage[]): Array<{ name: string; pages: BoardPage[] }> {
+  const out: Array<{ name: string; pages: BoardPage[] }> = [];
+  for (const p of sortPages(pages)) {
+    const name = groupOf(p);
+    const last = out[out.length - 1];
+    if (last && last.name === name) last.pages.push(p);
+    else out.push({ name, pages: [p] });
+  }
+  return out;
+}
+
+/** Every group name in use, for the "Add to group" picker. */
+export function groupNames(pages: BoardPage[]): string[] {
+  const seen = new Set<string>();
+  for (const p of pages) {
+    const g = (p.group || "").trim();
+    if (g) seen.add(g);
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b));
 }
 
 export function pageKey(previewId: string, path: string): string {

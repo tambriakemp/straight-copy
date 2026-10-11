@@ -24,15 +24,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  MessageSquare, MousePointer2, CheckCircle2, EyeOff, Eye, Search, X, Upload, Check, Undo2,
+  MessageSquare, MousePointer2, CheckCircle2, EyeOff, Eye, Search, X, Upload, Check, Undo2, Folder,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import {
-  bucketByPage, filterComments, openCount, authorInitials, clickToPct, pageTitle,
-  sortPages, visibleTo, pageKey, normaliseStatus, NEXT_STATUS, STATUS_LABEL, STATUS_CLASS,
-  approvalFor, buildActivity, APPROVAL_LABEL, APPROVAL_CLASS,
+  filterComments, openCount, authorInitials, clickToPct, pageLabel, pageKind, groupOf,
+  foldersOf, groupNames, sortPages, visibleTo, pageKey, normaliseStatus, NEXT_STATUS,
+  STATUS_LABEL, STATUS_CLASS, approvalFor, buildActivity, APPROVAL_LABEL, APPROVAL_CLASS,
   type BoardPage, type BoardComment, type ApprovalRow, type ApprovalEvent,
 } from "@/lib/feedbackBoard";
 
@@ -99,6 +99,8 @@ export default function FeedbackBoard() {
   const [approvals, setApprovals] = useState<Map<string, ApprovalRow>>(new Map());
   const [lastEvent, setLastEvent] = useState<Map<string, ApprovalEvent>>(new Map());
   const [events, setEvents] = useState<ApprovalEvent[]>([]);
+  /** The folder newly uploaded pages land in. */
+  const [uploadGroup, setUploadGroup] = useState("");
   /** Which page's "ask for changes" box is open. */
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -186,7 +188,12 @@ export default function FeedbackBoard() {
     () => filterComments(pagePins, { showResolved }),
     [pagePins, showResolved],
   );
-  const buckets = useMemo(() => bucketByPage(shownPages, comments), [shownPages, comments]);
+  const folders = useMemo(() => foldersOf(shownPages), [shownPages]);
+  const groups = useMemo(() => groupNames(pages), [pages]);
+  const commentsOn = useCallback(
+    (pg: BoardPage) => comments.filter((c) => pageKey(c.project_id, c.page_path) === pg.key),
+    [comments],
+  );
 
   const pageUrl = page && preview
     ? (page.external
@@ -270,7 +277,7 @@ export default function FeedbackBoard() {
         action: "approve", approver_name: who,
       });
       await load();
-      toast.success(`${pageTitle(pg)} approved`);
+      toast.success(`${pageLabel(pg)} approved`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not approve that page");
     } finally { setBusy(null); }
@@ -330,6 +337,13 @@ export default function FeedbackBoard() {
           content_base64: await toBase64(file),
           mime: file.type || "text/html",
         });
+        // The upload endpoint takes no group, so the folder chosen above
+        // is applied straight after. Separate call, same user action.
+        if (uploadGroup) {
+          await callPreviewAdmin({
+            action: "file_meta", project_id: target.id, path: file.name, group_label: uploadGroup,
+          });
+        }
         done++;
       } catch (e) {
         toast.error(`${file.name}: ${e instanceof Error ? e.message : "upload failed"}`);
@@ -386,7 +400,7 @@ export default function FeedbackBoard() {
 
   const titleFor = useCallback((previewId: string, path: string) => {
     const pg = pages.find((x) => x.key === pageKey(previewId, path));
-    return pg ? pageTitle(pg) : path;
+    return pg ? pageLabel(pg) : path;
   }, [pages]);
 
   const activity = useMemo(() => buildActivity(events, comments, titleFor), [events, comments, titleFor]);
@@ -418,7 +432,8 @@ export default function FeedbackBoard() {
       <div className="cv-fb__body">
         <section className="cv-fb__stage">
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
-            <span style={{ fontWeight: 600 }}>{page ? pageTitle(page) : "No page"}</span>
+            <span style={{ fontWeight: 600 }}>{page ? pageLabel(page) : "No page"}</span>
+            {page && <span className="cv-chip cv-chip--gray">{groupOf(page)}</span>}
             <span style={{ fontSize: 13, color: "var(--cv-muted)", flex: 1 }}>
               {tool === "comment"
                 ? "Click anywhere on the page to leave a comment"
@@ -496,7 +511,7 @@ export default function FeedbackBoard() {
                 <iframe
                   key={page.key}
                   src={pageUrl ?? undefined}
-                  title={pageTitle(page)}
+                  title={pageLabel(page)}
                   sandbox="allow-scripts allow-same-origin allow-popups"
                   referrerPolicy="no-referrer"
                   // Clicks must reach the catcher above, not the page —
@@ -618,57 +633,68 @@ export default function FeedbackBoard() {
                   <span style={{ color: "var(--cv-muted)" }}>{openCount(comments)} open</span>
                 </div>
 
-                {!buckets.length ? (
+                {!folders.length ? (
                   <EmptyState title="No pages yet" subtitle="Add a preview to this project and its pages appear here." />
-                ) : buckets.map(({ page: pg, comments: all }) => {
-                  const shown = filterComments(all, { query, showResolved });
-                  return (
-                    <div key={pg.key} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div className="cv-fb__grouphead">
-                        <span style={{ flex: 1 }}>
-                          <button type="button" onClick={() => setSelectedPage(pg.key)}
-                            style={{ background: "none", border: 0, font: "inherit", cursor: "pointer", padding: 0, textAlign: "left",
-                              color: pg.key === selectedPage ? "var(--cv-accent)" : "inherit" }}>
-                            {pageTitle(pg)}
-                          </button>
-                        </span>
-                        <span>{all.length} comment{all.length === 1 ? "" : "s"}</span>
-                      </div>
-                      {shown.map((c) => {
-                        const s = normaliseStatus(c.status);
-                        return (
-                          <div key={c.id} className={`cv-cm ${selectedComment === c.id ? "cv-cm--sel" : ""}`}>
-                            <span className="cv-cm__av">{authorInitials(c.author_name)}</span>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-                                <button type="button" className="cv-cm__num"
-                                  onClick={() => { setSelectedPage(pg.key); setSelectedComment(c.id); }}
-                                  aria-label={`Show pin ${c.pin_number} on the page`} style={{ border: 0, cursor: "pointer" }}>
-                                  {c.pin_number}
-                                </button>
-                                <span style={{ fontWeight: 500, fontSize: 14 }}>{c.author_name || "Guest"}</span>
-                                <span style={{ fontSize: 12, color: "var(--cv-muted)" }}>{timeAgo(c.created_at)}</span>
-                              </div>
-                              <div className="cv-cm__body">{c.body}</div>
-                              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                <button type="button" className={`cv-chip ${STATUS_CLASS[s]}`} style={{ minHeight: 32, cursor: "pointer", border: 0 }}
-                                  onClick={() => cycleStatus(c)}
-                                  title="Click to change: Open → In progress → Resolved">
-                                  {STATUS_LABEL[s]}
-                                </button>
-                                {!asClient && (
-                                  <button type="button" className="cv-mini cv-mini--danger" style={{ minHeight: 32 }} onClick={() => remove(c)}>
-                                    Delete
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                ) : folders.map((folder) => (
+                  <div key={folder.name} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div className="cv-fb__grouphead">
+                      <Folder size={16} aria-hidden="true" />
+                      <span style={{ flex: 1 }}>{folder.name}</span>
+                      <span>{folder.pages.length} page{folder.pages.length === 1 ? "" : "s"}</span>
                     </div>
-                  );
-                })}
+                    {folder.pages.map((pg) => {
+                      const all = commentsOn(pg);
+                      const shown = filterComments(all, { query, showResolved });
+                      const open = openCount(all);
+                      return (
+                        <div key={pg.key} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {/* The page name, once, under its folder — not
+                              "Desktop / Home.html" on every row. */}
+                          <button type="button" className={`cv-pgrow ${pg.key === selectedPage ? "cv-pgrow--on" : ""}`}
+                            onClick={() => setSelectedPage(pg.key)}>
+                            <span className="cv-pgrow__name">
+                              {pageLabel(pg)}
+                              <small>{pageKind(pg)}</small>
+                            </span>
+                            <span className={`cv-chip ${open ? "cv-s-open" : "cv-chip--gray"}`}>{open} open</span>
+                          </button>
+                          {shown.map((c) => {
+                            const st = normaliseStatus(c.status);
+                            return (
+                              <div key={c.id} className={`cv-cm ${selectedComment === c.id ? "cv-cm--sel" : ""}`}>
+                                <span className="cv-cm__av">{authorInitials(c.author_name)}</span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                                    <button type="button" className="cv-cm__num"
+                                      onClick={() => { setSelectedPage(pg.key); setSelectedComment(c.id); }}
+                                      aria-label={`Show pin ${c.pin_number} on the page`} style={{ border: 0, cursor: "pointer" }}>
+                                      {c.pin_number}
+                                    </button>
+                                    <span style={{ fontWeight: 500, fontSize: 14 }}>{c.author_name || "Guest"}</span>
+                                    <span style={{ fontSize: 12, color: "var(--cv-muted)" }}>{timeAgo(c.created_at)}</span>
+                                  </div>
+                                  <div className="cv-cm__body">{c.body}</div>
+                                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                    <button type="button" className={`cv-chip ${STATUS_CLASS[st]}`} style={{ minHeight: 32, cursor: "pointer", border: 0 }}
+                                      onClick={() => cycleStatus(c)}
+                                      title="Click to change: Open → In progress → Resolved">
+                                      {STATUS_LABEL[st]}
+                                    </button>
+                                    {!asClient && (
+                                      <button type="button" className="cv-mini cv-mini--danger" style={{ minHeight: 32 }} onClick={() => remove(c)}>
+                                        Delete
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
                 <p style={{ margin: 0, fontSize: 12, color: "var(--cv-muted)" }}>
                   Click a status to change it: Open, In progress, Resolved.
                 </p>
@@ -678,76 +704,113 @@ export default function FeedbackBoard() {
             {tab === "pages" && (
               <>
                 {!asClient && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                    <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 16px", flex: 1 }}
-                      disabled={busy === "upload"} onClick={() => uploadRef.current?.click()}>
-                      <Upload size={15} style={{ marginRight: 7 }} />
-                      {busy === "upload" ? "Uploading…" : "Upload pages"}
-                    </button>
-                    <input ref={uploadRef} type="file" multiple hidden
-                      accept=".html,.htm,text/html,image/png,image/jpeg,image/webp"
-                      onChange={(e) => uploadPages(e.target.files)} />
+                  <div className="cv-fb__drop">
+                    <div style={{ fontWeight: 500, fontSize: 14 }}>Add pages for review</div>
+                    <div style={{ fontSize: 13, color: "var(--cv-muted)" }}>
+                      Upload images (PNG, JPG) or HTML files. Each file becomes a page
+                      the client can comment on.
+                    </div>
+                    <label className="cv-field" style={{ alignSelf: "stretch" }}>
+                      Add to group
+                      {/* The folder is chosen ONCE, here, for everything in
+                          this upload — rather than typed again on every row
+                          afterwards, which is what made the rail unreadable. */}
+                      <select className="cv-select" value={uploadGroup}
+                        onChange={(e) => {
+                          if (e.target.value !== "__new") { setUploadGroup(e.target.value); return; }
+                          const name = window.prompt("Name the new group")?.trim();
+                          if (name) setUploadGroup(name);
+                        }}>
+                        <option value="">No group</option>
+                        {groups.map((g) => <option key={g} value={g}>{g}</option>)}
+                        {uploadGroup && !groups.includes(uploadGroup) && (
+                          <option value={uploadGroup}>{uploadGroup}</option>
+                        )}
+                        <option value="__new">+ New group…</option>
+                      </select>
+                    </label>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 16px" }}
+                        disabled={busy === "upload"} onClick={() => uploadRef.current?.click()}>
+                        <Upload size={15} style={{ marginRight: 7 }} />
+                        {busy === "upload" ? "Uploading…" : "Upload files"}
+                      </button>
+                      <input ref={uploadRef} type="file" multiple hidden
+                        accept=".html,.htm,text/html,image/png,image/jpeg,image/webp"
+                        onChange={(e) => uploadPages(e.target.files)} />
+                    </div>
                   </div>
-                )}
-                {!asClient && (
-                  <p style={{ margin: 0, fontSize: 12, color: "var(--cv-muted)" }}>
-                    HTML or an image. Each file becomes a page you and the client
-                    can pin comments on. Type a group to sort them — "Desktop",
-                    "Mobile", whatever matches how you work.
-                  </p>
                 )}
 
                 {!shownPages.length ? (
                   <EmptyState title="No pages" subtitle={asClient
                     ? "Nothing is shared with the client yet."
                     : "Upload one above and it appears here."} />
-                ) : groupsOf(shownPages).map(([group, list]) => (
-                  <div key={group || "ungrouped"} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                ) : folders.map((folder) => (
+                  <div key={folder.name} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     <div className="cv-fb__grouphead">
-                      <span style={{ flex: 1 }}>{group || "Ungrouped"}</span>
-                      <span>{list.length} page{list.length === 1 ? "" : "s"}</span>
+                      <Folder size={16} aria-hidden="true" />
+                      <span style={{ flex: 1 }}>{folder.name}</span>
+                      <span>{folder.pages.length} page{folder.pages.length === 1 ? "" : "s"}</span>
                     </div>
-                    {list.map((pg) => {
-                      const n = comments.filter((c) => pageKey(c.project_id, c.page_path) === pg.key).length;
+                    {folder.pages.map((pg) => {
+                      const open = openCount(commentsOn(pg));
                       const a = approvalFor(pg.key, approvals, lastEvent);
+                      const selected = pg.key === selectedPage;
                       return (
-                        <div key={pg.key} className={`cv-cm ${pg.key === selectedPage ? "cv-cm--sel" : ""}`}
-                          style={{ flexDirection: "column", gap: 8 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            <button type="button"
-                              onClick={() => { setSelectedPage(pg.key); setTab("comments"); }}
-                              style={{ flex: 1, minWidth: 0, background: "none", border: 0, font: "inherit",
-                                cursor: "pointer", textAlign: "left", fontWeight: 600 }}>
-                              {pg.label || pg.path}
-                            </button>
-                            <span className={`cv-chip ${APPROVAL_CLASS[a.state]}`}>{APPROVAL_LABEL[a.state]}</span>
-                            <span className={`cv-chip ${n ? "cv-chip--blue" : "cv-chip--gray"}`}>{n}</span>
-                          </div>
-                          {!asClient && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                              <input
-                                className="cv-input" defaultValue={pg.group ?? ""} placeholder="Group (e.g. Desktop)"
-                                style={{ flex: "1 1 140px", minHeight: 38, fontSize: 13 }}
-                                // On blur, not on every keystroke: each save
-                                // is a round trip and, for a crawled page, a
-                                // rewrite of the whole page list.
-                                onBlur={(e) => { if (e.target.value !== (pg.group ?? "")) setGroup(pg, e.target.value); }}
-                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                              />
+                        <div key={pg.key} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <button type="button" className={`cv-pgrow ${selected ? "cv-pgrow--on" : ""}`}
+                            onClick={() => { setSelectedPage(pg.key); setTab("comments"); }}>
+                            <span className="cv-pgrow__name">
+                              {pageLabel(pg)}
+                              <small>{pageKind(pg)}</small>
+                            </span>
+                            {a.state !== "pending" && (
+                              <span className={`cv-chip ${APPROVAL_CLASS[a.state]}`}>{APPROVAL_LABEL[a.state]}</span>
+                            )}
+                            <span className={`cv-chip ${open ? "cv-s-open" : "cv-chip--gray"}`}>{open} open</span>
+                          </button>
+
+                          {/* Only for the page that is open. A select and an
+                              eye on all twenty rows is the mess; on one row
+                              it is the controls for the page you are on. */}
+                          {!asClient && selected && (
+                            <div className="cv-pgrow__edit">
+                              <select className="cv-select" style={{ flex: "1 1 150px", minHeight: 38, fontSize: 13 }}
+                                value={pg.group ?? ""}
+                                onChange={(e) => {
+                                  if (e.target.value !== "__new") { setGroup(pg, e.target.value); return; }
+                                  const name = window.prompt("Move to which group?", pg.group ?? "")?.trim();
+                                  if (name) setGroup(pg, name);
+                                }}>
+                                <option value="">No group</option>
+                                {groups.map((g) => <option key={g} value={g}>{g}</option>)}
+                                <option value="__new">+ New group…</option>
+                              </select>
                               <button type="button" className="cv-mini" onClick={() => toggleVisible(pg)}
                                 title={pg.visibleToClient ? "Visible to the client" : "Hidden from the client"}>
                                 {pg.visibleToClient ? <Eye size={14} /> : <EyeOff size={14} />}
+                                <span style={{ marginLeft: 6 }}>{pg.visibleToClient ? "Shown" : "Hidden"}</span>
                               </button>
                             </div>
                           )}
+
                           {a.state === "changes_requested" && a.note && (
-                            <div style={{ fontSize: 12, color: "var(--cv-tone-amber-fg)" }}>{a.note}</div>
+                            <div style={{ fontSize: 12, color: "var(--cv-tone-amber-fg)", padding: "0 4px" }}>{a.note}</div>
                           )}
                         </div>
                       );
                     })}
                   </div>
                 ))}
+
+                {!asClient && (
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--cv-muted)" }}>
+                    Groups are optional. Open a page to move it to another group
+                    or hide it. The client sees the same groups and pages,
+                    without the upload box.
+                  </p>
+                )}
               </>
             )}
 
@@ -776,18 +839,6 @@ export default function FeedbackBoard() {
       </div>
     </div>
   );
-}
-
-/** Pages under their group heading, in the order sortPages put them. */
-function groupsOf(pages: BoardPage[]): Array<[string | null, BoardPage[]]> {
-  const out: Array<[string | null, BoardPage[]]> = [];
-  for (const p of pages) {
-    const key = p.group || p.previewName;
-    const last = out[out.length - 1];
-    if (last && last[0] === key) last[1].push(p);
-    else out.push([key, [p]]);
-  }
-  return out;
 }
 
 function row(

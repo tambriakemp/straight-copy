@@ -207,9 +207,9 @@ export default function ProjectPreviewPanel({
 
   const current = pages.find((p) => p.key === selected) ?? null;
 
-  const embedSnippet = preview
-    ? `<script src="https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/preview-serve?slug=${preview.slug}&path=__pf_embed.js"></script>`
-    : "";
+  // The "pin comments on the live site" snippet is gone with the widget
+  // it loaded. Commenting happens on the feedback board, over the page in
+  // a frame, which is the one place the pins and their statuses agree.
 
   const pageUrl = (p: Page) => p.external
     ? `${preview?.external_base_url ?? ""}${p.path}`
@@ -837,37 +837,6 @@ export default function ProjectPreviewPanel({
           Only new ones are added.
         </p>
 
-        <hr style={{ border: 0, borderTop: T.hairline, margin: "22px 0 18px" }} />
-
-        {/* The other half of a crawled site: discovering pages puts them on
-            your list, but the client still cannot say anything ON one until
-            this is in the site's own HTML. Both jobs, one panel. */}
-        <div style={{ fontSize: 15, fontWeight: 500, color: T.text }}>
-          Pin comments on the live site
-        </div>
-        <p style={{ fontSize: 14, color: T.muted, margin: "6px 0 10px", lineHeight: 1.5 }}>
-          Paste this into the site's HTML once, before <code>&lt;/body&gt;</code>.
-          The client then gets the same click-to-pin tool your uploaded previews
-          have, on every page.
-        </p>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <code style={{
-            flex: 1, minWidth: 0, fontSize: 13, fontFamily: "monospace", color: T.text2,
-            background: T.card, borderRadius: 6, padding: "8px 10px",
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }}>
-            {embedSnippet}
-          </code>
-          <PanelButton
-            onClick={() => {
-              void navigator.clipboard.writeText(embedSnippet);
-              setSnippetCopied(true);
-              setTimeout(() => setSnippetCopied(false), 1500);
-            }}
-          >
-            {snippetCopied ? <Check size={14} /> : <Copy size={14} />}
-          </PanelButton>
-        </div>
       </SidePanel>
 
       <SidePanel

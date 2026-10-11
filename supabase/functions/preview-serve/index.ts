@@ -1,5 +1,4 @@
 // Public endpoint: serves uploaded preview files keyed by slug.
-// Injects the feedback widget into HTML responses.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -11,302 +10,23 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "*",
 };
 
-const FEEDBACK_WIDGET_JS = `(() => {
-  const SLUG = window.__PREVIEW_SLUG__;
-  const PAGE = window.__PREVIEW_PAGE__;
-  const API = window.__PREVIEW_API__;
-  const AUTHOR = window.__PREVIEW_AUTHOR__ || "";
-  if (!SLUG || !API) return;
-  if (window.__PF_INSTALLED__) return;
-  window.__PF_INSTALLED__ = true;
+// The in-page feedback widget — the floating "Leave feedback" bubble, its
+// modal and the pins it drew — used to be injected here, into every HTML
+// page this function served.
+//
+// It is gone. The feedback board (/admin/.../feedback and the client's
+// /portal/.../feedback) renders its own pins over the page in an iframe
+// and owns the comment flow, so the injected copy drew a SECOND set of
+// pins on top of the board's own and put a bubble over the board's
+// toolbar. Two widgets for one job, and the one that lost was the one
+// the board could not control.
+//
+// __pf_widget.js, __pf_bootstrap.js and __pf_embed.js still answer, with
+// nothing in them: a script tag for one of them may already be pasted
+// into a client's live site, and a 404 in their console is a worse
+// parting gift than an empty file.
+const RETIRED_WIDGET_JS = "/* The preview feedback widget was retired. Comments live on the feedback board. */";
 
-  // ---- Local edit-token store (per browser, per pin/reply) ----
-  const TKEY = "pf-tokens-" + SLUG;
-  function tokens(){ try { return JSON.parse(localStorage.getItem(TKEY) || "{}"); } catch(e){ return {}; } }
-  function setToken(kind, id, tok){ const t = tokens(); t[kind+":"+id] = tok; localStorage.setItem(TKEY, JSON.stringify(t)); }
-  function getToken(kind, id){ return tokens()[kind+":"+id]; }
-  function removeToken(kind, id){ const t = tokens(); delete t[kind+":"+id]; localStorage.setItem(TKEY, JSON.stringify(t)); }
-
-  const styles = \`
-    #pf-toggle{position:fixed;bottom:20px;right:20px;z-index:2147483646;background:#0F172A;color:#fff;font:600 14px/1 system-ui,sans-serif;padding:13px 18px;border-radius:999px;border:0;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.25);letter-spacing:.04em}
-    #pf-toggle.on{background:#dc2626}
-    .pf-pin{position:absolute;width:30px;height:30px;border-radius:50%;background:#dc2626;color:#fff;font:700 14px/30px system-ui;text-align:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);z-index:2147483645;transform:translate(-50%,-50%);border:2px solid #fff}
-    .pf-pin.resolved{background:#16a34a}
-    #pf-modal{position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;font-family:system-ui,sans-serif}
-    #pf-modal.show{display:flex}
-    .pf-card{background:#fff;border-radius:12px;padding:22px;width:min(480px,90vw);max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)}
-    .pf-card h3{margin:0 0 14px;font:600 18px system-ui;color:#0F172A}
-    .pf-card label{display:block;font:500 13px system-ui;color:#475569;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.06em}
-    .pf-card input,.pf-card textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:11px;font:15px system-ui;box-sizing:border-box;color:#0F172A;background:#fff}
-    .pf-card textarea{min-height:90px;resize:vertical}
-    .pf-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
-    .pf-btn{border:0;border-radius:8px;padding:10px 16px;font:600 14px system-ui;cursor:pointer}
-    .pf-btn.primary{background:#0F172A;color:#fff}
-    .pf-btn.ghost{background:#e2e8f0;color:#0F172A}
-    .pf-btn.danger{background:#fee2e2;color:#b91c1c}
-    .pf-msg{padding:11px 13px;border-radius:8px;font:15px system-ui;margin-bottom:8px;background:#f1f5f9;color:#0F172A;position:relative}
-    .pf-msg.admin{background:#0F172A;color:#fff}
-    .pf-msg .pf-meta{font-size:13px;opacity:.7;margin-bottom:4px}
-    .pf-msg .pf-mine-actions{margin-top:6px;display:flex;gap:6px}
-    .pf-msg .pf-mine-actions button{background:transparent;border:0;font:500 13px system-ui;cursor:pointer;color:inherit;opacity:.7;text-decoration:underline;padding:0}
-    body.pf-pick *{cursor:crosshair !important}
-  \`;
-  const style = document.createElement("style"); style.textContent = styles; document.head.appendChild(style);
-
-  const toggle = document.createElement("button");
-  toggle.id = "pf-toggle"; toggle.textContent = "💬 Leave feedback";
-  document.body.appendChild(toggle);
-
-  const modal = document.createElement("div");
-  modal.id = "pf-modal";
-  modal.innerHTML = \`
-    <div class="pf-card">
-      <h3 id="pf-title">Leave feedback</h3>
-      <div id="pf-form">
-        <label id="pf-body-label">Comment</label>
-        <textarea id="pf-body" placeholder="What would you like to change?"></textarea>
-        <div class="pf-actions">
-          <button class="pf-btn ghost" id="pf-cancel">Cancel</button>
-          <button class="pf-btn primary" id="pf-save">Send</button>
-        </div>
-      </div>
-      <div id="pf-view" style="display:none">
-        <div id="pf-view-body" class="pf-msg" style="background:#f8fafc"></div>
-        <div id="pf-replies" style="margin-top:12px;display:flex;flex-direction:column;gap:8px"></div>
-        <div id="pf-reply-box" style="margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px">
-          <label>Reply</label>
-          <textarea id="pf-reply-body" placeholder="Write a reply…"></textarea>
-          <div class="pf-actions">
-            <button class="pf-btn ghost" id="pf-close">Close</button>
-            <button class="pf-btn primary" id="pf-reply-send">Reply</button>
-          </div>
-        </div>
-      </div>
-    </div>\`;
-  document.body.appendChild(modal);
-
-  let pickMode = false;
-  let pendingSelector = null, pendingX = 0, pendingY = 0;
-  let editingComment = null;
-  let viewingPin = null;
-
-  function uniqueSelector(el){
-    if (!el || el === document.body) return "body";
-    const path = [];
-    while (el && el.nodeType === 1 && el !== document.body && path.length < 8){
-      let part = el.nodeName.toLowerCase();
-      if (el.id) { part += "#" + CSS.escape(el.id); path.unshift(part); break; }
-      const parent = el.parentNode;
-      if (parent){
-        const sibs = Array.from(parent.children).filter(c=>c.nodeName===el.nodeName);
-        if (sibs.length>1) part += ":nth-of-type("+(sibs.indexOf(el)+1)+")";
-      }
-      path.unshift(part);
-      el = el.parentNode;
-    }
-    return "body > " + path.join(" > ");
-  }
-
-  function showForm(title){
-    document.getElementById("pf-title").textContent = title;
-    document.getElementById("pf-form").style.display = "block";
-    document.getElementById("pf-view").style.display = "none";
-    modal.classList.add("show");
-  }
-  function showView(){
-    document.getElementById("pf-form").style.display = "none";
-    document.getElementById("pf-view").style.display = "block";
-    modal.classList.add("show");
-  }
-
-  toggle.onclick = () => {
-    pickMode = !pickMode;
-    toggle.classList.toggle("on", pickMode);
-    toggle.textContent = pickMode ? "✕ Cancel feedback" : "💬 Leave feedback";
-    document.body.classList.toggle("pf-pick", pickMode);
-  };
-
-  document.addEventListener("click", (ev) => {
-    if (!pickMode) return;
-    if (ev.target.closest("#pf-toggle, #pf-modal, .pf-pin")) return;
-    ev.preventDefault(); ev.stopPropagation();
-    const el = ev.target;
-    const rect = el.getBoundingClientRect();
-    pendingSelector = uniqueSelector(el);
-    pendingX = ((ev.clientX - rect.left) / Math.max(rect.width,1)) * 100;
-    pendingY = ((ev.clientY - rect.top) / Math.max(rect.height,1)) * 100;
-    editingComment = null;
-    document.getElementById("pf-body").value = "";
-    showForm("Leave feedback");
-    pickMode = false; toggle.classList.remove("on");
-    toggle.textContent = "💬 Leave feedback";
-    document.body.classList.remove("pf-pick");
-  }, true);
-
-  document.getElementById("pf-cancel").onclick = () => modal.classList.remove("show");
-  document.getElementById("pf-close").onclick = () => modal.classList.remove("show");
-
-  document.getElementById("pf-save").onclick = async () => {
-    const body = document.getElementById("pf-body").value.trim();
-    if (!body) return;
-    if (editingComment) {
-      const res = await fetch(API + "/preview-comments", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "comment", id: editingComment.id, body })
-      });
-      if (res.ok) { editingComment = null; modal.classList.remove("show"); await loadPins(); }
-      else alert("Could not update comment");
-      return;
-    }
-    const res = await fetch(API + "/preview-comments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug: SLUG, page_path: PAGE, selector: pendingSelector, x_pct: pendingX, y_pct: pendingY, viewport_width: window.innerWidth, author_name: AUTHOR || "Client", body })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.comment && data.edit_token) setToken("comment", data.comment.id, data.edit_token);
-      modal.classList.remove("show");
-      await loadPins();
-    } else { alert("Could not save comment"); }
-  };
-
-  document.getElementById("pf-reply-send").onclick = async () => {
-    if (!viewingPin) return;
-    const body = document.getElementById("pf-reply-body").value.trim();
-    if (!body) return;
-    const res = await fetch(API + "/preview-comments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "reply", comment_id: viewingPin.id, body, author_name: AUTHOR || "Client" })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.reply && data.edit_token) setToken("reply", data.reply.id, data.edit_token);
-      document.getElementById("pf-reply-body").value = "";
-      await loadPins();
-      const fresh = pins.find(p => p.id === viewingPin.id);
-      if (fresh) openPin(fresh);
-    } else { alert("Could not reply"); }
-  };
-
-  let pins = [];
-  async function loadPins(){
-    const res = await fetch(API + "/preview-comments?slug=" + encodeURIComponent(SLUG) + "&page_path=" + encodeURIComponent(PAGE));
-    if (!res.ok) return;
-    const data = await res.json();
-    pins = data.comments || [];
-    renderPins();
-  }
-
-  function renderPins(){
-    document.querySelectorAll(".pf-pin").forEach(n=>n.remove());
-    pins.forEach(p => {
-      let target;
-      try { target = document.querySelector(p.selector); } catch(e){}
-      if (!target) target = document.body;
-      const rect = target.getBoundingClientRect();
-      const top = window.scrollY + rect.top + (rect.height * (p.y_pct/100));
-      const left = window.scrollX + rect.left + (rect.width * (p.x_pct/100));
-      const dot = document.createElement("div");
-      dot.className = "pf-pin" + (p.status === "resolved" ? " resolved" : "");
-      dot.style.top = top + "px"; dot.style.left = left + "px";
-      dot.textContent = String(p.pin_number);
-      dot.onclick = (e) => { e.stopPropagation(); openPin(p); };
-      document.body.appendChild(dot);
-    });
-  }
-
-  function escapeHtml(s){ return String(s).replace(/[&<>\"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}[c])); }
-
-  function openPin(p){
-    viewingPin = p;
-    document.getElementById("pf-title").textContent = "Pin #" + p.pin_number + (p.status==="resolved" ? " (resolved)" : "");
-    const main = document.getElementById("pf-view-body");
-    main.innerHTML = "<div class='pf-meta'>" + escapeHtml(p.author_name || "Guest") + " · " + new Date(p.created_at).toLocaleString() + "</div><div style='white-space:pre-wrap'>" + escapeHtml(p.body) + "</div>" +
-      "<div class='pf-mine-actions'><button data-act='edit'>Edit</button><button data-act='delete'>Delete</button></div>";
-    main.querySelectorAll("button[data-act]").forEach(b => {
-      b.onclick = async () => {
-        const act = b.getAttribute("data-act");
-        if (act === "edit") {
-          editingComment = p;
-          document.getElementById("pf-body").value = p.body;
-          showForm("Edit pin #" + p.pin_number);
-        } else if (act === "delete") {
-          if (!confirm("Delete this comment?")) return;
-          const res = await fetch(API + "/preview-comments?kind=comment&id=" + p.id, { method: "DELETE" });
-          if (res.ok) { removeToken("comment", p.id); modal.classList.remove("show"); await loadPins(); }
-          else alert("Could not delete");
-        }
-      };
-    });
-
-    const r = document.getElementById("pf-replies"); r.innerHTML = "";
-    (p.replies || []).forEach(rep => {
-      const d = document.createElement("div");
-      d.className = "pf-msg" + (rep.is_admin ? " admin" : "");
-      const repId = "pf-rep-" + rep.id;
-      d.innerHTML = "<div class='pf-meta'>" + escapeHtml(rep.author_name || (rep.is_admin?"Admin":"Guest")) + " · " + new Date(rep.created_at).toLocaleString() + "</div>" +
-        "<div id='" + repId + "-body' style='white-space:pre-wrap'>" + escapeHtml(rep.body) + "</div>" +
-        "<div class='pf-mine-actions'><button data-act='edit-reply'>Edit</button><button data-act='delete-reply'>Delete</button></div>";
-      d.querySelector("button[data-act='edit-reply']").onclick = () => {
-        const bodyDiv = d.querySelector("#" + repId + "-body");
-        const current = rep.body;
-        bodyDiv.innerHTML = "<textarea style='width:100%;min-height:70px;border:1px solid #cbd5e1;border-radius:6px;padding:8px;font:14px system-ui;box-sizing:border-box'>" + escapeHtml(current) + "</textarea><div style='display:flex;gap:6px;margin-top:6px'><button class='pf-btn ghost' data-cancel>Cancel</button><button class='pf-btn primary' data-save>Save</button></div>";
-        const ta = bodyDiv.querySelector("textarea");
-        bodyDiv.querySelector("[data-cancel]").onclick = () => openPin(p);
-        bodyDiv.querySelector("[data-save]").onclick = async () => {
-          const newBody = ta.value.trim();
-          if (!newBody) return;
-          const res = await fetch(API + "/preview-comments", {
-            method: "PATCH", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ kind: "reply", id: rep.id, body: newBody })
-          });
-          if (res.ok) { await loadPins(); const fresh = pins.find(x => x.id === p.id); if (fresh) openPin(fresh); }
-          else alert("Could not update reply");
-        };
-      };
-      d.querySelector("button[data-act='delete-reply']").onclick = async () => {
-        if (!confirm("Delete this reply?")) return;
-        const res = await fetch(API + "/preview-comments?kind=reply&id=" + rep.id, { method: "DELETE" });
-        if (res.ok) { removeToken("reply", rep.id); await loadPins(); const fresh = pins.find(x => x.id === p.id); if (fresh) openPin(fresh); }
-        else alert("Could not delete");
-      };
-      r.appendChild(d);
-    });
-    document.getElementById("pf-reply-body").value = "";
-    showView();
-  }
-
-  window.addEventListener("resize", renderPins);
-  window.addEventListener("scroll", renderPins, { passive: true });
-  window.addEventListener("load", () => setTimeout(renderPins, 200));
-  loadPins();
-  if (window.__PF_LOAD_INTERVAL__) clearInterval(window.__PF_LOAD_INTERVAL__);
-  window.__PF_LOAD_INTERVAL__ = setInterval(loadPins, 15000);
-})();`;
-
-// Bootstrap that survives document.write() resets (e.g. user-bundled SPAs that
-// call document.open()/write() after load and wipe our injected DOM/script).
-const FEEDBACK_BOOTSTRAP_JS = `(() => {
-  function inject() {
-    if (document.getElementById("__pf_widget_script")) return;
-    window.__PF_INSTALLED__ = false;
-    var s = document.createElement("script");
-    s.id = "__pf_widget_script";
-    s.src = window.__PREVIEW_WIDGET_SRC__;
-    (document.body || document.documentElement).appendChild(s);
-  }
-  function ensure() {
-    if (!document.getElementById("pf-toggle")) inject();
-  }
-  if (window.__PF_BOOTSTRAPPED__) { ensure(); return; }
-  window.__PF_BOOTSTRAPPED__ = true;
-  inject();
-  // Watchdog: if the host page wipes our DOM (e.g. document.write), reinstall.
-  setInterval(ensure, 1500);
-})();`;
 
 function contentTypeFor(path: string): string {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
@@ -344,79 +64,15 @@ Deno.serve(async (req) => {
 
     if (!path) path = project.entry_path;
 
-    // Special path: serve the injected feedback widget
-    if (path === "__pf_widget.js") {
-      return new Response(FEEDBACK_WIDGET_JS, {
-        headers: { ...corsHeaders, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "public, max-age=300" },
-      });
-    }
-    if (path === "__pf_bootstrap.js") {
-      return new Response(FEEDBACK_BOOTSTRAP_JS, {
+    // The three widget paths, kept alive and empty. See the note at the
+    // top of this file: a script tag for one of them may be pasted into a
+    // client's live site, so they answer with a comment rather than a 404.
+    if (path === "__pf_widget.js" || path === "__pf_bootstrap.js" || path === "__pf_embed.js") {
+      return new Response(RETIRED_WIDGET_JS, {
         headers: { ...corsHeaders, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "public, max-age=300" },
       });
     }
 
-    // Special path: the embed for a site we built but do not serve.
-    //
-    // Everything above this assumes we own the HTML response — the widget gets
-    // injected because the bytes pass through here. A finished site does not,
-    // so it carries one script tag instead and gets the same widget.
-    //
-    // Tools like MarkUp.io solve this by proxying the page through their own
-    // origin. That works on any URL but re-serves somebody else's HTML: a
-    // dynamic app breaks, a logged-in page cannot be reached, and mobile does
-    // not work at all. Since these are sites we build, a script tag is both
-    // simpler and strictly better — the real page, on its real origin, with
-    // nothing rewritten.
-    //
-    // The page identity is location.pathname rather than a fixed value, so one
-    // tag on the whole site anchors comments to whichever page they were left
-    // on — and those paths line up with preview_external_pages.path.
-    if (path === "__pf_embed.js") {
-      if (!project.feedback_enabled) {
-        return new Response("/* feedback is switched off for this preview */", {
-          headers: { ...corsHeaders, "Content-Type": "application/javascript; charset=utf-8" },
-        });
-      }
-      let embedAuthor = "";
-      if (project.client_project_id) {
-        const { data: cp } = await admin
-          .from("client_projects").select("client_id").eq("id", project.client_project_id).maybeSingle();
-        if (cp?.client_id) {
-          const { data: c } = await admin
-            .from("clients").select("contact_name").eq("id", cp.client_id).maybeSingle();
-          embedAuthor = c?.contact_name || "";
-        }
-      }
-      const embed = `(() => {
-  if (window.__PF_EMBEDDED__) return;
-  window.__PF_EMBEDDED__ = true;
-  var norm = function (p) { return (p || "/").replace(/\/+$/, "") || "/"; };
-  window.__PREVIEW_SLUG__ = ${JSON.stringify(slug)};
-  window.__PREVIEW_PAGE__ = norm(window.location.pathname);
-  window.__PREVIEW_API__ = ${JSON.stringify(FN_BASE)};
-  window.__PREVIEW_AUTHOR__ = ${JSON.stringify(embedAuthor)};
-  window.__PREVIEW_WIDGET_SRC__ = ${JSON.stringify(`${FN_BASE}/preview-serve?slug=${slug}&path=__pf_widget.js`)};
-  var s = document.createElement("script");
-  s.src = window.__PREVIEW_WIDGET_SRC__;
-  (document.body || document.documentElement).appendChild(s);
-  // A single-page app changes the path without reloading, so the widget would
-  // otherwise keep filing comments against whichever page happened to load first.
-  var last = window.__PREVIEW_PAGE__;
-  setInterval(function () {
-    var now = norm(window.location.pathname);
-    if (now !== last) { last = now; window.__PREVIEW_PAGE__ = now; }
-  }, 500);
-})();`;
-      return new Response(embed, {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/javascript; charset=utf-8",
-          // Short, because the author name and the enabled flag both live in it.
-          "Cache-Control": "public, max-age=60",
-        },
-      });
-    }
 
     // Reject path traversal
     if (path.includes("..")) return new Response("bad path", { status: 400, headers: corsHeaders });
@@ -512,22 +168,8 @@ Deno.serve(async (req) => {
       out += rewriteSegment(html.slice(last));
       html = out;
 
-      // Inject feedback bootstrap before </body>
-      let authorName = "";
-      if (project.feedback_enabled && project.client_project_id) {
-        const { data: cp } = await admin
-          .from("client_projects").select("client_id").eq("id", project.client_project_id).maybeSingle();
-        if (cp?.client_id) {
-          const { data: client } = await admin
-            .from("clients").select("contact_name").eq("id", cp.client_id).maybeSingle();
-          authorName = client?.contact_name || "";
-        }
-      }
-      const inject = project.feedback_enabled
-        ? `<script>window.__PREVIEW_SLUG__=${JSON.stringify(slug)};window.__PREVIEW_PAGE__=${JSON.stringify(path)};window.__PREVIEW_API__=${JSON.stringify(FN_BASE)};window.__PREVIEW_AUTHOR__=${JSON.stringify(authorName)};window.__PREVIEW_WIDGET_SRC__=${JSON.stringify(`${FN_BASE}/preview-serve?slug=${slug}&path=__pf_widget.js`)};</script><script src="${FN_BASE}/preview-serve?slug=${encodeURIComponent(slug)}&path=__pf_bootstrap.js"></script>`
-        : "";
-      if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, inject + "</body>");
-      else html += inject;
+      // Nothing is injected any more. The page is served as it was
+      // written; the feedback board draws the pins over it.
 
       return new Response(html, {
         headers: {
@@ -539,15 +181,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Special: serve the embedded feedback widget if requested
     return new Response(await file.arrayBuffer(), {
       headers: { ...corsHeaders, "Content-Type": ct, "Cache-Control": "public, max-age=300" },
     });
   } catch (e: any) {
-    // Special widget path
     const url = new URL(req.url);
-    if (url.searchParams.get("path") === "__pf_widget.js") {
-      return new Response(FEEDBACK_WIDGET_JS, {
+    if (["__pf_widget.js", "__pf_bootstrap.js", "__pf_embed.js"].includes(url.searchParams.get("path") ?? "")) {
+      return new Response(RETIRED_WIDGET_JS, {
         headers: { ...corsHeaders, "Content-Type": "application/javascript; charset=utf-8" },
       });
     }
