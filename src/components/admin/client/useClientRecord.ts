@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { countByProject, type TaskCounts, type TaskRow } from "@/lib/taskCounts";
 import { summarise, NO_BALANCE, type BalanceInvoice, type ClientBalance } from "@/lib/clientBalance";
 import { isMissingColumn, isMissingRelation } from "@/lib/missingColumn";
+import { loadPaperclipProjectLinks, withPaperclipOverlay } from "@/lib/paperclipProjectCounts";
 import type { ClientLoginRow } from "@/lib/clientLogins";
 
 // Same reason as the Clients list: `internal` is one migration ahead of
@@ -136,7 +137,11 @@ export function useClientRecord(clientId: string) {
     const t = await supabase.from("project_tasks")
       .select("client_project_id, status").in("client_project_id", ids);
     if (t.error) toast.error(t.error.message);
-    setCounts(countByProject((t.data ?? []) as TaskRow[]));
+    // CRE-394: a linked, already-synced project reads from Paperclip
+    // instead of project_tasks — see @/lib/paperclipProjectCounts.
+    const portalCounts = countByProject((t.data ?? []) as TaskRow[]);
+    const linked = await loadPaperclipProjectLinks(ids);
+    setCounts(await withPaperclipOverlay(portalCounts, linked));
     setLoading(false);
 
     // Money last and on its own, because it is the slow part — a round
