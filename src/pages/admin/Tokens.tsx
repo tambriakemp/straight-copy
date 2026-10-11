@@ -297,6 +297,12 @@ export default function Tokens() {
                 hint="Save this as a Paperclip secret named PROSPECT-APPROVALS-INGEST-KEY — Ara adds it to Nicole's env from there. Rotating breaks her pushes and decision reads until she has the new value."
               />
               <SecretRow
+                label="Paperclip board key (project task sync)" secretKey="paperclip_board_api_key"
+                placeholder="paste the board API key from POST /api/board-api-keys"
+                generated={false}
+                hint="Board-wide Paperclip API key (not an agent key, and there's no Paperclip UI page for minting these yet — create with POST /api/board-api-keys) used by the hourly sync-paperclip-project-tasks edge function to pull task counts for every linked client project. Rotating breaks that hourly sync until the new value is saved here."
+              />
+              <SecretRow
                 label="Audit upload key" secretKey="audit_upload_key" generated
                 hint="Paste this into Devin's secure secret form as AUDIT_UPLOAD_SECRET — the site-audit tool on the VPS sends it with every report it publishes to /audit/<slug> (CRE-225). Rotating breaks publishing until Devin has the new value; nothing already published is affected."
               />
