@@ -48,6 +48,13 @@
 // `in_flight` gets its own new card, same present/absent fallback as the
 // CRE-366 fields. Both reuse `task_ids` (not `issue`, singular) to match
 // the done_items/approvals shape rather than the old per-section-item one.
+//
+// CRE-391: `needs_you` entries got a new optional `tag` — which Needs-you-
+// now filter tab (agents/clients/money) the row counts under. Approvals
+// and in_flight rows don't need one; they always tag as "approvals" /
+// "in_flight" on the frontend by virtue of which array they're in. Omitting
+// `tag` still validates (defaults to "agents" on the frontend) — this is
+// additive, no redeploy is required just to keep accepting old payloads.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -212,6 +219,7 @@ function validateApprovals(value: unknown): string | null {
 }
 
 const NEEDS_YOU_PRIORITIES = ["high", "normal"];
+const NEEDS_YOU_TAGS = ["agents", "clients", "money"];
 
 function validateNeedsYou(value: unknown): string | null {
   if (value === undefined || value === null) return null;
@@ -226,6 +234,9 @@ function validateNeedsYou(value: unknown): string | null {
     if (!isStringOrNull(item.next_step)) return "needs_you entry.next_step must be a string or null";
     if (item.priority !== undefined && !NEEDS_YOU_PRIORITIES.includes(item.priority as string)) {
       return `needs_you entry.priority must be one of ${NEEDS_YOU_PRIORITIES.join(", ")}`;
+    }
+    if (item.tag !== undefined && !NEEDS_YOU_TAGS.includes(item.tag as string)) {
+      return `needs_you entry.tag must be one of ${NEEDS_YOU_TAGS.join(", ")}`;
     }
     if (item.task_ids !== undefined && !isStringArray(item.task_ids)) return "needs_you entry.task_ids must be an array of strings";
   }

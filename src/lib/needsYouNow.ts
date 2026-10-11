@@ -7,7 +7,12 @@ import { formatMoney } from "@/lib/adminOperations";
 // aren't fully typed for this shape yet — same cast as Briefs.tsx / CLAUDE.md.
 const db = supabase as unknown as { from: (table: string) => any };
 
-export type NeedsYouBucket = "agents" | "clients" | "money";
+// CRE-391: "approvals" added — a live `paperclip_pending_items` row of kind
+// "approval" (a pending Paperclip approval card) is its own filter tag now,
+// not lumped into "agents" with kind "interaction" rows (things actually
+// waiting on Bree from an agent's own inbox item). Mixing the two under one
+// "agents" bucket was why that filter's count never matched its name.
+export type NeedsYouBucket = "agents" | "clients" | "money" | "approvals";
 
 export interface NeedsYouItem {
   id: string;
@@ -95,7 +100,14 @@ export function useNeedsYouNow() {
 
   const items = useMemo<NeedsYouItem[] | null>(() => {
     if (loading) return null;
-    const fromAgents: NeedsYouItem[] = (pending ?? []).map((p) => ({ ...p, bucket: "agents" as const }));
+    // CRE-391: split by `kind`, not lumped into one "agents" bucket — see
+    // the NeedsYouBucket comment above.
+    const fromInteractions: NeedsYouItem[] = (pending ?? [])
+      .filter((p) => p.kind !== "approval")
+      .map((p) => ({ ...p, bucket: "agents" as const }));
+    const fromPendingApprovals: NeedsYouItem[] = (pending ?? [])
+      .filter((p) => p.kind === "approval")
+      .map((p) => ({ ...p, bucket: "approvals" as const }));
     const fromProspects: NeedsYouItem[] = (prospectBatches ?? []).map((b) => ({
       id: `prospect-${b.batch}`,
       kind: "prospect approvals",
@@ -128,7 +140,7 @@ export function useNeedsYouNow() {
       issue_identifier: null,
       issue_url: "/admin/payments",
     }));
-    return [...fromAgents, ...fromDrafts, ...fromProfiles, ...fromProspects, ...fromOverdue];
+    return [...fromInteractions, ...fromPendingApprovals, ...fromDrafts, ...fromProfiles, ...fromProspects, ...fromOverdue];
   }, [loading, pending, prospectBatches, drafts, overdue, profiles, clientNames]);
 
   return { items, reload: () => setReloadKey((k) => k + 1) };
