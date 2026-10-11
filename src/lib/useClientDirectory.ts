@@ -14,6 +14,14 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { countByProject, type TaskCounts, type TaskRow } from "@/lib/taskCounts";
+import { isMissingColumn } from "@/lib/missingColumn";
+
+// `internal` arrived with the 20261011 migration, which Lovable applies on
+// its own schedule — so between the push and that deploy the column is not
+// there and a select naming it is rejected whole. Asked for separately and
+// dropped when the database has not caught up: a missing Internal pill is
+// a smaller problem than an empty Clients page. See @/lib/missingColumn.
+const CLIENT_COLUMNS = "id, business_name, contact_name, contact_email, archived, created_at, tier";
 
 export interface DirectoryClient {
   id: string;
@@ -53,9 +61,7 @@ export function useClientDirectory(): ClientDirectory {
   const load = useCallback(async () => {
     setLoading(true);
     const [c, p, t] = await Promise.all([
-      supabase.from("clients")
-        .select("id, business_name, contact_name, contact_email, archived, internal, created_at, tier")
-        .order("created_at", { ascending: false }),
+      loadClients(),
       supabase.from("client_projects")
         .select("id, client_id, name, type, status")
         .order("created_at", { ascending: false }),
@@ -65,7 +71,7 @@ export function useClientDirectory(): ClientDirectory {
     // progress bars, not its client list.
     for (const r of [c, p, t]) if (r.error) toast.error(r.error.message);
 
-    setClients((c.data ?? []) as DirectoryClient[]);
+    setClients(c.data ?? []);
 
     const grouped = new Map<string, DirectoryProject[]>();
     for (const row of (p.data ?? []) as DirectoryProject[]) {
@@ -81,4 +87,20 @@ export function useClientDirectory(): ClientDirectory {
   useEffect(() => { void load(); }, [load]);
 
   return { clients, projectsByClient, counts, loading, reload: () => { void load(); } };
+}
+
+async function loadClients(): Promise<{ data: DirectoryClient[] | null; error: { message: string } | null }> {
+  const withInternal = await supabase.from("clients")
+    .select(`${CLIENT_COLUMNS}, internal`)
+    .order("created_at", { ascending: false });
+  if (!isMissingColumn(withInternal.error)) {
+    return { data: (withInternal.data ?? null) as DirectoryClient[] | null, error: withInternal.error };
+  }
+  const without = await supabase.from("clients")
+    .select(CLIENT_COLUMNS)
+    .order("created_at", { ascending: false });
+  return {
+    data: (without.data ?? []).map((row) => ({ ...row, internal: false })) as DirectoryClient[],
+    error: without.error,
+  };
 }
