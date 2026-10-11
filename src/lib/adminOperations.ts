@@ -13,10 +13,16 @@ export type ProposalRollup = {
   title: string;
   status: string;
   sent_at: string | null;
+  first_viewed_at: string | null;
   client_signed_at: string | null;
+  agency_countersigned_at: string | null;
+  declined_at: string | null;
+  decline_reason: string | null;
   created_at: string;
   total_cents: number | null;
   version: number;
+  /** Rows sharing this are versions of one proposal. */
+  version_group_id: string | null;
 };
 
 export type InvoiceRollup = {
@@ -57,7 +63,10 @@ export type AdminOperations = {
 export async function loadAdminOperations(): Promise<AdminOperations> {
   const [proposalsRes, invoicesRes, projectsRes, previewsRes, approvalsRes, clientsRes] = await Promise.all([
     supabase.from("client_proposals")
-      .select("id, client_id, client_project_id, title, status, sent_at, client_signed_at, created_at, total_cents, version")
+      // The whole trail, not just status: the Proposals page reads where a
+      // proposal got to from its timestamps, because `status` is kept by
+      // several writers and can lag behind them. See @/lib/proposalStatus.
+      .select("id, client_id, client_project_id, title, status, sent_at, first_viewed_at, client_signed_at, agency_countersigned_at, declined_at, decline_reason, created_at, total_cents, version, version_group_id")
       .order("created_at", { ascending: false }),
     supabase.from("project_invoices")
       .select("id, client_id, client_project_id, schedule_id, label, amount_cents, currency, due_date, status")

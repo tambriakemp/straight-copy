@@ -896,6 +896,82 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-simple-list__sub { font-size: 12px; color: var(--cv-muted); }
 .cv-simple-list__when { font-size: 13px; color: var(--cv-muted); white-space: nowrap; }
 
+/* ---------- Proposals (Admin Journeys canvas) ----------
+   The list, the admin view, the upload form and the client view all draw
+   from these. Measured off the canvas: .pr, .trail, .step, .row, .ln. */
+
+/* One proposal in the list: a tinted document square, what it is, where
+   it has got to, what it is worth, and what you can do about it. */
+.cv-prow {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+  padding: 16px; border-radius: 18px; background: var(--cv-sunken);
+}
+.cv-prow + .cv-prow { margin-top: 10px; }
+.cv-prow__what { flex: 1 1 260px; min-width: 0; }
+.cv-prow__what strong { font-size: 16px; font-weight: 600; overflow-wrap: break-word; }
+.cv-prow__what small { display: block; font-size: 13px; color: var(--cv-muted); overflow-wrap: break-word; }
+.cv-amt { font-size: 17px; font-weight: 600; min-width: 80px; text-align: right; color: var(--cv-ink); }
+.cv-amt--none { font-size: 13px; font-weight: 400; color: var(--cv-muted); }
+
+/* Sent → viewed → signed → countersigned, as filled and hollow dots. The
+   hollow ones are the point: what has NOT happened yet is the thing you
+   are scanning the list for. */
+.cv-trail { display: flex; gap: 4px; align-items: center; font-size: 12px; color: var(--cv-muted); flex-wrap: wrap; }
+.cv-trail i { width: 9px; height: 9px; border-radius: 50%; background: #1E8E4E; display: inline-block; flex-shrink: 0; }
+.cv-trail i.cv-trail__no { background: var(--cv-card); border: 2px solid #B3BBCB; box-sizing: border-box; }
+.cv-trail i.cv-trail__bad { background: var(--cv-tone-red-fg); }
+.cv-trail span { margin-right: 8px; }
+
+/* The status ladder in the proposal's own sidebar. */
+.cv-step { display: flex; gap: 12px; font-size: 14px; padding-bottom: 14px; }
+.cv-step:last-child { padding-bottom: 0; }
+.cv-step i {
+  width: 22px; height: 22px; border-radius: 50%; background: #1E8E4E; color: var(--cv-card);
+  display: grid; place-items: center; flex-shrink: 0; font-style: normal; font-size: 12px;
+}
+.cv-step--todo i { background: var(--cv-card); border: 2px solid #B3BBCB; color: transparent; }
+.cv-step--bad i { background: var(--cv-tone-red-fg); }
+.cv-step small { display: block; font-size: 13px; color: var(--cv-muted); }
+
+/* A label-and-value line inside a card: payment terms, versions. */
+.cv-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--cv-border); font-size: 14px; }
+.cv-row > span:first-child { flex: 1 1 0; min-width: 0; }
+.cv-row small { display: block; font-size: 13px; color: var(--cv-muted); }
+.cv-row--first { border-top: 0; }
+.cv-row--onink { border-top-color: #262B36; }
+.cv-row--onink small { color: #C9CFDB; }
+
+/* The document on its mat. A proposal is a piece of paper and should look
+   like one — a PDF rendered flush inside a white card reads as part of the
+   page rather than as the thing you are being asked to sign. */
+.cv-paper { background: var(--cv-sunken); border-radius: 18px; padding: 28px; }
+.cv-paper__sheet {
+  background: var(--cv-card); border-radius: 6px; box-shadow: 0 2px 14px rgba(14, 17, 22, 0.08);
+  max-width: 560px; margin: 0 auto; min-height: 640px; box-sizing: border-box; overflow: hidden;
+}
+.cv-paper__sheet iframe, .cv-paper__sheet embed { display: block; width: 100%; height: 640px; border: 0; }
+.cv-paper__none {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  min-height: 640px; padding: 40px; text-align: center; font-size: 13px; color: var(--cv-muted);
+}
+.cv-ln { height: 10px; border-radius: 99px; background: var(--cv-tone-gray-bg); }
+
+/* A typed signature. Cursive because it has to read as a signature rather
+   than as another form field — it is what the client is agreeing with. */
+.cv-sig {
+  font-family: "Brush Script MT", "Segoe Script", cursive; font-size: 32px; color: var(--cv-ink);
+  border-bottom: 1px solid #C9CFDB; padding-bottom: 4px; min-height: 44px; overflow-wrap: break-word;
+}
+.cv-sig--sm { font-size: 22px; }
+
+/* The upload form's three-across payment term row. */
+.cv-term { display: grid; grid-template-columns: 2fr 1fr 2fr; gap: 10px; align-items: end; }
+@media (max-width: 560px) { .cv-term { grid-template-columns: 1fr; } }
+.cv-select {
+  border: 0; border-radius: 14px; background: var(--cv-sunken); padding: 0 14px; min-height: 46px;
+  font-family: inherit; font-size: 14px; color: var(--cv-ink); box-sizing: border-box; width: 100%;
+}
+
 /* ---------- Prospects (Admin Journeys canvas) ----------
    A queue down the left and one prospect at a time on the right. Measured
    off the canvas: .q, .blk and the green Approve. */
