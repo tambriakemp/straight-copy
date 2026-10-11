@@ -196,7 +196,7 @@ export default function ProposalDetail() {
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
-          <section className="cv-card cv-card-pad" style={{ flex: "3 1 480px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+          <section className="cv-card cv-card-pad cv-doc-col">
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
               <span style={{ flex: 1, fontWeight: 500 }}>
                 {p.signed_pdf_path ? "Signed copy" : "Proposal"}
@@ -217,7 +217,12 @@ export default function ProposalDetail() {
             <div className="cv-paper">
               <div className="cv-paper__sheet">
                 {pdfUrl ? (
-                  <iframe src={`${pdfUrl}#navpanes=0&toolbar=1&zoom=100`} title={p.title} />
+                  <iframe // page-width, not 100: a US Letter page is 816px and this
+                      // frame is narrower than that on most screens, so 100%
+                      // clipped the right edge and gave the viewer its own
+                      // horizontal scrollbar. Verified in Chromium against a
+                      // ruled test PDF — 100 clips, page-width fits.
+                      src={`${pdfUrl}#navpanes=0&toolbar=1&zoom=page-width`} title={p.title} />
                 ) : (
                   <div className="cv-paper__none">
                     No PDF on this proposal yet. Upload one and it reads here.
@@ -227,7 +232,7 @@ export default function ProposalDetail() {
             </div>
           </section>
 
-          <aside style={{ flex: "2 1 300px", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+          <aside className="cv-doc-side">
             {awaiting && (
               <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <h2 className="cv-card-title">Before it is signed</h2>

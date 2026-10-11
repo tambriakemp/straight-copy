@@ -179,7 +179,7 @@ export default function PortalProposal() {
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
-        <section className="cv-card cv-card-pad" style={{ flex: "3 1 480px", minWidth: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+        <section className="cv-card cv-card-pad cv-doc-col">
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
             <span style={{ flex: 1, fontWeight: 500 }}>Your proposal</span>
             <a
@@ -192,13 +192,18 @@ export default function PortalProposal() {
           <div className="cv-paper">
             <div className="cv-paper__sheet">
               {pdfUrl
-                ? <iframe src={`${pdfUrl}#navpanes=0&toolbar=1&zoom=100`} title={p.title} />
+                ? <iframe // page-width, not 100: a US Letter page is 816px and this
+                      // frame is narrower than that on most screens, so 100%
+                      // clipped the right edge and gave the viewer its own
+                      // horizontal scrollbar. Verified in Chromium against a
+                      // ruled test PDF — 100 clips, page-width fits.
+                      src={`${pdfUrl}#navpanes=0&toolbar=1&zoom=page-width`} title={p.title} />
                 : <div className="cv-paper__none">The document is being prepared. Please check back shortly.</div>}
             </div>
           </div>
         </section>
 
-        <aside style={{ flex: "2 1 320px", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+        <aside className="cv-doc-side">
           <section className="cv-card cv-card-pad" style={{ background: "var(--cv-ink)", color: "#fff" }}>
             <div style={{ fontSize: 14, color: "#C9CFDB" }}>Total</div>
             <div style={{ fontSize: 32, fontWeight: 600, lineHeight: 1.2 }}>

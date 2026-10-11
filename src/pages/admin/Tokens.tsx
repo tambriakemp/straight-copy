@@ -297,6 +297,10 @@ export default function Tokens() {
                 hint="Save this as a Paperclip secret named PROSPECT-APPROVALS-INGEST-KEY — Ara adds it to Nicole's env from there. Rotating breaks her pushes and decision reads until she has the new value."
               />
               <SecretRow
+                label="Audit upload key" secretKey="audit_upload_key" generated
+                hint="Paste this into Devin's secure secret form as AUDIT_UPLOAD_SECRET — the site-audit tool on the VPS sends it with every report it publishes to /audit/<slug> (CRE-225). Rotating breaks publishing until Devin has the new value; nothing already published is affected."
+              />
+              <SecretRow
                 label="GitHub token (Decide → Merge)" secretKey="github_token" placeholder="paste a fine-grained PAT"
                 generated={false}
                 hint="CRE-393: used only by the decide-action edge function to check CI and merge a PR when you pick 'Merge' on a Decide card. Needs Contents: write and Pull requests: write on at least tambriakemp/straight-copy (add atelemed/menovia or others only if you want Merge wired for those repos too). Without this set, Merge buttons report the error and don't touch GitHub."

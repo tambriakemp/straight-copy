@@ -944,16 +944,35 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 /* The document on its mat. A proposal is a piece of paper and should look
    like one — a PDF rendered flush inside a white card reads as part of the
    page rather than as the thing you are being asked to sign. */
-.cv-paper { background: var(--cv-sunken); border-radius: 18px; padding: 28px; }
+/* The document gets the room, the sidebar gets what is left. 3:2 put a
+   US Letter page in 586px — narrower than the 816px it needs at 100%, so
+   a 55-page contract scrolled sideways inside its own viewer. 5:2 gives
+   it ~870px at 1440 and the sidebar still fits; below 1100 they stack,
+   and then the document has the whole width anyway. */
+.cv-doc-col { flex: 5 1 720px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.cv-doc-side { flex: 2 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+
+/* Full height and nearly full width. It was capped at 560px on a mat with
+   28px of padding, which on a wide screen put a 55-page contract in a
+   column narrower than the card holding it — the viewer's own toolbar did
+   not fit, so the document scrolled sideways inside a box floating in
+   whitespace. The cap is off, the gutter is 30px, and the whole thing is
+   100vh: a proposal is the one document on this page, so it gets the
+   screen. */
+.cv-paper {
+  background: var(--cv-sunken); border-radius: 18px; padding: 30px;
+  height: 100vh; box-sizing: border-box;
+}
 .cv-paper__sheet {
   background: var(--cv-card); border-radius: 6px; box-shadow: 0 2px 14px rgba(14, 17, 22, 0.08);
-  max-width: 560px; margin: 0 auto; min-height: 640px; box-sizing: border-box; overflow: hidden;
+  width: 100%; height: 100%; box-sizing: border-box; overflow: hidden;
 }
-.cv-paper__sheet iframe, .cv-paper__sheet embed { display: block; width: 100%; height: 640px; border: 0; }
+.cv-paper__sheet iframe, .cv-paper__sheet embed { display: block; width: 100%; height: 100%; border: 0; }
 .cv-paper__none {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-  min-height: 640px; padding: 40px; text-align: center; font-size: 13px; color: var(--cv-muted);
+  height: 100%; padding: 40px; text-align: center; font-size: 13px; color: var(--cv-muted);
 }
+@media (max-width: 900px) { .cv-paper { height: 70vh; padding: 16px; } }
 .cv-ln { height: 10px; border-radius: 99px; background: var(--cv-tone-gray-bg); }
 
 /* A typed signature. Cursive because it has to read as a signature rather
