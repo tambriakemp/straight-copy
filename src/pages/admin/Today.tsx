@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  Activity, Calendar as CalendarIcon, FileText, Link2, ListChecks,
+  Calendar as CalendarIcon, FileText, Link2, ListChecks,
   Newspaper, RefreshCw, Sparkles, TrendingUp, type LucideIcon,
 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -33,31 +33,30 @@ import EmptyState from "@/components/admin/cv/EmptyState";
 import SectionCard from "@/components/admin/cv/SectionCard";
 import BriefCheckItem from "@/components/admin/cv/BriefCheckItem";
 import NeedsYouRow from "@/components/admin/cv/NeedsYouRow";
-import InFlightCard from "@/components/admin/cv/InFlightCard";
 import WeeklyCalendarCard from "@/components/admin/cv/WeeklyCalendarCard";
 import MoneyCard from "@/components/admin/cv/MoneyCard";
 import PipelineBriefCard from "@/components/admin/cv/PipelineBriefCard";
-import DoneTimelineCard from "@/components/admin/cv/DoneTimelineCard";
-import ApprovalsCard from "@/components/admin/cv/ApprovalsCard";
 import { LinkifiedText } from "@/components/admin/cv/IssueLinks";
 import { containsKnownIssueId } from "@/lib/issueLinks";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney, loadAdminOperations, type AdminOperations } from "@/lib/adminOperations";
-import { useNeedsYouNow, type NeedsYouBucket } from "@/lib/needsYouNow";
+import { useNeedsYouNow } from "@/lib/needsYouNow";
 import { useBriefs, type Brief, type BriefItem, type BriefSection } from "@/lib/briefs";
 import { useBriefItemCompletions } from "@/lib/briefItemCompletions";
-import { buildNeedsYouRows } from "@/lib/needsYouRows";
+import { buildNeedsYouRows, type NeedsYouFilterTag } from "@/lib/needsYouRows";
 
-const FILTERS: Array<{ key: "all" | NeedsYouBucket; label: string }> = [
+// CRE-391: Approvals and In flight joined Agents/Clients/Money as their own
+// filter tags once their cards merged into this one list — see the table
+// on CRE-391 for what each tag actually matches. A tag with zero open rows
+// is hidden rather than shown as a dead "0" filter (All always stays).
+const FILTERS: Array<{ key: "all" | NeedsYouFilterTag; label: string }> = [
   { key: "all", label: "All" },
   { key: "agents", label: "Agents" },
   { key: "clients", label: "Clients" },
   { key: "money", label: "Money" },
+  { key: "approvals", label: "Approvals" },
+  { key: "in_flight", label: "In flight" },
 ];
-
-// Priority dot colors for the merged Needs-you-now list (Bree: "keep
-// priority — orange/yellow dot").
-const PRIORITY_COLOR: Record<"high" | "normal", string> = { high: "#ea580c", normal: "#eab308" };
 
 // Stable id for a brief line: the ingest routine's own `id` once it sends
 // one (CRE-335 §3), otherwise a key scoped to this one brief instance so
@@ -86,9 +85,6 @@ function hasCalendarCard(brief: Brief): boolean {
 function hasMoneyStats(brief: Brief): boolean {
   return Boolean(brief.money_stats?.cards?.length);
 }
-function hasDoneItems(brief: Brief): boolean {
-  return Boolean(brief.done_items?.length);
-}
 function hasApprovals(brief: Brief): boolean {
   return Boolean(brief.approvals?.length);
 }
@@ -110,10 +106,12 @@ const CONNECTIONS_HEADINGS = new Set(["connections"]);
 const SIDEBAR_HEADINGS = new Set([...TOP_LINE_HEADINGS, ...CONNECTIONS_HEADINGS, ...MONEY_HEADINGS]);
 
 function supersededHeadingsFor(brief: Brief): Set<string> {
-  const hide = new Set<string>();
+  // CRE-391: Done is retired outright, not conditional on a structured
+  // field like the sets below — its markdown heading never renders again
+  // either, same treatment as NEEDS_YOU_HEADINGS in splitBriefSections.
+  const hide = new Set<string>(DONE_HEADINGS);
   if (hasCalendarCard(brief)) for (const h of CALENDAR_HEADINGS) hide.add(h);
   if (hasMoneyStats(brief)) for (const h of MONEY_HEADINGS) hide.add(h);
-  if (hasDoneItems(brief)) for (const h of DONE_HEADINGS) hide.add(h);
   if (hasApprovals(brief)) for (const h of APPROVAL_HEADINGS) hide.add(h);
   if (hasInFlightItems(brief)) for (const h of IN_FLIGHT_HEADINGS) hide.add(h);
   return hide;
@@ -195,7 +193,7 @@ export default function Today() {
   const navigate = useNavigate();
   const [ops, setOps] = useState<AdminOperations | null>(null);
   const [agentsEnabled, setAgentsEnabled] = useState<number | null>(null);
-  const [filter, setFilter] = useState<"all" | NeedsYouBucket>("all");
+  const [filter, setFilter] = useState<"all" | NeedsYouFilterTag>("all");
   const [briefTab, setBriefTab] = useState<"morning" | "past">("morning");
   const { items: needsYouNow, reload: reloadNeedsYouNow } = useNeedsYouNow();
   const { briefs, selected, setSelected, current, latestMorning, reload: reloadBriefs } = useBriefs();
@@ -224,46 +222,63 @@ export default function Today() {
   const upcoming = invoicesSent.filter((i) => i.due_date && i.due_date >= today).slice(0, 6);
 
   // Whichever brief the Morning/Past control points at drives every
-  // section below it — Calendar, Pipeline, Done, Approvals, In flight and
-  // the merged Needs-you-now narrative rows all read from this one brief.
+  // section below it — Calendar, Pipeline, Approvals, In flight and the
+  // merged Needs-you-now narrative rows all read from this one brief. Done
+  // is retired (CRE-391) — it's never read here, regardless of brief.
   const activeBrief = briefTab === "morning" ? latestMorning : current;
   const narrativeNeedsYou = useMemo(() => activeBrief?.needs_you ?? [], [activeBrief]);
 
-  // Checking off a Needs-you-now item is acknowledgement, not resolution
-  // (CRE-335 §4) — it still comes back from the same source query next
-  // sync. Open counts/badges exclude it; the row itself stays visible,
-  // struck through, below.
   const openLiveNeedsYouNow = useMemo(
     () => (needsYouNow ?? []).filter((item) => !isDone(item.id)),
     [needsYouNow, isDone],
   );
-  const openNarrativeNeedsYou = useMemo(
-    () => narrativeNeedsYou.filter((item) => !isDone(item.id)),
-    [narrativeNeedsYou, isDone],
-  );
-  const totalOpenNeedsYou = openLiveNeedsYouNow.length + openNarrativeNeedsYou.length;
-
   const prospectsToReview = useMemo(
     () => openLiveNeedsYouNow.filter((item) => item.kind === "prospect approvals").length,
     [openLiveNeedsYouNow],
   );
 
-  // The Agents/Clients/Money filter only applies to the live-synced cards
-  // (they're the only ones with a bucket) — the brief's own narrative
-  // decisions always show, since they're never automatically resolved.
-  const visibleLiveItems = useMemo(
-    () => (needsYouNow ?? []).filter((item) => filter === "all" || item.bucket === filter),
-    [needsYouNow, filter],
+  // CRE-391: live items, the brief's approvals / in-flight cards and its
+  // narrative needs-you lines all merge into one row list, each row
+  // carrying its own filter tag — see needsYouRows.ts. `allRows` is the
+  // full merge; checking an item off is acknowledgement, not resolution
+  // (CRE-335 §4), so it still shows here, struck through, just excluded
+  // from the counts/badges below (`openRows`).
+  const allRows = useMemo(
+    () => buildNeedsYouRows({
+      live: needsYouNow, narrative: narrativeNeedsYou,
+      approvals: activeBrief?.approvals, inFlight: activeBrief?.in_flight,
+    }),
+    [needsYouNow, narrativeNeedsYou, activeBrief],
   );
+  const openRows = useMemo(() => allRows.filter((row) => !isDone(row.id)), [allRows, isDone]);
+  const totalOpenNeedsYou = openRows.length;
+
   const bucketCounts = useMemo(() => {
-    const counts: Record<"all" | NeedsYouBucket, number> = { all: totalOpenNeedsYou, agents: 0, clients: 0, money: 0 };
-    for (const item of openLiveNeedsYouNow) counts[item.bucket] += 1;
+    const counts: Record<"all" | NeedsYouFilterTag, number> = {
+      all: totalOpenNeedsYou, agents: 0, clients: 0, money: 0, approvals: 0, in_flight: 0,
+    };
+    for (const row of openRows) counts[row.tag] += 1;
     return counts;
-  }, [openLiveNeedsYouNow, totalOpenNeedsYou]);
+  }, [openRows, totalOpenNeedsYou]);
+
+  // A tag with nothing open hides itself rather than sitting there as a
+  // dead "0" filter — except All (always shown) and whichever tag is
+  // currently selected (so picking one doesn't make its own tab vanish
+  // the moment its last row gets checked off).
+  const visibleFilters = useMemo(
+    () => FILTERS.filter((f) => f.key === "all" || f.key === filter || bucketCounts[f.key] > 0),
+    [bucketCounts, filter],
+  );
+  const needsYouHint = useMemo(() => {
+    const parts = FILTERS
+      .filter((f) => f.key !== "all" && bucketCounts[f.key] > 0)
+      .map((f) => `${bucketCounts[f.key]} ${f.label.toLowerCase()}`);
+    return parts.length ? parts.join(" · ") : "Nothing waiting";
+  }, [bucketCounts]);
 
   const needsYouRows = useMemo(
-    () => buildNeedsYouRows(needsYouNow ? visibleLiveItems : null, narrativeNeedsYou),
-    [needsYouNow, visibleLiveItems, narrativeNeedsYou],
+    () => (filter === "all" ? allRows : allRows.filter((row) => row.tag === filter)),
+    [allRows, filter],
   );
 
   const sectionsSplit = activeBrief ? splitBriefSections(activeBrief) : null;
@@ -292,11 +307,7 @@ export default function Today() {
           <KpiCard
             label="Needs you"
             value={needsYouNow ? totalOpenNeedsYou : "—"}
-            hint={needsYouNow ? (
-              openNarrativeNeedsYou.length
-                ? `${bucketCounts.agents} agents · ${bucketCounts.clients} clients · ${bucketCounts.money} money · ${openNarrativeNeedsYou.length} from the brief`
-                : `${bucketCounts.agents} agents · ${bucketCounts.clients} clients · ${bucketCounts.money} money`
-            ) : undefined}
+            hint={needsYouNow ? needsYouHint : undefined}
             onClick={() => setFilter("all")}
           />
           <KpiCard
@@ -360,7 +371,7 @@ export default function Today() {
               count={totalOpenNeedsYou}
               right={
                 <div className="cv-filter-tabs">
-                  {FILTERS.map((f) => (
+                  {visibleFilters.map((f) => (
                     <button
                       key={f.key}
                       type="button"
@@ -382,7 +393,7 @@ export default function Today() {
                   {needsYouRows.map((row) => (
                     <NeedsYouRow
                       key={row.id}
-                      marker={{ kind: "dot", color: PRIORITY_COLOR[row.priority], label: row.priority === "high" ? "High priority" : "Normal priority" }}
+                      marker={row.marker}
                       title={row.title}
                       description={row.description}
                       nextStep={row.nextStep}
@@ -401,18 +412,14 @@ export default function Today() {
               )}
             </SectionCard>
 
-            {activeBrief && hasInFlightItems(activeBrief) && (
-              <SectionCard icon={Activity} title="In flight / stuck" count={activeBrief.in_flight!.length}>
-                <InFlightCard
-                  items={activeBrief.in_flight!}
-                  isDone={isDone} complete={complete} undo={undo}
-                  briefDate={activeBrief.created_at.slice(0, 10)}
-                />
-              </SectionCard>
-            )}
-
             {activeBrief && hasCalendarCard(activeBrief) && (
-              <WeeklyCalendarCard events={activeBrief.calendar_events!} />
+              // CRE-391: wrapped in Card like every other section — bare
+              // before this, the tinted card background it used to have
+              // (inherited from the old single "Morning brief" card, pre-
+              // CRE-366/388) had quietly gone missing.
+              <Card className="cv-card-pad">
+                <WeeklyCalendarCard events={activeBrief.calendar_events!} />
+              </Card>
             )}
 
             <PipelineBriefCard
@@ -420,24 +427,6 @@ export default function Today() {
               isDone={isDone} complete={complete} undo={undo}
               briefDate={activeBrief?.created_at.slice(0, 10) ?? today}
             />
-
-            {activeBrief && hasApprovals(activeBrief) && (
-              <ApprovalsCard
-                approvals={activeBrief.approvals!}
-                isDone={isDone} complete={complete} undo={undo}
-                briefDate={activeBrief.created_at.slice(0, 10)}
-              />
-            )}
-
-            {activeBrief && hasDoneItems(activeBrief) && (
-              <Card className="cv-card-pad">
-                <DoneTimelineCard
-                  items={activeBrief.done_items!} range={activeBrief.done_range}
-                  isDone={isDone} complete={complete} undo={undo}
-                  briefDate={activeBrief.created_at.slice(0, 10)}
-                />
-              </Card>
-            )}
 
             {activeBrief && sectionsSplit?.center.map((section, i) => (
               <MarkdownSectionCard

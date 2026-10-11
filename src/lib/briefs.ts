@@ -78,6 +78,11 @@ export interface BriefPipeline {
   hot_leads?: HotLead[];
 }
 
+// CRE-391: "Done since last digest" is retired from the Today page outright
+// — Bree reads finished work on the Paperclip board instead. The ingest
+// routine can keep sending these two fields (no harm, just unread); kept
+// typed here only so that payload still parses, not because anything
+// renders them.
 export interface DoneItem {
   id: string;
   title: string;
@@ -110,6 +115,12 @@ export interface ApprovalCard {
 // (orange for "high", yellow for "normal") the same way `status` drives
 // InFlightItem's icon below.
 export type NeedsYouPriority = "high" | "normal";
+// CRE-391: which "Needs you now" filter tab a narrative row belongs to.
+// Optional — the ingest routine doesn't send this yet, so a row without one
+// falls back to "agents" (see needsYouRows.ts's narrativeItemToRow). Ara's
+// routine should start sending it per-item so these count accurately
+// instead of defaulting; see the CRE-391 comment thread for the exact shape.
+export type NeedsYouTag = "agents" | "clients" | "money";
 export interface NeedsYouNarrativeItem {
   id: string;
   title: string;
@@ -118,6 +129,7 @@ export interface NeedsYouNarrativeItem {
   priority?: NeedsYouPriority;
   category: string;
   task_ids?: string[];
+  tag?: NeedsYouTag;
 }
 
 // CRE-388: "In flight / stuck" — a new card, same optional/fallback

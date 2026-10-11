@@ -1,18 +1,16 @@
-import type { LucideIcon } from "lucide-react";
 import CvCheckbox from "./CvCheckbox";
 import ProjectTag from "./ProjectTag";
 import { IssueRefChips, LinkifiedText } from "./IssueLinks";
 import type { useBriefItemCompletions } from "@/lib/briefItemCompletions";
+import type { RowMarker } from "@/lib/needsYouRows";
 
-// CRE-388: shared row shape for the merged "Needs you now" list and the
-// new "In flight / stuck" card — the Done-timeline look (status marker,
-// bold title, category pill, one-line description, CRE chips, checkbox
-// on the far right) applied to both instead of two near-duplicate rows.
-// `marker` is a colored dot for Needs-you-now (priority: orange/yellow)
-// or a colored status icon for In-flight (stuck/blocked/in progress).
-export type RowMarker =
-  | { kind: "dot"; color: string; label: string }
-  | { kind: "icon"; icon: LucideIcon; color: string; label: string };
+// CRE-388/CRE-391: shared row shape for the single merged "Needs you now"
+// list — every row (live Paperclip items, approvals, in-flight/stuck,
+// narrative brief lines) renders through this one component now. `marker`
+// is a colored dot (priority, or an approval's waiting badge) or a colored
+// status icon (in-flight: stuck/blocked/in progress) — see needsYouRows.ts,
+// which computes it per source.
+export type { RowMarker };
 
 export default function NeedsYouRow({
   marker, title, description, nextStep, category, taskIds, href, done, onComplete, onUndo,
