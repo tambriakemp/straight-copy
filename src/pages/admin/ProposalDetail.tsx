@@ -161,7 +161,7 @@ export default function ProposalDetail() {
   const group = proposalGroup(p);
   const status = clientStatusLabel(p);
   const terms = termRows(p.payment_terms, p.total_cents);
-  const portalUrl = `${window.location.origin}/portal/${p.client_id}?proposal=${p.id}`;
+  const portalUrl = `${window.location.origin}/portal/${p.client_id}/proposals/${p.id}`;
   const awaiting = group === "awaiting";
 
   return (

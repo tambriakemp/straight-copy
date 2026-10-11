@@ -81,7 +81,7 @@ export default function Proposals() {
   const copyClientLink = async (p: ProposalRollup) => {
     setCopying(p.id);
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/portal/${p.client_id}?proposal=${p.id}`);
+      await navigator.clipboard.writeText(`${window.location.origin}/portal/${p.client_id}/proposals/${p.id}`);
       toast.success("Client link copied");
     } catch {
       toast.error("Could not copy the link");

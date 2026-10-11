@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { collectSigningAudit } from "@/lib/signingAudit";
 import { Eye, FileText } from "lucide-react";
 import { toast } from "sonner";
 import PdfFrame from "@/components/PdfFrame";
@@ -48,33 +49,6 @@ function depositSplitLine(p: Proposal): string | null {
     return `${fmtUSD(cents)} ${t.label.toLowerCase()} ${when}`;
   });
   return `${fmtUSD(p.total_cents)} — ${parts.join(" + ")}`;
-}
-
-function collectAuditData() {
-  const nav: any = typeof navigator !== "undefined" ? navigator : {};
-  const scr: any = typeof screen !== "undefined" ? screen : {};
-  const win: any = typeof window !== "undefined" ? window : {};
-  let timezone = ""; let timezoneOffset = "";
-  try {
-    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-    const off = new Date().getTimezoneOffset();
-    const sign = off <= 0 ? "+" : "-";
-    const abs = Math.abs(off);
-    timezoneOffset = `UTC${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
-  } catch {}
-  return {
-    userAgent: nav.userAgent || "",
-    platform: nav.userAgentData?.platform || nav.platform || "",
-    language: nav.language || "",
-    languages: Array.isArray(nav.languages) ? nav.languages.slice(0, 6) : [],
-    timezone, timezoneOffset,
-    screen: { width: scr.width || null, height: scr.height || null, pixelRatio: win.devicePixelRatio || null, colorDepth: scr.colorDepth || null },
-    viewport: { width: win.innerWidth || null, height: win.innerHeight || null },
-    referrer: typeof document !== "undefined" ? document.referrer || "" : "",
-    pageUrl: typeof location !== "undefined" ? location.href : "",
-    signedAtLocal: new Date().toString(),
-    signedAtIso: new Date().toISOString(),
-  };
 }
 
 async function callFn(body: Record<string, unknown>) {
@@ -195,7 +169,7 @@ function ProposalCard({ clientId, contactName, proposal, onChanged, inPanel = fa
       await callFn({
         action: "sign", clientId, proposalId: proposal.id,
         signatureType: mode, signatureName, signatureData, agreed: true,
-        audit: collectAuditData(),
+        audit: collectSigningAudit(),
       });
       toast.success("Proposal signed");
       setShowSign(false);
