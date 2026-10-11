@@ -78,3 +78,28 @@ export function sumCounts(all: Iterable<TaskCounts>): TaskCounts {
     pct: total === 0 ? 0 : Math.floor((done / total) * 100),
   };
 }
+
+/** A row from `paperclip_project_task_counts` — CRE-394. Synced hourly
+ *  from the Paperclip board for any client_project with a
+ *  `paperclip_project_id`; absent until the first sync after linking. */
+export interface PaperclipCountsRow {
+  total: number;
+  open: number;
+  done: number;
+  /** Count per Paperclip issue status (`backlog`, `todo`, `in_progress`,
+   *  `in_review`, `done`, `blocked`, `cancelled`). */
+  by_status: Record<string, number>;
+}
+
+/** Paperclip's `blocked` and `in_review` are this page's `blocked` and
+ *  `needsReview` — the two states "Needs you" watches for. */
+export function countsFromPaperclip(row: PaperclipCountsRow): TaskCounts {
+  return {
+    total: row.total,
+    done: row.done,
+    open: row.open,
+    blocked: row.by_status.blocked ?? 0,
+    needsReview: row.by_status.in_review ?? 0,
+    pct: row.total === 0 ? 0 : Math.floor((row.done / row.total) * 100),
+  };
+}

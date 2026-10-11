@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { countByProject, type TaskCounts, type TaskRow } from "@/lib/taskCounts";
 import { isMissingColumn } from "@/lib/missingColumn";
+import { loadPaperclipProjectLinks, withPaperclipOverlay } from "@/lib/paperclipProjectCounts";
 
 // `internal` arrived with the 20261011 migration, which Lovable applies on
 // its own schedule — so between the push and that deploy the column is not
@@ -73,14 +74,20 @@ export function useClientDirectory(): ClientDirectory {
 
     setClients(c.data ?? []);
 
+    const projectRows = (p.data ?? []) as DirectoryProject[];
     const grouped = new Map<string, DirectoryProject[]>();
-    for (const row of (p.data ?? []) as DirectoryProject[]) {
+    for (const row of projectRows) {
       const list = grouped.get(row.client_id) ?? [];
       list.push(row);
       grouped.set(row.client_id, list);
     }
     setProjectsByClient(grouped);
-    setCounts(countByProject((t.data ?? []) as TaskRow[]));
+
+    // CRE-394: a linked, already-synced project reads from Paperclip
+    // instead of project_tasks — see @/lib/paperclipProjectCounts.
+    const portalCounts = countByProject((t.data ?? []) as TaskRow[]);
+    const linked = await loadPaperclipProjectLinks(projectRows.map((row) => row.id));
+    setCounts(await withPaperclipOverlay(portalCounts, linked));
     setLoading(false);
   }, []);
 
