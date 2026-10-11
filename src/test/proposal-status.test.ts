@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
   proposalGroup, trailFor, daysOut, clientStatusLabel, GROUP_ORDER, GROUP_LABEL,
+  clientGroup, CLIENT_GROUP_LABEL, CLIENT_GROUP_ORDER,
   type ProposalLike,
 } from "@/lib/proposalStatus";
 
@@ -146,5 +147,37 @@ describe("clientStatusLabel", () => {
 
   it("says Declined", () => {
     expect(clientStatusLabel(p({ declined_at: "2026-08-22T00:00:00Z" })).tone).toBe("red");
+  });
+});
+
+describe("clientGroup", () => {
+  const cp = (o: Partial<ProposalLike>): ProposalLike => ({ status: "sent", ...o });
+
+  it("puts everything the client has signed under Signed, countersigned or not", () => {
+    // "Needs your countersignature" is OUR step. To the client who signed
+    // it, the proposal is signed — a heading saying otherwise asks them to
+    // chase something they cannot do.
+    expect(clientGroup(cp({ sent_at: "2026-09-01", client_signed_at: "2026-09-02" }))).toBe("signed");
+    expect(clientGroup(cp({
+      sent_at: "2026-09-01", client_signed_at: "2026-09-02", agency_countersigned_at: "2026-09-03",
+    }))).toBe("signed");
+  });
+
+  it("asks for a signature only on one that is out and undecided", () => {
+    expect(clientGroup(cp({ sent_at: "2026-09-01" }))).toBe("to_sign");
+  });
+
+  it("keeps a declined one, because the decision is a fact they may want to see", () => {
+    expect(clientGroup(cp({ sent_at: "2026-09-01", declined_at: "2026-09-05" }))).toBe("declined");
+  });
+
+  it("shows the client nothing for a draft or a replaced version", () => {
+    expect(clientGroup(cp({ status: "draft", sent_at: null }))).toBeNull();
+    expect(clientGroup(cp({ status: "superseded", sent_at: "2026-08-01" }))).toBeNull();
+    expect(clientGroup(cp({ status: "voided", sent_at: "2026-08-01" }))).toBeNull();
+  });
+
+  it("covers every section it names", () => {
+    for (const g of CLIENT_GROUP_ORDER) expect(CLIENT_GROUP_LABEL[g]).toBeTruthy();
   });
 });

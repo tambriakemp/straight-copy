@@ -133,3 +133,40 @@ export function clientStatusLabel(p: ProposalLike): { label: string; tone: "ambe
   // shared early, "Draft" is the honest word for it.
   return { label: "Draft", tone: "gray" };
 }
+
+/**
+ * The three sections the CLIENT's proposal list has, which are not the
+ * four the agency's has.
+ *
+ * "Needs your countersignature" is our problem, not theirs: to a client
+ * who has signed, the proposal is signed, and filing it under a heading
+ * that says something is still outstanding asks them to chase a step
+ * they cannot take. Everything they could still act on goes in one
+ * section at the top, and the rest is history.
+ */
+export type ClientProposalGroup = "to_sign" | "signed" | "declined";
+
+export const CLIENT_GROUP_LABEL: Record<ClientProposalGroup, string> = {
+  to_sign: "Needs your signature",
+  signed: "Signed",
+  declined: "Declined",
+};
+
+/** What is waiting on them, first. */
+export const CLIENT_GROUP_ORDER: ClientProposalGroup[] = ["to_sign", "signed", "declined"];
+
+/**
+ * Null means the client should not see it at all — a draft that was
+ * never sent, or a version replaced by a later one. Returning a section
+ * for those would put a dead document in front of someone being asked to
+ * commit money.
+ */
+export function clientGroup(p: ProposalLike): ClientProposalGroup | null {
+  switch (proposalGroup(p)) {
+    case "awaiting": return "to_sign";
+    case "countersign":
+    case "signed": return "signed";
+    case "declined": return "declined";
+    default: return null;
+  }
+}

@@ -1,5 +1,5 @@
 // Public endpoints for client-side preview approvals.
-// Actions: list | approve | unapprove
+// Actions: list | comments | events | approve | unapprove | changes_requested
 // Lookup is by preview slug (no admin auth required).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -36,9 +36,13 @@ Deno.serve(async (req) => {
     if (!slug && !clientProjectId) return json({ error: "slug or client_project_id required" }, 400);
 
     const q = admin.from("preview_projects").select("id, slug, name, entry_path, archived, source_type, external_base_url");
+    // limit(1) on the client_project_id lookup, because maybeSingle() over
+    // two rows is an ERROR, not a pick — a project that had a second
+    // preview added to it answered 404 to everyone holding its link.
     const { data: project } = await (slug
       ? q.eq("slug", slug).maybeSingle()
-      : q.eq("client_project_id", clientProjectId!).maybeSingle());
+      : q.eq("client_project_id", clientProjectId!).eq("archived", false)
+        .order("created_at", { ascending: true }).limit(1).maybeSingle());
     if (!project || project.archived) return json({ error: "not found" }, 404);
 
     const hasExternal = !!project.external_base_url;
@@ -119,11 +123,50 @@ Deno.serve(async (req) => {
     if (action === "events") {
       const { data: events } = await admin
         .from("preview_approval_events")
-        .select("kind, path, action, approver_name, created_at")
+        .select("id, kind, path, action, note, approver_name, created_at")
         .eq("project_id", project.id)
         .order("created_at", { ascending: false })
         .limit(500);
       return json({ events: events ?? [] });
+    }
+
+    // Every comment on every page of this preview, in one call.
+    //
+    // The per-page endpoint (preview-comments GET) answers for one page
+    // at a time, which is right for a widget sitting on one page and
+    // wrong for a board that heads every page with a count: forty pages
+    // meant forty round trips before the rail could draw itself.
+    if (action === "comments") {
+      const { data: comments } = await admin
+        .from("preview_comments")
+        .select("id, project_id, page_path, pin_number, x_pct, y_pct, author_name, body, status, created_at")
+        .eq("project_id", project.id)
+        .order("pin_number", { ascending: true });
+      return json({ comments: comments ?? [] });
+    }
+
+    // A client saying "not this" needs somewhere to say why.
+    //
+    // approve and unapprove were the only two outcomes, so a page that
+    // was wrong could only be left un-approved — which looks exactly
+    // like a page nobody has opened. This clears the approval AND
+    // records the reason, the same pair of writes the admin board does.
+    if (action === "changes_requested") {
+      const path = String(payload.path || "");
+      const note = String(payload.note || "").trim();
+      if (!path) return json({ error: "path required" }, 400);
+      if (!note) return json({ error: "say what needs changing" }, 400);
+      if (note.length > 4000) return json({ error: "too long" }, 400);
+      const kind = String(payload.kind || "page");
+      const approver_name = (payload.approver_name ? String(payload.approver_name).slice(0, 120) : null) || null;
+
+      await admin.from("preview_approvals")
+        .delete().eq("project_id", project.id).eq("kind", kind).eq("path", path);
+      const { error } = await admin.from("preview_approval_events").insert({
+        project_id: project.id, kind, path, action: "changes_requested", approver_name, note,
+      });
+      if (error) throw error;
+      return json({ ok: true });
     }
 
     if (action === "approve" || action === "unapprove") {

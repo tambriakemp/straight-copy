@@ -21,6 +21,7 @@ const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
 const Portal = lazy(() => import("./pages/Portal.tsx"));
 const PortalProject = lazy(() => import("./pages/PortalProject.tsx"));
 const PortalProposal = lazy(() => import("./pages/PortalProposal.tsx"));
+const PortalFeedback = lazy(() => import("./pages/PortalFeedback.tsx"));
 const BrandKit = lazy(() => import("./pages/BrandKit.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin.tsx"));
@@ -91,6 +92,12 @@ const App = () => (
             <Route path="/portal/:clientId/projects/:projectId" element={<PortalProject />} />
             <Route path="/portal/:clientId/proposals/:proposalId" element={<PortalProposal />} />
             <Route path="/portal/:clientId/brand-kit" element={<BrandKit />} />
+            {/* The feedback board, with and without a project in the path.
+                The side nav links the first; the project page links the
+                second, so a client who got there from a project lands on
+                that project's pages rather than the first one alphabetically. */}
+            <Route path="/portal/:clientId/feedback" element={<PortalFeedback />} />
+            <Route path="/portal/:clientId/projects/:projectId/feedback" element={<PortalFeedback />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/mcp-authorize" element={<McpAuthorize />} />
             <Route path="/admin/reset-password" element={<ResetPassword />} />

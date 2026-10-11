@@ -13,11 +13,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import PortalShell, { type PortalView } from "@/components/portal/PortalShell";
-import ProposalsSection from "@/components/portal/ProposalsSection";
-import InvoiceSection from "@/components/portal/InvoiceSection";
 import ProjectTypeIcon from "@/components/admin/cv/ProjectTypeIcon";
+import EmptyState from "@/components/admin/cv/EmptyState";
 import { projectTypeStyle } from "@/lib/projectType";
 import { usd } from "@/lib/clientBalance";
+import { buildFamilies } from "@/lib/proposalGroups";
+import {
+  clientGroup, CLIENT_GROUP_LABEL, CLIENT_GROUP_ORDER, type ClientProposalGroup,
+} from "@/lib/proposalStatus";
+import { bucketInvoices, type MoneyInvoice } from "@/lib/moneyRollup";
+import { FileText, Receipt } from "lucide-react";
 
 type Project = { id: string; type: string; name: string; status: string; updated_at: string };
 type PortalClient = {
@@ -35,10 +40,16 @@ const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 interface PortalProposal {
   id: string; title: string; status: string; client_project_id: string;
-  sent_at: string | null; client_signed_at: string | null; declined_at: string | null;
+  version: number; version_group_id: string | null;
+  total_cents: number | null;
+  sent_at: string | null; client_signed_at: string | null;
+  agency_countersigned_at: string | null;
+  declined_at: string | null;
 }
 interface PortalInvoice {
-  id: string; label: string; amount_cents: number; status: string; due_date: string | null;
+  id: string; label: string; amount_cents: number; status: string;
+  due_date: string | null; sent_at?: string | null; paid_at?: string | null;
+  checkout_url?: string | null; client_project_id?: string | null;
 }
 
 export default function Portal() {
@@ -72,7 +83,8 @@ export default function Portal() {
   const [view, setView] = useState<PortalView>("home");
   const [proposals, setProposals] = useState<PortalProposal[]>([]);
   const [openInvoices, setOpenInvoices] = useState<PortalInvoice[]>([]);
-  const [comingUp, setComingUp] = useState<PortalInvoice[]>([]);
+  /** Every invoice on every schedule, paid ones included. */
+  const [allInvoices, setAllInvoices] = useState<PortalInvoice[]>([]);
 
   useEffect(() => {
     if (!clientId) return;
@@ -124,17 +136,28 @@ export default function Portal() {
       ]);
       if (cancelled) return;
       setProposals((pr?.proposals ?? []) as PortalProposal[]);
-      setOpenInvoices((inv?.invoices ?? []) as PortalInvoice[]);
-      // Everything agreed but not yet sent, across every schedule.
-      const upcoming: PortalInvoice[] = [];
-      for (const p of (sched?.projects ?? []) as Array<{ schedules?: Array<{ invoices?: PortalInvoice[] }> }>) {
-        for (const s of p.schedules ?? []) {
-          for (const i of s.invoices ?? []) {
-            if (i.status !== "paid" && i.status !== "sent") upcoming.push(i);
+      const open = (inv?.invoices ?? []) as PortalInvoice[];
+      setOpenInvoices(open);
+
+      // Every invoice on every schedule, in one flat list with its
+      // project id attached — the Payments page needs paid ones too, and
+      // the schedule shape is three levels deep.
+      const flat: PortalInvoice[] = [];
+      const seen = new Set<string>();
+      for (const proj of (sched?.projects ?? []) as Array<{
+        id: string; schedules?: Array<{ invoices?: PortalInvoice[] }>;
+      }>) {
+        for (const sc of proj.schedules ?? []) {
+          for (const i of sc.invoices ?? []) {
+            flat.push({ ...i, client_project_id: i.client_project_id ?? proj.id });
+            seen.add(i.id);
           }
         }
       }
-      setComingUp(upcoming);
+      // An invoice sent outside a schedule is still an invoice. Without
+      // this a one-off bill is payable and invisible at the same time.
+      for (const i of open) if (!seen.has(i.id)) flat.push(i);
+      setAllInvoices(flat);
     })();
     return () => { cancelled = true; };
   }, [clientId]);
@@ -145,12 +168,20 @@ export default function Portal() {
     () => proposals.filter((p) => !p.client_signed_at && !p.declined_at && p.status === "sent"),
     [proposals],
   );
-  const dueNowCents = openInvoices.reduce((s, i) => s + (i.amount_cents ?? 0), 0);
-  const comingUpCents = comingUp.reduce((s, i) => s + (i.amount_cents ?? 0), 0);
+  /** The same three buckets the admin Money page uses, so a client and
+   *  Bree never read different numbers off the same invoices. */
+  const money = useMemo(
+    () => bucketInvoices(allInvoices as unknown as MoneyInvoice[]),
+    [allInvoices],
+  );
+  const dueNowCents = money.chase.reduce((t, i) => t + (i.amount_cents ?? 0), 0);
+  const comingUpCents = money.notBilledCents;
+  const comingUp = money.billsNext;
+  const paidCents = money.paid.reduce((t, i) => t + (i.amount_cents ?? 0), 0);
 
   /** The one list that says what the client has to do next. */
   const todo = useMemo(() => {
-    const out: Array<{ key: string; icon: string; title: string; sub: string; to: string; cta: string }> = [];
+    const out: Array<{ key: string; icon: string; title: string; sub: string; to: string | null; cta: string }> = [];
     for (const p of awaitingSignature) {
       out.push({
         key: `p:${p.id}`, icon: "\u270e",
@@ -164,11 +195,29 @@ export default function Portal() {
         key: `i:${i.id}`, icon: "\u0024",
         title: `Pay ${i.label}`,
         sub: `${usd(i.amount_cents)}${i.due_date ? ` · due ${i.due_date}` : ""}`,
-        to: `/portal/${clientId}${qs}`, cta: "See payments",
+        // Not a link: Payments is a view of THIS page, and a Link back to
+        // the same URL left the client on Home wondering what happened.
+        to: null, cta: "See payments",
       });
     }
     return out;
   }, [awaitingSignature, openInvoices, clientId, qs]);
+
+  // ---- Proposals -------------------------------------------------------
+  //
+  // The same families the admin list builds, filed under the three
+  // sections a CLIENT has. Versions matter here as much as they do on
+  // our side: three rows of "Menovia Phase 2" under "Needs your
+  // signature" is three things the client thinks they owe us.
+  const proposalFamilies = useMemo(() => {
+    const out = new Map<ClientProposalGroup, ReturnType<typeof buildFamilies<PortalProposal>>>();
+    for (const f of buildFamilies(proposals)) {
+      const g = clientGroup(f.current);
+      if (!g) continue;
+      out.set(g, [...(out.get(g) ?? []), f]);
+    }
+    return out;
+  }, [proposals]);
 
   /** Signed proposals and paid invoices, newest first. */
   const recent = useMemo(() => {
@@ -273,7 +322,12 @@ export default function Portal() {
             <div key={t.key} className="cv-it cv-it--onink">
               <span className="cv-ic" style={{ background: "#262B36", color: "#fff" }}>{t.icon}</span>
               <span className="cv-it__what"><b>{t.title}</b><small>{t.sub}</small></span>
-              <Link className="cv-open cv-open--white" style={{ padding: "0 16px" }} to={t.to}>{t.cta}</Link>
+              {t.to ? (
+                <Link className="cv-open cv-open--white" style={{ padding: "0 16px" }} to={t.to}>{t.cta}</Link>
+              ) : (
+                <button type="button" className="cv-open cv-open--white" style={{ padding: "0 16px" }}
+                  onClick={() => setView("payments")}>{t.cta}</button>
+              )}
             </div>
           ))}
         </section>
@@ -338,32 +392,174 @@ export default function Portal() {
     </div>
   );
 
+  const projectName = (id: string | null | undefined) =>
+    projects.find((p) => p.id === id)?.name ?? null;
+
+  const when = (iso: string | null | undefined) => iso
+    ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+    : null;
+
   const proposalsView = (
     <div className="cv-pg">
       <div>
         <h1 className="cv-page-title">Proposals</h1>
-        <p className="cv-page-sub">Everything we've sent you, and what you've signed.</p>
+        <p className="cv-page-sub">
+          Read, sign or decline a proposal here. Signed copies stay available to download.
+        </p>
       </div>
-      {/* The existing section, unchanged: it already lists every proposal
-          across every project and owns the sign and decline flow. */}
-      <ProposalsSection clientId={clientId!} contactName={client.contact_name} />
+
+      {!proposalFamilies.size ? (
+        <EmptyState
+          icon={FileText}
+          title="Nothing to read yet"
+          subtitle="When Cre8 Visions sends you a proposal, it appears here."
+        />
+      ) : CLIENT_GROUP_ORDER.map((group) => {
+        const families = proposalFamilies.get(group) ?? [];
+        if (!families.length) return null;
+        const tone = group === "to_sign" ? "amber" : group === "signed" ? "green" : "gray";
+        const tint = group === "to_sign"
+          ? { bg: "#FFF1E3", fg: "#A8440A" }
+          : group === "signed"
+            ? { bg: "#E5F6EC", fg: "#17703D" }
+            : { bg: "#EEF0F5", fg: "#3D4556" };
+        return (
+          <section key={group} className="cv-card cv-card-pad">
+            <div className="cv-card-head">
+              <h2 className="cv-card-title">{CLIENT_GROUP_LABEL[group]}</h2>
+              <span className={`cv-chip cv-chip--${tone}`}>{families.length}</span>
+            </div>
+            {families.map((f) => {
+              const p = f.current;
+              const name = projectName(p.client_project_id);
+              const line = group === "to_sign"
+                ? [name, p.sent_at ? `sent ${when(p.sent_at)}` : null].filter(Boolean).join(" · ")
+                : group === "declined"
+                  ? `Declined ${when(p.declined_at) ?? ""}`.trim()
+                  : [
+                    name,
+                    p.client_signed_at ? `signed ${when(p.client_signed_at)}` : null,
+                    p.agency_countersigned_at ? "countersigned by Cre8 Visions" : null,
+                  ].filter(Boolean).join(" · ");
+              return (
+                <div key={p.id} className="cv-it">
+                  <span className="cv-ic" style={{ background: tint.bg, color: tint.fg }}>
+                    <FileText size={22} />
+                  </span>
+                  <span className="cv-it__what">
+                    <b>{p.title}</b>
+                    <small>{line}</small>
+                  </span>
+                  {p.total_cents != null && <span className="cv-amt">{usd(p.total_cents)}</span>}
+                  <Link
+                    className={`cv-open ${group === "to_sign" ? "cv-open--dark" : ""}`}
+                    style={{ padding: "0 16px" }}
+                    to={`/portal/${clientId}/proposals/${p.id}${qs}`}
+                  >
+                    {group === "to_sign" ? "Review and sign" : "View"}
+                  </Link>
+                </div>
+              );
+            })}
+          </section>
+        );
+      })}
     </div>
   );
+
+  // ---- Payments --------------------------------------------------------
+  const invoiceRow = (i: PortalInvoice, right: React.ReactNode) => {
+    const name = projectName(i.client_project_id);
+    const sub = [
+      name,
+      i.paid_at ? `paid ${when(i.paid_at)}` : i.due_date ? `due ${i.due_date}` : "not billed yet",
+    ].filter(Boolean).join(" · ");
+    return (
+      <div key={i.id} className="cv-it">
+        <span className="cv-it__what"><b>{i.label}</b><small>{sub}</small></span>
+        <span className="cv-amt">{usd(i.amount_cents)}</span>
+        {right}
+      </div>
+    );
+  };
 
   const paymentsView = (
     <div className="cv-pg">
       <div>
         <h1 className="cv-page-title">Payments</h1>
-        <p className="cv-page-sub">What's been paid, what's due, and what's coming.</p>
+        <p className="cv-page-sub">Pay an invoice, see what's coming, and download receipts.</p>
       </div>
-      {/* Likewise: InvoiceSection is the paying surface and carries the
-          checkout links. Rehoming it here rather than rebuilding it is how
-          nothing stops working. */}
-      <InvoiceSection clientId={clientId!} />
-      {/* Subscription is NOT here yet. It needs the tier and the current
-          subscription state, both of which the project page loads — so it
-          stays there until that page is rebuilt and it can be placed
-          deliberately rather than wired half-way. */}
+
+      <div className="cv-stat-row" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+        <div className="cv-card cv-stat cv-stat--left"
+          style={dueNowCents ? { background: "var(--cv-ink)", color: "#fff" } : undefined}>
+          <span>Due now</span><b>{usd(dueNowCents)}</b>
+          <small>{dueNowCents
+            ? `${money.chase.length} invoice${money.chase.length === 1 ? "" : "s"} to pay`
+            : "You're all caught up"}</small>
+        </div>
+        <div className="cv-card cv-stat cv-stat--left">
+          <span>Coming up</span><b>{usd(comingUpCents)}</b>
+          <small>{comingUp.length
+            ? `${comingUp.length} payment${comingUp.length === 1 ? "" : "s"} not billed yet`
+            : "Nothing scheduled"}</small>
+        </div>
+        <div className="cv-card cv-stat cv-stat--left">
+          <span>Paid to date</span><b>{usd(paidCents)}</b>
+          <small>{money.paid.length} payment{money.paid.length === 1 ? "" : "s"}</small>
+        </div>
+      </div>
+
+      <section className="cv-card cv-card-pad">
+        <div className="cv-card-head"><h2 className="cv-card-title">Due now</h2></div>
+        {!money.chase.length ? (
+          <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>
+            Nothing to pay right now. When an invoice is sent it shows here with a
+            "Pay now" button that opens secure checkout.
+          </p>
+        ) : money.chase.map((i) => invoiceRow(i as PortalInvoice, (
+          (i as PortalInvoice).checkout_url
+            ? (
+              <a className="cv-open cv-open--dark" style={{ padding: "0 16px" }}
+                href={(i as PortalInvoice).checkout_url ?? "#"} target="_blank" rel="noreferrer">
+                Pay now
+              </a>
+            )
+            // No link yet is not the same as nothing owed, and saying
+            // nothing here is how a client concludes they are square.
+            : <span className="cv-chip cv-chip--amber">Payment link on its way</span>
+        )))}
+      </section>
+
+      {comingUp.length > 0 && (
+        <section className="cv-card cv-card-pad">
+          <div className="cv-card-head">
+            <h2 className="cv-card-title">Coming up</h2>
+            <span className="cv-chip cv-chip--gray">{comingUp.length}</span>
+          </div>
+          {comingUp.map((i) => invoiceRow(i as PortalInvoice,
+            <span className="cv-chip cv-chip--gray">Not billed yet</span>))}
+        </section>
+      )}
+
+      {money.paid.length > 0 && (
+        <section className="cv-card cv-card-pad">
+          <div className="cv-card-head">
+            <h2 className="cv-card-title">Paid</h2>
+            <span className="cv-chip cv-chip--green">{money.paid.length}</span>
+          </div>
+          {money.paid.map((i) => invoiceRow(i as PortalInvoice,
+            <span className="cv-chip cv-chip--green">Paid</span>))}
+        </section>
+      )}
+
+      {!allInvoices.length && (
+        <EmptyState
+          icon={Receipt}
+          title="No invoices yet"
+          subtitle="When there is something to pay, it appears here."
+        />
+      )}
     </div>
   );
 
