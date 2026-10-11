@@ -103,6 +103,36 @@ export interface ApprovalCard {
   link?: string | null;
 }
 
+// CRE-388: the brief's own markdown "Needs You" section is retired — these
+// rows merge into the Today page's live "Needs you now" panel instead (see
+// src/lib/needsYouRows.ts), sitting alongside the plain Paperclip pending
+// cards that panel already showed. `priority` drives the row's status dot
+// (orange for "high", yellow for "normal") the same way `status` drives
+// InFlightItem's icon below.
+export type NeedsYouPriority = "high" | "normal";
+export interface NeedsYouNarrativeItem {
+  id: string;
+  title: string;
+  body?: string | null;
+  next_step?: string | null;
+  priority?: NeedsYouPriority;
+  category: string;
+  task_ids?: string[];
+}
+
+// CRE-388: "In flight / stuck" — a new card, same optional/fallback
+// contract as the CRE-366 fields (present and non-empty renders the card
+// and hides the matching markdown section; absent falls back to markdown).
+export type InFlightStatus = "stuck" | "blocked" | "in_progress";
+export interface InFlightItem {
+  id: string;
+  title: string;
+  body?: string | null;
+  status: InFlightStatus;
+  category: string;
+  task_ids?: string[];
+}
+
 export interface Brief {
   id: string; period: string; title: string; sections: BriefSection[];
   calendar_events?: CalendarEvent[] | null;
@@ -111,6 +141,8 @@ export interface Brief {
   done_items?: DoneItem[] | null;
   done_range?: DoneRange | null;
   approvals?: ApprovalCard[] | null;
+  needs_you?: NeedsYouNarrativeItem[] | null;
+  in_flight?: InFlightItem[] | null;
   created_at: string; delivered_to_chat: boolean;
 }
 

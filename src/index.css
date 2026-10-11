@@ -411,6 +411,12 @@ button.cv-kpi:hover { border-color: var(--cv-accent); }
 .cv-today-body > * { min-width: 0; }
 @media (max-width: 1100px) { .cv-today-body { grid-template-columns: 1fr; } }
 
+/* CRE-388: each Today section is its own card now (clearer start/stop than
+   one shared "Morning brief" box) — these two stacks give real spacing
+   between them and, via .cv-today-body's own media query above, the
+   sidebar naturally drops below the center column on a narrow screen. */
+.cv-center-stack, .cv-sidebar-stack { display: grid; gap: 20px; align-content: start; }
+
 .cv-card-pad { padding: 20px 22px; }
 .cv-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
 .cv-card-title { font-family: var(--cv-font-serif); font-size: 19px; color: var(--cv-ink); font-weight: 500; overflow-wrap: anywhere; }
@@ -423,29 +429,63 @@ button.cv-kpi:hover { border-color: var(--cv-accent); }
 }
 .cv-filter-tab--active { background: var(--cv-accent-tint); color: var(--cv-accent); border-color: var(--cv-accent); font-weight: 500; }
 
-.cv-needs-list { display: grid; gap: 8px; }
-.cv-needs-item {
-  display: flex; justify-content: space-between; align-items: center; gap: 12px;
-  padding: 11px 14px; background: var(--cv-sunken); border: 1px solid var(--cv-border);
-  border-radius: var(--cv-r-sm); color: inherit; text-decoration: none; font-size: 14px;
-  flex-wrap: wrap;
-}
-.cv-needs-item:hover { border-color: var(--cv-accent); }
-.cv-needs-item__title { color: var(--cv-ink); overflow-wrap: anywhere; min-width: 0; }
-.cv-needs-item__kind { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cv-muted); white-space: nowrap; flex-shrink: 0; }
-
 .cv-brief-tabs { display: flex; gap: 4px; }
 .cv-brief-tab {
   font-size: 12px; padding: 5px 11px; border-radius: 999px; border: 1px solid transparent;
   background: none; color: var(--cv-muted); cursor: pointer; font-family: var(--cv-font-sans);
 }
 .cv-brief-tab--active { background: var(--cv-accent-tint); color: var(--cv-accent); font-weight: 500; }
+.cv-brief-ctrl .cv-card-head { margin-bottom: 4px; }
 
-.cv-brief-section { margin-bottom: 16px; }
-.cv-brief-section:last-child { margin-bottom: 0; }
-.cv-brief-section__heading { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cv-muted); margin-bottom: 6px; overflow-wrap: anywhere; }
-.cv-brief-section ul { margin: 0; padding-left: 18px; display: grid; gap: 5px; }
-.cv-brief-section li { font-size: 14px; color: var(--cv-body); overflow-wrap: anywhere; }
+/* ---------- SectionCard: the shared "clear section" header (CRE-388) ---------- */
+/* Every center/sidebar card on Today gets this: an icon + title + count
+   badge header bar, on top of Card's own border, so Bree can see where
+   one section stops and the next starts without reading the whole page. */
+.cv-section__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.cv-section__title { display: flex; align-items: center; gap: 8px; font-family: var(--cv-font-serif); font-size: 17px; font-weight: 500; color: var(--cv-ink); }
+.cv-section__icon {
+  width: 24px; height: 24px; border-radius: 7px; background: var(--cv-accent-tint); color: var(--cv-accent);
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.cv-section__count { font-size: 11px; font-weight: 700; color: var(--cv-muted); background: var(--cv-sunken); border: 1px solid var(--cv-border); border-radius: 999px; padding: 1px 8px; }
+.cv-section__body { min-width: 0; }
+
+/* Money/Pipeline/Done/Approvals/Calendar keep their own hand-built eyebrow
+   header (CRE-366/CRE-358) rather than SectionCard — this reuses the same
+   icon-chip + count-badge look inside that header instead of a second
+   component, so every section header reads the same regardless of which
+   one renders it. */
+.cv-money__eyebrow, .cv-pbrief__eyebrow, .cv-donetl__eyebrow, .cv-approvals__eyebrow, .cv-weekcal__eyebrow {
+  display: flex; align-items: center; gap: 6px;
+}
+.cv-money__eyebrow .cv-section__icon, .cv-pbrief__eyebrow .cv-section__icon,
+.cv-donetl__eyebrow .cv-section__icon, .cv-approvals__eyebrow .cv-section__icon,
+.cv-weekcal__eyebrow .cv-section__icon { width: 20px; height: 20px; border-radius: 6px; }
+
+/* ---------- Needs-you-now / In-flight rows (CRE-388) ---------- */
+/* Same dot-timeline look as .cv-donetl (Done since last digest), reused
+   for the merged Needs-you-now list and the new In-flight/stuck card —
+   .cv-nyrow__node is a plain colored dot for a priority row, or a small
+   colored icon badge for an in-flight status row. */
+.cv-nylist { display: grid; gap: 2px; }
+.cv-nyrow { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 10px 0; }
+.cv-nyrow + .cv-nyrow { border-top: 1px solid var(--cv-border); }
+.cv-nyrow__node {
+  width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  margin-top: 1px; flex-shrink: 0; box-shadow: 0 0 0 4px var(--cv-card);
+}
+.cv-nyrow__body { min-width: 0; }
+.cv-nyrow__h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cv-nyrow__h b { font-size: 13.5px; font-weight: 600; color: var(--cv-ink); }
+.cv-nyrow__desc { font-size: 12.5px; color: var(--cv-body); line-height: 1.45; margin-top: 3px; overflow-wrap: anywhere; }
+.cv-nyrow__next { font-size: 12.5px; color: var(--cv-muted); line-height: 1.45; margin-top: 3px; overflow-wrap: anywhere; }
+.cv-nyrow__next b { color: var(--cv-body); font-weight: 600; }
+.cv-nyrow__r { display: flex; align-items: center; gap: 8px; padding-top: 1px; }
+.cv-nyrow__refs { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .cv-nyrow { grid-template-columns: 16px 1fr; }
+  .cv-nyrow__r { grid-column: 2; justify-content: flex-start; margin-top: 6px; }
+}
 
 .cv-past-brief-row { display: block; width: 100%; text-align: left; padding: 8px 10px; border: none; background: none; cursor: pointer; border-radius: var(--cv-r-sm); font-family: var(--cv-font-sans); }
 .cv-past-brief-row:hover { background: var(--cv-sunken); }

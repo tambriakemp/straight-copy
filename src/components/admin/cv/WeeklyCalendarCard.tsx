@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { ArrowRight, Check, Home, X } from "lucide-react";
+import { ArrowRight, Calendar, Check, Home, X } from "lucide-react";
 import type { CalendarEvent, CalendarEventType } from "@/lib/briefs";
 import { LinkifiedText } from "./IssueLinks";
 
@@ -207,7 +207,11 @@ export default function WeeklyCalendarCard({ events }: { events: CalendarEvent[]
     <div className="cv-weekcal">
       <div className="cv-weekcal__head">
         <div>
-          <div className="cv-weekcal__eyebrow">Calendar</div>
+          <div className="cv-weekcal__eyebrow">
+            <span className="cv-section__icon"><Calendar size={13} /></span>
+            Calendar
+            <span className="cv-section__count">{events.length}</span>
+          </div>
           <div className="cv-weekcal__title">
             <h3>This week</h3>
             <span className="cv-weekcal__range">{formatRange(isoDate(day0), isoDate(day6))}</span>

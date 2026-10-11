@@ -10,7 +10,8 @@
 // adding a fifth pill the mockup didn't ask for. Flagged in the CRE-366 PR
 // for Bree/Ara to confirm.
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Workflow } from "lucide-react";
+import Card from "./Card";
 import CvCheckbox from "./CvCheckbox";
 import { IssueRefChips, LinkifiedText } from "./IssueLinks";
 import { formatMoney } from "@/lib/adminOperations";
@@ -75,13 +76,24 @@ export default function PipelineBriefCard({
   const barWidth = (n: number) => (n > 0 ? Math.max(8, Math.round((n / maxCount) * 100)) : 0);
 
   const hasStages = Boolean(board) && !error;
+  // CRE-388: unlike Money/Done/Approvals/Calendar, whether this card has
+  // anything to show depends on an async fetch (loadPipelineBoard), so
+  // Today.tsx can't know ahead of render whether to mount its own wrapping
+  // Card without a flash-of-empty-box. This component owns its own outer
+  // Card instead, gated on the exact same check as the null-return below.
   if (!hasStages && !outreachRound && !hotLeads.length) return null;
+  const openCount = hasStages ? (lead?.count ?? 0) + (intake?.count ?? 0) + proposal.count : hotLeads.length;
 
   return (
+    <Card className="cv-card-pad">
     <div className="cv-pbrief">
       <div className="cv-pbrief__head">
         <div>
-          <div className="cv-pbrief__eyebrow">Pipeline</div>
+          <div className="cv-pbrief__eyebrow">
+            <span className="cv-section__icon"><Workflow size={13} /></span>
+            Pipeline
+            <span className="cv-section__count">{openCount}</span>
+          </div>
           <div className="cv-pbrief__title"><h3>Deals &amp; prospects</h3><span className="cv-pbrief__range">SureContact stages</span></div>
         </div>
         <div className="cv-pbrief__legend">
@@ -179,5 +191,6 @@ export default function PipelineBriefCard({
         </>
       )}
     </div>
+    </Card>
   );
 }
