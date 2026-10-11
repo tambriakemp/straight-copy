@@ -6,11 +6,21 @@
 // rendered here into the same kind of artifact an uploaded PDF is — which means
 // draft, send, sign and countersign all work on one path.
 //
-// The Cre8 Visions palette and typographic hierarchy are reproduced with
-// pdf-lib's standard fonts: Times for the Georgia display faces, Helvetica for
-// the Arial body. Not identical to the docx template, deliberately close.
+// The Cre8 Visions palette and typographic hierarchy: Gelasio for the Georgia
+// display faces, embedded, and Helvetica for the Arial body, which is standard
+// and needs no embedding because Helvetica is what Arial was drawn to match.
+// The reasoning and the licensing position are in ./fonts/gelasio.ts.
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
-import { liftThesis, stripSectionNumber, writtenSections, type ProposalContent } from "./agents/proposal-spine.ts";
+import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
+import { gelasioItalic, gelasioRegular } from "./fonts/gelasio.ts";
+import {
+  liftThesis,
+  parseTable,
+  stripSectionNumber,
+  writtenSections,
+  type ProposalContent,
+  type ProposalTable,
+} from "./agents/proposal-spine.ts";
 
 const PAGE_W = 612;   // US Letter, 72dpi
 const PAGE_H = 792;
@@ -24,6 +34,7 @@ const TAUPE = rgb(0xa8 / 255, 0x9f / 255, 0x94 / 255);
 const SAND = rgb(0xd4 / 255, 0xcc / 255, 0xbf / 255);
 const CREAM = rgb(0xf5 / 255, 0xf2 / 255, 0xee / 255);
 const SOFT_GRAY = rgb(0x9a / 255, 0x93 / 255, 0x8a / 255);
+const MIST = rgb(0xe8 / 255, 0xe4 / 255, 0xdf / 255);
 
 interface Fonts {
   body: Awaited<ReturnType<PDFDocument["embedFont"]>>;
@@ -123,7 +134,151 @@ class Cursor {
   }
 }
 
-/** Draw the section body, honouring the four constructs the brief allows. */
+/**
+ * `| **Total** | **Monthly** | **$3,200** |` — the one row in an investment
+ * table that must not look like every other row. `plain()` strips the asterisks
+ * for drawing, so without this the total is set in the same weight as the line
+ * items and the eye has nothing to land on. The HTML renderer gets this free
+ * from `<strong>`.
+ */
+const WHOLLY_BOLD = /^\*\*(.+?)\*\*$/;
+const isBoldCell = (s: string) => WHOLLY_BOLD.test(s.trim());
+
+const TABLE_HEAD_SIZE = 7.5;
+const TABLE_CELL_SIZE = 9;
+const TABLE_PAD = 10;      // gutter between columns
+const TABLE_LEAD = 13;
+
+/**
+ * Column widths: every column gets at least its widest single word, then the
+ * rest of the line is shared out in proportion to how much more each column
+ * wanted. Scaling naive proportions alone squeezes a money column below the
+ * width of "$12,000" and wraps it mid-number, which looks like a typo in a
+ * price list.
+ */
+function columnWidths(c: Cursor, t: ProposalTable): number[] {
+  const min: number[] = [];
+  const nat: number[] = [];
+
+  for (let col = 0; col < t.head.length; col++) {
+    const raw = [t.head[col] ?? "", ...t.rows.map((r) => r[col] ?? "")];
+    const cells = raw.map((v, idx) => (idx === 0 ? plain(v).toUpperCase() : plain(v)));
+    let mn = 0;
+    let nt = 0;
+    cells.forEach((text, idx) => {
+      const bold = idx === 0 || isBoldCell(raw[idx]);
+      const font = bold ? c.fonts.bodyBold : c.fonts.body;
+      const size = idx === 0 ? TABLE_HEAD_SIZE : TABLE_CELL_SIZE;
+      nt = Math.max(nt, font.widthOfTextAtSize(text, size));
+      for (const word of text.split(/\s+/).filter(Boolean)) {
+        mn = Math.max(mn, font.widthOfTextAtSize(word, size));
+      }
+    });
+    min.push(mn + TABLE_PAD);
+    nat.push(nt + TABLE_PAD);
+  }
+
+  const natTotal = nat.reduce((a, b) => a + b, 0);
+  if (natTotal <= 0) return nat;
+  if (natTotal <= CONTENT_W) {
+    const slack = CONTENT_W - natTotal;
+    return nat.map((w) => w + slack * (w / natTotal));
+  }
+
+  const minTotal = min.reduce((a, b) => a + b, 0);
+  // Pathological — one unbreakable word wider than the page. Scale and let it clip.
+  if (minTotal >= CONTENT_W) return min.map((w) => w * (CONTENT_W / minTotal));
+
+  const want = nat.map((w, i) => w - min[i]);
+  const wantTotal = want.reduce((a, b) => a + b, 0);
+  const spare = CONTENT_W - minTotal;
+  return min.map((w, i) => w + (wantTotal ? spare * (want[i] / wantTotal) : 0));
+}
+
+function drawTable(c: Cursor, t: ProposalTable) {
+  const widths = columnWidths(c, t);
+  const xs: number[] = [];
+  let x = MARGIN;
+  for (const w of widths) { xs.push(x); x += w; }
+
+  // The header is bold throughout; a body cell is bold only if it was written
+  // that way, which is how a total row keeps its weight.
+  const fontsFor = (cells: string[], head: boolean) =>
+    cells.map((v) => (head || isBoldCell(v) ? c.fonts.bodyBold : c.fonts.body));
+
+  const wrapRow = (cells: string[], head: boolean, size: number) => {
+    const fonts = fontsFor(cells, head);
+    return cells.map((v, col) =>
+      wrap(plain(v), fonts[col], size, Math.max(12, widths[col] - TABLE_PAD)));
+  };
+
+  const heightOf = (wrapped: string[][], lead: number) =>
+    Math.max(1, ...wrapped.map((l) => l.length)) * lead;
+
+  // No room check inside: callers decide where a row may land, because the
+  // header has to be redrawn after a break and a mid-row break would orphan it.
+  const drawRow = (
+    cells: string[],
+    head: boolean,
+    size: number,
+    color: typeof INK,
+    lead: number,
+  ) => {
+    const fonts = fontsFor(cells, head);
+    const wrapped = wrapRow(cells, head, size);
+    const top = c.y;
+    wrapped.forEach((lines, col) => {
+      const font = fonts[col];
+      let y = top - size;
+      for (const line of lines) {
+        const w = font.widthOfTextAtSize(line, size);
+        const inner = widths[col] - TABLE_PAD;
+        let lx = xs[col];
+        if (t.align[col] === "right") lx = xs[col] + inner - w;
+        else if (t.align[col] === "center") lx = xs[col] + (inner - w) / 2;
+        c.page.drawText(line, { x: lx, y, size, font, color });
+        y -= lead;
+      }
+    });
+    c.y = top - heightOf(wrapped, lead);
+  };
+
+  const rule = (color: typeof SAND, thickness: number) => {
+    c.page.drawLine({
+      start: { x: MARGIN, y: c.y }, end: { x: MARGIN + CONTENT_W, y: c.y },
+      thickness, color,
+    });
+  };
+
+  const header = () => {
+    drawRow(t.head.map((h) => h.toUpperCase()), true, TABLE_HEAD_SIZE, BRONZE, 11);
+    c.y -= 4;
+    rule(SAND, 0.75);
+    c.y -= 9;
+  };
+
+  c.gap(10);
+  // A header alone at the foot of a page is worse than a slightly short page.
+  c.room(64);
+  header();
+
+  t.rows.forEach((row, idx) => {
+    const needed = heightOf(wrapRow(row, false, TABLE_CELL_SIZE), TABLE_LEAD) + 12;
+    const fresh = c.y >= PAGE_H - MARGIN - 1;
+    if (c.y - needed < MARGIN + 40 && !fresh) {
+      c.break();
+      header();
+    }
+    drawRow(row, false, TABLE_CELL_SIZE, CHARCOAL, TABLE_LEAD);
+    c.y -= 6;
+    rule(idx === t.rows.length - 1 ? SAND : MIST, idx === t.rows.length - 1 ? 0.75 : 0.5);
+    c.y -= 6;
+  });
+
+  c.gap(6);
+}
+
+/** Draw the section body, honouring the five constructs the brief allows. */
 function drawBody(c: Cursor, md: string) {
   const lines = md.split(/\r?\n/);
   let i = 0;
@@ -131,6 +286,13 @@ function drawBody(c: Cursor, md: string) {
     const line = lines[i].trimEnd();
 
     if (!line.trim()) { c.gap(6); i++; continue; }
+
+    const parsed = parseTable(lines, i);
+    if (parsed) {
+      drawTable(c, parsed.table);
+      i = parsed.next;
+      continue;
+    }
 
     if (line.startsWith("## ")) {
       c.gap(12);
@@ -200,11 +362,28 @@ export async function renderProposalPdf(
   content: ProposalContent,
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
+
+  // A proposal that renders in the wrong serif is worth far more than one that
+  // does not render at all, so a font problem degrades to the old Times pair
+  // rather than throwing. It logs, because a silent downgrade on a document
+  // that goes to a client is the thing actually worth knowing about.
+  let display: Fonts["display"];
+  let displayItalic: Fonts["displayItalic"];
+  try {
+    doc.registerFontkit(fontkit);
+    display = await doc.embedFont(gelasioRegular(), { subset: true });
+    displayItalic = await doc.embedFont(gelasioItalic(), { subset: true });
+  } catch (err) {
+    console.error("[proposal-pdf] Gelasio embed failed, falling back to Times:", err);
+    display = await doc.embedFont(StandardFonts.TimesRoman);
+    displayItalic = await doc.embedFont(StandardFonts.TimesRomanItalic);
+  }
+
   const fonts: Fonts = {
     body: await doc.embedFont(StandardFonts.Helvetica),
     bodyBold: await doc.embedFont(StandardFonts.HelveticaBold),
-    display: await doc.embedFont(StandardFonts.TimesRoman),
-    displayItalic: await doc.embedFont(StandardFonts.TimesRomanItalic),
+    display,
+    displayItalic,
   };
 
   const cover = content.cover ?? {};
