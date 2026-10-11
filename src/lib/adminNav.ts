@@ -35,11 +35,12 @@ const cvMarketing: CvNavItem = { to: "/admin/marketing", label: "Marketing", ico
 const cvMore: CvNavItem = { to: "/admin/more", label: "More", icon: Grid2x2 };
 
 /**
- * Whether a nav item should show active for the current path. One spot for
- * the exception: /admin/prospects is a pure redirect to /admin/approvals
- * until Phase 3 (the Oct 12 outreach hold), so Prospects should still
- * highlight once you land there — otherwise clicking it looks like it goes
- * nowhere.
+ * Whether a nav item should show active for the current path.
+ *
+ * /admin/approvals is the old name for Prospects and redirects to it, so
+ * the exception below is only for the instant before that redirect
+ * resolves — without it, following an old link flashes a nav with nothing
+ * highlighted.
  */
 export function isCvNavActive(pathname: string, to: string): boolean {
   if (to === "/admin/prospects" && pathname.startsWith("/admin/approvals")) return true;

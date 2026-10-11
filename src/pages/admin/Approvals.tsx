@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  Check, Copy, ExternalLink, Eye, EyeOff, FileText, History, Paperclip, RefreshCw, Send, Settings, Upload, X,
+  Check, Copy, Eye, EyeOff, ExternalLink, FileText, History, Paperclip, RefreshCw, Settings, X,
 } from "lucide-react";
-import { Link } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
-import PageHeader from "@/components/admin/cv/PageHeader";
 import EmptyState from "@/components/admin/cv/EmptyState";
-import StatusChip from "@/components/admin/cv/StatusChip";
 import { supabase } from "@/integrations/supabase/client";
+import SidePanel from "@/components/admin/SidePanel";
+import { nextCutoffLabel, roundProgress } from "@/lib/prospectRound";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
@@ -104,8 +103,6 @@ interface FeedbackRound {
   attachments: FeedbackAttachment[];
 }
 
-const STATUS_LABEL: Record<Status, string> = { pending: "Pending", approved: "Approved", rejected: "Rejected" };
-
 function openInNewTab(url: string | null | undefined) {
   if (url) window.open(url, "_blank", "noopener,noreferrer");
 }
@@ -182,15 +179,22 @@ export default function Approvals() {
   const { user } = useAdminAuth();
   const [prospects, setProspects] = useState<Prospect[] | null>(null);
   const [batch, setBatch] = useState<string>("all");
-  const [status, setStatus] = useState<"all" | Status>("pending");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [panelId, setPanelId] = useState<string | null>(null);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [attachmentDrafts, setAttachmentDrafts] = useState<Record<string, AttachmentDraft[]>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [panelHistory, setPanelHistory] = useState<FeedbackRound[] | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  /** Which prospect the right-hand panel is showing. */
+  const [currentId, setCurrentId] = useState<string | null>(null);
+  /** "New design" or "Current site" in the compare toggle. */
+  const [compare, setCompare] = useState<"new" | "current">("new");
+  /**
+   * Skipped this session only. Nothing is written: skipping is looking and
+   * moving on, and it is still pending at the cutoff — recording it would
+   * turn "I'll come back to this" into a decision.
+   */
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
 
   const load = async () => {
     const { data, error } = await db.from("prospect_approvals").select("*")
@@ -215,16 +219,6 @@ export default function Approvals() {
     () => (prospects ?? []).filter((p) => batch === "all" || p.batch === batch),
     [prospects, batch],
   );
-  const filtered = useMemo(
-    () => scoped.filter((p) => status === "all" || p.status === status),
-    [scoped, status],
-  );
-  const counts = useMemo(() => ({
-    all: scoped.length,
-    pending: scoped.filter((p) => p.status === "pending").length,
-    approved: scoped.filter((p) => p.status === "approved").length,
-    rejected: scoped.filter((p) => p.status === "rejected").length,
-  }), [scoped]);
 
   // Attachments are uploaded only at save time — a panel opened, attached-to,
   // then closed without submitting leaves no orphan files in the bucket.
@@ -352,31 +346,9 @@ export default function Approvals() {
     setBusyId(null);
     if (error) { toast.error(error.message); return; }
     toast.success(next === "approved" ? "Approved" : "Rejected");
-    setSelected((s) => { const n = new Set(s); n.delete(id); return n; });
     setPanelId((p) => (p === id ? null : p));
     load();
   };
-
-  const bulkApprove = async () => {
-    const ids = Array.from(selected);
-    if (!ids.length) return;
-    const { error } = await db.from("prospect_approvals").update({
-      status: "approved",
-      decided_at: new Date().toISOString(),
-      decided_by: user?.email ?? null,
-      updated_at: new Date().toISOString(),
-    }).in("id", ids);
-    if (error) { toast.error(error.message); return; }
-    toast.success(`Approved ${ids.length}`);
-    setSelected(new Set());
-    load();
-  };
-
-  const toggle = (id: string) => setSelected((s) => {
-    const n = new Set(s);
-    if (n.has(id)) n.delete(id); else n.add(id);
-    return n;
-  });
 
   const addAttachmentFiles = (id: string, files: FileList | File[] | null) => {
     if (!files) return;
@@ -398,7 +370,7 @@ export default function Approvals() {
     });
   };
 
-  const panelProspect = filtered.find((p) => p.id === panelId) ?? null;
+  const panelProspect = (prospects ?? []).find((p) => p.id === panelId) ?? null;
   const panelAttachments = panelId ? attachmentDrafts[panelId] ?? [] : [];
 
   useEffect(() => {
@@ -411,385 +383,409 @@ export default function Approvals() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panelId]);
 
+  // The round the queue is showing, as the canvas's header reads it.
+  const roundStatuses = scoped.map((p) => p.status);
+  const progress = roundProgress(roundStatuses, skipped.size);
+  const cutoff = nextCutoffLabel();
+
+  // The queue is the round in the order it was ingested, pending first:
+  // you work down it, and a decided one dropping out from under the
+  // cursor would lose your place. They stay, greyed by their pill.
+  const queue = scoped;
+  const current = queue.find((p) => p.id === currentId) ?? queue[0] ?? null;
+
+  const advance = (fromId: string) => {
+    const i = queue.findIndex((p) => p.id === fromId);
+    const next = queue.slice(i + 1).find((p) => p.status === "pending" && !skipped.has(p.id));
+    setCurrentId(next?.id ?? null);
+  };
+
+  const skip = (id: string) => {
+    // No write. Skipping is looking and moving on; it is still pending at
+    // the cutoff, and saying otherwise in the database would turn "I'll
+    // come back to this" into a decision.
+    setSkipped((s) => new Set(s).add(id));
+    advance(id);
+  };
+
+  const approve = async (id: string) => {
+    await decide(id, "approved");
+    advance(id);
+  };
+
+  const previewSrc = current
+    ? (compare === "current" ? current.current_site_url : current.preview_url)
+    : null;
+  const posterSrc = current && compare === "new" ? current.preview_image_url : null;
+
   return (
-    <AdminLayout>
-      <div className="cv-admin" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-        <PageHeader
-          eyebrow="Daily / Prospects"
-          title="Prospect approvals"
-          subtitle={
-            <>
-              Review this batch's redesigns and send copy before Monday's send.{" "}
-              <Link to="/admin/today" style={{ color: "var(--cv-accent)" }}>Today →</Link>
-            </>
-          }
-          right={
-            <button
-              type="button"
-              className="cv-sync-btn"
-              aria-label="Settings"
-              onClick={() => setSettingsOpen(true)}
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </button>
-          }
-        />
+    <AdminLayout topBar={false}>
+      <div className="cv-admin cv-page" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
 
-        <div style={{ padding: "0 32px 32px" }}>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
-            <select
-              value={batch}
-              onChange={(e) => setBatch(e.target.value)}
-              aria-label="Choose batch"
-              style={{
-                fontSize: 13, color: "var(--cv-body)", background: "var(--cv-card)",
-                border: "1px solid var(--cv-border-strong)", borderRadius: "var(--cv-r-sm)",
-                padding: "7px 10px", fontFamily: "var(--cv-font-sans)", minWidth: 180,
-              }}
-            >
-              <option value="all">All batches</option>
-              {batches.map((b) => <option key={b} value={b}>{b}</option>)}
-            </select>
-            <div className="cv-filter-tabs">
-              {(["pending", "approved", "rejected", "all"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  className={`cv-filter-tab ${status === s ? "cv-filter-tab--active" : ""}`}
-                  onClick={() => setStatus(s)}
-                >
-                  {s === "all" ? "All" : STATUS_LABEL[s]} {counts[s]}
-                </button>
-              ))}
-            </div>
-            {selected.size > 0 && (
-              <button className="cv-btn-primary" onClick={bulkApprove} style={{ marginLeft: "auto" }}>
-                <Check className="h-3 w-3" /> Approve {selected.size} selected
-              </button>
-            )}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+          <div style={{ flex: "1 1 300px", minWidth: 0 }}>
+            <h1 className="cv-page-title">Prospects</h1>
+            <p className="cv-page-sub">
+              Review each redesigned homepage before it goes out. Approved ones
+              are emailed at the cutoff.
+            </p>
           </div>
-
-          {!prospects ? (
-            <div style={{ fontSize: 14, color: "var(--cv-muted)" }}>Loading…</div>
-          ) : !filtered.length ? (
-            <EmptyState title="Nothing here" subtitle={`No ${status === "all" ? "" : status} prospects in this batch.`} />
-          ) : (
-            <div className="cv-card" style={{ overflow: "hidden" }}>
-              {filtered.map((p, i) => (
-                <div
-                  key={p.id}
-                  style={{
-                    display: "grid", gridTemplateColumns: "28px 72px 2fr 0.7fr 2.4fr", gap: 14,
-                    alignItems: "center", padding: "14px 16px",
-                    borderTop: i === 0 ? "none" : "1px solid var(--cv-border)",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    disabled={p.status !== "pending"}
-                    checked={selected.has(p.id)}
-                    onChange={() => toggle(p.id)}
-                  />
-                  {p.preview_url ? (
-                    <img
-                      src={p.preview_image_url ?? `${p.preview_url.replace(/\/$/, "")}/preview.jpg`}
-                      alt={p.company}
-                      style={{ width: 64, height: 48, objectFit: "cover", background: "var(--cv-sunken)", borderRadius: "var(--cv-r-sm)" }}
-                      onError={(e) => { (e.target as HTMLImageElement).style.visibility = "hidden"; }}
-                    />
-                  ) : <div style={{ width: 64, height: 48, background: "var(--cv-sunken)", borderRadius: "var(--cv-r-sm)" }} />}
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 15, color: "var(--cv-ink)" }}>{p.company}</div>
-                    <div style={{ fontSize: 13, color: "var(--cv-muted)" }}>
-                      {p.city}{p.trade ? ` · ${p.trade}` : ""}
-                    </div>
-                  </div>
-                  <div><StatusChip label={STATUS_LABEL[p.status]} status={p.status} /></div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "flex-end" }}>
-                    <button
-                      type="button"
-                      className="cv-sync-btn"
-                      disabled={!p.current_site_url}
-                      title={p.current_site_url ? undefined : "No site on file for this prospect"}
-                      onClick={() => openInNewTab(p.current_site_url)}
-                    >
-                      Current site{!p.current_site_url && <span>(no site)</span>}
-                    </button>
-                    <button
-                      type="button"
-                      className="cv-sync-btn"
-                      disabled={!p.preview_url}
-                      onClick={() => openInNewTab(p.preview_url)}
-                    >
-                      Preview <ExternalLink className="h-3 w-3" />
-                    </button>
-                    {p.status === "pending" && (
-                      <>
-                        <button
-                          type="button"
-                          className="cv-sync-btn"
-                          onClick={() => setPanelId(p.id)}
-                        >
-                          + Note
-                        </button>
-                        <button
-                          type="button"
-                          className="cv-btn-primary"
-                          disabled={busyId === p.id}
-                          onClick={() => decide(p.id, "approved")}
-                        >
-                          <Check className="h-3 w-3" /> Approve
-                        </button>
-                        <button
-                          type="button"
-                          className="cv-sync-btn"
-                          disabled={busyId === p.id}
-                          onClick={() => setPanelId(p.id)}
-                        >
-                          <X className="h-3 w-3" /> Reject
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {batches.map((b) => {
+            const pending = (prospects ?? []).filter((p) => p.batch === b && p.status === "pending").length;
+            return (
+              <button
+                key={b}
+                type="button"
+                className={`cv-tabpill ${batch === b ? "cv-tabpill--on" : ""}`}
+                onClick={() => { setBatch(b); setCurrentId(null); setSkipped(new Set()); }}
+              >
+                {b} · {pending} pending
+              </button>
+            );
+          })}
+          <button type="button" className="cv-open" style={{ padding: "0 16px" }} onClick={() => setSettingsOpen(true)}>
+            <Settings size={15} style={{ marginRight: 7 }} /> Settings
+          </button>
         </div>
-      </div>
 
-      <Sheet open={!!panelProspect} onOpenChange={(v) => { if (!v) setPanelId(null); }}>
-        <SheetContent
-          side="right"
-          style={{ background: "hsl(36 5% 16%)", color: "hsl(40 20% 97%)", borderColor: "hsl(40 20% 97% / 0.10)" }}
-          className="!w-full sm:!max-w-xl overflow-y-auto"
+        <section
+          className="cv-card cv-card-pad"
+          style={{ background: "var(--cv-ink)", color: "#fff", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 18 }}
         >
-          {panelProspect && (
-            <>
-              <SheetHeader>
-                <SheetTitle className="font-serif italic text-2xl" style={{ color: "hsl(40 20% 97%)" }}>
-                  {panelProspect.company}
-                </SheetTitle>
-                <SheetDescription style={{ fontSize: 15, color: "hsl(30 8% 62%)" }}>
-                  {panelProspect.city}{panelProspect.trade ? ` · ${panelProspect.trade}` : ""} · batch {panelProspect.batch}
-                </SheetDescription>
-              </SheetHeader>
+          <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+            <div style={{ fontSize: 14, color: "#C9CFDB" }}>Cutoff</div>
+            <div style={{ fontSize: 24, fontWeight: 600, lineHeight: 1.2 }}>{cutoff}</div>
+            <div style={{ fontSize: 13, color: "#C9CFDB" }}>
+              Anything still pending then counts as a no. Emails send right after.
+            </div>
+          </div>
+          <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#C9CFDB", marginBottom: 6 }}>
+              <span>{progress.approved} approved · {progress.sentBack} sent back · {progress.skipped} skipped</span>
+              <span>{progress.pending} to go</span>
+            </div>
+            <span className="cv-bar cv-bar--invert" style={{ height: 10 }}>
+              <i style={{ width: `${progress.pct}%` }} />
+            </span>
+          </div>
+        </section>
 
-              <div style={{ display: "flex", gap: 8, margin: "14px 0 6px" }}>
-                <button
-                  type="button"
-                  className="crm-btn crm-btn--ghost crm-btn--sm"
-                  disabled={!panelProspect.current_site_url}
-                  title={panelProspect.current_site_url ? undefined : "No site on file for this prospect"}
-                  onClick={() => openInNewTab(panelProspect.current_site_url)}
-                >
-                  Current site{!panelProspect.current_site_url && <span>(no site)</span>}
-                </button>
-                <button
-                  type="button"
-                  className="crm-btn crm-btn--ghost crm-btn--sm"
-                  disabled={!panelProspect.preview_url}
-                  onClick={() => openInNewTab(panelProspect.preview_url)}
-                >
-                  Preview <ExternalLink className="h-3 w-3" />
-                </button>
+        {!prospects ? (
+          <p className="cv-page-sub">Loading…</p>
+        ) : !queue.length ? (
+          <EmptyState
+            title="Nothing in this round"
+            subtitle="Prospect previews land here when the outreach routine ingests a batch."
+          />
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
+            <section
+              className="cv-card"
+              style={{ flex: "1 1 280px", minWidth: 0, padding: 16, maxHeight: "calc(100vh - 40px)", overflow: "auto", position: "sticky", top: 20 }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 6px 12px" }}>
+                <span style={{ fontWeight: 600 }}>Queue</span>
+                <span className="cv-chip cv-chip--gray">{queue.length} in this round</span>
               </div>
+              {queue.map((p) => {
+                const tone = p.status === "approved" ? "green" : p.status === "rejected" ? "red"
+                  : skipped.has(p.id) ? "gray" : "amber";
+                const label = p.status === "approved" ? "Approved" : p.status === "rejected" ? "Sent back"
+                  : skipped.has(p.id) ? "Skipped" : "Pending";
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`cv-q ${current?.id === p.id ? "cv-q--on" : ""}`}
+                    onClick={() => setCurrentId(p.id)}
+                  >
+                    <span className="cv-q__who">
+                      <b>{p.company}</b>
+                      <small>{[p.trade, p.city].filter(Boolean).join(" · ") || "No sector on file"}</small>
+                    </span>
+                    <span className={`cv-chip cv-chip--${tone}`}>{label}</span>
+                  </button>
+                );
+              })}
+            </section>
 
-              <label className="crm-label" style={{ display: "block", marginTop: 14 }}>
-                New round {panelHistory && panelHistory.length > 0 ? `(round ${panelHistory[0].round + 1})` : "(round 1)"}
-              </label>
-              <textarea
-                className="crm-input"
-                placeholder="Notes for Nicole — what should change? (encouraged, optional)"
-                value={noteDrafts[panelProspect.id] ?? ""}
-                onChange={(e) => setNoteDrafts((d) => ({ ...d, [panelProspect.id]: e.target.value }))}
-                style={{ width: "100%", minHeight: 140, margin: "8px 0 14px", fontFamily: "inherit" }}
-                autoFocus
-              />
-
-              <div style={{ marginBottom: 18 }}>
-                <label className="crm-label" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                  <Paperclip className="h-3.5 w-3.5" /> Attachments
-                </label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept={ACCEPTED_ATTACHMENT_TYPES.join(",")}
-                  multiple
-                  style={{ display: "none" }}
-                  onChange={(e) => { addAttachmentFiles(panelProspect.id, e.target.files); e.target.value = ""; }}
-                />
-                <div
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => { e.preventDefault(); addAttachmentFiles(panelProspect.id, e.dataTransfer.files); }}
-                  onPaste={(e) => {
-                    const files = Array.from(e.clipboardData?.files ?? []);
-                    if (files.length) addAttachmentFiles(panelProspect.id, files);
-                  }}
-                  tabIndex={0}
-                  style={{
-                    border: "1px dashed hsl(40 20% 97% / 0.18)",
-                    borderRadius: 8,
-                    padding: panelAttachments.length ? 12 : "20px 12px",
-                    background: "hsl(40 20% 97% / 0.02)",
-                  }}
-                >
-                  {panelAttachments.length === 0 ? (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "hsl(30 8% 62%)", fontSize: 14 }}>
-                        <Upload className="h-3.5 w-3.5" /> Drop or paste screenshots here, PNG/JPG/WebP/PDF up to 10 MB
-                      </div>
-                      <button
-                        type="button"
-                        className="crm-btn crm-btn--ghost crm-btn--sm"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Paperclip className="h-3 w-3" /> Attach
-                      </button>
+            {current && (
+              <section
+                className="cv-card cv-card-pad"
+                style={{ flex: "3 1 520px", minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}
+              >
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+                  <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                    <h2 className="cv-card-title">{current.company}</h2>
+                    <div style={{ fontSize: 14, color: "var(--cv-muted)" }}>
+                      {[current.trade, current.city].filter(Boolean).join(" · ") || "No sector on file"}
                     </div>
+                  </div>
+                  <span className="cv-viewseg" role="group" aria-label="Compare">
+                    <button
+                      type="button"
+                      className={`cv-viewseg__btn ${compare === "new" ? "cv-viewseg__btn--on" : ""}`}
+                      onClick={() => setCompare("new")}
+                    >
+                      New design
+                    </button>
+                    <button
+                      type="button"
+                      className={`cv-viewseg__btn ${compare === "current" ? "cv-viewseg__btn--on" : ""}`}
+                      onClick={() => setCompare("current")}
+                      disabled={!current.current_site_url}
+                      title={current.current_site_url ? undefined : "No current site on file for this prospect"}
+                    >
+                      Current site
+                    </button>
+                  </span>
+                  <button
+                    type="button"
+                    className="cv-open"
+                    style={{ padding: "0 16px", minHeight: 44 }}
+                    disabled={!previewSrc}
+                    onClick={() => openInNewTab(previewSrc)}
+                  >
+                    Open full page <ExternalLink size={14} style={{ marginLeft: 6 }} />
+                  </button>
+                </div>
+
+                <div className="cv-screen">
+                  {previewSrc ? (
+                    <div className="cv-screen__page">
+                      <iframe
+                        key={`${current.id}:${compare}`}
+                        src={previewSrc}
+                        title={`${current.company} — ${compare === "new" ? "new design" : "current site"}`}
+                        // The new design is ours and frames fine. A
+                        // prospect's own site often sends X-Frame-Options
+                        // and renders blank, which is why Open full page
+                        // sits above it rather than being the fallback.
+                        sandbox="allow-scripts allow-same-origin allow-popups"
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : posterSrc ? (
+                    <div className="cv-screen__page"><img src={posterSrc} alt={`${current.company} preview`} /></div>
                   ) : (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 10 }}>
-                      {panelAttachments.map((a, i) => (
-                        <div key={i} style={{ position: "relative", borderRadius: 6, overflow: "hidden", border: "1px solid hsl(40 20% 97% / 0.12)" }}>
-                          {a.previewUrl ? (
-                            <img src={a.previewUrl} alt="" style={{ width: "100%", height: 80, objectFit: "cover", display: "block" }} />
-                          ) : (
-                            <div style={{ width: "100%", height: 80, display: "flex", alignItems: "center", justifyContent: "center", background: "hsl(40 8% 10%)" }}>
-                              <FileText className="h-6 w-6" style={{ color: "hsl(30 8% 62%)" }} />
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => removeAttachmentDraft(panelProspect.id, i)}
-                            style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.7)", border: 0, color: "#fff", borderRadius: "50%", width: 20, height: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-                            aria-label={`Remove ${a.file.name}`}
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                          <div style={{ padding: "3px 5px", fontSize: 11, color: "hsl(30 8% 62%)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {a.file.name}
-                          </div>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        style={{ minHeight: 80, border: "1px dashed hsl(40 20% 97% / 0.18)", borderRadius: 6, background: "transparent", color: "hsl(30 8% 62%)", cursor: "pointer", fontSize: 13 }}
-                      >
-                        + Add more
-                      </button>
+                    <div className="cv-screen__none">
+                      {compare === "current"
+                        ? "No current site on file for this prospect."
+                        : "No preview built for this prospect yet."}
                     </div>
                   )}
                 </div>
-              </div>
 
-              <button
-                type="button"
-                className="crm-btn crm-btn--ghost"
-                disabled={busyId === panelProspect.id}
-                onClick={() => submitRound(panelProspect.id)}
-                style={{ marginBottom: 24 }}
-              >
-                <Send className="h-4 w-4" /> Submit
-              </button>
-
-              <div style={{ borderTop: "1px solid hsl(40 20% 97% / 0.10)", paddingTop: 16, marginBottom: 20 }}>
-                <label className="crm-label" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                  <History className="h-3.5 w-3.5" /> History
-                </label>
-                {panelHistory === null ? (
-                  <div style={{ fontSize: 14, color: "hsl(30 8% 62%)" }}>Loading…</div>
-                ) : panelHistory.length === 0 ? (
-                  <div style={{ fontSize: 14, color: "hsl(30 8% 62%)" }}>No rounds yet.</div>
-                ) : (
-                  <div style={{ display: "grid", gap: 14 }}>
-                    {panelHistory.map((round) => (
-                      <div
-                        key={round.id}
-                        style={{
-                          border: "1px solid hsl(40 20% 97% / 0.10)", borderRadius: 8, padding: 12,
-                          background: "hsl(40 20% 97% / 0.02)",
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "hsl(30 8% 62%)", marginBottom: 6 }}>
-                          <span>Round {round.round} · {round.preview_version}</span>
-                          <span>{formatCT(round.created_at)}</span>
-                        </div>
-                        {round.notes && (
-                          <p style={{ fontSize: 15, whiteSpace: "pre-wrap", margin: "0 0 8px" }}>{round.notes}</p>
-                        )}
-                        {round.attachments.length > 0 && (
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8 }}>
-                            {round.attachments.map((a, i) => (
-                              a.signed_url && a.mime_type?.startsWith("image/") ? (
-                                <a key={i} href={a.signed_url} target="_blank" rel="noopener noreferrer">
-                                  <img
-                                    src={a.signed_url} alt={a.file_name}
-                                    style={{ width: "100%", height: 64, objectFit: "cover", borderRadius: 4, display: "block" }}
-                                  />
-                                </a>
-                              ) : (
-                                <a
-                                  key={i} href={a.signed_url ?? undefined} target="_blank" rel="noopener noreferrer"
-                                  style={{
-                                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                                    height: 64, background: "hsl(40 8% 10%)", borderRadius: 4, gap: 4, fontSize: 10,
-                                    color: "hsl(30 8% 62%)", textAlign: "center", overflow: "hidden", padding: 4,
-                                  }}
-                                >
-                                  <FileText className="h-5 w-5" />
-                                  {a.file_name}
-                                </a>
-                              )
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                {compare === "current" && (
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--cv-muted)" }}>
+                    Some sites refuse to be embedded and show blank here — use
+                    Open full page.
+                  </p>
                 )}
-              </div>
 
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  className="crm-btn crm-btn--bronze" disabled={busyId === panelProspect.id}
-                  onClick={() => decide(panelProspect.id, "approved")}
-                >
-                  <Check className="h-4 w-4" /> Approve
-                </button>
-                <button
-                  className="crm-btn crm-btn--ghost" disabled={busyId === panelProspect.id}
-                  onClick={() => decide(panelProspect.id, "rejected")}
-                >
-                  <X className="h-4 w-4" /> Reject
-                </button>
-                <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setPanelId(null)}>Cancel</button>
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                  <button
+                    type="button"
+                    className="cv-open cv-open--go"
+                    style={{ flex: "2 1 180px" }}
+                    disabled={busyId === current.id || current.status === "approved"}
+                    onClick={() => approve(current.id)}
+                  >
+                    <Check size={16} style={{ marginRight: 7 }} />
+                    {current.status === "approved" ? "Approved" : "Approve"}
+                  </button>
+                  <button
+                    type="button"
+                    className="cv-open cv-open--dark"
+                    style={{ flex: "2 1 180px" }}
+                    disabled={busyId === current.id}
+                    onClick={() => setPanelId(current.id)}
+                  >
+                    <RefreshCw size={16} style={{ marginRight: 7 }} /> Redesign
+                  </button>
+                  <button
+                    type="button"
+                    className="cv-open"
+                    style={{ flex: "1 1 100px" }}
+                    disabled={busyId === current.id}
+                    onClick={() => skip(current.id)}
+                  >
+                    Skip
+                  </button>
+                </div>
 
-      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <SheetContent
-          side="right"
-          style={{ background: "hsl(36 5% 16%)", color: "hsl(40 20% 97%)", borderColor: "hsl(40 20% 97% / 0.10)" }}
-          className="!w-full sm:!max-w-md overflow-y-auto"
-        >
-          <SheetHeader>
-            <SheetTitle className="font-serif italic text-xl" style={{ color: "hsl(40 20% 97%)" }}>Settings</SheetTitle>
-            <SheetDescription style={{ fontSize: 17, color: "hsl(30 8% 62%)" }}>
-              Key this tab needs. Generated and rotated here — never in Supabase or Lovable.
-            </SheetDescription>
-          </SheetHeader>
-          <div style={{ marginTop: 20 }}>
-            <SecretRow
-              label="Prospect approvals ingest key" secretKey="prospect_approvals_ingest_secret"
-              hint="Save this as a Paperclip secret named PROSPECT-APPROVALS-INGEST-KEY — Ara adds it to Nicole's env from there. Rotating breaks her pushes and decision reads until she has the new value."
+                {current.hook && (
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--cv-muted)" }}>{current.hook}</p>
+                )}
+              </section>
+            )}
+          </div>
+        )}
+
+        <ProspectFeedbackPanel
+          prospect={panelProspect}
+          history={panelHistory}
+          note={panelId ? noteDrafts[panelId] ?? "" : ""}
+          attachments={panelAttachments}
+          busy={!!panelId && busyId === panelId}
+          onNote={(v) => panelId && setNoteDrafts((d) => ({ ...d, [panelId]: v }))}
+          onAddFiles={(files) => panelId && addAttachmentFiles(panelId, files)}
+          onRemoveFile={(i) => panelId && removeAttachmentDraft(panelId, i)}
+          onClose={() => setPanelId(null)}
+          onSendBack={async () => {
+            if (!panelId) return;
+            const id = panelId;
+            await decide(id, "rejected");
+            advance(id);
+          }}
+        />
+
+        <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+          <SheetContent
+            data-mobile-bottom-sheet="true"
+            className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] overflow-y-auto"
+            style={{ width: 560, maxWidth: "100vw" }}
+          >
+            <SheetHeader>
+              <SheetTitle className="font-serif italic text-xl" style={{ color: "hsl(40 20% 97%)" }}>Settings</SheetTitle>
+              <SheetDescription style={{ fontSize: 17, color: "hsl(30 8% 62%)" }}>
+                The key the outreach routine uses to post a batch of previews in.
+              </SheetDescription>
+            </SheetHeader>
+            <div style={{ marginTop: 20 }}>
+              <SecretRow
+                label="Prospect approvals ingest key" secretKey="prospect_approvals_ingest_secret"
+                hint="Sent as x-ingest-secret by prospect-approvals-sync."
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </AdminLayout>
+  );
+}
+
+/**
+ * Redesign: the feedback the rebuild is based on, then send it back.
+ *
+ * A side panel rather than a field on the card, because this is the one
+ * action on the page that takes more than a glance — and because the
+ * rounds already left on this prospect have to be readable while you
+ * write the next one, or you repeat yourself.
+ */
+function ProspectFeedbackPanel({
+  prospect, history, note, attachments, busy,
+  onNote, onAddFiles, onRemoveFile, onClose, onSendBack,
+}: {
+  prospect: Prospect | null;
+  history: FeedbackRound[] | null;
+  note: string;
+  attachments: AttachmentDraft[];
+  busy: boolean;
+  onNote: (v: string) => void;
+  onAddFiles: (files: FileList | null) => void;
+  onRemoveFile: (i: number) => void;
+  onClose: () => void;
+  onSendBack: () => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  return (
+    <SidePanel
+      open={!!prospect}
+      onClose={onClose}
+      title="Send back for a redesign"
+      subtitle={prospect?.company}
+      width={560}
+    >
+      {prospect && (
+        <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+          <label className="cv-field">
+            What needs to change
+            <textarea
+              className="cv-textarea" rows={6} value={note} autoFocus
+              onChange={(e) => onNote(e.target.value)}
+              placeholder="Hero image is the wrong trade, phone number is out of date…"
+            />
+          </label>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <button type="button" className="cv-mini" onClick={() => fileRef.current?.click()}>
+              <Paperclip size={14} style={{ marginRight: 6 }} /> Attach
+            </button>
+            <span style={{ fontSize: 12, color: "var(--cv-muted)" }}>PNG, JPEG, WebP or PDF, up to 10&nbsp;MB</span>
+            <input
+              ref={fileRef} type="file" multiple hidden
+              accept={ACCEPTED_ATTACHMENT_TYPES.join(",")}
+              onChange={(e) => { onAddFiles(e.target.files); e.target.value = ""; }}
             />
           </div>
-        </SheetContent>
-      </Sheet>
-    </AdminLayout>
+
+          {attachments.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {attachments.map((a, i) => (
+                <span key={i} className="cv-chip cv-chip--gray" style={{ gap: 8 }}>
+                  {a.previewUrl
+                    ? <img src={a.previewUrl} alt="" style={{ width: 22, height: 22, borderRadius: 4, objectFit: "cover" }} />
+                    : <FileText size={14} />}
+                  {a.file.name}
+                  <button
+                    type="button" aria-label={`Remove ${a.file.name}`}
+                    onClick={() => onRemoveFile(i)}
+                    style={{ background: "none", border: 0, cursor: "pointer", color: "inherit", padding: 0, display: "inline-flex" }}
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <button
+            type="button" className="cv-open cv-open--dark" style={{ padding: "0 22px" }}
+            disabled={busy} onClick={onSendBack}
+          >
+            {busy ? "Sending…" : "Send back"}
+          </button>
+
+          <div className="cv-rule" />
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <History size={15} />
+            <span style={{ fontWeight: 600, fontSize: 15 }}>Earlier rounds</span>
+          </div>
+          {history === null ? (
+            <p style={{ margin: 0, fontSize: 13, color: "var(--cv-muted)" }}>Loading…</p>
+          ) : !history.length ? (
+            <p style={{ margin: 0, fontSize: 13, color: "var(--cv-muted)" }}>
+              Nothing sent back on this prospect yet.
+            </p>
+          ) : history.map((r) => (
+            <div key={r.id} className="cv-lg" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 12, color: "var(--cv-muted)" }}>
+                <span className="cv-chip cv-chip--gray">Round {r.round}</span>
+                <span>{r.preview_version}</span>
+                <span>{formatCT(r.created_at)}</span>
+                {r.created_by && <span>· {r.created_by}</span>}
+              </div>
+              {r.notes && <div style={{ fontSize: 14, whiteSpace: "pre-wrap" }}>{r.notes}</div>}
+              {r.attachments.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {r.attachments.map((a, i) => (
+                    a.signed_url ? (
+                      <a key={i} className="cv-chip cv-chip--gray" href={a.signed_url} target="_blank" rel="noreferrer">
+                        <FileText size={13} /> {a.file_name}
+                      </a>
+                    ) : (
+                      <span key={i} className="cv-chip cv-chip--gray"><FileText size={13} /> {a.file_name}</span>
+                    )
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </SidePanel>
   );
 }

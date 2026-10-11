@@ -91,21 +91,22 @@ const App = () => (
             {/* CRE-332 Phase 7: the light side-nav shell is the only admin
                 layout now. Today/Money/Marketing/More/Pipeline are the real
                 homes; the old routes below redirect so bookmarks and old
-                links still arrive. Prospects stays a pure redirect to
-                Approvals until the Oct 12 outreach hold lifts. */}
+                links still arrive. Prospects is the real page now and
+                /admin/approvals the redirect — it was the other way round
+                while the page was still called Approvals. */}
             <Route path="/admin" element={<Navigate to="/admin/today" replace />} />
             <Route path="/admin/briefs" element={<Navigate to="/admin/today" replace />} />
             <Route path="/admin/clients" element={<RequireAdmin><ClientsList /></RequireAdmin>} />
             <Route path="/admin/proposals" element={<RequireAdmin><Proposals /></RequireAdmin>} />
             <Route path="/admin/payments" element={<Navigate to="/admin/money" replace />} />
             <Route path="/admin/social" element={<Navigate to="/admin/marketing" replace />} />
-            <Route path="/admin/approvals" element={<RequireAdmin><Approvals /></RequireAdmin>} />
+            <Route path="/admin/approvals" element={<Navigate to="/admin/prospects" replace />} />
             <Route path="/admin/audits" element={<RequireAdmin><Audits /></RequireAdmin>} />
             <Route path="/admin/agents" element={<RequireAdmin><Agents /></RequireAdmin>} />
             <Route path="/admin/tasks" element={<RequireAdmin><AllTasks /></RequireAdmin>} />
             <Route path="/admin/today" element={<RequireAdmin><Today /></RequireAdmin>} />
             <Route path="/admin/pipeline" element={<RequireAdmin><Pipeline /></RequireAdmin>} />
-            <Route path="/admin/prospects" element={<Navigate to="/admin/approvals" replace />} />
+            <Route path="/admin/prospects" element={<RequireAdmin><Approvals /></RequireAdmin>} />
             <Route path="/admin/money" element={<RequireAdmin><Payments /></RequireAdmin>} />
             <Route path="/admin/marketing" element={<RequireAdmin><Social /></RequireAdmin>} />
             <Route path="/admin/more" element={<RequireAdmin><More /></RequireAdmin>} />
