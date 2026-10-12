@@ -666,6 +666,7 @@ export type Database = {
           created_at: string
           id: string
           storage_path: string
+          version: number | null
         }
         Insert: {
           audited_at: string
@@ -673,6 +674,7 @@ export type Database = {
           created_at?: string
           id?: string
           storage_path: string
+          version?: number | null
         }
         Update: {
           audited_at?: string
@@ -680,6 +682,7 @@ export type Database = {
           created_at?: string
           id?: string
           storage_path?: string
+          version?: number | null
         }
         Relationships: [
           {
@@ -845,7 +848,15 @@ export type Database = {
           slug?: string
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "client_audits_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_automations: {
         Row: {
@@ -1289,6 +1300,13 @@ export type Database = {
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "client_logins_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
         ]
       }
       client_notes: {
@@ -1369,7 +1387,22 @@ export type Database = {
           uploaded_by_name?: string | null
           visible_to_client?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "client_project_files_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_project_files_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_projects: {
         Row: {
@@ -1877,6 +1910,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      decide_actions: {
+        Row: {
+          acted_by: string | null
+          action: string
+          action_type: string | null
+          created_at: string
+          id: string
+          option_chosen: string | null
+          question: string | null
+          result: Json | null
+          row_id: string
+          status: string
+          task_ids: string[]
+          title: string
+        }
+        Insert: {
+          acted_by?: string | null
+          action: string
+          action_type?: string | null
+          created_at?: string
+          id?: string
+          option_chosen?: string | null
+          question?: string | null
+          result?: Json | null
+          row_id: string
+          status?: string
+          task_ids?: string[]
+          title: string
+        }
+        Update: {
+          acted_by?: string | null
+          action?: string
+          action_type?: string | null
+          created_at?: string
+          id?: string
+          option_chosen?: string | null
+          question?: string | null
+          result?: Json | null
+          row_id?: string
+          status?: string
+          task_ids?: string[]
+          title?: string
+        }
+        Relationships: []
+      }
+      decide_snoozes: {
+        Row: {
+          created_at: string
+          id: string
+          snoozed_until: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          snoozed_until: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          snoozed_until?: string
+        }
+        Relationships: []
       }
       email_send_log: {
         Row: {
@@ -2710,7 +2806,6 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
-          note?: string | null
           path?: string
           project_id?: string
         }
@@ -4936,6 +5031,7 @@ export type Database = {
         }
         Insert: {
           client_id?: string | null
+          client_project_id?: string | null
           created_at?: string | null
           has_password?: never
           id?: string | null
@@ -4948,6 +5044,7 @@ export type Database = {
         }
         Update: {
           client_id?: string | null
+          client_project_id?: string | null
           created_at?: string | null
           has_password?: never
           id?: string | null
@@ -4964,6 +5061,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_logins_client_project_id_fkey"
+            columns: ["client_project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
             referencedColumns: ["id"]
           },
         ]
@@ -5006,33 +5110,6 @@ export type Database = {
         Returns: undefined
       }
       automation_01_criteria_for: { Args: { _key: string }; Returns: Json }
-      portal_project_phases: {
-        Args: { _client_project_id: string }
-        Returns: {
-          id: string
-          key: string
-          label: string
-          order_index: number
-          status: string | null
-          started_at: string | null
-          completed_at: string | null
-        }[]
-      }
-      portal_project_audits: {
-        Args: { _client_project_id: string }
-        Returns: {
-          id: string
-          slug: string
-          kind: string | null
-          client_name: string
-          cover_note: string | null
-          report_url: string | null
-          reviewed_at: string | null
-          shared_at: string | null
-          created_at: string
-          version_count: number
-        }[]
-      }
       brain_setup_criteria_for: { Args: { _key: string }; Returns: Json }
       claim_due_social_sends: {
         Args: { _limit?: number }
@@ -5159,6 +5236,33 @@ export type Database = {
         Returns: number
       }
       next_preview_pin: { Args: { _project_id: string }; Returns: number }
+      portal_project_audits: {
+        Args: { _client_project_id: string }
+        Returns: {
+          client_name: string
+          cover_note: string
+          created_at: string
+          id: string
+          kind: string
+          report_url: string
+          reviewed_at: string
+          shared_at: string
+          slug: string
+          version_count: number
+        }[]
+      }
+      portal_project_phases: {
+        Args: { _client_project_id: string }
+        Returns: {
+          completed_at: string
+          id: string
+          key: string
+          label: string
+          order_index: number
+          started_at: string
+          status: string
+        }[]
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -5173,20 +5277,36 @@ export type Database = {
         Args: { _task_id: string; _worker: string }
         Returns: undefined
       }
-      set_client_login: {
-        Args: {
-          _client_id: string
-          _created_by?: string
-          _enc_key?: string
-          _id: string
-          _label: string
-          _note?: string
-          _password: string
-          _url: string
-          _username: string
-        }
-        Returns: string
-      }
+      set_client_login:
+        | {
+            Args: {
+              _client_id: string
+              _created_by?: string
+              _enc_key?: string
+              _id: string
+              _label: string
+              _note?: string
+              _password: string
+              _url: string
+              _username: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _client_id: string
+              _client_project_id?: string
+              _created_by?: string
+              _enc_key?: string
+              _id: string
+              _label: string
+              _note?: string
+              _password: string
+              _url: string
+              _username: string
+            }
+            Returns: string
+          }
       set_project_secret: {
         Args: {
           _client_project_id: string
