@@ -20,6 +20,18 @@
 // History is keyed by prospect_key (the slug with any trailing -vN
 // stripped), not by this row's own id, so a rebuild that lands as a new row
 // (acme-roofing-v2) still carries the rounds left on acme-roofing (v1).
+//
+// CRE-413: a new prospect pushed on an insert (never on an update to an
+// existing (batch, slug) row) may carry `rebuilt_from_approval_id` — the id
+// of the prospect_approvals row whose rejection this push is the rebuild
+// for. When present: the new row is tagged `rebuilt_from` (so the admin
+// page can show a "Rebuilt" badge once that UI change ships) and the
+// referenced old row immediately flips to rebuild_status
+// 'ready_for_review' — no polling wait, since Nicole is already calling
+// this endpoint as the normal last step of a rebuild. Silently ignored if
+// the referenced id doesn't exist or isn't actually a rejected row with an
+// open rebuild — this push must never fail just because that linkage was
+// stale or wrong.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const ATTACHMENT_BUCKET = "prospect-approval-attachments";
@@ -66,6 +78,7 @@ interface ProspectInput {
   preview_image_url?: string | null;
   email_subject?: string | null;
   email_body?: string | null;
+  rebuilt_from_approval_id?: string | null;
 }
 
 const OPTIONAL_STRING_FIELDS = [
@@ -79,6 +92,7 @@ const OPTIONAL_STRING_FIELDS = [
   "preview_image_url",
   "email_subject",
   "email_body",
+  "rebuilt_from_approval_id",
 ] as const;
 
 function validateProspect(p: unknown): string | null {
@@ -306,7 +320,13 @@ Deno.serve(async (req) => {
     } else {
       const { data: inserted, error } = await sb
         .from("prospect_approvals")
-        .insert({ ...content, batch: b.batch, slug: p.slug, status: "pending" })
+        .insert({
+          ...content,
+          batch: b.batch,
+          slug: p.slug,
+          status: "pending",
+          rebuilt_from: p.rebuilt_from_approval_id ?? null,
+        })
         .select("id")
         .single();
       if (error) {
@@ -314,6 +334,23 @@ Deno.serve(async (req) => {
         continue;
       }
       results.push({ slug: p.slug, id: inserted.id as string });
+
+      // CRE-413: tell the row being rebuilt that its replacement is ready to
+      // review. Best-effort — a bad/stale rebuilt_from_approval_id must
+      // never fail the push itself, since the new preview row was already
+      // created successfully above.
+      if (p.rebuilt_from_approval_id) {
+        const { error: linkErr } = await sb
+          .from("prospect_approvals")
+          .update({ rebuild_status: "ready_for_review" })
+          .eq("id", p.rebuilt_from_approval_id)
+          .eq("status", "rejected");
+        if (linkErr) {
+          console.error(
+            `[prospect-approvals-sync] push ${p.slug}: failed to flag rebuilt_from_approval_id ${p.rebuilt_from_approval_id} as ready_for_review: ${linkErr.message}`,
+          );
+        }
+      }
     }
   }
 
