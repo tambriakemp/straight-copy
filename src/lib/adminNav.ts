@@ -12,8 +12,6 @@ import {
   Megaphone,
   Grid2x2,
   UserCircle,
-  Plug,
-  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,13 +35,11 @@ const cvMoney: CvNavItem = { to: "/admin/money", label: "Money", icon: CreditCar
 const cvMarketing: CvNavItem = { to: "/admin/marketing", label: "Marketing", icon: Megaphone };
 const cvMore: CvNavItem = { to: "/admin/more", label: "More", icon: Grid2x2 };
 
-// One page, three tabs — but three entries, because "where do I change
-// my password" and "where is the audit upload key" are different
-// questions and the answer to both should be visible rather than
-// remembered. They were buried two clicks deep in the More hub.
-const cvProfile: CvNavItem = { to: "/admin/settings", label: "Profile", icon: UserCircle };
-const cvApi: CvNavItem = { to: "/admin/settings?tab=api", label: "Settings", icon: Plug };
-const cvKeys: CvNavItem = { to: "/admin/settings?tab=keys", label: "Keys", icon: KeyRound };
+// One page, one entry. The desktop side nav does not carry it at all —
+// it is reached from the avatar, which is where a person looks for
+// their own account. The mobile drawer does, because there is no hover
+// on a phone and it would otherwise be unreachable.
+const cvSettings: CvNavItem = { to: "/admin/settings", label: "Profile & settings", icon: UserCircle };
 
 /**
  * Whether a nav item should show active for the current path.
@@ -76,13 +72,8 @@ export const CV_ADMIN_NAV: CvNavSection[] = [
   { title: "Workspace", items: [cvMore] },
 ];
 
-/** Pinned to the bottom of the side nav, under everything else. */
-export const CV_ADMIN_ACCOUNT_NAV: CvNavSection = {
-  title: "Account", items: [cvProfile, cvApi, cvKeys],
-};
-
 /** Mobile bottom bar: Today, Pipeline, Prospects, Clients, More — approved. */
 export const CV_MOBILE_BOTTOM_NAV: CvNavItem[] = [cvToday, cvPipeline, cvProspects, cvClients, cvMore];
 
 /** The rest, for the mobile ☰ drawer. */
-export const CV_MOBILE_DRAWER_NAV: CvNavItem[] = [cvProposals, cvMoney, cvMarketing, cvProfile, cvApi, cvKeys];
+export const CV_MOBILE_DRAWER_NAV: CvNavItem[] = [cvProposals, cvMoney, cvMarketing, cvSettings];

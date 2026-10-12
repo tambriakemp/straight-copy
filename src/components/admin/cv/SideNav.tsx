@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LogOut, Settings2 } from "lucide-react";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import { CV_ADMIN_NAV, CV_ADMIN_ACCOUNT_NAV, isCvNavActive } from "@/lib/adminNav";
+import { CV_ADMIN_NAV, isCvNavActive } from "@/lib/adminNav";
 
 export default function SideNav() {
   const loc = useLocation();
@@ -80,13 +80,12 @@ export default function SideNav() {
 
       {CV_ADMIN_NAV.map((s) => section(s.title, s.items))}
 
-      {/* Pinned to the bottom, above the avatar: settings are the things
-          you reach for least often and should not sit among the things
-          you reach for all day. */}
-      <div style={{ marginTop: "auto" }}>
-        {section(CV_ADMIN_ACCOUNT_NAV.title, CV_ADMIN_ACCOUNT_NAV.items)}
-      </div>
-
+      {/* No Account section. Profile, Settings and Keys are one page
+          reached from the avatar below — three nav rows for one
+          destination, under a heading, were more chrome than the thing
+          they pointed at. The footer already carries margin-top: auto,
+          so it sits at the bottom on its own; a spacer here would split
+          the free space with it and leave the footer halfway up. */}
       <div
         className="cv-sidenav__footer cv-sidenav__me"
         ref={meRef}
