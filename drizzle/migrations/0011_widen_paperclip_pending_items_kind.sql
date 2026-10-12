@@ -1,0 +1,2 @@
+ALTER TABLE public.paperclip_pending_items DROP CONSTRAINT paperclip_pending_items_kind_check;
+ALTER TABLE public.paperclip_pending_items ADD CONSTRAINT paperclip_pending_items_kind_check CHECK (kind IN ('approval', 'interaction', 'interaction_stalled'));
