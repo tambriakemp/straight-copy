@@ -30,6 +30,7 @@ import ProgressReportSettingsCard from "@/components/admin/ProgressReportSetting
 import DeliveryTargetsCard from "@/components/admin/DeliveryTargetsCard";
 import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
 import ProjectFilesPanel from "@/components/admin/project/ProjectFilesPanel";
+import ProjectNotesTab from "@/components/admin/project/ProjectNotesTab";
 import IntakeTab from "@/components/admin/client/IntakeTab";
 import { useProjectRecord, type ProjectTask } from "@/components/admin/project/useProjectRecord";
 import { projectTypeStyle } from "@/lib/projectType";
@@ -72,7 +73,7 @@ export default function AppDevelopmentView({
   const [tab, setTab] = useState<Tab>("overview");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const {
-    project, client, counts, needsReview, blocked, links, notes, loading, notFound,
+    project, client, counts, needsReview, blocked, links, notes, loading, notFound, reload,
   } = useProjectRecord(projectId);
 
   const clientId = clientIdProp ?? project?.client_id;
@@ -318,20 +319,12 @@ export default function AppDevelopmentView({
         )}
 
         {tab === "notes" && (
-          <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <h2 className="cv-card-title">Notes</h2>
-            {project.notes && <p style={{ margin: 0, fontSize: 14, whiteSpace: "pre-wrap" }}>{project.notes}</p>}
-            {!notes.length && !project.notes
-              ? <EmptyState title="No notes yet" subtitle="Notes written on this project show up here." />
-              : notes.map((n) => (
-                  <div key={n.id} className="cv-proj" style={{ flexDirection: "column", alignItems: "stretch", gap: 6 }}>
-                    <div style={{ fontSize: 12, color: "var(--cv-muted)" }}>
-                      {new Date(n.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                    </div>
-                    <div style={{ fontSize: 14, whiteSpace: "pre-wrap" }}>{n.body}</div>
-                  </div>
-                ))}
-          </section>
+          <ProjectNotesTab
+            clientProjectId={project.id}
+            projectNotes={project.notes}
+            notes={notes}
+            onChanged={reload}
+          />
         )}
 
         {tab === "social" && <SocialTab clientProjectId={project.id} />}
