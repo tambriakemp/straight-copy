@@ -14,13 +14,16 @@
 --   1. The moment Bree sends a preview back (prospect_approvals.status ->
 --      'rejected'), a trigger fires create-rebuild-issue via pg_net, which
 --      creates a '[Rebuild] <company> - <slug>' Paperclip issue assigned to
---      Nicole and stores its id back on this same row (rebuild_issue_id).
+--      Camille (Web Designer, the design critic gate owner — Bree's
+--      decision Oct 11, 2026, so the rebuild has one owner instead of two)
+--      and stores its id back on this same row (rebuild_issue_id).
 --      Idempotent: the trigger only fires on the pending->rejected edge, and
 --      the function does an atomic claim (`rebuild_issue_id IS NULL`) before
 --      creating anything, so a re-click or a duplicate trigger fire can
 --      never create a second issue for the same rejection.
---   2. When Nicole resubmits a rebuilt version, her existing push into
---      prospect-approvals-sync (the same action she already calls) can carry
+--   2. When Camille resubmits a rebuilt version (after it passes her own
+--      design critic rubric, CRE-415), her push into prospect-approvals-sync
+--      (the same action the outreach pipeline already uses) can carry
 --      `rebuilt_from_approval_id` on the new row — that flips the OLD row to
 --      rebuild_status 'ready_for_review' immediately, no polling needed, and
 --      tags the NEW row for a "Rebuilt" badge once the UI reads rebuilt_from.
@@ -28,7 +31,7 @@
 --      reason) has no push signal available from Paperclip at all, so
 --      sync-rebuild-status polls hourly (pg_cron) as the real, self-
 --      sufficient fallback for those two states. rebuild-status-webhook is
---      also stood up as a receiver in case Ara/Nicole want to proactively
+--      also stood up as a receiver in case Ara/Camille want to proactively
 --      ping it for faster-than-hourly updates on those two states — purely
 --      additive, not required for the feature to work end to end.
 
@@ -95,7 +98,7 @@ FOR EACH ROW
 WHEN (NEW.status = 'rejected' AND OLD.status IS DISTINCT FROM 'rejected' AND NEW.rebuild_issue_id IS NULL)
 EXECUTE FUNCTION public.fire_create_rebuild_issue();
 
--- Receiver secret for rebuild-status-webhook, in case Ara/Nicole want a
+-- Receiver secret for rebuild-status-webhook, in case Ara/Camille want a
 -- faster-than-hourly push for the 'rebuilding'/'stuck' states (see header
 -- comment). Random default so nobody has to invent a value; CRE-413's
 -- comment thread has the handoff for whoever needs to read it back.
