@@ -24,13 +24,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  MessageSquare, MousePointer2, CheckCircle2, EyeOff, Eye, Search, X, Upload, Check, Undo2, Folder,
+  MessageSquare, MousePointer2, CheckCircle2, EyeOff, Eye, X, Upload, Check, Undo2, Folder,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import EmptyState from "@/components/admin/cv/EmptyState";
+import FeedbackFilters from "@/components/feedback/FeedbackFilters";
 import {
-  filterComments, openCount, authorInitials, clickToPct, pageLabel, pageKind, groupOf,
+  filterComments, statusArgs, openCount, authorInitials, clickToPct, pageLabel, pageKind, groupOf,
+  type StatusFilter,
   foldersOf, groupNames, sortPages, visibleTo, pageKey, normaliseStatus, NEXT_STATUS,
   STATUS_LABEL, STATUS_CLASS, approvalFor, buildActivity, APPROVAL_LABEL, APPROVAL_CLASS,
   type BoardPage, type BoardComment, type ApprovalRow, type ApprovalEvent,
@@ -89,6 +91,9 @@ export default function FeedbackBoard() {
   const [asClient, setAsClient] = useState(false);
   const [tab, setTab] = useState<Tab>("comments");
   const [query, setQuery] = useState("");
+  /** A page key, or "all" — what the comment list is scoped to. */
+  const [pageFilter, setPageFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   /** Where a click landed, while the composer for it is open. */
   const [draft, setDraft] = useState<{ x_pct: number; y_pct: number; body: string } | null>(null);
@@ -405,6 +410,54 @@ export default function FeedbackBoard() {
 
   const activity = useMemo(() => buildActivity(events, comments, titleFor), [events, comments, titleFor]);
 
+  /**
+   * Picking a page, from the dropdown or from a page row.
+   *
+   * One function because they are the same choice: scoping the comment
+   * list to a page and putting that page on the stage. Two controls that
+   * could disagree about which page you are on is worse than either.
+   */
+  const pickPage = (key: string) => {
+    setPageFilter(key);
+    if (key !== "all") setSelectedPage(key);
+    setSelectedComment(null);
+  };
+
+  /** One comment, wherever the list is showing it from. */
+  const commentCard = (c: BoardComment, pg: BoardPage) => {
+    const st = normaliseStatus(c.status);
+    return (
+      <div key={c.id} className={`cv-cm ${selectedComment === c.id ? "cv-cm--sel" : ""}`}>
+        <span className="cv-cm__av">{authorInitials(c.author_name)}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            <button type="button" className="cv-cm__num"
+              onClick={() => { setSelectedPage(pg.key); setSelectedComment(c.id); }}
+              aria-label={`Show pin ${c.pin_number} on the page`} style={{ border: 0, cursor: "pointer" }}>
+              {c.pin_number}
+            </button>
+            <span style={{ fontWeight: 500, fontSize: 14 }}>{c.author_name || "Guest"}</span>
+            <span style={{ fontSize: 12, color: "var(--cv-muted)" }}>{timeAgo(c.created_at)}</span>
+          </div>
+          <div className="cv-cm__body">{c.body}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" className={`cv-chip ${STATUS_CLASS[st]}`}
+              style={{ minHeight: 32, cursor: "pointer", border: 0 }}
+              onClick={() => cycleStatus(c)}
+              title="Click to change: Open → In progress → Resolved">
+              {STATUS_LABEL[st]}
+            </button>
+            {!asClient && (
+              <button type="button" className="cv-mini cv-mini--danger" style={{ minHeight: 32 }} onClick={() => remove(c)}>
+                Delete
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const close = () => navigate(`/admin/clients/${clientId}/projects/${projectId}`);
 
   return (
@@ -616,25 +669,39 @@ export default function FeedbackBoard() {
           <div className="cv-fb__railbody">
             {tab === "comments" && (
               <>
-                <label className="cv-search" style={{ borderRadius: 12, minHeight: 46 }}>
-                  <Search size={18} aria-hidden="true" />
-                  <span className="sr-only">Search comments</span>
-                  <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search comments..." />
-                </label>
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, fontSize: 13, alignItems: "center" }}>
-                  <span className="cv-chip" style={{ background: "var(--cv-ink)", color: "#fff" }}>All pages</span>
-                  <button type="button" className={`cv-chip ${showResolved ? "cv-s-done" : ""}`}
-                    style={showResolved ? undefined : { background: "var(--cv-card)", color: "var(--cv-tone-gray-fg)" }}
-                    onClick={() => setShowResolved((v) => !v)}>
-                    {showResolved ? "Status: all" : "Status: open"}
-                  </button>
-                  <span style={{ flex: 1 }} />
-                  <span style={{ color: "var(--cv-muted)" }}>{openCount(comments)} open</span>
-                </div>
+                <FeedbackFilters
+                  pages={shownPages}
+                  pageFilter={pageFilter}
+                  onPageFilter={pickPage}
+                  status={statusFilter}
+                  onStatus={setStatusFilter}
+                  query={query}
+                  onQuery={setQuery}
+                  openCount={openCount(comments)}
+                />
 
                 {!folders.length ? (
                   <EmptyState title="No pages yet" subtitle="Add a preview to this project and its pages appear here." />
+                ) : pageFilter !== "all" ? (
+                  // One page chosen: its comments, flat. No folder heading
+                  // and no page row, because the dropdown above already
+                  // says which page this is.
+                  (() => {
+                    const pg = shownPages.find((x) => x.key === pageFilter);
+                    if (!pg) return <EmptyState title="That page is gone" subtitle="Pick another from the list above." />;
+                    const shown = filterComments(commentsOn(pg), { query, ...statusArgs(statusFilter) });
+                    if (!shown.length) {
+                      return (
+                        <EmptyState
+                          title={`Nothing on ${pageLabel(pg)}`}
+                          subtitle={statusFilter === "all" && !query
+                            ? "No comments on this page yet. Click the page to leave one."
+                            : "No comments match this filter."}
+                        />
+                      );
+                    }
+                    return shown.map((c) => commentCard(c, pg));
+                  })()
                 ) : folders.map((folder) => (
                   <div key={folder.name} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     <div className="cv-fb__grouphead">
@@ -644,52 +711,19 @@ export default function FeedbackBoard() {
                     </div>
                     {folder.pages.map((pg) => {
                       const all = commentsOn(pg);
-                      const shown = filterComments(all, { query, showResolved });
+                      const shown = filterComments(all, { query, ...statusArgs(statusFilter) });
                       const open = openCount(all);
                       return (
                         <div key={pg.key} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          {/* The page name, once, under its folder — not
-                              "Desktop / Home.html" on every row. */}
                           <button type="button" className={`cv-pgrow ${pg.key === selectedPage ? "cv-pgrow--on" : ""}`}
-                            onClick={() => setSelectedPage(pg.key)}>
+                            onClick={() => pickPage(pg.key)}>
                             <span className="cv-pgrow__name">
                               {pageLabel(pg)}
                               <small>{pageKind(pg)}</small>
                             </span>
                             <span className={`cv-chip ${open ? "cv-s-open" : "cv-chip--gray"}`}>{open} open</span>
                           </button>
-                          {shown.map((c) => {
-                            const st = normaliseStatus(c.status);
-                            return (
-                              <div key={c.id} className={`cv-cm ${selectedComment === c.id ? "cv-cm--sel" : ""}`}>
-                                <span className="cv-cm__av">{authorInitials(c.author_name)}</span>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-                                    <button type="button" className="cv-cm__num"
-                                      onClick={() => { setSelectedPage(pg.key); setSelectedComment(c.id); }}
-                                      aria-label={`Show pin ${c.pin_number} on the page`} style={{ border: 0, cursor: "pointer" }}>
-                                      {c.pin_number}
-                                    </button>
-                                    <span style={{ fontWeight: 500, fontSize: 14 }}>{c.author_name || "Guest"}</span>
-                                    <span style={{ fontSize: 12, color: "var(--cv-muted)" }}>{timeAgo(c.created_at)}</span>
-                                  </div>
-                                  <div className="cv-cm__body">{c.body}</div>
-                                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                    <button type="button" className={`cv-chip ${STATUS_CLASS[st]}`} style={{ minHeight: 32, cursor: "pointer", border: 0 }}
-                                      onClick={() => cycleStatus(c)}
-                                      title="Click to change: Open → In progress → Resolved">
-                                      {STATUS_LABEL[st]}
-                                    </button>
-                                    {!asClient && (
-                                      <button type="button" className="cv-mini cv-mini--danger" style={{ minHeight: 32 }} onClick={() => remove(c)}>
-                                        Delete
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                          {shown.map((c) => commentCard(c, pg))}
                         </div>
                       );
                     })}
@@ -759,8 +793,10 @@ export default function FeedbackBoard() {
                       const selected = pg.key === selectedPage;
                       return (
                         <div key={pg.key} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {/* Same choice as the dropdown: scope the comment
+                              list to this page and put it on the stage. */}
                           <button type="button" className={`cv-pgrow ${selected ? "cv-pgrow--on" : ""}`}
-                            onClick={() => { setSelectedPage(pg.key); setTab("comments"); }}>
+                            onClick={() => { pickPage(pg.key); setTab("comments"); }}>
                             <span className="cv-pgrow__name">
                               {pageLabel(pg)}
                               <small>{pageKind(pg)}</small>

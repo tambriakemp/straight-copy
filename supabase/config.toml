@@ -88,6 +88,11 @@ verify_jwt = false
 [functions.client-logins]
 verify_jwt = false
 
+# Portal and admin both call it; the function decides which it is
+# talking to and what that caller may do.
+[functions.client-files]
+verify_jwt = false
+
 [functions.build-automation-01]
 verify_jwt = false
 

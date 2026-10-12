@@ -17,13 +17,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { MessageSquare, MousePointer2, CheckCircle2, EyeOff, Eye, Search, X, Check, Folder, Undo2 } from "lucide-react";
+import { MessageSquare, MousePointer2, CheckCircle2, EyeOff, Eye, X, Check, Folder, Undo2 } from "lucide-react";
 import EmptyState from "@/components/admin/cv/EmptyState";
+import FeedbackFilters from "@/components/feedback/FeedbackFilters";
 import {
-  filterComments, openCount, authorInitials, clickToPct, pageLabel, pageKind,
+  filterComments, statusArgs, openCount, authorInitials, clickToPct, pageLabel, pageKind,
   foldersOf, sortPages, pageKey, normaliseStatus, STATUS_LABEL, STATUS_CLASS,
   approvalFor, buildActivity, APPROVAL_LABEL, APPROVAL_CLASS,
-  type BoardPage, type BoardComment, type ApprovalRow, type ApprovalEvent,
+  type BoardPage, type BoardComment, type ApprovalRow, type ApprovalEvent, type StatusFilter,
 } from "@/lib/feedbackBoard";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -55,6 +56,42 @@ interface ApiPage {
   approval: { approver_name: string | null; approved_at: string } | null;
 }
 
+/**
+ * Every comment on every page, one request per page.
+ *
+ * The fallback for a deployment that does not yet have the bulk
+ * `comments` action. preview-comments GET has been public since the
+ * preview feature shipped and answers for one page at a time.
+ */
+async function commentsPerPage(
+  slug: string, previewId: string, pages: BoardPage[],
+): Promise<BoardComment[]> {
+  const out: BoardComment[] = [];
+  // In small batches: a project with forty pages should not open forty
+  // sockets at once and have the browser queue them anyway.
+  for (let i = 0; i < pages.length; i += 6) {
+    const batch = pages.slice(i, i + 6);
+    const got = await Promise.all(batch.map(async (pg) => {
+      try {
+        const r = await fetch(
+          `${SUPABASE_URL}/functions/v1/preview-comments?slug=${encodeURIComponent(slug)}`
+          + `&page_path=${encodeURIComponent(pg.path)}`,
+          { headers: { Authorization: `Bearer ${PUB_KEY}` } },
+        );
+        if (!r.ok) return [];
+        const data = await r.json() as { comments?: Array<Record<string, unknown>> };
+        return (data.comments ?? []).map((c) => ({
+          ...c, project_id: previewId, page_path: pg.path,
+        }) as unknown as BoardComment);
+      } catch {
+        return [];
+      }
+    }));
+    for (const g of got) out.push(...g);
+  }
+  return out;
+}
+
 export default function PortalFeedback() {
   const { clientId, projectId } = useParams<{ clientId: string; projectId?: string }>();
   const [searchParams] = useSearchParams();
@@ -81,6 +118,9 @@ export default function PortalFeedback() {
   const [showPins, setShowPins] = useState(true);
   const [tab, setTab] = useState<Tab>("comments");
   const [query, setQuery] = useState("");
+  /** A page key, or "all" — what the comment list is scoped to. */
+  const [pageFilter, setPageFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [draft, setDraft] = useState<{ x_pct: number; y_pct: number; body: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -144,9 +184,29 @@ export default function PortalFeedback() {
         callFn("preview-approvals", { action: "comments", slug: proj.slug }).catch(() => null),
         callFn("preview-approvals", { action: "events", slug: proj.slug }).catch(() => null),
       ]);
-      setComments(((cRes?.comments ?? []) as BoardComment[]));
-      const evRows = ((eRes?.events ?? []) as ApprovalEvent[])
-        .map((e) => ({ ...e, project_id: proj.id }));
+
+      // The bulk `comments` action is new and may not be deployed yet.
+      // Rather than show an empty rail and let the client conclude their
+      // feedback vanished, fall back to the per-page endpoint that has
+      // always been there — one request per page, which is the cost of
+      // not being deployed, not a reason to show nothing.
+      let rows = (cRes?.comments ?? null) as BoardComment[] | null;
+      if (!rows) rows = await commentsPerPage(proj.slug, proj.id, built);
+      setComments(rows);
+
+      const evRows = ((eRes?.events ?? []) as Array<Partial<ApprovalEvent>>)
+        // The deployed `events` action predates the id and note columns,
+        // so both can be missing. An id is only a React key here; a
+        // synthesised one is better than a list of undefined keys.
+        .map((e, i) => ({
+          id: e.id ?? `${e.path ?? "?"}:${e.created_at ?? i}`,
+          project_id: proj.id,
+          path: e.path ?? "",
+          action: e.action ?? "",
+          note: e.note ?? null,
+          approver_name: e.approver_name ?? null,
+          created_at: e.created_at ?? new Date(0).toISOString(),
+        }) as ApprovalEvent);
       setEvents(evRows);
       const latest = new Map<string, ApprovalEvent>();
       for (const e of evRows) {
@@ -270,6 +330,38 @@ export default function PortalFeedback() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not record that");
     } finally { setBusy(null); }
+  };
+
+  /** The dropdown and a page row are the same choice: scope the list and
+   *  move the stage. */
+  const pickPage = (key: string) => {
+    setPageFilter(key);
+    if (key !== "all") setSelectedPage(key);
+    setSelectedComment(null);
+  };
+
+  /** One comment. The status is text, not a button — what Cre8 Visions
+   *  is doing about a comment is not the client's to set. */
+  const commentCard = (c: BoardComment, pg: BoardPage) => {
+    const st = normaliseStatus(c.status);
+    return (
+      <div key={c.id} className={`cv-cm ${selectedComment === c.id ? "cv-cm--sel" : ""}`}>
+        <span className="cv-cm__av">{authorInitials(c.author_name)}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            <button type="button" className="cv-cm__num"
+              onClick={() => { setSelectedPage(pg.key); setSelectedComment(c.id); }}
+              aria-label={`Show pin ${c.pin_number} on the page`} style={{ border: 0, cursor: "pointer" }}>
+              {c.pin_number}
+            </button>
+            <span style={{ fontWeight: 500, fontSize: 14 }}>{c.author_name || "Guest"}</span>
+            <span style={{ fontSize: 12, color: "var(--cv-muted)" }}>{timeAgo(c.created_at)}</span>
+          </div>
+          <div className="cv-cm__body">{c.body}</div>
+          <span className={`cv-chip ${STATUS_CLASS[st]}`}>{STATUS_LABEL[st]}</span>
+        </div>
+      </div>
+    );
   };
 
   const close = () => navigate(`/portal/${clientId}${qs}`);
@@ -472,26 +564,37 @@ export default function PortalFeedback() {
           <div className="cv-fb__railbody">
             {tab === "comments" && (
               <>
-                <label className="cv-search" style={{ borderRadius: 12, minHeight: 46 }}>
-                  <Search size={18} aria-hidden="true" />
-                  <span className="sr-only">Search comments</span>
-                  <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search comments..." />
-                </label>
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, fontSize: 13, alignItems: "center" }}>
-                  <span className="cv-chip" style={{ background: "var(--cv-ink)", color: "#fff" }}>All pages</span>
-                  <button type="button" className={`cv-chip ${showResolved ? "cv-s-done" : ""}`}
-                    style={showResolved ? undefined : { background: "var(--cv-card)", color: "var(--cv-tone-gray-fg)" }}
-                    onClick={() => setShowResolved((v) => !v)}>
-                    {showResolved ? "Status: all" : "Status: open"}
-                  </button>
-                  <span style={{ flex: 1 }} />
-                  <span style={{ color: "var(--cv-muted)" }}>{openCount(comments)} open</span>
-                </div>
+                <FeedbackFilters
+                  pages={pages}
+                  pageFilter={pageFilter}
+                  onPageFilter={pickPage}
+                  status={statusFilter}
+                  onStatus={setStatusFilter}
+                  query={query}
+                  onQuery={setQuery}
+                  openCount={openCount(comments)}
+                />
 
                 {!folders.length ? (
                   <EmptyState title="Nothing to review yet"
                     subtitle="Pages appear here as soon as Cre8 Visions shares them." />
+                ) : pageFilter !== "all" ? (
+                  (() => {
+                    const pg = pages.find((x) => x.key === pageFilter);
+                    if (!pg) return <EmptyState title="That page is gone" subtitle="Pick another from the list above." />;
+                    const shown = filterComments(commentsOn(pg), { query, ...statusArgs(statusFilter) });
+                    if (!shown.length) {
+                      return (
+                        <EmptyState
+                          title={`Nothing on ${pageLabel(pg)}`}
+                          subtitle={statusFilter === "all" && !query
+                            ? "Click anywhere on the page to leave the first comment."
+                            : "No comments match this filter."}
+                        />
+                      );
+                    }
+                    return shown.map((c) => commentCard(c, pg));
+                  })()
                 ) : folders.map((folder) => (
                   <div key={folder.name} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     <div className="cv-fb__grouphead">
@@ -501,39 +604,16 @@ export default function PortalFeedback() {
                     </div>
                     {folder.pages.map((pg) => {
                       const all = commentsOn(pg);
-                      const shown = filterComments(all, { query, showResolved });
+                      const shown = filterComments(all, { query, ...statusArgs(statusFilter) });
                       const open = openCount(all);
                       return (
                         <div key={pg.key} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                           <button type="button" className={`cv-pgrow ${pg.key === selectedPage ? "cv-pgrow--on" : ""}`}
-                            onClick={() => setSelectedPage(pg.key)}>
+                            onClick={() => pickPage(pg.key)}>
                             <span className="cv-pgrow__name">{pageLabel(pg)}<small>{pageKind(pg)}</small></span>
                             <span className={`cv-chip ${open ? "cv-s-open" : "cv-chip--gray"}`}>{open} open</span>
                           </button>
-                          {shown.map((c) => {
-                            const st = normaliseStatus(c.status);
-                            return (
-                              <div key={c.id} className={`cv-cm ${selectedComment === c.id ? "cv-cm--sel" : ""}`}>
-                                <span className="cv-cm__av">{authorInitials(c.author_name)}</span>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-                                    <button type="button" className="cv-cm__num"
-                                      onClick={() => { setSelectedPage(pg.key); setSelectedComment(c.id); }}
-                                      aria-label={`Show pin ${c.pin_number} on the page`} style={{ border: 0, cursor: "pointer" }}>
-                                      {c.pin_number}
-                                    </button>
-                                    <span style={{ fontWeight: 500, fontSize: 14 }}>{c.author_name || "Guest"}</span>
-                                    <span style={{ fontSize: 12, color: "var(--cv-muted)" }}>{timeAgo(c.created_at)}</span>
-                                  </div>
-                                  <div className="cv-cm__body">{c.body}</div>
-                                  {/* Text, not a button. The status is what Cre8
-                                      Visions is doing about the comment, which is
-                                      not the client's to set. */}
-                                  <span className={`cv-chip ${STATUS_CLASS[st]}`}>{STATUS_LABEL[st]}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
+                          {shown.map((c) => commentCard(c, pg))}
                         </div>
                       );
                     })}
@@ -562,7 +642,7 @@ export default function PortalFeedback() {
                     return (
                       <button key={pg.key} type="button"
                         className={`cv-pgrow ${pg.key === selectedPage ? "cv-pgrow--on" : ""}`}
-                        onClick={() => { setSelectedPage(pg.key); setTab("comments"); }}>
+                        onClick={() => { pickPage(pg.key); setTab("comments"); }}>
                         <span className="cv-pgrow__name">{pageLabel(pg)}<small>{pageKind(pg)}</small></span>
                         {a.state !== "pending" && (
                           <span className={`cv-chip ${APPROVAL_CLASS[a.state]}`}>{APPROVAL_LABEL[a.state]}</span>

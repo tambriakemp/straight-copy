@@ -1241,6 +1241,7 @@ export type Database = {
       client_logins: {
         Row: {
           client_id: string
+          client_project_id: string | null
           created_at: string
           created_by: string | null
           encrypted_password: string | null
@@ -1254,6 +1255,7 @@ export type Database = {
         }
         Insert: {
           client_id: string
+          client_project_id?: string | null
           created_at?: string
           created_by?: string | null
           encrypted_password?: string | null
@@ -1267,6 +1269,7 @@ export type Database = {
         }
         Update: {
           client_id?: string
+          client_project_id?: string | null
           created_at?: string
           created_by?: string | null
           encrypted_password?: string | null
@@ -1322,6 +1325,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      client_project_files: {
+        Row: {
+          category: string | null
+          client_id: string
+          client_project_id: string | null
+          created_at: string
+          direction: string
+          id: string
+          mime: string | null
+          name: string
+          size_bytes: number | null
+          storage_path: string
+          uploaded_by_name: string | null
+          visible_to_client: boolean
+        }
+        Insert: {
+          category?: string | null
+          client_id: string
+          client_project_id?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          mime?: string | null
+          name: string
+          size_bytes?: number | null
+          storage_path: string
+          uploaded_by_name?: string | null
+          visible_to_client?: boolean
+        }
+        Update: {
+          category?: string | null
+          client_id?: string
+          client_project_id?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          mime?: string | null
+          name?: string
+          size_bytes?: number | null
+          storage_path?: string
+          uploaded_by_name?: string | null
+          visible_to_client?: boolean
+        }
+        Relationships: []
       }
       client_projects: {
         Row: {
@@ -4875,6 +4923,7 @@ export type Database = {
       client_logins_list: {
         Row: {
           client_id: string | null
+          client_project_id: string | null
           created_at: string | null
           has_password: boolean | null
           id: string | null
@@ -4957,6 +5006,18 @@ export type Database = {
         Returns: undefined
       }
       automation_01_criteria_for: { Args: { _key: string }; Returns: Json }
+      portal_project_phases: {
+        Args: { _client_project_id: string }
+        Returns: {
+          id: string
+          key: string
+          label: string
+          order_index: number
+          status: string | null
+          started_at: string | null
+          completed_at: string | null
+        }[]
+      }
       portal_project_audits: {
         Args: { _client_project_id: string }
         Returns: {

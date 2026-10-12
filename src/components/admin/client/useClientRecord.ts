@@ -101,7 +101,7 @@ export function useClientRecord(clientId: string) {
             .in("client_project_id", projectIds).order("created_at", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
       supabase.from("client_logins_list")
-        .select("id, label, url, username, note, has_password, sort_order")
+        .select("id, client_project_id, label, url, username, note, has_password, sort_order")
         .eq("client_id", clientId)
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true }),
@@ -127,6 +127,7 @@ export function useClientRecord(clientId: string) {
       username: (r.username as string | null) ?? null,
       note: (r.note as string | null) ?? null,
       has_password: Boolean(r.has_password),
+      client_project_id: (r.client_project_id as string | null) ?? null,
     })));
 
     const ids = projectRows.map((r) => r.id);

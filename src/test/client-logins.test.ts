@@ -3,7 +3,7 @@
 // wrong on screen.
 import { describe, it, expect } from "vitest";
 import {
-  signInLabel, subtitleFor, hrefFor, passwordToSend, shareBody, MASK,
+  signInLabel, subtitleFor, hrefFor, passwordToSend, shareBody, MASK, loginProjectLabel,
   type ClientLoginRow,
 } from "@/lib/clientLogins";
 
@@ -108,5 +108,26 @@ describe("shareBody", () => {
 
   it("greets the client by name", () => {
     expect(shareBody("Khadra", rows).startsWith("Hi Khadra,")).toBe(true);
+  });
+});
+
+describe("loginProjectLabel", () => {
+  const names = new Map([["p1", "Michigan Health Specialist"]]);
+
+  it("names the project a client shared the login for", () => {
+    expect(loginProjectLabel({ client_project_id: "p1" }, names)).toBe("Michigan Health Specialist");
+  });
+
+  it("says nothing for a login the agency holds for the client as a whole", () => {
+    // A chip reading "General" on most rows is noise, and the absence of
+    // one is already the answer.
+    expect(loginProjectLabel({ client_project_id: null }, names)).toBeNull();
+    expect(loginProjectLabel({}, names)).toBeNull();
+  });
+
+  it("still marks a login whose project it cannot name", () => {
+    // It was shared for SOMETHING. Filing it silently as the agency's own
+    // is the one reading that is definitely wrong.
+    expect(loginProjectLabel({ client_project_id: "gone" }, names)).toBe("A project");
   });
 });

@@ -1063,6 +1063,13 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-s-prog { background: var(--cv-tone-blue-bg); color: var(--cv-tone-blue-fg); }
 .cv-s-done { background: var(--cv-tone-green-bg); color: var(--cv-tone-green-fg); }
 
+/* The filter row over the comment list: which page, which status, and
+   how many are still open. */
+.cv-fb__filters {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+.cv-fb__filters .cv-select { flex: 1 1 150px; min-width: 0; min-height: 40px; font-size: 13px; }
+
 /* A folder heading. The group is said once, here, instead of being
    prefixed onto every page name underneath it. */
 .cv-fb__grouphead {
@@ -1106,6 +1113,14 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-num--done { background: #1E8E4E; color: #fff; }
 .cv-num--on { background: var(--cv-card); color: var(--cv-ink); }
 .cv-num--off { background: transparent; color: #C9CFDB; border: 2px solid #3D4556; }
+
+/* The drop zone on the Files tab. Dashed, because a solid card reads as
+   a list you cannot add to. */
+.cv-drop {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+  border: 2px dashed #C9CFDB; background: var(--cv-card);
+}
+.cv-drop[data-dragging="yes"] { border-color: var(--cv-accent); background: var(--cv-accent-tint); }
 
 /* A tile that is a link to somewhere else in the portal. */
 .cv-lk {

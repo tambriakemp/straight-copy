@@ -29,6 +29,7 @@ import SocialTab from "@/components/admin/social/SocialTab";
 import ProgressReportSettingsCard from "@/components/admin/ProgressReportSettingsCard";
 import DeliveryTargetsCard from "@/components/admin/DeliveryTargetsCard";
 import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
+import ProjectFilesPanel from "@/components/admin/project/ProjectFilesPanel";
 import ProjectPreviewPanel from "@/components/admin/project/ProjectPreviewPanel";
 import IntakeTab from "@/components/admin/client/IntakeTab";
 import { useProjectRecord, type ProjectTask } from "@/components/admin/project/useProjectRecord";
@@ -284,6 +285,7 @@ export default function AppDevelopmentView({
 
         {tab === "files" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <ProjectFilesPanel clientId={clientId} clientProjectId={project.id} />
             <ProjectPreviewPanel
               clientId={clientId}
               clientProjectId={project.id}

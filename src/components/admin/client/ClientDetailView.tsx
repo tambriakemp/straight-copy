@@ -312,6 +312,7 @@ export default function ClientDetailView({ clientId }: { clientId: string }) {
               clientName={client.contact_name || client.business_name || "there"}
               clientEmail={client.contact_email}
               logins={logins}
+              projectNames={new Map(projects.map((p) => [p.id, p.name]))}
               onChanged={reload}
             />
           )}

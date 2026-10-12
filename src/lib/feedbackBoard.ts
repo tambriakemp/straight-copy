@@ -194,6 +194,29 @@ export function filterComments(
   });
 }
 
+/** What the Status dropdown offers. */
+export type StatusFilter = FeedbackStatus | "all";
+
+export const STATUS_FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
+  { value: "all", label: "Status: all" },
+  { value: "open", label: "Status: open" },
+  { value: "in_progress", label: "Status: in progress" },
+  { value: "resolved", label: "Status: resolved" },
+];
+
+/**
+ * What the Status dropdown means, as arguments to filterComments.
+ *
+ * Named rather than inlined because the mapping is not obvious and both
+ * boards have to make the same one: `showResolved` is always true here,
+ * since the dropdown is now the only thing deciding what is shown, and
+ * leaving it false would make "Status: all" quietly mean "all except
+ * resolved" — a filter that lies about its own name.
+ */
+export function statusArgs(s: StatusFilter): { status: StatusFilter; showResolved: boolean } {
+  return { status: s, showResolved: true };
+}
+
 /** How many are still outstanding, across everything shown. */
 export function openCount(comments: BoardComment[]): number {
   return comments.filter((c) => normaliseStatus(c.status) !== "resolved").length;

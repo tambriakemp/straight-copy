@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
   normaliseStatus, bucketByPage, filterComments, openCount, authorInitials,
-  clickToPct, pageTitle, pageLabel, pageKind, groupOf, foldersOf, groupNames,
+  clickToPct, pageTitle, pageLabel, pageKind, groupOf, foldersOf, groupNames, statusArgs,
   sortPages, visibleTo, pageKey, NEXT_STATUS,
   approvalFor, buildActivity,
   type BoardPage, type BoardComment, type ApprovalRow, type ApprovalEvent,
@@ -346,5 +346,32 @@ describe("buildActivity", () => {
 
   it("is empty for nothing", () => {
     expect(buildActivity([], [], title)).toEqual([]);
+  });
+});
+
+describe("statusArgs", () => {
+  const cs = [
+    cmt({ id: "o", project_id: "p", page_path: "x", status: "open" }),
+    cmt({ id: "i", project_id: "p", page_path: "x", status: "in_progress" }),
+    cmt({ id: "r", project_id: "p", page_path: "x", status: "resolved" }),
+  ];
+
+  it("means what the dropdown says — 'all' really is all", () => {
+    // The trap: showResolved defaults false, so passing the filter
+    // straight through would make "Status: all" mean "all except
+    // resolved" — a filter that lies about its own name.
+    expect(filterComments(cs, statusArgs("all")).map((c) => c.id)).toEqual(["o", "i", "r"]);
+  });
+
+  it("narrows to one state when one is picked", () => {
+    expect(filterComments(cs, statusArgs("open")).map((c) => c.id)).toEqual(["o"]);
+    expect(filterComments(cs, statusArgs("in_progress")).map((c) => c.id)).toEqual(["i"]);
+    expect(filterComments(cs, statusArgs("resolved")).map((c) => c.id)).toEqual(["r"]);
+  });
+
+  it("still honours the search box alongside the status", () => {
+    const out = filterComments(cs, { query: "headline", ...statusArgs("all") });
+    expect(out).toHaveLength(3); // every fixture shares the same body
+    expect(filterComments(cs, { query: "nothing like this", ...statusArgs("all") })).toHaveLength(0);
   });
 });

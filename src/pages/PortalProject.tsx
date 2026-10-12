@@ -6,14 +6,16 @@ import { supabase } from "@/integrations/supabase/client";
 import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
 import AuditsSection from "@/components/portal/AuditsSection";
 import ContractSection from "@/components/portal/ContractSection";
+import FilesSection from "@/components/portal/FilesSection";
+import PortalLoginsSection from "@/components/portal/PortalLoginsSection";
 import PortalShell, { type PortalView } from "@/components/portal/PortalShell";
 import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
-import PortalProjectPreviewCard from "@/components/portal/PortalProjectPreviewCard";
 import WebDevDiscoveryChat from "@/components/portal/WebDevDiscoveryChat";
 import { projectTypeStyle } from "@/lib/projectType";
+import { phaseLadder, phaseSummary, PHASE_WORD, type PhaseNode } from "@/lib/journeyPhases";
 
 /** The tabs on one project, as board 16 lays them out. */
-type ProjectTab = "overview" | "audits" | "access" | "brand";
+type ProjectTab = "overview" | "audits" | "files" | "logins" | "brand";
 
 
 type ProjectRow = { id: string; type: string; name: string; status: string; updated_at: string };
@@ -50,8 +52,11 @@ const cleanContent = (text: string) =>
 export default function PortalProject() {
   const { clientId, projectId } = useParams<{ clientId: string; projectId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  // Reported up by the preview panel so the hero can show it without a second
-  // round trip for the same numbers.
+  // How many pages the client has approved, for the "Page reviews" bar.
+  // Read here rather than reported up by a preview panel, because that
+  // panel is gone: the feedback board owns pages, comments and approvals
+  // now, and a second surface doing the same job from the same tables is
+  // how the portal ended up showing two of everything.
   const [previewProgress, setPreviewProgress] = useState({ approved: 0, total: 0 });
 
   // Admin impersonation flag — persists across in-portal navigation via sessionStorage.
@@ -94,6 +99,7 @@ export default function PortalProject() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [contractSigned, setContractSigned] = useState(false);
   const [tab, setTab] = useState<ProjectTab>("overview");
+  const [phases, setPhases] = useState<PhaseNode[]>([]);
   const navigate = useNavigate();
 
   /** The portal home, on a given view, keeping whatever is in the URL. */
@@ -201,6 +207,37 @@ export default function PortalProject() {
   }, [clientId, lsKey, adminPreview]);
 
   useEffect(() => { resolve(); }, [resolve]);
+
+  // The phase ladder and the page-review count, both per project.
+  useEffect(() => {
+    if (!projectId) { setPhases([]); setPreviewProgress({ approved: 0, total: 0 }); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc("portal_project_phases", { _client_project_id: projectId });
+      if (!cancelled) setPhases((data ?? []) as PhaseNode[]);
+
+      try {
+        const r = await fetch(`${SUPABASE_URL}/functions/v1/preview-approvals`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
+          body: JSON.stringify({ action: "list", client_project_id: projectId }),
+        });
+        if (!r.ok) throw new Error("no preview");
+        const out = await r.json() as { pages?: Array<{ approval?: unknown }> };
+        const pages = out.pages ?? [];
+        if (!cancelled) {
+          setPreviewProgress({
+            approved: pages.filter((p) => !!p.approval).length,
+            total: pages.length,
+          });
+        }
+      } catch {
+        // No preview on this project is the ordinary case, not a fault.
+        if (!cancelled) setPreviewProgress({ approved: 0, total: 0 });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [projectId]);
 
   // Check whether the contract for the current web-dev project has been signed.
   // This gates the discovery questionnaire chat.
@@ -488,18 +525,22 @@ export default function PortalProject() {
     todo.push({
       key: "access",
       label: "Share account access",
-      sub: "Domain, hosting and the tools your automations run through.",
+      sub: "The tools your automations run through — SureContact, CoPost and your site.",
       state: "now",
-      onClick: () => setTab("access"),
-      cta: "Open Access",
+      onClick: () => scrollToSection("portal-account-access"),
+      cta: "Open it",
     });
   }
   const openTodo = todo.filter((x) => x.state !== "done").length;
 
+  const ladder = phaseLadder(phases);
+  const ladderLine = phaseSummary(ladder);
+
   const tabs: Array<{ key: ProjectTab; label: string }> = [
     { key: "overview", label: "Overview" },
     { key: "audits", label: "Audits" },
-    { key: "access", label: "Access" },
+    { key: "files", label: "Files" },
+    { key: "logins", label: "Logins" },
     { key: "brand", label: "Brand" },
   ];
 
@@ -532,7 +573,7 @@ export default function PortalProject() {
         </section>
       )}
 
-      {(client.build_start_date || client.delivery_date || node) && (
+      {(ladder.length > 0 || client.build_start_date || client.delivery_date) && (
         <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div className="cv-card-head" style={{ margin: 0 }}>
             <h2 className="cv-card-title">Where things stand</h2>
@@ -544,10 +585,27 @@ export default function PortalProject() {
               </span>
             )}
           </div>
-          {node && (
+
+          {/* The whole ladder, not just the step in flight. "Now: Design"
+              on its own is a status; what a client wants to know is what
+              is behind them and what is still to come. */}
+          {ladder.length > 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {ladder.map((p) => (
+                <div key={p.id}
+                  className={`cv-ph ${p.state === "done" ? "cv-ph--done" : p.state === "now" ? "cv-ph--now" : ""}`}>
+                  <small>{PHASE_WORD[p.state]}</small>{p.label}
+                </div>
+              ))}
+            </div>
+          ) : node ? (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               <div className="cv-ph cv-ph--now"><small>Now</small>{node.label}</div>
             </div>
+          ) : null}
+
+          {ladderLine && (
+            <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>{ladderLine}</p>
           )}
           {client.build_start_date && (
             <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>
@@ -642,16 +700,21 @@ export default function PortalProject() {
         </div>
       )}
 
-      {isPreviewable && currentProject && (
-        <div id="portal-preview" style={{ scrollMarginTop: 24 }}>
-          <PortalProjectPreviewCard
-            clientProjectId={currentProject.id}
-            contactName={client.contact_name}
-            clientId={clientId}
-            onProgress={setPreviewProgress}
-          />
+      {/* Account access is a client TASK, so it sits under the to-do
+          list that points at it rather than on a tab of its own. The
+          Logins tab is the other half: named accounts the client hands
+          over, one row each. */}
+      {isAutomation && (
+        <div id="portal-account-access" style={{ scrollMarginTop: 24 }}>
+          <AccountAccessSection clientId={clientId!} tier={client.tier} initial={accountAccess} />
         </div>
       )}
+
+      {/* The old Preview panel used to render here. It is gone: it listed
+          the same pages, counted the same approvals and collected the
+          same comments as the feedback board, from the same tables, in a
+          different design — so a client approving a page in one place
+          watched the other disagree with them. */}
     </div>
   );
 
@@ -699,24 +762,11 @@ export default function PortalProject() {
     </div>
   );
 
-  const access = (
-    <div className="cv-pg">
-      <div>
-        <h2 className="cv-card-title" style={{ fontSize: 22 }}>Access</h2>
-        <p className="cv-page-sub">
-          The accounts Cre8 Visions needs for this project — your domain, hosting
-          and the tools your work runs through. Only you and the Cre8 Visions
-          team can see what you share here.
-        </p>
-      </div>
-      <AccountAccessSection clientId={clientId!} tier={client.tier} initial={accountAccess} />
-      {isAutomation && (
-        <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
-          <SubscriptionSection clientId={clientId!} tier={client.tier} initial={subscription} />
-        </div>
-      )}
+  const money = isAutomation ? (
+    <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
+      <SubscriptionSection clientId={clientId!} tier={client.tier} initial={subscription} />
     </div>
-  );
+  ) : null;
 
   return (
     <PortalShell
@@ -768,9 +818,16 @@ export default function PortalProject() {
           </section>
         ) : tab === "audits" ? (
           <AuditsSection clientProjectId={currentProject.id} />
-        ) : tab === "access" ? access
-          : tab === "brand" ? brand
-            : overview}
+        ) : tab === "files" ? (
+          <FilesSection
+            clientId={clientId!}
+            clientProjectId={currentProject.id}
+            clientName={client.contact_name}
+          />
+        ) : tab === "logins" ? (
+          <PortalLoginsSection clientId={clientId!} clientProjectId={currentProject.id} />
+        ) : tab === "brand" ? brand
+          : <>{overview}{money}</>}
       </div>
     </PortalShell>
   );

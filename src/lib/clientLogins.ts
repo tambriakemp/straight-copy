@@ -10,6 +10,26 @@ export interface ClientLoginRow {
   note: string | null;
   has_password: boolean;
   sort_order?: number | null;
+  /** Null when the agency holds this for the client as a whole. */
+  client_project_id?: string | null;
+}
+
+/**
+ * Which project a login belongs to, for the chip on the admin row.
+ *
+ * Null for a client-wide login, because "no project" is not a project
+ * and a chip reading "General" on most rows is noise. A project id with
+ * no matching name still gets a chip — the login was shared for
+ * SOMETHING, and saying so is better than quietly filing it as the
+ * agency's own.
+ */
+export function loginProjectLabel(
+  row: Pick<ClientLoginRow, "client_project_id">,
+  names: Map<string, string>,
+): string | null {
+  const id = row.client_project_id;
+  if (!id) return null;
+  return names.get(id) ?? "A project";
 }
 
 /** The dots the row shows in place of a password. */

@@ -18,7 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import SidePanel from "@/components/admin/SidePanel";
 import {
-  MASK, subtitleFor, hrefFor, passwordToSend, shareBody, type ClientLoginRow,
+  MASK, subtitleFor, hrefFor, passwordToSend, shareBody, loginProjectLabel,
+  type ClientLoginRow,
 } from "@/lib/clientLogins";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -52,12 +53,15 @@ interface Draft { id: string | null; label: string; url: string; username: strin
 const BLANK: Draft = { id: null, label: "", url: "", username: "", password: "", note: "" };
 
 export default function LoginsTab({
-  clientId, clientName, clientEmail, logins, onChanged,
+  clientId, clientName, clientEmail, logins, projectNames = new Map(), onChanged,
 }: {
   clientId: string;
   clientName: string;
   clientEmail: string | null;
   logins: ClientLoginRow[];
+  /** Project id → name, for the chip on a login the client shared from
+   *  the portal. Nothing else about this tab changes. */
+  projectNames?: Map<string, string>;
   onChanged: () => void;
 }) {
   const [revealed, setRevealed] = useState<Record<string, string>>({});
@@ -68,6 +72,7 @@ export default function LoginsTab({
   const [ordered, setOrdered] = useState<ClientLoginRow[] | null>(null);
   const dragId = useRef<string | null>(null);
   const rows = ordered ?? logins;
+  const projectLabel = (l: ClientLoginRow) => loginProjectLabel(l, projectNames);
 
   const reveal = async (id: string) => {
     if (revealed[id] !== undefined) { // already showing — hide again
@@ -226,6 +231,12 @@ export default function LoginsTab({
                   </small>
                 )}
               </span>
+              {/* Which project the client shared it for. Absent on the
+                  logins we hold for the client as a whole — a chip
+                  reading "General" on most rows is noise. */}
+              {projectLabel(l) && (
+                <span className="cv-chip cv-chip--blue">{projectLabel(l)}</span>
+              )}
               <span className="cv-lg__pw">{shown ?? (l.has_password ? MASK : "No password")}</span>
               <span className="cv-lg__bt">
                 <button
