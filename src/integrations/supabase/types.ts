@@ -4813,6 +4813,195 @@ export type Database = {
           },
         ]
       }
+      wiki_documents: {
+        Row: {
+          access_level: Database["public"]["Enums"]["wiki_access_level"]
+          content: string
+          created_at: string
+          created_by: string | null
+          department: string
+          doc_type: string
+          draft_content: string | null
+          draft_title: string | null
+          draft_updated_at: string | null
+          folder_id: string | null
+          has_draft: boolean
+          id: string
+          last_reviewed_at: string | null
+          owner: string | null
+          published_at: string | null
+          slug: string
+          status: Database["public"]["Enums"]["wiki_doc_status"]
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          access_level?: Database["public"]["Enums"]["wiki_access_level"]
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          department: string
+          doc_type: string
+          draft_content?: string | null
+          draft_title?: string | null
+          draft_updated_at?: string | null
+          folder_id?: string | null
+          has_draft?: boolean
+          id?: string
+          last_reviewed_at?: string | null
+          owner?: string | null
+          published_at?: string | null
+          slug: string
+          status?: Database["public"]["Enums"]["wiki_doc_status"]
+          tags?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          access_level?: Database["public"]["Enums"]["wiki_access_level"]
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          department?: string
+          doc_type?: string
+          draft_content?: string | null
+          draft_title?: string | null
+          draft_updated_at?: string | null
+          folder_id?: string | null
+          has_draft?: boolean
+          id?: string
+          last_reviewed_at?: string | null
+          owner?: string | null
+          published_at?: string | null
+          slug?: string
+          status?: Database["public"]["Enums"]["wiki_doc_status"]
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wiki_documents_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "wiki_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wiki_folders: {
+        Row: {
+          created_at: string
+          department: string | null
+          id: string
+          name: string
+          order_index: number
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department?: string | null
+          id?: string
+          name: string
+          order_index?: number
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wiki_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "wiki_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wiki_revisions: {
+        Row: {
+          change_note: string | null
+          content: string
+          document_id: string
+          edited_at: string
+          edited_by: string | null
+          edited_by_name: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          change_note?: string | null
+          content: string
+          document_id: string
+          edited_at?: string
+          edited_by?: string | null
+          edited_by_name?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          change_note?: string | null
+          content?: string
+          document_id?: string
+          edited_at?: string
+          edited_by?: string | null
+          edited_by_name?: string | null
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wiki_revisions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "wiki_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wiki_user_roles: {
+        Row: {
+          active: boolean
+          created_at: string
+          email: string
+          id: string
+          name: string
+          role: Database["public"]["Enums"]["wiki_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          role?: Database["public"]["Enums"]["wiki_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: Database["public"]["Enums"]["wiki_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       agent_pending_actions_v: {
@@ -5045,7 +5234,9 @@ export type Database = {
         Args: { _client_project_id: string; _enc_key: string; _key: string }
         Returns: string
       }
+      has_wiki_access: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_wiki_founder: { Args: { _user_id: string }; Returns: boolean }
       log_email_event_for_clients_tasks: {
         Args: {
           _client_id: string
@@ -5169,6 +5360,9 @@ export type Database = {
         | "needs_review"
         | "blocked"
         | "complete"
+      wiki_access_level: "Founder Only" | "All Staff"
+      wiki_doc_status: "Draft" | "Active" | "Archived"
+      wiki_role: "founder" | "intern" | "contractor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5313,6 +5507,9 @@ export const Constants = {
         "blocked",
         "complete",
       ],
+      wiki_access_level: ["Founder Only", "All Staff"],
+      wiki_doc_status: ["Draft", "Active", "Archived"],
+      wiki_role: ["founder", "intern", "contractor"],
     },
   },
 } as const
