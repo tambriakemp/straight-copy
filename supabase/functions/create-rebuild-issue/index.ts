@@ -125,7 +125,7 @@ function buildDescription(row: ApprovalRow, feedback: FeedbackRound | null, atta
     "**Camille, do this:**",
     "1. Rebuild this preview.",
     "2. Pass it against your own design critic rubric (CRE-415) before resubmitting — don't send Bree anything that wouldn't pass your own gate.",
-    `3. Resubmit through prospect-approvals-sync's push action with \`rebuilt_from_approval_id: "${row.id}"\` on the new row — that flips this row to "Ready for your review" automatically, no extra step.`,
+    `3. Resubmit through prospect-approvals-sync's push action with \`rebuilt_from_approval_id: "${row.id}"\` — slug can be the new version (e.g. \`-v2\`), that updates this exact row in place (new preview URL, back to pending, rebuild_status -> ready_for_review). It will not create a second row.`,
     "4. Mark this card done once step 3 is confirmed. If you get stuck, set it blocked with the specific reason instead of leaving it open.",
   );
   return parts.join("\n");
