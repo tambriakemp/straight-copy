@@ -39,6 +39,16 @@
 // History is keyed by prospect_key (the slug with any trailing -vN
 // stripped), not by this row's own id — unaffected by the rebuild-in-place
 // fix above, since there's still exactly one prospect_key per prospect.
+//
+// CRE-413 follow-up bug fix (2026-10-12, caller sends a partial rebuild
+// payload): both UPDATE branches used to rebuild the full content object
+// from the incoming prospect every time, defaulting any field the caller
+// didn't send (contact_email, hook, trade, city, ...) to null. A rebuild
+// push that only knows the new preview_url would silently null out the
+// prospect's real contact/outreach fields on every update. Fixed by
+// splitting into `insertContent` (full, null-defaulted — only safe for a
+// brand-new row with nothing to preserve) and `patchContent` (sparse — only
+// the keys the caller actually sent), used by the two UPDATE branches.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const ATTACHMENT_BUCKET = "prospect-approval-attachments";
@@ -348,7 +358,9 @@ Deno.serve(async (req) => {
       .eq("slug", p.slug)
       .maybeSingle();
 
-    const content = {
+    // Full defaults (missing field -> null) — only correct for a brand-new
+    // row, where there is no prior value to clobber.
+    const insertContent = {
       company: p.company,
       city: p.city ?? null,
       trade: p.trade ?? null,
@@ -363,10 +375,23 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     };
 
+    // Sparse patch for the two UPDATE branches below: only the keys the
+    // caller actually sent. A caller that only knows the new preview_url
+    // (e.g. a rebuild push) must not silently null out contact_email,
+    // hook, etc. that it never had and never meant to touch.
+    const patchContent: Record<string, unknown> = {
+      company: p.company,
+      updated_at: new Date().toISOString(),
+    };
+    for (const key of OPTIONAL_STRING_FIELDS) {
+      if (key === "rebuilt_from_approval_id") continue;
+      if (p[key] !== undefined) patchContent[key] = p[key];
+    }
+
     if (existing) {
       // Exact (batch, slug) match — plain re-push, e.g. editing content
       // without a version change. Never touches status/notes/decided_at.
-      const { error } = await sb.from("prospect_approvals").update(content).eq("id", existing.id);
+      const { error } = await sb.from("prospect_approvals").update(patchContent).eq("id", existing.id);
       if (error) {
         results.push({ slug: p.slug, error: error.message });
         continue;
@@ -385,7 +410,7 @@ Deno.serve(async (req) => {
       // pending/approved row just means the content/slug changed, so leave
       // its decision alone, same as the exact-match branch above.
       const wasRejected = target.status === "rejected";
-      const update: Record<string, unknown> = { ...content, slug: p.slug };
+      const update: Record<string, unknown> = { ...patchContent, slug: p.slug };
       if (wasRejected) {
         update.status = "pending";
         update.rebuild_status = "ready_for_review";
@@ -405,7 +430,7 @@ Deno.serve(async (req) => {
     const { data: inserted, error } = await sb
       .from("prospect_approvals")
       .insert({
-        ...content,
+        ...insertContent,
         batch: b.batch,
         slug: p.slug,
         status: "pending",
