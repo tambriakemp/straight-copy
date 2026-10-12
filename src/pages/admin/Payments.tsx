@@ -147,8 +147,8 @@ export default function Payments() {
       width={520}
       footer={
         <>
-          <button className="crm-btn crm-btn--ghost" onClick={() => setOpen(false)} disabled={saving}>Cancel</button>
-          <button className="crm-btn crm-btn--primary" onClick={() => void createSchedule()} disabled={saving}>
+          <button type="button" className="cv-open" style={{ padding: "0 18px" }} onClick={() => setOpen(false)} disabled={saving}>Cancel</button>
+          <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 18px" }} onClick={() => void createSchedule()} disabled={saving}>
             {saving ? "Creating…" : "Create schedule"}
           </button>
         </>
@@ -156,8 +156,8 @@ export default function Payments() {
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div>
-          <label className="crm-label">Client *</label>
-          <select className="crm-input" value={clientId} onChange={(e) => setClientId(e.target.value)}>
+          <label className="cv-field">Client *</label>
+          <select className="cv-input" value={clientId} onChange={(e) => setClientId(e.target.value)}>
             <option value="">— choose a client —</option>
             {clientOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
@@ -165,8 +165,8 @@ export default function Payments() {
 
         {clientId && (
           <div>
-            <label className="crm-label">Project *</label>
-            <select className="crm-input" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+            <label className="cv-field">Project *</label>
+            <select className="cv-input" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
               <option value="">— choose a project —</option>
               {projectsForClient.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               <option value="__new__">+ Create a new project…</option>
@@ -177,12 +177,12 @@ export default function Payments() {
         {creatingNewProject && (
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
-              <label className="crm-label">New project name *</label>
-              <input className="crm-input" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} />
+              <label className="cv-field">New project name *</label>
+              <input className="cv-input" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} />
             </div>
             <div style={{ width: 160 }}>
-              <label className="crm-label">Type</label>
-              <select className="crm-input" value={newProjectType} onChange={(e) => setNewProjectType(e.target.value)}>
+              <label className="cv-field">Type</label>
+              <select className="cv-input" value={newProjectType} onChange={(e) => setNewProjectType(e.target.value)}>
                 {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
               </select>
             </div>
@@ -191,8 +191,8 @@ export default function Payments() {
 
         {!!proposalOptions.length && (
           <div>
-            <label className="crm-label">Link to a proposal (optional)</label>
-            <select className="crm-input" value={proposalId} onChange={(e) => setProposalId(e.target.value)}>
+            <label className="cv-field">Link to a proposal (optional)</label>
+            <select className="cv-input" value={proposalId} onChange={(e) => setProposalId(e.target.value)}>
               <option value="">— not linked —</option>
               {proposalOptions.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
             </select>
@@ -200,29 +200,29 @@ export default function Payments() {
         )}
 
         <div>
-          <label className="crm-label">Schedule title</label>
-          <input className="crm-input" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <label className="cv-field">Schedule title</label>
+          <input className="cv-input" value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
 
         <div>
-          <label className="crm-label">Installments</label>
+          <label className="cv-field">Installments</label>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {items.map((it, i) => (
               <div key={i} style={{ display: "flex", gap: 6 }}>
-                <input className="crm-input" style={{ flex: 1 }} placeholder="Label" value={it.label}
+                <input className="cv-input" style={{ flex: 1 }} placeholder="Label" value={it.label}
                   onChange={(e) => setItems((s) => s.map((x, ix) => ix === i ? { ...x, label: e.target.value } : x))} />
-                <input className="crm-input" style={{ width: 110 }} type="number" step="0.01" placeholder="Amount"
+                <input className="cv-input" style={{ width: 110 }} type="number" step="0.01" placeholder="Amount"
                   value={it.amount_dollars}
                   onChange={(e) => setItems((s) => s.map((x, ix) => ix === i ? { ...x, amount_dollars: e.target.value } : x))} />
-                <input className="crm-input" style={{ width: 140 }} type="date" value={it.due_date}
+                <input className="cv-input" style={{ width: 140 }} type="date" value={it.due_date}
                   onChange={(e) => setItems((s) => s.map((x, ix) => ix === i ? { ...x, due_date: e.target.value } : x))} />
-                <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setItems((s) => s.filter((_, ix) => ix !== i))}>
+                <button type="button" className="cv-mini" onClick={() => setItems((s) => s.filter((_, ix) => ix !== i))}>
                   <Trash2 size={12} />
                 </button>
               </div>
             ))}
           </div>
-          <button className="crm-btn crm-btn--ghost crm-btn--sm" style={{ marginTop: 8 }}
+          <button type="button" className="cv-mini" style={{ marginTop: 8 }}
             onClick={() => setItems((s) => [...s, { label: "", amount_dollars: "", due_date: "" }])}>
             <Plus size={12} /> Add installment
           </button>

@@ -28,3 +28,44 @@ export function fileSize(bytes: number | null | undefined): string | null {
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
   return `${v >= 10 ? Math.round(v) : Math.round(v * 10) / 10} ${units[i]}`;
 }
+
+/** What a file can be shown as, or null when it can only be downloaded. */
+export type PreviewKind = "image" | "pdf" | "html" | "text";
+
+const BY_MIME: Array<[RegExp, PreviewKind]> = [
+  [/^image\//i, "image"],
+  [/^application\/pdf$/i, "pdf"],
+  [/^text\/html$/i, "html"],
+  [/^text\//i, "text"],
+];
+
+const BY_EXT: Array<[RegExp, PreviewKind]> = [
+  [/\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i, "image"],
+  [/\.pdf$/i, "pdf"],
+  [/\.html?$/i, "html"],
+  [/\.(txt|md|csv|log|json|ya?ml)$/i, "text"],
+];
+
+/**
+ * Whether a file can be shown rather than only downloaded.
+ *
+ * The MIME type is tried first because it is what the browser will
+ * actually honour, but it is NOT trusted alone: a file uploaded by
+ * drag-and-drop from some clients arrives as application/octet-stream
+ * or with no type at all, and refusing to preview a PDF called
+ * "contract.pdf" because the browser forgot to label it is the kind of
+ * thing that reads as broken.
+ *
+ * A generic type falls through to the extension; an unrecognised one
+ * with no useful extension returns null and the row stays
+ * download-only, which is the safe end to fail at.
+ */
+export function previewKind(mime: string | null | undefined, name = ""): PreviewKind | null {
+  const m = (mime ?? "").trim().toLowerCase();
+  const generic = !m || m === "application/octet-stream" || m === "binary/octet-stream";
+  if (!generic) {
+    for (const [re, kind] of BY_MIME) if (re.test(m)) return kind;
+  }
+  for (const [re, kind] of BY_EXT) if (re.test(name)) return kind;
+  return null;
+}

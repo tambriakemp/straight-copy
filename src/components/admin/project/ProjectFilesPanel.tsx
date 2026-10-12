@@ -14,7 +14,8 @@ import { toast } from "sonner";
 import { Upload, FileText, Download, Eye, EyeOff, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import EmptyState from "@/components/admin/cv/EmptyState";
-import { fileSize, safeFileName } from "@/lib/projectFiles";
+import { fileSize, safeFileName, previewKind } from "@/lib/projectFiles";
+import FilePreview from "@/components/FilePreview";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const MAX_BYTES = 50 * 1024 * 1024;
@@ -23,6 +24,7 @@ interface Row {
   id: string;
   name: string;
   storage_path: string;
+  mime: string | null;
   size_bytes: number | null;
   direction: string;
   category: string | null;
@@ -56,6 +58,7 @@ export default function ProjectFilesPanel({
   const [busy, setBusy] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [category, setCategory] = useState("");
+  const [previewing, setPreviewing] = useState<Row | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -128,7 +131,13 @@ export default function ProjectFilesPanel({
     <div key={r.id} className="cv-it">
       <span className="cv-ic" style={{ background: "#EEF0F5", color: "#3D4556" }}><FileText size={22} /></span>
       <span className="cv-it__what">
-        <b>{r.name}</b>
+        {/* Clickable when there is something to show. A name that opens
+            nothing should not look like a link. */}
+        {r.url && previewKind(r.mime, r.name) ? (
+          <button type="button" className="cv-filename" onClick={() => setPreviewing(r)}>
+            {r.name}
+          </button>
+        ) : <b>{r.name}</b>}
         <small>
           {[
             r.category,
@@ -200,6 +209,13 @@ export default function ProjectFilesPanel({
             </>
           )}
         </>
+      )}
+
+      {previewing?.url && (
+        <FilePreview
+          name={previewing.name} url={previewing.url} mime={previewing.mime}
+          onClose={() => setPreviewing(null)}
+        />
       )}
     </section>
   );

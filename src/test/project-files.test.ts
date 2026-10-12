@@ -2,7 +2,7 @@
 // it silently becomes a folder — so a client's "invoices/april.pdf"
 // lands somewhere nobody looks and the upload appears to have worked.
 import { describe, it, expect } from "vitest";
-import { safeFileName, fileSize } from "@/lib/projectFiles";
+import { safeFileName, fileSize, previewKind } from "@/lib/projectFiles";
 
 describe("safeFileName", () => {
   it("drops the path, because a slash makes a folder rather than a name", () => {
@@ -48,5 +48,39 @@ describe("fileSize", () => {
 
   it("still says 0 B for a genuinely empty file", () => {
     expect(fileSize(0)).toBe("0 B");
+  });
+});
+
+describe("previewKind", () => {
+  it("reads the MIME type when there is a real one", () => {
+    expect(previewKind("image/png", "a")).toBe("image");
+    expect(previewKind("application/pdf", "a")).toBe("pdf");
+    expect(previewKind("text/html", "a")).toBe("html");
+    expect(previewKind("text/plain", "a")).toBe("text");
+  });
+
+  it("falls back to the extension when the browser gave a generic type", () => {
+    // Drag-and-drop from some clients arrives as octet-stream or with
+    // no type at all. Refusing to preview a file called contract.pdf
+    // because of that reads as broken.
+    for (const m of ["", null, undefined, "application/octet-stream", "binary/octet-stream"]) {
+      expect(previewKind(m, "contract.pdf"), String(m)).toBe("pdf");
+    }
+    expect(previewKind("", "logo.SVG")).toBe("image");
+    expect(previewKind(undefined, "notes.md")).toBe("text");
+  });
+
+  it("prefers a real MIME type over a misleading extension", () => {
+    expect(previewKind("application/pdf", "weird.name")).toBe("pdf");
+  });
+
+  it("returns null for anything it cannot show, which stays download-only", () => {
+    expect(previewKind("application/zip", "logos.zip")).toBeNull();
+    expect(previewKind("", "archive.sketch")).toBeNull();
+    expect(previewKind(null, "")).toBeNull();
+  });
+
+  it("does not call a video an image just because the MIME starts the same", () => {
+    expect(previewKind("video/mp4", "walkthrough.mp4")).toBeNull();
   });
 });

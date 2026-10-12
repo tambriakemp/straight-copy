@@ -1,9 +1,10 @@
 import { CSSProperties, ReactNode } from "react";
 
-// A handful of Phase 4 client-detail tabs reuse existing dark-themed
-// .crm-shell components (ClientsTable, ProjectTasksPanel, ClientPortalActions)
-// as fragments inside the new light .cv-admin page, rather than rebuilding
-// them. Those components' CSS (e.g. .detail__portal-btn--ghost) sets text and
+// One surface left: the Marketing page, whose SocialTab is still a
+// dark .crm-shell component rendered inside the light .cv-admin shell.
+// (The client-detail tabs that used this have all been rebuilt, and
+// ClientPortalActions, one of the three named here originally, is
+// deleted.) Those components' CSS (e.g. .detail__portal-btn--ghost) sets text and
 // border colors meant to read against the dark .crm-ink background every
 // other .crm-shell page gives them for free — nested bare inside .cv-admin's
 // light background, that text is near-invisible. This gives the fragment its

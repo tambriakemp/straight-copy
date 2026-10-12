@@ -9,9 +9,6 @@ import { supabase } from "@/integrations/supabase/client";
 import SidePanel from "@/components/admin/SidePanel";
 import { nextCutoffLabel, roundProgress } from "@/lib/prospectRound";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet";
 
 const ATTACHMENT_BUCKET = "prospect-approval-attachments";
 const ACCEPTED_ATTACHMENT_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
@@ -113,67 +110,13 @@ function randomSecret(len = 40) {
   return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, len);
 }
 
-// Same Settings-card pattern as Briefs.tsx's SecretRow, duplicated locally
-// rather than extracted into a shared component — each settings-bearing
-// admin page owns its own copy today (see Briefs.tsx, Audits.tsx).
-function SecretRow({ label, secretKey, hint }: { label: string; secretKey: string; hint: string }) {
-  const [value, setValue] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [revealed, setRevealed] = useState(false);
-  const [busy, setBusy] = useState(false);
+// The prospect-approvals ingest key used to be minted from a Settings
+// sheet on this page, by a local copy of SecretRow — one of three
+// copies of the same component. It lives on Settings -> Keys now,
+// which is where every other key already was, so both the sheet and
+// the copy are gone rather than being a second place to rotate the
+// same value from.
 
-  useEffect(() => {
-    db.from("app_secrets").select("value").eq("key", secretKey).maybeSingle()
-      .then(({ data }: { data: { value: string } | null }) => { setValue(data?.value ?? null); setLoaded(true); });
-  }, [secretKey]);
-
-  const save = async (next: string) => {
-    setBusy(true);
-    const { error } = await db.from("app_secrets")
-      .upsert({ key: secretKey, value: next, rotated_at: new Date().toISOString() });
-    setBusy(false);
-    if (error) { toast.error(error.message); return; }
-    setValue(next);
-    setRevealed(true);
-    toast.success(`${label} saved`);
-  };
-
-  const copy = () => { if (value) { navigator.clipboard.writeText(value); toast.success("Copied"); } };
-
-  return (
-    <div style={{ display: "grid", gap: 6, marginBottom: 18 }}>
-      <label className="crm-label">{label}</label>
-      <p style={{ fontSize: 15, color: "hsl(30 8% 62%)", margin: 0 }}>{hint}</p>
-      {!loaded ? (
-        <div style={{ fontSize: 15, color: "hsl(30 8% 62%)" }}>Loading…</div>
-      ) : value ? (
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <code style={{
-            flex: 1, fontFamily: "monospace", fontSize: 15, color: "hsl(40 20% 97%)",
-            background: "hsl(40 8% 10%)", padding: "8px 10px", border: "1px solid hsl(40 20% 97% / 0.08)",
-            wordBreak: "break-all",
-          }}>
-            {revealed ? value : "•".repeat(Math.min(value.length, 32))}
-          </code>
-          <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={() => setRevealed((r) => !r)}>
-            {revealed ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-          </button>
-          <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={copy}>
-            <Copy className="h-3 w-3" />
-          </button>
-          <button className="crm-btn crm-btn--ghost crm-btn--sm" disabled={busy}
-            onClick={() => { if (confirm(`Rotate ${label}? Anything using the old value stops working immediately.`)) save(randomSecret()); }}>
-            <RefreshCw className="h-3 w-3" /> Rotate
-          </button>
-        </div>
-      ) : (
-        <button className="crm-btn crm-btn--bronze crm-btn--sm" disabled={busy} onClick={() => save(randomSecret())}>
-          Generate
-        </button>
-      )}
-    </div>
-  );
-}
 
 export default function Approvals() {
   const { user } = useAdminAuth();
@@ -183,7 +126,6 @@ export default function Approvals() {
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [attachmentDrafts, setAttachmentDrafts] = useState<Record<string, AttachmentDraft[]>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [panelHistory, setPanelHistory] = useState<FeedbackRound[] | null>(null);
   /** Which prospect the right-hand panel is showing. */
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -443,9 +385,6 @@ export default function Approvals() {
               </button>
             );
           })}
-          <button type="button" className="cv-open" style={{ padding: "0 16px" }} onClick={() => setSettingsOpen(true)}>
-            <Settings size={15} style={{ marginRight: 7 }} /> Settings
-          </button>
         </div>
 
         <section
@@ -642,26 +581,6 @@ export default function Approvals() {
           }}
         />
 
-        <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
-          <SheetContent
-            data-mobile-bottom-sheet="true"
-            className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] overflow-y-auto"
-            style={{ width: 560, maxWidth: "100vw" }}
-          >
-            <SheetHeader>
-              <SheetTitle className="font-serif italic text-xl" style={{ color: "hsl(40 20% 97%)" }}>Settings</SheetTitle>
-              <SheetDescription style={{ fontSize: 17, color: "hsl(30 8% 62%)" }}>
-                The key the outreach routine uses to post a batch of previews in.
-              </SheetDescription>
-            </SheetHeader>
-            <div style={{ marginTop: 20 }}>
-              <SecretRow
-                label="Prospect approvals ingest key" secretKey="prospect_approvals_ingest_secret"
-                hint="Sent as x-ingest-secret by prospect-approvals-sync."
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
       </div>
     </AdminLayout>
   );

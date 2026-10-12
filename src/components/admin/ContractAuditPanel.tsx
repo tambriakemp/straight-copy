@@ -31,9 +31,14 @@ type TaskActivityRow = {
 };
 
 /**
- * Signing audit panel for a single Web Dev (or any client) project. Shows when
- * the client signed, when the agency countersigned, the agency identity used,
- * and which project tasks were auto-completed by the signing event.
+ * The execution record for a signed service agreement: when the client
+ * signed, when the agency countersigned, who with, from which IP, and
+ * which project tasks the signing event auto-completed.
+ *
+ * It renders NOTHING until there is a contract. It used to print "not
+ * yet signed" in a grey slab under an empty Proposals tab — a record of
+ * something that has not happened is not a record, and a client who has
+ * not signed yet is the ordinary case, not a state worth a panel.
  */
 export default function ContractAuditPanel({
   clientId,
@@ -119,62 +124,64 @@ export default function ContractAuditPanel({
     }
   };
 
-  if (loading) return null;
+  // Nothing to show until something has been signed.
+  if (loading || !contract) return null;
 
-  const linkedToThisProject = contract?.client_project_id === clientProjectId;
+  const linkedToThisProject = contract.client_project_id === clientProjectId;
 
   return (
-    <section className="admin-contract" style={{ marginTop: 24 }}>
-      <div className="admin-contract__head">
-        <div className="admin-contract__eyebrow">Signing audit log</div>
-        <div className="admin-contract__title">
-          {contract ? "Service Agreement — execution record" : "Service Agreement — not yet signed"}
-        </div>
+    <section className="cv-card cv-card-pad">
+      <div className="cv-card-head">
+        <h2 className="cv-card-title">Signing audit log</h2>
+        <span className="cv-chip cv-chip--green">Signed</span>
       </div>
-      {contract ? (
-        <div className="admin-contract__body">
-          <div className="admin-contract__row">
-            <span className="lbl">Client signed</span>
-            <span className="val">
+      <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--cv-muted)" }}>
+        The execution record for the service agreement on this project.
+      </p>
+      {(
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="cv-defrow">
+            <span className="cv-defrow__lbl">Client signed</span>
+            <span className="cv-defrow__val">
               {new Date(contract.client_signed_at).toLocaleString()} ·{" "}
               {contract.client_signature_name} ({contract.client_signature_type})
             </span>
           </div>
-          <div className="admin-contract__row">
-            <span className="lbl">Agency countersigned</span>
-            <span className="val">
+          <div className="cv-defrow">
+            <span className="cv-defrow__lbl">Agency countersigned</span>
+            <span className="cv-defrow__val">
               {new Date(contract.agency_countersigned_at).toLocaleString()} ·{" "}
               {contract.agency_signer_name} (auto)
             </span>
           </div>
-          <div className="admin-contract__row">
-            <span className="lbl">Linked project</span>
-            <span className="val">
+          <div className="cv-defrow">
+            <span className="cv-defrow__lbl">Linked project</span>
+            <span className="cv-defrow__val">
               {contract.client_project_id ? (
                 linkedToThisProject ? (
-                  <span style={{ color: "var(--crm-accent)" }}>✓ This project</span>
+                  <span style={{ color: "var(--cv-tone-green-fg)" }}>✓ This project</span>
                 ) : (
-                  <span style={{ color: "var(--crm-taupe)" }}>
+                  <span style={{ color: "var(--cv-muted)" }}>
                     Other project ({contract.client_project_id.slice(0, 8)}…)
                   </span>
                 )
               ) : (
-                <span style={{ color: "var(--crm-taupe)" }}>Not linked to any project</span>
+                <span style={{ color: "var(--cv-muted)" }}>Not linked to any project</span>
               )}
             </span>
           </div>
           {contract.client_ip && (
-            <div className="admin-contract__row">
-              <span className="lbl">Client IP</span>
-              <span className="val val--mono">{contract.client_ip}</span>
+            <div className="cv-defrow">
+              <span className="cv-defrow__lbl">Client IP</span>
+              <span style={{ fontFamily: "var(--cv-font-mono)", fontSize: 13 }}>{contract.client_ip}</span>
             </div>
           )}
 
-          <div className="admin-contract__row" style={{ alignItems: "flex-start" }}>
-            <span className="lbl">Auto-completed tasks</span>
-            <span className="val" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div className="cv-defrow" style={{ alignItems: "flex-start" }}>
+            <span className="cv-defrow__lbl">Auto-completed tasks</span>
+            <span className="cv-defrow__val" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {activity.length === 0 ? (
-                <span style={{ color: "var(--crm-taupe)" }}>
+                <span style={{ color: "var(--cv-muted)" }}>
                   No tasks were auto-completed by this signing event.
                 </span>
               ) : (
@@ -182,10 +189,10 @@ export default function ContractAuditPanel({
                   const num = (a.metadata as { num?: string } | null)?.num ?? "";
                   return (
                     <span key={a.id} style={{ fontSize: 16 }}>
-                      <span style={{ color: "var(--crm-accent)" }}>✓</span>{" "}
+                      <span style={{ color: "var(--cv-tone-green-fg)" }}>✓</span>{" "}
                       <strong>{num}</strong> {a.task?.name?.replace(/^\d+\.\d+\s*—\s*/, "") ?? a.task_id}
                       {" "}
-                      <span style={{ color: "var(--crm-taupe)" }}>
+                      <span style={{ color: "var(--cv-muted)" }}>
                         · {new Date(a.created_at).toLocaleString()}
                       </span>
                     </span>
@@ -195,23 +202,17 @@ export default function ContractAuditPanel({
             </span>
           </div>
 
-          <div className="admin-contract__actions">
+          <div style={{ marginTop: 6 }}>
             <button
               type="button"
-              className="detail__portal-btn"
+              className="cv-open"
+              style={{ padding: "0 18px" }}
               onClick={downloadPdf}
               disabled={!contract.pdf_path}
             >
-              ⇣ Download signed PDF
+              Download signed PDF
             </button>
           </div>
-        </div>
-      ) : (
-        <div className="admin-contract__body">
-          <p className="admin-contract__empty">
-            The client hasn't signed yet. Once they sign in the portal, the agency countersignature
-            and project task auto-completion will appear here.
-          </p>
         </div>
       )}
     </section>

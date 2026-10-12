@@ -876,6 +876,12 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 
 /* A definition list in a card: label above value, not a two-column grid.
    .cv-dl below is the wide two-column one the older pages use. */
+/* A label/value pair on one line, for a record someone reads down:
+   the signing audit, and anything else shaped like it. */
+.cv-defrow { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+.cv-defrow__lbl { flex: 0 0 170px; color: var(--cv-muted); }
+.cv-defrow__val { flex: 1 1 220px; min-width: 0; color: var(--cv-ink); overflow-wrap: anywhere; }
+
 .cv-deflist { margin: 0; display: flex; flex-direction: column; gap: 12px; }
 .cv-deflist dt { font-size: 12px; color: var(--cv-muted); }
 .cv-deflist dd { margin: 0; font-size: 14px; color: var(--cv-ink); overflow-wrap: anywhere; }
@@ -1235,6 +1241,43 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
   padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px;
 }
 .cv-key__body .cv-code { background: var(--cv-card); }
+
+/* A file name that opens a preview. Looks like the name it replaces,
+   plus the underline that says it does something. */
+.cv-filename {
+  border: 0; background: none; padding: 0; font-family: inherit;
+  font-size: 16px; font-weight: 600; color: var(--cv-ink); cursor: pointer;
+  text-align: left; overflow-wrap: anywhere; text-decoration: underline;
+  text-decoration-color: var(--cv-border-strong); text-underline-offset: 3px;
+}
+.cv-filename:hover { color: var(--cv-accent); text-decoration-color: currentColor; }
+
+/* Looking at a file in place. Nearly the whole window, because the
+   point is to read the thing rather than peer at it. */
+.cv-preview { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 24px; }
+.cv-preview__back {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  border: 0; background: rgba(14, 17, 22, 0.55); cursor: pointer;
+}
+.cv-preview__panel {
+  position: relative; z-index: 1; width: min(1100px, 100%); height: min(92vh, 100%);
+  background: var(--cv-card); border-radius: 22px; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.cv-preview__bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 12px 16px; border-bottom: 1px solid var(--cv-border); flex-shrink: 0;
+}
+.cv-preview__name { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+.cv-preview__body { flex: 1; min-height: 0; background: var(--cv-sunken); display: flex; }
+.cv-preview__frame { flex: 1; width: 100%; height: 100%; border: 0; }
+/* contain, not cover: a design someone needs to look at must not be
+   cropped to fill a box. */
+.cv-preview__img { width: 100%; height: 100%; object-fit: contain; }
+.cv-preview__none {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; text-align: center; padding: 40px; color: var(--cv-muted);
+}
 
 /* A code line someone is meant to copy: a URL, a token, a uuid. */
 .cv-code {

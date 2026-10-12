@@ -13,7 +13,8 @@ import { toast } from "sonner";
 import { Upload, FileText, Download, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import EmptyState from "@/components/admin/cv/EmptyState";
-import { fileSize, safeFileName } from "@/lib/projectFiles";
+import { fileSize, safeFileName, previewKind } from "@/lib/projectFiles";
+import FilePreview from "@/components/FilePreview";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -62,6 +63,7 @@ export default function FilesSection({
   const [busy, setBusy] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [previewing, setPreviewing] = useState<ProjectFile | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -135,7 +137,11 @@ export default function FilesSection({
         <FileText size={22} />
       </span>
       <span className="cv-it__what">
-        <b>{f.name}</b>
+        {f.url && previewKind(f.mime, f.name) ? (
+          <button type="button" className="cv-filename" onClick={() => setPreviewing(f)}>
+            {f.name}
+          </button>
+        ) : <b>{f.name}</b>}
         <small>
           {[f.category, when(f.created_at), fileSize(f.size_bytes)].filter(Boolean).join(" · ")}
         </small>
@@ -225,6 +231,13 @@ export default function FilesSection({
             subtitle="Anything you upload above appears here, and goes straight to the team." />
         ) : sent.map((f) => row(f, true))}
       </section>
+
+      {previewing?.url && (
+        <FilePreview
+          name={previewing.name} url={previewing.url} mime={previewing.mime}
+          onClose={() => setPreviewing(null)}
+        />
+      )}
     </div>
   );
 }
