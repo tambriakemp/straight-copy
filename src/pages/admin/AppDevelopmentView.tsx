@@ -29,6 +29,7 @@ import SocialTab from "@/components/admin/social/SocialTab";
 import ProgressReportSettingsCard from "@/components/admin/ProgressReportSettingsCard";
 import DeliveryTargetsCard from "@/components/admin/DeliveryTargetsCard";
 import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
+import ArchiveProjectCard from "@/components/admin/project/ArchiveProjectCard";
 import ProjectFilesPanel from "@/components/admin/project/ProjectFilesPanel";
 import ProjectNotesTab from "@/components/admin/project/ProjectNotesTab";
 import IntakeTab from "@/components/admin/client/IntakeTab";
@@ -340,6 +341,12 @@ export default function AppDevelopmentView({
           <DeliveryTargetsCard clientProjectId={project.id} />
           <ProgressReportSettingsCard clientId={clientId} clientProjectId={project.id} />
           <ProjectSecretsPanel clientProjectId={project.id} />
+          <ArchiveProjectCard
+            clientProjectId={project.id}
+            projectName={project.name}
+            status={project.status}
+            onChanged={reload}
+          />
         </SidePanel>
       </div>
     </Shell>

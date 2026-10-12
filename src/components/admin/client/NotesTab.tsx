@@ -47,19 +47,28 @@ export default function NotesTab({
     onChanged();
   };
 
-  const saveEdit = async (id: string) => {
+  // A note on a project lives in project_notes; a note on the client
+  // lives in client_notes. They read as one list here, and the one that
+  // mattered is edited in the same place it is read — "Open project"
+  // was a link to go and do somewhere else what you were already
+  // looking at.
+  const tableFor = (n: ClientNote) => (n.project ? "project_notes" : "client_notes");
+
+  const saveEdit = async (n: ClientNote) => {
     const body = editDraft.trim();
+    // Blank is not an edit, it is a delete that leaves a dated empty row
+    // behind — which reads as a note whose text went missing.
     if (!body) { toast.error("A note cannot be empty — delete it instead"); return; }
-    const { error } = await supabase.from("client_notes")
-      .update({ body, updated_at: new Date().toISOString() }).eq("id", id);
+    const { error } = await supabase.from(tableFor(n))
+      .update({ body, updated_at: new Date().toISOString() }).eq("id", n.id);
     if (error) { toast.error(error.message); return; }
     setEditing(null);
     onChanged();
   };
 
-  const remove = async (id: string) => {
+  const remove = async (n: ClientNote) => {
     if (!confirm("Delete this note? This cannot be undone.")) return;
-    const { error } = await supabase.from("client_notes").delete().eq("id", id);
+    const { error } = await supabase.from(tableFor(n)).delete().eq("id", n.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Note deleted");
     onChanged();
@@ -108,17 +117,9 @@ export default function NotesTab({
               <span className="cv-chip cv-chip--gray">{n.project.name}</span>
             )}
             <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-              {n.project ? (
-                // A project note is edited on the project it belongs to.
-                // Shown here, because it is the same thing to whoever is
-                // reading, and two places to look is how one goes missing.
-                <a className="cv-mini" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}
-                  href={`/admin/clients/${clientId}/projects/${n.project.id}`}>
-                  Open project
-                </a>
-              ) : editing === n.id ? (
+              {editing === n.id ? (
                 <>
-                  <button type="button" className="cv-mini" onClick={() => saveEdit(n.id)}>Save</button>
+                  <button type="button" className="cv-mini" onClick={() => saveEdit(n)}>Save</button>
                   <button type="button" className="cv-mini" onClick={() => setEditing(null)}>Cancel</button>
                 </>
               ) : (
@@ -129,12 +130,12 @@ export default function NotesTab({
                   >
                     Edit
                   </button>
-                  <button type="button" className="cv-mini cv-mini--danger" onClick={() => remove(n.id)}>Delete</button>
+                  <button type="button" className="cv-mini cv-mini--danger" onClick={() => remove(n)}>Delete</button>
                 </>
               )}
             </span>
           </div>
-          {editing === n.id && !n.project ? (
+          {editing === n.id ? (
             <textarea
               className="cv-textarea" rows={4}
               value={editDraft} onChange={(e) => setEditDraft(e.target.value)}

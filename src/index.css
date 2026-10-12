@@ -1205,6 +1205,13 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-settings__tab--on:hover { background: var(--cv-ink); color: var(--cv-card); }
 .cv-settings__body { flex: 999 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
 
+/* A card heading that is also the control for folding the card away. */
+.cv-collapse__head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: 100%;
+  text-align: left; padding: 0; border: 0; background: transparent;
+  font-family: inherit; color: var(--cv-ink); cursor: pointer;
+}
+
 /* One key on the Keys tab: closed, a name and whether it is set; open,
    the value and what you can do with it. */
 .cv-key { border-radius: 18px; background: var(--cv-sunken); overflow: hidden; }

@@ -20,6 +20,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import PortalShell, { type PortalView } from "@/components/portal/PortalShell";
 import ProjectTypeIcon from "@/components/admin/cv/ProjectTypeIcon";
 import EmptyState from "@/components/admin/cv/EmptyState";
+import CollapsibleCard from "@/components/admin/cv/CollapsibleCard";
 import { projectTypeStyle } from "@/lib/projectType";
 import { usd } from "@/lib/clientBalance";
 import { buildFamilies } from "@/lib/proposalGroups";
@@ -101,6 +102,7 @@ export default function Portal() {
   const [openInvoices, setOpenInvoices] = useState<PortalInvoice[]>([]);
   /** Every invoice on every schedule, paid ones included. */
   const [allInvoices, setAllInvoices] = useState<PortalInvoice[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     if (!clientId) return;
@@ -283,10 +285,16 @@ export default function Portal() {
     );
   }
 
-  const visible = projects.filter((p) => p.type !== "site_preview");
+  // site_preview projects are plumbing, not work the client ordered.
+  // Archived ones are work that finished: kept, but behind a link, the
+  // same way the admin client page files them.
+  const notPreview = projects.filter((p) => p.type !== "site_preview");
+  const archivedProjects = notPreview.filter((p) => p.status === "archived");
+  const liveProjects = notPreview.filter((p) => p.status !== "archived");
+  const visible = showArchived ? [...liveProjects, ...archivedProjects] : liveProjects;
   const firstName = (client.contact_name || "").trim().split(/\s+/).slice(-1)[0] || client.business_name || "";
 
-  if (!visible.length) {
+  if (!notPreview.length) {
     return shell(
       <div className="cv-pg">
         <div>
@@ -311,9 +319,13 @@ export default function Portal() {
           <ProjectTypeIcon type={p.type} size={46} />
         </span>
         <span className="cv-it__what"><b>{p.name}</b><small>{t.label}</small></span>
-        <span className={`cv-chip ${needsYou ? "cv-chip--amber" : "cv-chip--green"}`}>
-          {needsYou ? "Waiting on you" : "In progress"}
-        </span>
+        {p.status === "archived" ? (
+          <span className="cv-chip cv-chip--gray">Archived</span>
+        ) : (
+          <span className={`cv-chip ${needsYou ? "cv-chip--amber" : "cv-chip--green"}`}>
+            {needsYou ? "Waiting on you" : "In progress"}
+          </span>
+        )}
       </Link>
     );
   };
@@ -351,7 +363,7 @@ export default function Portal() {
 
       <div className="cv-stat-row" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
         <div className="cv-card cv-stat cv-stat--left">
-          <span>Active projects</span><b>{visible.length}</b>
+          <span>Active projects</span><b>{liveProjects.length}</b>
           <small>Tap Projects to see each one</small>
         </div>
         <div className="cv-card cv-stat cv-stat--left">
@@ -404,7 +416,23 @@ export default function Portal() {
         <h1 className="cv-page-title">Your projects</h1>
         <p className="cv-page-sub">Everything Cre8 Visions is building for you.</p>
       </div>
-      <section className="cv-card cv-card-pad">{visible.map(projectRow)}</section>
+      <section className="cv-card cv-card-pad">
+        {visible.map(projectRow)}
+        {archivedProjects.length > 0 && (
+          <div style={{
+            display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12,
+            padding: "14px 2px 0", fontSize: 14, color: "var(--cv-muted)",
+          }}>
+            <span style={{ flex: 1 }}>
+              Archived: {archivedProjects.map((p) => p.name).join(", ")}
+            </span>
+            <button type="button" onClick={() => setShowArchived((v) => !v)}
+              style={{ padding: "10px 0", background: "none", border: 0, font: "inherit", color: "var(--cv-accent)", cursor: "pointer" }}>
+              {showArchived ? "Hide archived" : "Show archived"}
+            </button>
+          </div>
+        )}
+      </section>
     </div>
   );
 
@@ -439,12 +467,26 @@ export default function Portal() {
           : group === "signed"
             ? { bg: "#E5F6EC", fg: "#17703D" }
             : { bg: "#EEF0F5", fg: "#3D4556" };
+        // Declined folds away. The client already made that decision —
+        // leaving it open puts a closed document the same size as the
+        // one they still have to sign.
+        const Section = group === "declined"
+          ? ({ children }: { children: React.ReactNode }) => (
+            <CollapsibleCard title={CLIENT_GROUP_LABEL[group]} count={families.length} tone="gray">
+              {children}
+            </CollapsibleCard>
+          )
+          : ({ children }: { children: React.ReactNode }) => (
+            <section className="cv-card cv-card-pad">
+              <div className="cv-card-head">
+                <h2 className="cv-card-title">{CLIENT_GROUP_LABEL[group]}</h2>
+                <span className={`cv-chip cv-chip--${tone}`}>{families.length}</span>
+              </div>
+              {children}
+            </section>
+          );
         return (
-          <section key={group} className="cv-card cv-card-pad">
-            <div className="cv-card-head">
-              <h2 className="cv-card-title">{CLIENT_GROUP_LABEL[group]}</h2>
-              <span className={`cv-chip cv-chip--${tone}`}>{families.length}</span>
-            </div>
+          <Section key={group}>
             {families.map((f) => {
               const p = f.current;
               const name = projectName(p.client_project_id);
@@ -477,7 +519,7 @@ export default function Portal() {
                 </div>
               );
             })}
-          </section>
+          </Section>
         );
       })}
     </div>

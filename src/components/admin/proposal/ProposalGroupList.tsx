@@ -11,6 +11,7 @@ import { FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import EmptyState from "@/components/admin/cv/EmptyState";
+import CollapsibleCard from "@/components/admin/cv/CollapsibleCard";
 import { usd } from "@/lib/clientBalance";
 import {
   trailFor, daysOut, GROUP_LABEL, GROUP_ORDER, STALE_DAYS, type ProposalGroup,
@@ -82,12 +83,27 @@ export default function ProposalGroupList({
         const families = grouped.get(group) ?? [];
         if (!families.length) return null;
         const tint = DOC_TINT[group];
+        // Declined is history, not work. Open by default it takes the
+        // same room as the proposals someone still owes an answer on,
+        // and reads as something to act on.
+        const Section = group === "declined"
+          ? ({ children }: { children: React.ReactNode }) => (
+            <CollapsibleCard title={GROUP_LABEL[group]} count={families.length}
+              tone={GROUP_TONE[group] as "red"}>
+              {children}
+            </CollapsibleCard>
+          )
+          : ({ children }: { children: React.ReactNode }) => (
+            <section className="cv-card cv-card-pad">
+              <div className="cv-card-head">
+                <h2 className="cv-card-title">{GROUP_LABEL[group]}</h2>
+                <span className={`cv-chip cv-chip--${GROUP_TONE[group]}`}>{families.length}</span>
+              </div>
+              {children}
+            </section>
+          );
         return (
-          <section key={group} className="cv-card cv-card-pad">
-            <div className="cv-card-head">
-              <h2 className="cv-card-title">{GROUP_LABEL[group]}</h2>
-              <span className={`cv-chip cv-chip--${GROUP_TONE[group]}`}>{families.length}</span>
-            </div>
+          <Section key={group}>
             {families.map((f) => {
               const p = f.current;
               const out = daysOut(p);
@@ -160,7 +176,7 @@ export default function ProposalGroupList({
                 </div>
               );
             })}
-          </section>
+          </Section>
         );
       })}
     </>
