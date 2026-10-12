@@ -81,6 +81,61 @@ function validate(body: unknown): string | null {
   return null;
 }
 
+// CRE-393 bug fix (Bree, 2026-10-12): Approve/Skip on a prospect
+// rebuild-review Decide card (e.g. CRE-417 "Camille's West Pool Service
+// v2") used to only log a decide_actions audit row and relay to Ara --
+// never touching the prospect_approvals row the card was actually about,
+// which is why Bree's Approve kept coming back on reload. The brief's
+// `approvals` array is static per-brief data (see docs/decide-contract.md)
+// and only ever carries the Paperclip identifier in task_ids, so the match
+// is by rebuild_issue_identifier (stamped by create-rebuild-issue), not by
+// row_id or the prospect_approvals row's own uuid.
+//
+// Scoped tight on purpose: only fires for action_type "approve_skip" (the
+// one documented for a plain Approve/Skip card) AND only when a row is
+// actually found by identifier -- every other decision type (merge,
+// cancel_keep, sql_or_lovable, ...) is untouched, and an approve_skip card
+// about something that isn't a prospect rebuild just finds no match and
+// no-ops here exactly like it did before this fix.
+async function resolveProspectApproval(
+  sb: ReturnType<typeof serviceClient>,
+  taskIds: string[],
+): Promise<{ id: string; company: string; slug: string } | null> {
+  if (!taskIds.length) return null;
+  const { data } = await sb
+    .from("prospect_approvals")
+    .select("id, company, slug")
+    .in("rebuild_issue_identifier", taskIds)
+    .limit(1)
+    .maybeSingle();
+  return data ?? null;
+}
+
+async function applyProspectApprovalDecision(
+  sb: ReturnType<typeof serviceClient>,
+  row: { id: string },
+  option: string,
+  decidedBy: string | null,
+): Promise<string | null> {
+  const status = option.toLowerCase().includes("approve") ? "approved" : "rejected";
+  const { error } = await sb.from("prospect_approvals").update({
+    status,
+    decided_at: new Date().toISOString(),
+    decided_by: decidedBy ?? "Decide (Today page)",
+    updated_at: new Date().toISOString(),
+  }).eq("id", row.id);
+  return error ? `prospect_approvals update failed: ${error.message}` : null;
+}
+
+async function callerEmail(sb: ReturnType<typeof serviceClient>, userId: string): Promise<string | null> {
+  try {
+    const { data } = await sb.auth.admin.getUserById(userId);
+    return data?.user?.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function notifyAra(sb: ReturnType<typeof serviceClient>, payload: Record<string, unknown>): Promise<string | null> {
   const webhookUrl = await getSecret(sb, "ara_webhook_url");
   const webhookKey = await getSecret(sb, "ara_webhook_key");
@@ -276,12 +331,32 @@ Deno.serve(async (req) => {
     option: b.option, action_type: b.action_type ?? null,
     decided_at: new Date().toISOString(),
   });
+
+  // CRE-393 bug fix: route approve_skip picks to the prospect_approvals row
+  // they're actually about -- see resolveProspectApproval's comment above.
+  let prospectWarning: string | null = null;
+  let prospectMatch: { id: string; company: string; slug: string } | null = null;
+  if (b.action_type === "approve_skip") {
+    prospectMatch = await resolveProspectApproval(sb, taskIds);
+    if (prospectMatch) {
+      const email = await callerEmail(sb, caller.userId);
+      // validate() already guarantees a non-empty b.option for action "pick".
+      prospectWarning = await applyProspectApprovalDecision(sb, prospectMatch, b.option ?? "", email);
+    }
+  }
+
   await sb.from("decide_actions").insert({
     row_id: b.row_id, title: b.title, task_ids: taskIds, action: "pick",
     option_chosen: b.option, action_type: b.action_type ?? null,
-    status: warning ? "failed" : "done",
-    result: warning ? { warning } : null, acted_by: caller.userId,
+    status: warning || prospectWarning ? "failed" : "done",
+    result: {
+      ...(warning ? { warning } : null),
+      ...(prospectWarning ? { prospectWarning } : null),
+      ...(prospectMatch ? { prospectApprovalId: prospectMatch.id } : null),
+    },
+    acted_by: caller.userId,
   });
-  if (warning) return json({ ok: true, warnings: [warning] });
+  const warnings = [warning, prospectWarning].filter((w): w is string => Boolean(w));
+  if (warnings.length) return json({ ok: true, warnings });
   return json({ ok: true });
 });

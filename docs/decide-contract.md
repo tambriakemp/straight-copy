@@ -60,6 +60,27 @@ changes which buttons `DecideCard` renders; add a new one in
 `src/components/admin/cv/DecideCard.tsx` if a future case needs genuinely
 different buttons, not just different labels.
 
+**`approve_skip` also writes back to `prospect_approvals` when it can.**
+CRE-393 bug fix (2026-10-12): if any entry in `task_ids` matches a
+`prospect_approvals` row's `rebuild_issue_identifier` column (stamped by
+`create-rebuild-issue` when it opens the `[Rebuild] <company> - <slug>`
+issue), `decide-action` updates that row's `status` — "approved" if the
+clicked option's text contains "approve", "rejected" otherwise — along with
+`decided_at`/`decided_by`/`updated_at`, the same fields `/admin/approvals`
+itself writes. No match just no-ops this step, same as before the fix, so
+an `approve_skip` card about something other than a prospect rebuild is
+unaffected. This is the only `action_type` with a second side effect beyond
+the Ara relay.
+
+**Every pick also persists to `brief_item_completions`.** The frontend
+(`Today.tsx`'s `handleDecidePick`) calls `complete-brief-item` after a
+successful pick/merge, keyed by the card's own `id` — this is what makes
+the card actually stay gone across a reload, since the brief's `approvals`
+array is static and the decide_actions audit row isn't read by the page.
+An agent adding a new card doesn't need to do anything for this half; it's
+entirely the frontend's job once the card's `id` is stable across brief
+regenerations (see the `id` field note above).
+
 ## Merge
 
 Set `action_type: "merge"`, `repo`, and `pr_number` (omit `options` — the

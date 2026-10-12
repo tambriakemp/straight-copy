@@ -252,12 +252,18 @@ export default function Today() {
   // Decide is what an agent is stopped on; Do is your own work. Split by
   // source, in needsYouRows.ts, so the rule is testable.
   const { decide: decideRows, todo: doRows } = useMemo(() => splitTodayRows(allRows), [allRows]);
-  // CRE-393 §B.4: a card Bree snoozed, or one this tab already fired an
-  // (un-undone) pick/merge for, drops out of Decide immediately rather
-  // than waiting for the next brief/sync to catch up.
+  // CRE-393 §B.4: a card Bree snoozed, one this tab already fired an
+  // (un-undone) pick/merge for, or one a *prior* pick already persisted to
+  // brief_item_completions (CRE-393 bug, 2026-10-12: a pick used to only
+  // write an audit row and relay to Ara — nothing the source query reads —
+  // so the card came back on every reload) drops out of Decide. Unlike Do
+  // rows, which stay visible struck through once done (CRE-335 §4 —
+  // acknowledgement, not resolution), a Decide card has nothing to strike
+  // through: DecideCard ends in a button, not a checkbox, so once answered
+  // it should just be gone.
   const visibleDecideRows = useMemo(
-    () => decideRows.filter((r) => !isSnoozed(r.id) && !hiddenDecideIds.has(r.id)),
-    [decideRows, isSnoozed, hiddenDecideIds],
+    () => decideRows.filter((r) => !isSnoozed(r.id) && !hiddenDecideIds.has(r.id) && !isDone(r.id)),
+    [decideRows, isSnoozed, hiddenDecideIds, isDone],
   );
   const openDecide = useMemo(() => visibleDecideRows.filter((r) => !isDone(r.id)), [visibleDecideRows, isDone]);
   const openRows = useMemo(() => doRows.filter((row) => !isDone(row.id)), [doRows, isDone]);
@@ -325,6 +331,36 @@ export default function Today() {
   // confirm step upstream of this is the real safety gate for that case —
   // see DecideCard's confirm box). Every other decision type gets the
   // optimistic hide + 5s "Undo" toast.
+  //
+  // CRE-393 bug fix (Bree, 2026-10-12): the pick itself (decide-action) only
+  // ever wrote a decide_actions audit row and relayed to Ara — nothing the
+  // Decide list's own source query (the brief's `approvals` array) reads,
+  // so a card reappeared on every reload no matter which button was
+  // clicked. Persist the resolution the same way a brief checkbox does —
+  // complete-brief-item / brief_item_completions, already read by `isDone`
+  // above — so a reload actually keeps it gone. Best-effort: if this call
+  // fails, the pick itself (and Ara's relay/Paperclip comment) already
+  // went through, so surface it on the console rather than block or revert
+  // the pick.
+  const persistDecideResolution = (row: NeedsYouRowData, option: string) => {
+    supabase.functions.invoke("complete-brief-item", {
+      body: {
+        action: "complete",
+        item_id: row.id,
+        item_text: row.title,
+        issue_identifier: row.taskIds[0] ?? null,
+        brief_date: activeBrief?.created_at.slice(0, 10) ?? null,
+        note: `Picked "${option}" from Decide`,
+      },
+    }).then(({ error, data }) => {
+      if (error || data?.error) {
+        console.warn("complete-brief-item (Decide persist) failed:", error ?? data?.error);
+        return;
+      }
+      reloadCompletions();
+    });
+  };
+
   const handleDecidePick = (row: NeedsYouRowData) => async (option: string, confirmed?: boolean) => {
     const base = {
       row_id: row.id, title: row.title, task_ids: row.taskIds, option,
@@ -334,6 +370,10 @@ export default function Today() {
     };
     if (row.actionType === "merge") {
       const result = await pick({ ...base, confirmed });
+      if (result.ok) {
+        setHiddenDecideIds((s) => new Set(s).add(row.id));
+        persistDecideResolution(row, option);
+      }
       return result;
     }
 
@@ -354,6 +394,8 @@ export default function Today() {
         const result = await pick(base);
         if (!result.ok) {
           setHiddenDecideIds((s) => { const next = new Set(s); next.delete(row.id); return next; });
+        } else {
+          persistDecideResolution(row, option);
         }
       },
     });

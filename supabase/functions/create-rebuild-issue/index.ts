@@ -187,9 +187,13 @@ Deno.serve(async (req) => {
     const issueId = issue?.id;
     if (!issueId) throw new Error(`Paperclip response had no issue id: ${JSON.stringify(issue)}`);
 
+    // CRE-393 bug fix: stash the human-readable identifier too (not just
+    // the UUID above) -- a Decide card's task_ids only ever carries
+    // "CRE-417", never the Paperclip row id, so without this decide-action
+    // has no column to match the card back to this row on an Approve click.
     const { error: saveErr } = await sb
       .from("prospect_approvals")
-      .update({ rebuild_issue_id: issueId, rebuild_status: "queued" })
+      .update({ rebuild_issue_id: issueId, rebuild_issue_identifier: issue?.identifier ?? null, rebuild_status: "queued" })
       .eq("id", row.id);
     if (saveErr) throw new Error(`saving rebuild_issue_id: ${saveErr.message}`);
 
