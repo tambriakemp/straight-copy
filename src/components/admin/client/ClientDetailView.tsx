@@ -21,6 +21,7 @@ import EmptyState from "@/components/admin/cv/EmptyState";
 import ProjectTypeIcon from "@/components/admin/cv/ProjectTypeIcon";
 import NotesTab from "./NotesTab";
 import LoginsTab from "./LoginsTab";
+import NewProjectDialog from "./NewProjectDialog";
 import { avatarFor } from "@/lib/avatar";
 import { projectTypeStyle } from "@/lib/projectType";
 import { countsFor } from "@/lib/taskCounts";
@@ -259,13 +260,12 @@ export default function ClientDetailView({ clientId }: { clientId: string }) {
             <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                 <h2 className="cv-card-title">Projects</h2>
-                <button
-                  type="button"
-                  className="cv-btn-ink cv-btn-ink--sm"
-                  onClick={() => navigate(`/admin/clients/${clientId}?new=project`)}
-                >
-                  + New project
-                </button>
+                {/* It used to navigate to ?new=project, which nothing
+                    read — so the URL changed and the page did not. */}
+                <NewProjectDialog
+                  clientId={clientId}
+                  onCreated={(projectId) => navigate(`/admin/clients/${clientId}/projects/${projectId}`)}
+                />
               </div>
 
               {!shown.length ? (
