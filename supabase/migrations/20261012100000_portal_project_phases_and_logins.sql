@@ -62,7 +62,16 @@ create index if not exists idx_client_logins_project
 
 -- The list view has to carry it too, or the admin tab cannot label a row
 -- and the portal cannot scope one.
-create or replace view public.client_logins_list
+--
+-- DROP then CREATE, not CREATE OR REPLACE. Replace can only APPEND a
+-- column; adding one in the middle reads to Postgres as renaming the
+-- column that was already in that position, and it refuses:
+--   42P16: cannot change name of view column "label" to "client_project_id"
+-- Dropping a view costs nothing — there is no data in it — but it does
+-- drop the grants with it, which is why they are re-issued below.
+drop view if exists public.client_logins_list;
+
+create view public.client_logins_list
 with (security_invoker = true) as
   select id, client_id, client_project_id, label, url, username, note,
          sort_order, created_at, updated_at,
