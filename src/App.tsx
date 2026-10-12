@@ -55,9 +55,27 @@ const PreviewViewer = lazy(() => import("./pages/PreviewViewer.tsx"));
 const AuditReport = lazy(() => import("./pages/AuditReport.tsx"));
 const RequireAdmin = lazy(() => import("./components/admin/RequireAdmin.tsx"));
 
+/**
+ * What shows while a route's chunk is downloading.
+ *
+ * It used to render nothing, which was fine when the app had one theme.
+ * It is not fine now: for the moment the old page has unmounted and the
+ * new one has not arrived, the whole window is whatever is underneath —
+ * so a route change read as a flash to a different colour scheme rather
+ * than as a page loading.
+ *
+ * A quiet panel on the admin ground instead, with the spinner delayed:
+ * a chunk that arrives in 80ms should show nothing at all, because a
+ * spinner that appears and vanishes is more distracting than the wait
+ * it is covering.
+ */
 function RouteFallback() {
-  // Render nothing to avoid a white flash between lazy route transitions.
-  return null;
+  return (
+    <div className="cv-routefallback" role="status" aria-live="polite">
+      <span className="cv-spinner" aria-hidden="true" />
+      <span className="sr-only">Loading…</span>
+    </div>
+  );
 }
 
 const App = () => (

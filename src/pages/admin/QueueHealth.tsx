@@ -157,7 +157,7 @@ export default function QueueHealth({ embedded = false }: { embedded?: boolean }
   };
 
   const Shell = ({ children }: { children: React.ReactNode }) =>
-    embedded ? <>{children}</> : <AdminLayout>{children}</AdminLayout>;
+    embedded ? <>{children}</> : <AdminLayout dark>{children}</AdminLayout>;
 
   return (
     <Shell>

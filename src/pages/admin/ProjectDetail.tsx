@@ -48,7 +48,7 @@ export default function ProjectDetail({
     embedded ? <>{children}</> : <AdminLayout>{children}</AdminLayout>;
 
   if (loading) {
-    return <Shell><div style={{ padding: 40, color: "var(--crm-taupe)" }}>Loading project…</div></Shell>;
+    return <Shell><div style={{ padding: 40, color: "var(--cv-muted)" }}>Loading project…</div></Shell>;
   }
   if (notFound || !project) {
     // Embedded there is nowhere to redirect to — the panel says so instead.

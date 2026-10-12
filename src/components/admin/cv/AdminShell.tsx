@@ -14,15 +14,16 @@ import MobileBottomBar from "./MobileBottomBar";
  *   search box between you and the first thing you came to read.
  */
 export default function AdminShell({
-  isMobile, children, topBar = true,
-}: { isMobile: boolean; children: ReactNode; topBar?: boolean }) {
+  isMobile, children, topBar = true, dark = false,
+}: { isMobile: boolean; children: ReactNode; topBar?: boolean; dark?: boolean }) {
+  const inner = `crm-shell crm-shell--embedded${dark ? " crm-shell--dark" : ""}`;
   if (isMobile) {
     return (
       <div className="cv-admin">
         <div className="cv-shell" style={{ flexDirection: "column" }}>
           <MobileTopBar />
           <div className="cv-content">
-            <div className="crm-shell crm-shell--embedded">
+            <div className={inner}>
               <div className="crm-page">{children}</div>
             </div>
           </div>
@@ -39,7 +40,7 @@ export default function AdminShell({
         <div className="cv-main">
           {topBar && <TopBar />}
           <div className="cv-content">
-            <div className="crm-shell crm-shell--embedded">
+            <div className={inner}>
               <div className="crm-page">{children}</div>
             </div>
           </div>

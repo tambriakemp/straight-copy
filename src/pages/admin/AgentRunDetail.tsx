@@ -36,10 +36,10 @@ export default function AgentRunDetail() {
 
 
   if (loading) {
-    return <AdminLayout><div className="roster"><p className="text-[hsl(30_8%_62%)] text-sm">Loading…</p></div></AdminLayout>;
+    return <AdminLayout dark><div className="roster"><p className="text-[hsl(30_8%_62%)] text-sm">Loading…</p></div></AdminLayout>;
   }
   if (!data) {
-    return <AdminLayout><div className="roster"><Empty>Run not found.</Empty></div></AdminLayout>;
+    return <AdminLayout dark><div className="roster"><Empty>Run not found.</Empty></div></AdminLayout>;
   }
 
   const { run, agent, actions } = data;
@@ -47,7 +47,7 @@ export default function AgentRunDetail() {
   const settled = actions.filter((a) => a.status !== "proposed");
 
   return (
-    <AdminLayout>
+    <AdminLayout dark>
       <div className="roster">
         <div className="roster__ghost">RUN</div>
 

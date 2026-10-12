@@ -157,7 +157,7 @@ export default function Portfolio() {
   const p = data?.portfolio;
 
   return (
-    <AdminLayout>
+    <AdminLayout dark>
       <div className="roster">
         <div className="roster__ghost">DASH</div>
 

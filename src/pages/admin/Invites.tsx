@@ -140,7 +140,7 @@ export default function Invites() {
   };
 
   return (
-    <AdminLayout>
+    <AdminLayout dark>
       <div className="roster">
         <div className="roster__head">
           <div className="roster__title-block">

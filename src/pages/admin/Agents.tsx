@@ -14,7 +14,7 @@ export default function Agents() {
     supabase.from("agents").select("id, name, role, description, enabled, avatar_url, accent_color").order("created_at")
       .then(({ data, error }) => { if (error) toast.error(error.message); else setAgents((data ?? []) as Agent[]); });
   }, []);
-  return <AdminLayout><div className="roster">
+  return <AdminLayout dark><div className="roster">
     <div className="roster__head"><div className="roster__title-block"><div className="roster__eyebrow">Profile</div><h1 className="roster__title">Your <em>agents</em></h1><hr className="roster__rule" /></div></div>
     <div className="dash__agents">{agents.map((agent) => <div key={agent.id} className="agent-card" style={{ opacity: agent.enabled ? 1 : 0.55 }}>
       <button className="agent-card__head" onClick={() => navigate(`/admin/agents/${agent.id}`)}><AgentAvatar name={agent.name} url={agent.avatar_url} accent={agent.accent_color} size={104} />

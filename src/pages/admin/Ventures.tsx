@@ -56,7 +56,7 @@ export default function Ventures() {
   };
 
   return (
-    <AdminLayout>
+    <AdminLayout dark>
       <div className="roster">
         <div className="roster__ghost">REV</div>
 

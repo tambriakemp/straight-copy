@@ -321,7 +321,7 @@ export default function AutomationBuildView({
   // One wrapper, chosen once, so the loading return agrees with the main one
   // about whether this is a page or a panel.
   const Shell = ({ children }: { children: React.ReactNode }) =>
-    embedded ? <>{children}</> : <AdminLayout>{children}</AdminLayout>;
+    embedded ? <>{children}</> : <AdminLayout dark>{children}</AdminLayout>;
 
   if (loading || !client) {
     return (

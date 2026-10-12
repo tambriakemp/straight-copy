@@ -66,17 +66,17 @@ export default function LaunchDetail() {
   };
 
   if (loading) {
-    return <AdminLayout><div className="roster"><p className="text-[hsl(30_8%_62%)] text-sm">Loading…</p></div></AdminLayout>;
+    return <AdminLayout dark><div className="roster"><p className="text-[hsl(30_8%_62%)] text-sm">Loading…</p></div></AdminLayout>;
   }
   if (!data) {
-    return <AdminLayout><div className="roster"><Empty>Launch not found.</Empty></div></AdminLayout>;
+    return <AdminLayout dark><div className="roster"><Empty>Launch not found.</Empty></div></AdminLayout>;
   }
 
   const { launch, checklist, revenue, actual_revenue_cents, actual_signups, funnel } = data;
   const done = checklist.filter((c) => c.status === "complete").length;
 
   return (
-    <AdminLayout>
+    <AdminLayout dark>
       <div className="roster">
         <div className="roster__ghost">LNCH</div>
 

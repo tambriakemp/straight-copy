@@ -3,7 +3,7 @@ import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 
 export default function AllTasks() {
   return (
-    <AdminLayout>
+    <AdminLayout dark>
       <div className="roster">
         <div className="roster__head">
           <div className="roster__title-block">

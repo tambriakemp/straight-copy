@@ -46,7 +46,7 @@ export default function Audits() {
   const copy = (value: string) => { navigator.clipboard.writeText(value); toast.success("Copied"); };
 
   return (
-    <AdminLayout>
+    <AdminLayout dark>
       <div className="roster">
         <div className="roster__head">
           <div className="roster__title-block">

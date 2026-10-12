@@ -180,14 +180,14 @@ export default function AgentWorkspace() {
   };
 
   if (loading) {
-    return <AdminLayout><div className="roster"><p className="text-[hsl(30_8%_62%)] text-sm">Loading…</p></div></AdminLayout>;
+    return <AdminLayout dark><div className="roster"><p className="text-[hsl(30_8%_62%)] text-sm">Loading…</p></div></AdminLayout>;
   }
   if (!agent) {
-    return <AdminLayout><div className="roster"><p className="text-[hsl(30_8%_62%)] text-sm">Agent not found.</p></div></AdminLayout>;
+    return <AdminLayout dark><div className="roster"><p className="text-[hsl(30_8%_62%)] text-sm">Agent not found.</p></div></AdminLayout>;
   }
 
   return (
-    <AdminLayout>
+    <AdminLayout dark>
       {/* Clients, Tasks and the Knowledge Base want the width — none of them
           has a document or a run to show beside it, and a 400px empty rail
           next to a task board is just less room for the board. */}

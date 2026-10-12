@@ -10,6 +10,20 @@ export default function SideNav() {
   const { user, signOut } = useAdminAuth();
   const [meOpen, setMeOpen] = useState(false);
   const meRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<number | null>(null);
+
+  // Closing is delayed and cancellable. Even with no gap left to cross,
+  // a pointer moving diagonally clips the corner for a frame, and a menu
+  // that vanishes mid-reach cannot be clicked at all.
+  const openMe = () => {
+    if (closeTimer.current) { window.clearTimeout(closeTimer.current); closeTimer.current = null; }
+    setMeOpen(true);
+  };
+  const closeMeSoon = () => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => setMeOpen(false), 180);
+  };
+  useEffect(() => () => { if (closeTimer.current) window.clearTimeout(closeTimer.current); }, []);
 
   const isActive = (to: string) => isCvNavActive(loc.pathname, to, loc.search);
 
@@ -76,19 +90,21 @@ export default function SideNav() {
       <div
         className="cv-sidenav__footer cv-sidenav__me"
         ref={meRef}
-        onMouseEnter={() => setMeOpen(true)}
-        onMouseLeave={() => setMeOpen(false)}
+        onMouseEnter={openMe}
+        onMouseLeave={closeMeSoon}
       >
         {meOpen && (
-          <div className="cv-sidenav__memenu" role="menu">
-            <Link className="cv-sidenav__meitem" role="menuitem" to="/admin/settings"
-              onClick={() => setMeOpen(false)}>
-              <Settings2 size={15} /> Profile &amp; settings
-            </Link>
-            <button type="button" className="cv-sidenav__meitem" role="menuitem"
-              onClick={() => { signOut(); navigate("/admin/login"); }}>
-              <LogOut size={15} /> Sign out
-            </button>
+          <div className="cv-sidenav__memenu">
+            <div className="cv-sidenav__memenu-card" role="menu">
+              <Link className="cv-sidenav__meitem" role="menuitem" to="/admin/settings"
+                onClick={() => setMeOpen(false)}>
+                <Settings2 size={15} /> Profile &amp; settings
+              </Link>
+              <button type="button" className="cv-sidenav__meitem" role="menuitem"
+                onClick={() => { signOut(); navigate("/admin/login"); }}>
+                <LogOut size={15} /> Sign out
+              </button>
+            </div>
           </div>
         )}
 
@@ -98,21 +114,18 @@ export default function SideNav() {
           aria-haspopup="menu"
           aria-expanded={meOpen}
           aria-label="Profile and settings"
-          onFocus={() => setMeOpen(true)}
+          onFocus={openMe}
           onClick={() => setMeOpen((v) => !v)}
           style={{ border: 0, cursor: "pointer", fontFamily: "inherit" }}
         >
           {initial}
         </button>
+        {/* The name, and nothing else. "Profile & settings" was printed
+            here AND in the menu this opens AND in the Account section
+            above — three of the same words in one corner. */}
         <span style={{ minWidth: 0, flex: 1 }}>
           <div className="cv-sidenav__footer-name" style={{ textTransform: "capitalize" }}>{name}</div>
-          <button
-            type="button"
-            className="cv-sidenav__footer-link"
-            onClick={() => navigate("/admin/settings")}
-          >
-            Profile &amp; settings
-          </button>
+          <div className="cv-sidenav__footer-sub">{user?.email ?? ""}</div>
         </span>
       </div>
     </nav>
