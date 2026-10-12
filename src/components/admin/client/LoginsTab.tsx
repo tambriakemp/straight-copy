@@ -49,8 +49,13 @@ async function call(action: string, body: Record<string, unknown>) {
   return json as Record<string, unknown>;
 }
 
-interface Draft { id: string | null; label: string; url: string; username: string; password: string; note: string }
-const BLANK: Draft = { id: null, label: "", url: "", username: "", password: "", note: "" };
+interface Draft {
+  id: string | null; label: string; url: string; username: string;
+  password: string; note: string; projectId: string;
+}
+const BLANK: Draft = {
+  id: null, label: "", url: "", username: "", password: "", note: "", projectId: "",
+};
 
 export default function LoginsTab({
   clientId, clientName, clientEmail, logins, projectNames = new Map(), onChanged,
@@ -122,6 +127,10 @@ export default function LoginsTab({
         username: draft.username.trim() || null,
         password: passwordToSend(draft.password, draft.id !== null),
         note: draft.note.trim() || null,
+        // Blank means client-wide: a login the agency holds for the
+        // client as a whole rather than for one piece of work. It is
+        // also what keeps that login out of reach of the portal.
+        client_project_id: draft.projectId || null,
       });
       toast.success(draft.id ? "Login updated" : "Login added");
       setDraft(null);
@@ -258,6 +267,7 @@ export default function LoginsTab({
                   onClick={() => setDraft({
                     id: l.id, label: l.label, url: l.url ?? "",
                     username: l.username ?? "", password: "", note: l.note ?? "",
+                    projectId: l.client_project_id ?? "",
                   })}
                 >
                   Edit
@@ -308,6 +318,22 @@ export default function LoginsTab({
                 onChange={(e) => setDraft({ ...draft, password: e.target.value })}
                 placeholder={draft.id ? "Leave blank to keep the current one" : ""}
               />
+            </label>
+            <label className="cv-field">
+              Project
+              {/* Which piece of work this login is for. Left blank it is
+                  the client's as a whole — which is also the line the
+                  portal cannot cross: a client only ever sees the
+                  logins filed against their own project. */}
+              <select
+                className="cv-select" value={draft.projectId}
+                onChange={(e) => setDraft({ ...draft, projectId: e.target.value })}
+              >
+                <option value="">No project — client-wide</option>
+                {[...projectNames].map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
             </label>
             <label className="cv-field">
               Note
