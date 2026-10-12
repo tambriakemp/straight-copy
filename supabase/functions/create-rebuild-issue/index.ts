@@ -1,9 +1,11 @@
 // CRE-413: the instant a prospect preview flips to 'rejected', the
 // prospect_approvals_fire_rebuild_issue trigger (see the migration in the
 // same PR) calls this function via pg_net with { approval_id }. It creates a
-// '[Rebuild] <company> - <slug>' Paperclip issue assigned to Nicole and
-// stores the issue id back on the row so Bree can see rebuild status on
-// /admin/approvals (wired in a follow-up PR after the Oct 12 9 AM CT send).
+// '[Rebuild] <company> - <slug>' Paperclip issue assigned to Camille (Web
+// Designer, the design critic gate owner — Bree's decision Oct 11, so the
+// rebuild has exactly one owner instead of Nicole and Camille both touching
+// it) and stores the issue id back on the row so Bree can see rebuild status
+// on /admin/approvals (wired in a follow-up PR after the Oct 12 9 AM CT send).
 //
 // Idempotent by construction: the only way to proceed past the atomic claim
 // below is to be the caller that flips rebuild_issue_id from NULL to a
@@ -22,13 +24,16 @@ import { hasAgentSecret } from "../_shared/webhook-auth.ts";
 const ATTACHMENT_BUCKET = "prospect-approval-attachments";
 // Long TTL deliberately, unlike prospect-approvals-sync's 10-minute signed
 // URLs: those are consumed immediately by a live poll, but a link embedded
-// in a Paperclip issue description needs to still work whenever Nicole
+// in a Paperclip issue description needs to still work whenever Camille
 // actually reads the issue, which could be hours later.
 const ISSUE_LINK_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 const PAPERCLIP_BASE = "https://paperclip.cre8visions.com";
 const COMPANY_ID = "62e315f3-8d2c-49c9-8a67-00f151290b5c";
-const NICOLE_AGENT_ID = "b0ec074e-2d6a-4c8c-a60e-4a0c97d3d0e2";
+// Camille, Web Designer — rebuild owner per Bree's decision Oct 11, 2026
+// (relayed by Ara on CRE-413): she rebuilds, re-passes her own design critic
+// rubric (CRE-415), resubmits, then closes the card herself. Was Nicole.
+const CAMILLE_AGENT_ID = "4b4fb790-6e52-48f8-8a97-520901170f7f";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -117,7 +122,11 @@ function buildDescription(row: ApprovalRow, feedback: FeedbackRound | null, atta
   }
   parts.push(
     "",
-    `_Rebuild this preview, then push the new version via prospect-approvals-sync with \`rebuilt_from_approval_id: "${row.id}"\` on the new row so it shows "Ready for your review" automatically. Close this issue once the new version is pushed._`,
+    "**Camille, do this:**",
+    "1. Rebuild this preview.",
+    "2. Pass it against your own design critic rubric (CRE-415) before resubmitting — don't send Bree anything that wouldn't pass your own gate.",
+    `3. Resubmit through prospect-approvals-sync's push action with \`rebuilt_from_approval_id: "${row.id}"\` on the new row — that flips this row to "Ready for your review" automatically, no extra step.`,
+    "4. Mark this card done once step 3 is confirmed. If you get stuck, set it blocked with the specific reason instead of leaving it open.",
   );
   return parts.join("\n");
 }
@@ -170,7 +179,7 @@ Deno.serve(async (req) => {
         description: buildDescription(row, feedback, attachmentLines),
         status: "todo",
         priority: "high",
-        assigneeAgentId: NICOLE_AGENT_ID,
+        assigneeAgentId: CAMILLE_AGENT_ID,
       }),
     });
     if (!res.ok) throw new Error(`issues create ${res.status}: ${await res.text()}`);
