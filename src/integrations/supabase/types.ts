@@ -3778,6 +3778,7 @@ export type Database = {
           preview_image_url: string | null
           preview_url: string | null
           rebuild_issue_id: string | null
+          rebuild_round: number
           rebuild_status: string | null
           rebuild_stuck_reason: string | null
           rebuilt_from: string | null
@@ -3804,6 +3805,7 @@ export type Database = {
           preview_image_url?: string | null
           preview_url?: string | null
           rebuild_issue_id?: string | null
+          rebuild_round?: number
           rebuild_status?: string | null
           rebuild_stuck_reason?: string | null
           rebuilt_from?: string | null
@@ -3830,6 +3832,7 @@ export type Database = {
           preview_image_url?: string | null
           preview_url?: string | null
           rebuild_issue_id?: string | null
+          rebuild_round?: number
           rebuild_status?: string | null
           rebuild_stuck_reason?: string | null
           rebuilt_from?: string | null
