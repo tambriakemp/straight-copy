@@ -18,7 +18,7 @@ import { useAsideWidth } from "@/components/admin/agent/useAsideWidth";
 import { agentsApi, errMsg, type Agent } from "@/lib/agentsApi";
 import { capabilitiesFor } from "@/lib/agentCapabilities";
 
-type View = "chat" | "agent" | "clients" | "tasks" | "knowledge" | "queue";
+type View = "chat" | "agent" | "clients" | "tasks" | "queue";
 
 const RAIL: Array<{ view: View; label: string; glyph: string }> = [
   { view: "chat", label: "Chat", glyph: "◍" },
@@ -35,7 +35,6 @@ const RAIL: Array<{ view: View; label: string; glyph: string }> = [
 const WORKSPACE: Array<{ view: View; label: string; glyph: string; onlyFor?: string }> = [
   { view: "clients", label: "Clients", glyph: "▦" },
   { view: "tasks", label: "Tasks", glyph: "✓" },
-  { view: "knowledge", label: "Knowledge Base", glyph: "❒" },
   // The queue belongs to the agent whose job it is. Every other agent's rail
   // would be offering a panel about work it has no actions over, which is how
   // a nav teaches people that a thing lives nowhere in particular.
@@ -55,7 +54,7 @@ export default function AgentWorkspace() {
   const [params, setParams] = useSearchParams();
   const view = (params.get("view") as View) || "chat";
   const isWorkspaceView = view === "clients" || view === "tasks"
-    || view === "knowledge" || view === "queue";
+    || view === "queue";
 
   const [agent, setAgent] = useState<Agent | null>(null);
   const [runs, setRuns] = useState<ActivityRun[]>([]);

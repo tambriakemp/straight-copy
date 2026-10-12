@@ -207,20 +207,6 @@ export const READABLE: Record<string, TableAccess> = {
     columns: ["id", "venture_id", "launch_id", "stage", "occurred_at", "source", "utm"],
     maxLimit: 50,
   },
-  wiki_documents: {
-    entity: "wiki",
-    columns: [
-      "id", "folder_id", "title", "slug", "status", "content", "created_at", "updated_at",
-    ],
-    searchable: ["title", "content"],
-    long: ["content"],
-    maxLimit: 25,
-  },
-  wiki_folders: {
-    columns: ["id", "parent_id", "name", "created_at"],
-    searchable: ["name"],
-    maxLimit: 50,
-  },
   preview_projects: {
     entity: "preview",
     columns: ["id", "client_id", "name", "status", "created_at", "updated_at"],
@@ -344,7 +330,7 @@ export const NEVER_READABLE = [
   "mcp_oauth_tokens", "project_secrets", "push_subscriptions",
   "email_unsubscribe_tokens", "suppressed_emails", "app_settings",
   "agent_conversations", "agent_messages", "agent_message_steps",
-  "preview_files", "project_task_attachments", "wiki_user_roles",
+  "preview_files", "project_task_attachments",
 ] as const;
 
 export type FilterOp =

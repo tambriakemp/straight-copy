@@ -3,7 +3,7 @@ import { CV_MOBILE_BOTTOM_NAV, isCvNavActive } from "@/lib/adminNav";
 
 export default function MobileBottomBar() {
   const loc = useLocation();
-  const isActive = (to: string) => isCvNavActive(loc.pathname, to);
+  const isActive = (to: string) => isCvNavActive(loc.pathname, to, loc.search);
 
   return (
     <nav className="cv-mobile-bottombar" aria-label="Primary">

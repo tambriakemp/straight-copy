@@ -16,7 +16,6 @@ const ENTITY_PLURAL: Record<string, string> = {
   venture: "ventures",
   launch: "launches",
   preview: "previews",
-  wiki: "the wiki",
 };
 
 const TABLE_NOUN: Record<string, string> = {
@@ -37,7 +36,6 @@ const TABLE_NOUN: Record<string, string> = {
   revenue_entries: "revenue entries",
   metric_snapshots: "metric snapshots",
   funnel_events: "funnel events",
-  wiki_documents: "wiki documents",
   activity_events: "activity",
   email_send_log: "the email log",
   surecontact_events: "SureContact activity",

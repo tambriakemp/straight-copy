@@ -27,7 +27,7 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin.tsx"));
 const McpAuthorize = lazy(() => import("./pages/admin/McpAuthorize.tsx"));
 const ResetPassword = lazy(() => import("./pages/admin/ResetPassword.tsx"));
-const Profile = lazy(() => import("./pages/admin/Profile.tsx"));
+const Settings = lazy(() => import("./pages/admin/Settings.tsx"));
 const ClientsList = lazy(() => import("./pages/admin/ClientsList.tsx"));
 const Today = lazy(() => import("./pages/admin/Today.tsx"));
 const Portfolio = lazy(() => import("./pages/admin/Portfolio.tsx"));
@@ -37,7 +37,6 @@ const VentureDetail = lazy(() => import("./pages/admin/VentureDetail.tsx"));
 const LaunchDetail = lazy(() => import("./pages/admin/LaunchDetail.tsx"));
 const AgentWorkspace = lazy(() => import("./pages/admin/AgentWorkspace.tsx"));
 const AgentRunDetail = lazy(() => import("./pages/admin/AgentRunDetail.tsx"));
-const Tokens = lazy(() => import("./pages/admin/Tokens.tsx"));
 const Invites = lazy(() => import("./pages/admin/Invites.tsx"));
 const ProjectDetail = lazy(() => import("./pages/admin/ProjectDetail.tsx"));
 const ProposalDetail = lazy(() => import("./pages/admin/ProposalDetail.tsx"));
@@ -55,13 +54,6 @@ const Pipeline = lazy(() => import("./pages/admin/Pipeline.tsx"));
 const PreviewViewer = lazy(() => import("./pages/PreviewViewer.tsx"));
 const AuditReport = lazy(() => import("./pages/AuditReport.tsx"));
 const RequireAdmin = lazy(() => import("./components/admin/RequireAdmin.tsx"));
-const RequireWiki = lazy(() => import("./components/admin/RequireWiki.tsx"));
-const WikiList = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => ({ default: module.WikiList })));
-const WikiEdit = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => ({ default: module.WikiEdit })));
-const WikiDetail = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => ({ default: module.WikiDetail })));
-const WikiHistory = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => ({ default: module.WikiHistory })));
-const WikiUsers = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => ({ default: module.WikiUsers })));
-const WikiExport = lazy(() => import("./pages/admin/Wiki.tsx").then((module) => ({ default: module.WikiExport })));
 
 function RouteFallback() {
   // Render nothing to avoid a white flash between lazy route transitions.
@@ -130,7 +122,12 @@ const App = () => (
                 now. Kept as a redirect so bookmarks and old links still arrive,
                 rather than as a second door to the same panel. */}
             <Route path="/admin/queue" element={<Navigate to="/admin/agents/developer?view=queue" replace />} />
-            <Route path="/admin/profile" element={<RequireAdmin><Profile /></RequireAdmin>} />
+            <Route path="/admin/settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
+            {/* Both of these are in bookmarks and in every note that
+                mentions a key, so they land on the right tab rather
+                than 404. */}
+            <Route path="/admin/profile" element={<Navigate to="/admin/settings" replace />} />
+            <Route path="/admin/tokens" element={<Navigate to="/admin/settings?tab=api" replace />} />
             <Route path="/admin/clients/:id" element={<RequireAdmin><ClientDetail /></RequireAdmin>} />
             <Route path="/admin/ventures" element={<RequireAdmin><Ventures /></RequireAdmin>} />
             <Route path="/admin/ventures/:id" element={<RequireAdmin><VentureDetail /></RequireAdmin>} />
@@ -138,19 +135,11 @@ const App = () => (
             <Route path="/admin/portfolio" element={<RequireAdmin><Portfolio /></RequireAdmin>} />
             <Route path="/admin/agents/runs/:runId" element={<RequireAdmin><AgentRunDetail /></RequireAdmin>} />
             <Route path="/admin/agents/:id" element={<RequireAdmin><AgentWorkspace /></RequireAdmin>} />
-            <Route path="/admin/tokens" element={<RequireAdmin><Tokens /></RequireAdmin>} />
             <Route path="/admin/invites" element={<RequireAdmin><Invites /></RequireAdmin>} />
             <Route path="/admin/clients/:id/projects/:projectId" element={<RequireAdmin><ProjectDetail /></RequireAdmin>} />
             {/* Full-bleed, outside AdminLayout on purpose: the page under
                 review needs the whole window, which is the point of it. */}
             <Route path="/admin/clients/:id/projects/:projectId/feedback" element={<RequireAdmin><FeedbackBoard /></RequireAdmin>} />
-            <Route path="/admin/wiki" element={<RequireWiki><WikiList /></RequireWiki>} />
-            <Route path="/admin/wiki/new" element={<RequireWiki><WikiEdit mode="new" /></RequireWiki>} />
-            <Route path="/admin/wiki/admin/users" element={<RequireWiki><WikiUsers /></RequireWiki>} />
-            <Route path="/admin/wiki/admin/export" element={<RequireWiki><WikiExport /></RequireWiki>} />
-            <Route path="/admin/wiki/:slug" element={<RequireWiki><WikiDetail /></RequireWiki>} />
-            <Route path="/admin/wiki/:slug/edit" element={<RequireWiki><WikiEdit mode="edit" /></RequireWiki>} />
-            <Route path="/admin/wiki/:slug/history" element={<RequireWiki><WikiHistory /></RequireWiki>} />
             <Route path="/p/:slug/*" element={<PreviewViewer />} />
             <Route path="/audit/:slug" element={<AuditReport />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

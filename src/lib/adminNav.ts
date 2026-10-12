@@ -11,6 +11,9 @@ import {
   CreditCard,
   Megaphone,
   Grid2x2,
+  UserCircle,
+  Plug,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,6 +37,14 @@ const cvMoney: CvNavItem = { to: "/admin/money", label: "Money", icon: CreditCar
 const cvMarketing: CvNavItem = { to: "/admin/marketing", label: "Marketing", icon: Megaphone };
 const cvMore: CvNavItem = { to: "/admin/more", label: "More", icon: Grid2x2 };
 
+// One page, three tabs — but three entries, because "where do I change
+// my password" and "where is the audit upload key" are different
+// questions and the answer to both should be visible rather than
+// remembered. They were buried two clicks deep in the More hub.
+const cvProfile: CvNavItem = { to: "/admin/settings", label: "Profile", icon: UserCircle };
+const cvApi: CvNavItem = { to: "/admin/settings?tab=api", label: "Settings", icon: Plug };
+const cvKeys: CvNavItem = { to: "/admin/settings?tab=keys", label: "Keys", icon: KeyRound };
+
 /**
  * Whether a nav item should show active for the current path.
  *
@@ -42,9 +53,19 @@ const cvMore: CvNavItem = { to: "/admin/more", label: "More", icon: Grid2x2 };
  * resolves — without it, following an old link flashes a nav with nothing
  * highlighted.
  */
-export function isCvNavActive(pathname: string, to: string): boolean {
+export function isCvNavActive(pathname: string, to: string, search = ""): boolean {
   if (to === "/admin/prospects" && pathname.startsWith("/admin/approvals")) return true;
   if (to === "/admin/clients") return pathname === to;
+  // The Account three are one page told apart by ?tab=. Without the
+  // query string all three light up at once, which is three answers to
+  // "where am I".
+  const [toPath, toQuery] = to.split("?");
+  if (toPath === "/admin/settings") {
+    if (pathname !== toPath) return false;
+    const current = new URLSearchParams(search).get("tab") ?? "";
+    const wanted = new URLSearchParams(toQuery ?? "").get("tab") ?? "";
+    return current === wanted;
+  }
   return pathname === to || pathname.startsWith(to + "/");
 }
 
@@ -55,8 +76,13 @@ export const CV_ADMIN_NAV: CvNavSection[] = [
   { title: "Workspace", items: [cvMore] },
 ];
 
+/** Pinned to the bottom of the side nav, under everything else. */
+export const CV_ADMIN_ACCOUNT_NAV: CvNavSection = {
+  title: "Account", items: [cvProfile, cvApi, cvKeys],
+};
+
 /** Mobile bottom bar: Today, Pipeline, Prospects, Clients, More — approved. */
 export const CV_MOBILE_BOTTOM_NAV: CvNavItem[] = [cvToday, cvPipeline, cvProspects, cvClients, cvMore];
 
 /** The rest, for the mobile ☰ drawer. */
-export const CV_MOBILE_DRAWER_NAV: CvNavItem[] = [cvProposals, cvMoney, cvMarketing];
+export const CV_MOBILE_DRAWER_NAV: CvNavItem[] = [cvProposals, cvMoney, cvMarketing, cvProfile, cvApi, cvKeys];

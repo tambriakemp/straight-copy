@@ -15,9 +15,8 @@ import ProjectDetail from "@/pages/admin/ProjectDetail";
 import ProjectTasksPanel from "@/components/admin/tasks/ProjectTasksPanel";
 import NewClientDialog from "@/components/admin/NewClientDialog";
 import QueueHealth from "@/pages/admin/QueueHealth";
-import { WikiList } from "@/pages/admin/Wiki";
 
-export type WorkspaceView = "clients" | "tasks" | "knowledge" | "queue";
+export type WorkspaceView = "clients" | "tasks" | "queue";
 
 const TITLES: Record<WorkspaceView, { eyebrow: string; title: string; sub: string }> = {
   clients: {
@@ -29,11 +28,6 @@ const TITLES: Record<WorkspaceView, { eyebrow: string; title: string; sub: strin
     eyebrow: "Workspace",
     title: "Tasks",
     sub: "Every task across every client and project.",
-  },
-  knowledge: {
-    eyebrow: "Workspace",
-    title: "Knowledge Base",
-    sub: "How the agency works, written down.",
   },
   // Only ever shown in the engineering queue lead's rail. The queue is that
   // agent's whole job, so reading its health belongs beside the agent that
@@ -113,7 +107,6 @@ export default function AgentWorkspacePanel({ view }: { view: WorkspaceView }) {
           <ClientsTable onOpen={(clientId) => setStack({ at: "client", clientId })} />
         )}
         {view === "tasks" && <ProjectTasksPanel />}
-        {view === "knowledge" && <WikiList embedded />}
         {view === "queue" && <QueueHealth embedded />}
       </div>
     </section>

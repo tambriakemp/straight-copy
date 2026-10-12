@@ -6,11 +6,8 @@ import {
   CheckSquare,
   Rocket,
   LayoutGrid,
-  BookOpen,
-  KeyRound,
   Mail,
   ShieldCheck,
-  UserCircle,
   type LucideIcon,
 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -22,18 +19,15 @@ const HUB_ITEMS: Array<{ to: string; label: string; description: string; icon: L
   { to: "/admin/tasks", label: "Tasks", description: "Every task across clients", icon: CheckSquare },
   { to: "/admin/ventures", label: "Ventures", description: "Venture pipeline and launches", icon: Rocket },
   { to: "/admin/portfolio", label: "Portfolio", description: "Past and live client work", icon: LayoutGrid },
-  { to: "/admin/wiki", label: "Wiki", description: "SOPs and knowledge base", icon: BookOpen },
-  { to: "/admin/tokens", label: "Settings & keys", description: "Tokens, briefs and approvals keys", icon: KeyRound },
   { to: "/admin/invites", label: "Invites", description: "Admin and client invites", icon: Mail },
   { to: "/admin/audits", label: "Client passwords", description: "Portal credential audits", icon: ShieldCheck },
-  { to: "/admin/profile", label: "Profile", description: "Your account settings", icon: UserCircle },
 ];
 
 export default function More() {
   return (
     <AdminLayout>
       <div className="cv-admin" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-        <PageHeader eyebrow="Workspace / More" title="More" subtitle="Everything else — agents, tasks, settings and the rest of the workspace." />
+        <PageHeader eyebrow="Workspace / More" title="More" subtitle="Everything else — agents, tasks, ventures and the rest of the workspace. Your profile, the API connection and the keys live at the bottom of the side nav now." />
         <div
           style={{
             padding: "8px 32px 32px",

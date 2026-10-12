@@ -12,7 +12,7 @@ export default function MobileTopBar() {
   const navigate = useNavigate();
   const { signOut } = useAdminAuth();
 
-  const isActive = (to: string) => isCvNavActive(loc.pathname, to);
+  const isActive = (to: string) => isCvNavActive(loc.pathname, to, loc.search);
 
   // More-hub items (Agents, Tasks, Ventures...) belong behind the More tab
   // already on the bottom bar — the drawer only needs to cover the Work

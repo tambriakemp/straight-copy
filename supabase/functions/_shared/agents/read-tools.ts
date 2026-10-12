@@ -181,7 +181,7 @@ export function readToolDefinitions(): Array<Record<string, unknown>> {
       name: "get_record",
       description:
         "Read one record in full, including long text that lists truncate — a proposal's content, " +
-        "a task's description and acceptance criteria, a wiki page. Read the thing before judging it.",
+        "a task's description and acceptance criteria. Read the thing before judging it.",
       input_schema: {
         type: "object",
         properties: {
