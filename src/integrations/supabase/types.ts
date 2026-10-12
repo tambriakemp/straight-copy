@@ -3777,6 +3777,10 @@ export type Database = {
           notes: string | null
           preview_image_url: string | null
           preview_url: string | null
+          rebuild_issue_id: string | null
+          rebuild_status: string | null
+          rebuild_stuck_reason: string | null
+          rebuilt_from: string | null
           slug: string
           status: string
           trade: string | null
@@ -3799,6 +3803,10 @@ export type Database = {
           notes?: string | null
           preview_image_url?: string | null
           preview_url?: string | null
+          rebuild_issue_id?: string | null
+          rebuild_status?: string | null
+          rebuild_stuck_reason?: string | null
+          rebuilt_from?: string | null
           slug: string
           status?: string
           trade?: string | null
@@ -3821,12 +3829,24 @@ export type Database = {
           notes?: string | null
           preview_image_url?: string | null
           preview_url?: string | null
+          rebuild_issue_id?: string | null
+          rebuild_status?: string | null
+          rebuild_stuck_reason?: string | null
+          rebuilt_from?: string | null
           slug?: string
           status?: string
           trade?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "prospect_approvals_rebuilt_from_fkey"
+            columns: ["rebuilt_from"]
+            isOneToOne: false
+            referencedRelation: "prospect_approvals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {
@@ -5202,6 +5222,7 @@ export type Database = {
       }
       fire_sync_paperclip_pending: { Args: never; Returns: undefined }
       fire_sync_paperclip_project_tasks: { Args: never; Returns: undefined }
+      fire_sync_rebuild_status: { Args: never; Returns: undefined }
       fire_web_dev_scheduled_dispatch: { Args: never; Returns: undefined }
       fire_weekly_progress_reports: { Args: never; Returns: undefined }
       get_client_login: {
