@@ -1172,6 +1172,25 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-what { flex: 1 1 240px; min-width: 0; font-weight: 500; overflow-wrap: break-word; }
 .cv-what small { display: block; font-size: 13px; font-weight: 400; color: var(--cv-muted); }
 
+/* The three figures over a project's payment schedules. Measured off
+   the canvas's .money. */
+.cv-moneytile {
+  border-radius: 18px; background: var(--cv-sunken); padding: 18px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.cv-moneytile--dark { background: var(--cv-ink); color: var(--cv-card); }
+.cv-moneytile span { font-size: 14px; color: var(--cv-muted); }
+.cv-moneytile--dark span { color: #C9CFDB; }
+.cv-moneytile b { font-size: 26px; font-weight: 600; line-height: 1; }
+
+/* The invoice's number in its schedule. */
+.cv-seq {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--cv-bg);
+  display: grid; place-items: center; font-size: 13px; font-weight: 500; flex-shrink: 0;
+}
+/* A fixed column, so rows with an action and rows without still line up. */
+.cv-invacts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+
 /* tabular-nums so a column of money lines up on the decimal point. */
 .cv-money-amt {
   font-variant-numeric: tabular-nums; font-weight: 600;

@@ -30,10 +30,10 @@ import ProgressReportSettingsCard from "@/components/admin/ProgressReportSetting
 import DeliveryTargetsCard from "@/components/admin/DeliveryTargetsCard";
 import ProjectSecretsPanel from "@/components/admin/ProjectSecretsPanel";
 import ProjectFilesPanel from "@/components/admin/project/ProjectFilesPanel";
-import ProjectPreviewPanel from "@/components/admin/project/ProjectPreviewPanel";
 import IntakeTab from "@/components/admin/client/IntakeTab";
 import { useProjectRecord, type ProjectTask } from "@/components/admin/project/useProjectRecord";
 import { projectTypeStyle } from "@/lib/projectType";
+import { headingFor } from "@/lib/clientRows";
 import { boardUrlFor } from "@/lib/issueLinks";
 import { PROJECT_PHASES, phaseStateAt } from "@/lib/projectPhases";
 
@@ -95,7 +95,14 @@ export default function AppDevelopmentView({
   }
 
   const type = projectTypeStyle(project.type);
-  const clientName = client?.business_name || client?.contact_name || "Client";
+  // The person, then the business — the same order headingFor uses on
+  // the clients list. The breadcrumb was leading with business_name, so
+  // a crumb reading "Menovia" above a project called "Menovia.ai" said
+  // the same word twice and named nobody.
+  const clientName = headingFor({
+    contact_name: client?.contact_name ?? null,
+    business_name: client?.business_name ?? null,
+  });
   const isMarketing = project.type === "marketing";
   const portalUrl = `${window.location.origin}/portal/${clientId}`;
 
@@ -285,13 +292,14 @@ export default function AppDevelopmentView({
 
         {tab === "files" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* The Preview panel used to render here. It is gone: it
+                listed the same pages, counted the same approvals and
+                collected the same comments as the feedback board, from
+                the same tables, in the old dark design — and the four
+                things it could do that the board could not (copy the
+                portal link, send a review email, crawl a live site,
+                create a preview) have moved onto the board. */}
             <ProjectFilesPanel clientId={clientId} clientProjectId={project.id} />
-            <ProjectPreviewPanel
-              clientId={clientId}
-              clientProjectId={project.id}
-              projectName={project.name}
-              clientLabel={client?.business_name ?? null}
-            />
             <section className="cv-card cv-card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <h2 className="cv-card-title">Links</h2>
               {!links.length

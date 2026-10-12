@@ -23,7 +23,7 @@ import FeedbackFilters from "@/components/feedback/FeedbackFilters";
 import {
   filterComments, statusArgs, openCount, authorInitials, clickToPct, pageLabel, pageKind,
   foldersOf, sortPages, pageKey, normaliseStatus, STATUS_LABEL, STATUS_CLASS,
-  approvalFor, buildActivity, APPROVAL_LABEL, APPROVAL_CLASS,
+  approvalFor, pageVerdict, buildActivity, APPROVAL_LABEL, APPROVAL_CLASS,
   type BoardPage, type BoardComment, type ApprovalRow, type ApprovalEvent, type StatusFilter,
 } from "@/lib/feedbackBoard";
 
@@ -374,15 +374,6 @@ export default function PortalFeedback() {
           ← Back to portal
         </Link>
         <span style={{ fontWeight: 600, fontSize: 17 }}>Feedback board</span>
-        {projects.length > 1 && (
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--cv-muted)" }}>
-            Project
-            <select className="cv-select" value={current ?? ""}
-              onChange={(e) => { setCurrent(e.target.value); setSelectedPage(null); setDraft(null); }}>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </label>
-        )}
         <span style={{ flex: 1 }} />
         {clientName && <span style={{ fontSize: 14, color: "var(--cv-muted)" }}>{clientName}</span>}
         <button type="button" className="cv-open" style={{ padding: "0 18px" }} onClick={close}
@@ -401,7 +392,9 @@ export default function PortalFeedback() {
                 : "Browsing — switch to Comment to leave one"}
             </span>
             {page && (() => {
-              const a = approvalFor(page.key, approvals, lastEvent);
+              const raw = approvalFor(page.key, approvals, lastEvent);
+              // Open comments outrank a standing approval — see pageVerdict.
+              const a = { ...raw, state: pageVerdict(raw.state, openCount(commentsOn(page))) };
               return (
                 <>
                   <span className={`cv-chip ${APPROVAL_CLASS[a.state]}`}>{APPROVAL_LABEL[a.state]}</span>
@@ -562,6 +555,24 @@ export default function PortalFeedback() {
           </div>
 
           <div className="cv-fb__railbody">
+            {/* The project picker, above the search — not in the top bar.
+                Which project you are reading is the same kind of choice
+                as which page and which status, and the three belong
+                together. In the bar it sat beside Close and read as
+                chrome. */}
+            {projects.length > 1 && (
+              <label className="cv-field">
+                Project
+                <select className="cv-select" value={current ?? ""}
+                  onChange={(e) => {
+                    setCurrent(e.target.value);
+                    setSelectedPage(null); setPageFilter("all"); setDraft(null);
+                  }}>
+                  {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </label>
+            )}
+
             {tab === "comments" && (
               <>
                 <FeedbackFilters
@@ -656,7 +667,8 @@ export default function PortalFeedback() {
                   </div>
                   {folder.pages.map((pg) => {
                     const open = openCount(commentsOn(pg));
-                    const a = approvalFor(pg.key, approvals, lastEvent);
+                    const raw = approvalFor(pg.key, approvals, lastEvent);
+                    const a = { ...raw, state: pageVerdict(raw.state, open) };
                     return (
                       <button key={pg.key} type="button"
                         className={`cv-pgrow ${pg.key === selectedPage ? "cv-pgrow--on" : ""}`}

@@ -25,6 +25,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   MessageSquare, MousePointer2, CheckCircle2, EyeOff, Eye, X, Upload, Check, Undo2, Folder,
+  Copy, Mail, Globe,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
@@ -34,7 +35,7 @@ import {
   filterComments, statusArgs, openCount, authorInitials, clickToPct, pageLabel, pageKind, groupOf,
   type StatusFilter,
   foldersOf, groupNames, sortPages, visibleTo, pageKey, normaliseStatus, NEXT_STATUS,
-  STATUS_LABEL, STATUS_CLASS, approvalFor, buildActivity, APPROVAL_LABEL, APPROVAL_CLASS,
+  STATUS_LABEL, STATUS_CLASS, approvalFor, pageVerdict, buildActivity, APPROVAL_LABEL, APPROVAL_CLASS,
   type BoardPage, type BoardComment, type ApprovalRow, type ApprovalEvent,
 } from "@/lib/feedbackBoard";
 
@@ -106,6 +107,15 @@ export default function FeedbackBoard() {
   const [events, setEvents] = useState<ApprovalEvent[]>([]);
   /** The folder newly uploaded pages land in. */
   const [uploadGroup, setUploadGroup] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [creating, setCreating] = useState(false);
+  /** The "send review email" box, and who it goes to. */
+  const [mailOpen, setMailOpen] = useState(false);
+  const [contacts, setContacts] = useState<Array<{ id: string; name: string | null; email: string | null }>>([]);
+  const [contactId, setContactId] = useState<string | null>(null);
+  const [crawlUrl, setCrawlUrl] = useState("");
+  const [crawlOpen, setCrawlOpen] = useState(false);
   /** Which page's "ask for changes" box is open. */
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -114,8 +124,14 @@ export default function FeedbackBoard() {
   const load = useCallback(async () => {
     if (!projectId) return;
     setLoading(true);
-    const proj = await supabase.from("client_projects").select("name").eq("id", projectId).maybeSingle();
+    const proj = await supabase.from("client_projects")
+      .select("name, client_id").eq("id", projectId).maybeSingle();
     setProjectName(proj.data?.name ?? "Project");
+    if (proj.data?.client_id) {
+      const { data: c } = await supabase.from("clients")
+        .select("business_name, contact_name").eq("id", proj.data.client_id).maybeSingle();
+      setClientName(c?.business_name || c?.contact_name || "");
+    }
 
     const { data: pvs, error } = await supabase.from("preview_projects")
       .select("id, name, slug, entry_path, source_type, external_base_url, feedback_enabled")
@@ -363,7 +379,7 @@ export default function FeedbackBoard() {
     try {
       if (pg.external) {
         // External pages are set as a whole list, so send every row back
-        // with this one changed — see ProjectPreviewPanel's note.
+        // with this one changed.
         const rows = pages.filter((x) => x.previewId === pg.previewId && x.external)
           .map((x) => ({
             path: x.path, label: x.label,
@@ -409,6 +425,124 @@ export default function FeedbackBoard() {
   }, [pages]);
 
   const activity = useMemo(() => buildActivity(events, comments, titleFor), [events, comments, titleFor]);
+
+  // ---- the four things the old Preview panel did and the board did not
+  //
+  // That panel listed the same pages, counted the same approvals and
+  // collected the same comments as this board, from the same tables, in
+  // a different design. It is deleted — but it also carried these four,
+  // and deleting a panel is not a reason to lose them.
+
+  /** The client's portal link, which is how they reach this board. */
+  const copyPortalLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/portal/${clientId}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error("Could not copy the link");
+    }
+  };
+
+  const openMail = async () => {
+    setMailOpen(true);
+    const { data: rows } = await supabase.from("client_contacts")
+      .select("id, name, email, is_primary")
+      .eq("client_id", clientId!)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true });
+    const list = (rows ?? []).filter((c) => c.email);
+    setContacts(list);
+    setContactId((list.find((c) => c.is_primary) ?? list[0])?.id ?? null);
+  };
+
+  const sendReviewEmail = async () => {
+    const target = preview ?? previews[0];
+    if (!target) { toast.error("There is no preview to review yet."); return; }
+    if (!contactId) { toast.error("Pick who it goes to."); return; }
+    setBusy("mail");
+    const t = toast.loading("Sending review email…");
+    try {
+      const { data, error } = await supabase.functions.invoke("send-preview-review-email", {
+        body: { preview_project_id: target.id, contact_id: contactId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Sent to ${data?.recipient ?? "the client"}`, { id: t, duration: 6000 });
+      setMailOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to send", { id: t, duration: 8000 });
+    } finally { setBusy(null); }
+  };
+
+  /** A project with no preview has nowhere to put an uploaded page. */
+  const createPreview = async () => {
+    setCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("preview-admin", {
+        body: {
+          action: "create", name: projectName, client_id: clientId,
+          client_label: clientName || null, attach_to_project_id: projectId,
+        },
+      });
+      if (error || !data?.project) throw new Error(error?.message || "Failed to create preview");
+      toast.success("Preview created");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create preview");
+    } finally { setCreating(false); }
+  };
+
+  /**
+   * Crawl a site we built but do not host, for its page list.
+   *
+   * The address is written onto the preview first and the crawler reads
+   * it from there, which is the contract preview-admin has always had.
+   * Labels and folders already set are kept: whatever someone called a
+   * page outranks whatever the crawler calls it this time round.
+   */
+  const crawl = async () => {
+    const target = preview ?? previews[0];
+    const url = crawlUrl.trim();
+    if (!target) { toast.error("Create a preview first."); return; }
+    if (!url) { toast.error("Paste the site's address."); return; }
+    setBusy("crawl");
+    const t = toast.loading("Crawling…");
+    try {
+      const keep = new Map(pages.filter((p) => p.external && p.previewId === target.id)
+        .map((p) => [p.path, p]));
+      const up = await supabase.functions.invoke("preview-admin", {
+        body: { action: "update", id: target.id, external_base_url: url },
+      });
+      if (up.error) throw up.error;
+      const { data, error } = await supabase.functions.invoke("preview-admin", {
+        body: { action: "crawl_external", id: target.id },
+      });
+      if (error || data?.error) throw new Error(error?.message || data?.error || "Crawl failed");
+
+      const found = (data?.pages ?? []) as Array<{ path: string; label?: string | null }>;
+      if (found.length) {
+        await callPreviewAdmin({
+          action: "external_pages_set", project_id: target.id,
+          pages: found.map((f) => {
+            const had = keep.get(f.path);
+            return {
+              path: f.path,
+              label: had?.label ?? f.label ?? f.path,
+              group_label: had?.group ?? null,
+              visible_to_client: had ? had.visibleToClient : true,
+            };
+          }),
+        });
+      }
+      toast.success(`Found ${found.length} page${found.length === 1 ? "" : "s"}`, { id: t });
+      setCrawlOpen(false);
+      setCrawlUrl("");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Crawl failed", { id: t });
+    } finally { setBusy(null); }
+  };
 
   /**
    * Picking a page, from the dropdown or from a page row.
@@ -472,6 +606,13 @@ export default function FeedbackBoard() {
           <span className="cv-chip cv-chip--amber">Commenting is off for clients on this preview</span>
         )}
         <span style={{ flex: 1 }} />
+        <button type="button" className="cv-mini" onClick={copyPortalLink} title="Copy the client's portal link">
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+          <span style={{ marginLeft: 6 }}>{copied ? "Copied" : "Portal link"}</span>
+        </button>
+        <button type="button" className="cv-mini" onClick={() => void openMail()} title="Email the client a link to review">
+          <Mail size={14} /><span style={{ marginLeft: 6 }}>Review email</span>
+        </button>
         <span style={{ fontSize: 13, color: "var(--cv-muted)" }}>Viewing as</span>
         <span className="cv-viewseg" role="group" aria-label="Viewing as">
           <button type="button" className={`cv-viewseg__btn ${asClient ? "" : "cv-viewseg__btn--on"}`} onClick={() => setAsClient(false)}>You</button>
@@ -481,6 +622,27 @@ export default function FeedbackBoard() {
           Close <X size={15} style={{ marginLeft: 6 }} />
         </button>
       </header>
+
+      {mailOpen && (
+        <div className="cv-card cv-card-pad" style={{ margin: "0 20px 12px", display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+          <label className="cv-field" style={{ flex: "1 1 260px" }}>
+            Send a review email to
+            <select className="cv-select" value={contactId ?? ""} onChange={(e) => setContactId(e.target.value || null)}>
+              {!contacts.length && <option value="">No contacts with an email on file</option>}
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>{c.name ? `${c.name} · ${c.email}` : c.email}</option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 18px" }}
+            disabled={busy === "mail" || !contactId} onClick={() => void sendReviewEmail()}>
+            {busy === "mail" ? "Sending…" : "Send"}
+          </button>
+          <button type="button" className="cv-open" style={{ padding: "0 18px" }} onClick={() => setMailOpen(false)}>
+            Cancel
+          </button>
+        </div>
+      )}
 
       <div className="cv-fb__body">
         <section className="cv-fb__stage">
@@ -493,7 +655,9 @@ export default function FeedbackBoard() {
                 : "Browsing — switch to Comment to leave one"}
             </span>
             {page && (() => {
-              const a = approvalFor(page.key, approvals, lastEvent);
+              const raw = approvalFor(page.key, approvals, lastEvent);
+              // Open comments outrank a standing approval — see pageVerdict.
+              const a = { ...raw, state: pageVerdict(raw.state, openCount(commentsOn(page))) };
               return (
                 <>
                   <span className={`cv-chip ${APPROVAL_CLASS[a.state]}`} title={a.note ?? undefined}>
@@ -781,14 +945,45 @@ export default function FeedbackBoard() {
                     </label>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                       <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 16px" }}
-                        disabled={busy === "upload"} onClick={() => uploadRef.current?.click()}>
+                        disabled={busy === "upload" || !previews.length} onClick={() => uploadRef.current?.click()}>
                         <Upload size={15} style={{ marginRight: 7 }} />
                         {busy === "upload" ? "Uploading…" : "Upload files"}
                       </button>
                       <input ref={uploadRef} type="file" multiple hidden
                         accept=".html,.htm,text/html,image/png,image/jpeg,image/webp"
                         onChange={(e) => uploadPages(e.target.files)} />
+                      {/* For a site we built but do not host: the pages
+                          live on someone else's server, so the list is
+                          crawled rather than uploaded. */}
+                      <button type="button" className="cv-open" style={{ padding: "0 16px" }}
+                        onClick={() => setCrawlOpen((v) => !v)} disabled={!previews.length}>
+                        <Globe size={15} style={{ marginRight: 7 }} /> Crawl a live site
+                      </button>
                     </div>
+
+                    {crawlOpen && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignSelf: "stretch" }}>
+                        <input className="cv-input" style={{ flex: "1 1 200px", minHeight: 42 }}
+                          value={crawlUrl} onChange={(e) => setCrawlUrl(e.target.value)}
+                          placeholder="https://example.lovable.app" />
+                        <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 16px" }}
+                          disabled={busy === "crawl"} onClick={() => void crawl()}>
+                          {busy === "crawl" ? "Crawling…" : "Crawl"}
+                        </button>
+                      </div>
+                    )}
+
+                    {!previews.length && (
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, alignSelf: "stretch" }}>
+                        <span style={{ flex: "1 1 200px", fontSize: 13, color: "var(--cv-muted)" }}>
+                          This project has no preview yet, so there is nowhere to put a page.
+                        </span>
+                        <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 16px" }}
+                          disabled={creating} onClick={() => void createPreview()}>
+                          {creating ? "Creating…" : "Create preview"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -805,7 +1000,8 @@ export default function FeedbackBoard() {
                     </div>
                     {folder.pages.map((pg) => {
                       const open = openCount(commentsOn(pg));
-                      const a = approvalFor(pg.key, approvals, lastEvent);
+                      const raw = approvalFor(pg.key, approvals, lastEvent);
+                      const a = { ...raw, state: pageVerdict(raw.state, open) };
                       const selected = pg.key === selectedPage;
                       return (
                         <div key={pg.key} style={{ display: "flex", flexDirection: "column", gap: 6 }}>

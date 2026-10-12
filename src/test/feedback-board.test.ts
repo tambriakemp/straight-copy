@@ -7,7 +7,7 @@ import {
   normaliseStatus, bucketByPage, filterComments, openCount, authorInitials,
   clickToPct, pageTitle, pageLabel, pageKind, groupOf, foldersOf, groupNames, statusArgs,
   sortPages, visibleTo, pageKey, NEXT_STATUS,
-  approvalFor, buildActivity,
+  approvalFor, pageVerdict, buildActivity,
   type BoardPage, type BoardComment, type ApprovalRow, type ApprovalEvent,
 } from "@/lib/feedbackBoard";
 
@@ -373,5 +373,24 @@ describe("statusArgs", () => {
     const out = filterComments(cs, { query: "headline", ...statusArgs("all") });
     expect(out).toHaveLength(3); // every fixture shares the same body
     expect(filterComments(cs, { query: "nothing like this", ...statusArgs("all") })).toHaveLength(0);
+  });
+});
+
+describe("pageVerdict", () => {
+  it("stops calling a page approved once there are open comments on it", () => {
+    // The failure, which has happened: a client approves on Monday, asks
+    // for a change on Tuesday, the row stays green because the approval
+    // row is still there, and the change ships unbuilt.
+    expect(pageVerdict("approved", 2)).toBe("changes_requested");
+  });
+
+  it("leaves an approved page with nothing open alone", () => {
+    expect(pageVerdict("approved", 0)).toBe("approved");
+  });
+
+  it("does not promote anything — only ever demotes", () => {
+    expect(pageVerdict("pending", 0)).toBe("pending");
+    expect(pageVerdict("pending", 3)).toBe("pending");
+    expect(pageVerdict("changes_requested", 0)).toBe("changes_requested");
   });
 });

@@ -297,6 +297,22 @@ export function approvalFor(
   return { state: "pending", note: null, who: null, at: null };
 }
 
+/**
+ * Where a page stands, with its open comments taken into account.
+ *
+ * An approved page that has open comments on it is NOT approved any
+ * more, whatever the approvals table says. The failure this prevents is
+ * specific and has happened: a client approves a page on Monday, asks
+ * for a change on Tuesday, and the row stays green because the approval
+ * row is still there — so the change ships unbuilt.
+ *
+ * This rule came from the old preview panel, which is deleted. It is
+ * here so it outlives the panel rather than being deleted with it.
+ */
+export function pageVerdict(state: PageApproval, openComments: number): PageApproval {
+  return state === "approved" && openComments > 0 ? "changes_requested" : state;
+}
+
 export interface ActivityItem {
   id: string;
   at: string;
