@@ -702,33 +702,49 @@ export default function FeedbackBoard() {
                     }
                     return shown.map((c) => commentCard(c, pg));
                   })()
-                ) : folders.map((folder) => (
-                  <div key={folder.name} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div className="cv-fb__grouphead">
-                      <Folder size={16} aria-hidden="true" />
-                      <span style={{ flex: 1 }}>{folder.name}</span>
-                      <span>{folder.pages.length} page{folder.pages.length === 1 ? "" : "s"}</span>
-                    </div>
-                    {folder.pages.map((pg) => {
-                      const all = commentsOn(pg);
-                      const shown = filterComments(all, { query, ...statusArgs(statusFilter) });
-                      const open = openCount(all);
-                      return (
+                ) : (() => {
+                  // Comments only. A page with nothing on it is not a
+                  // comment, and listing all forty of them with "0 open"
+                  // beside each turns the Comments tab into the Pages
+                  // tab with feedback hidden somewhere inside it.
+                  const withComments = folders
+                    .map((folder) => ({
+                      name: folder.name,
+                      pages: folder.pages
+                        .map((pg) => ({ pg, shown: filterComments(commentsOn(pg), { query, ...statusArgs(statusFilter) }) }))
+                        .filter((x) => x.shown.length > 0),
+                    }))
+                    .filter((f) => f.pages.length > 0);
+
+                  if (!withComments.length) {
+                    return (
+                      <EmptyState
+                        title="No comments"
+                        subtitle={query || statusFilter !== "all"
+                          ? "Nothing matches this filter."
+                          : "Click anywhere on a page to leave the first one."}
+                      />
+                    );
+                  }
+
+                  return withComments.map((folder) => (
+                    <div key={folder.name} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div className="cv-fb__grouphead">
+                        <Folder size={16} aria-hidden="true" />
+                        <span style={{ flex: 1 }}>{folder.name}</span>
+                      </div>
+                      {folder.pages.map(({ pg, shown }) => (
                         <div key={pg.key} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          <button type="button" className={`cv-pgrow ${pg.key === selectedPage ? "cv-pgrow--on" : ""}`}
-                            onClick={() => pickPage(pg.key)}>
-                            <span className="cv-pgrow__name">
-                              {pageLabel(pg)}
-                              <small>{pageKind(pg)}</small>
-                            </span>
-                            <span className={`cv-chip ${open ? "cv-s-open" : "cv-chip--gray"}`}>{open} open</span>
+                          <button type="button" className="cv-fb__pagehead" onClick={() => pickPage(pg.key)}>
+                            {pageLabel(pg)}
+                            <span>{shown.length}</span>
                           </button>
                           {shown.map((c) => commentCard(c, pg))}
                         </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                      ))}
+                    </div>
+                  ));
+                })()}
                 <p style={{ margin: 0, fontSize: 12, color: "var(--cv-muted)" }}>
                   Click a status to change it: Open, In progress, Resolved.
                 </p>

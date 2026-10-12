@@ -1077,6 +1077,20 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 }
 .cv-fb__grouphead span:last-child { font-weight: 400; color: var(--cv-muted); }
 
+/* The page a comment is on, in the Comments tab.
+   A line, not a card: the Comments tab lists COMMENTS, and a page row
+   the same size as a comment turns a list of feedback into a list of
+   pages with feedback hidden among them. Clickable, because naming the
+   page you want to read is also how you choose it. */
+.cv-fb__pagehead {
+  display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left;
+  background: none; border: 0; padding: 2px 4px; margin-top: 2px;
+  font-family: inherit; font-size: 14px; font-weight: 600; color: var(--cv-ink);
+  cursor: pointer;
+}
+.cv-fb__pagehead:hover { color: var(--cv-accent); }
+.cv-fb__pagehead span { font-weight: 400; font-size: 12px; color: var(--cv-muted); }
+
 /* A page in the rail: name, what kind of file it is, how many comments
    are still open on it. Measured off the canvas's .pg. */
 .cv-pgrow {
