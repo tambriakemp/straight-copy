@@ -27,8 +27,9 @@
 // for. When present: the new row is tagged `rebuilt_from` (so the admin
 // page can show a "Rebuilt" badge once that UI change ships) and the
 // referenced old row immediately flips to rebuild_status
-// 'ready_for_review' — no polling wait, since Nicole is already calling
-// this endpoint as the normal last step of a rebuild. Silently ignored if
+// 'ready_for_review' — no polling wait, since Camille (the rebuild owner,
+// CRE-413/CRE-415) is already calling this endpoint as the normal last step
+// of a rebuild. Silently ignored if
 // the referenced id doesn't exist or isn't actually a rejected row with an
 // open rebuild — this push must never fail just because that linkage was
 // stale or wrong.

@@ -13,7 +13,7 @@ export interface RebuildStatusUpdate {
 // `alreadyReadyForReview` is true when prospect-approvals-sync's push action
 // has already flipped this row to 'ready_for_review' (a new version exists).
 // A 'done'/'cancelled' Paperclip issue that never resulted in a pushed
-// rebuilt version is a real anomaly (Nicole closed it without resubmitting,
+// rebuilt version is a real anomaly (Camille closed it without resubmitting,
 // or it was cancelled outright) — fail loud with 'stuck' rather than
 // silently leaving the row's last known status in place.
 export function mapIssueStatus(
@@ -37,7 +37,7 @@ export function mapIssueStatus(
     case "done":
       return {
         rebuild_status: "stuck",
-        rebuild_stuck_reason: "Rebuild issue was closed without a rebuilt version ever being pushed — check with Nicole.",
+        rebuild_stuck_reason: "Rebuild issue was closed without a rebuilt version ever being pushed — check with Camille.",
       };
     case "cancelled":
       return { rebuild_status: "stuck", rebuild_stuck_reason: "Rebuild issue was cancelled." };

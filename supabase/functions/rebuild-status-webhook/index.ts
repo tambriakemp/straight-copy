@@ -1,8 +1,8 @@
 // CRE-413: optional receiver for a faster-than-hourly push on a rebuild
 // issue's "rebuilding" / "stuck" state. Paperclip itself has no outbound
 // webhook for issue status changes (see the CRE-413 migration's header
-// comment), so nothing calls this today — it exists so Ara/Nicole can wire
-// a proactive ping (e.g. Nicole's own routine calling this when she picks up
+// comment), so nothing calls this today — it exists so Ara/Camille can wire
+// a proactive ping (e.g. Camille's own routine calling this when she picks up
 // a [Rebuild] issue, or sets it blocked with a reason) without needing a new
 // PR. sync-rebuild-status's hourly poll is the real, self-sufficient
 // fallback and will catch the same transitions within the hour regardless.
