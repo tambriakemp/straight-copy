@@ -6,10 +6,29 @@
 // herself, rather than a Supabase Function env var nobody but Lovable can
 // set.
 //
-// action "push": upsert prospects into a batch. Re-pushing an existing
-// (batch, slug) row updates its content fields only — it never touches
-// status/notes/decided_at/decided_by, so a re-push can't clobber a decision
-// Bree already made.
+// action "push": upsert prospects into a batch, one row per prospect. Keyed
+// primarily on (batch, slug); when a push's slug is new but it is either
+// (a) tagged with `rebuilt_from_approval_id`, or (b) shares the same base
+// slug (the part before a trailing -vN) as an existing row in the batch, the
+// push UPDATES that existing row in place instead of inserting a second one
+// — new slug, new preview/content fields, same row, same id. Re-pushing an
+// existing (batch, slug) row (no version change) likewise updates content
+// fields only — it never touches status/notes/decided_at/decided_by on its
+// own, so a re-push can't clobber a decision Bree already made.
+//
+// CRE-413 bug fix (2026-10-12, Bree via comment on CRE-413): the original
+// CRE-413 build inserted a brand-new row for a rebuild (tagging it
+// `rebuilt_from` and separately flipping the OLD row's rebuild_status) —
+// that put two rows on /admin/approvals for one prospect (west-pool-service
+// bug, CRE-417). Bree wants exactly one row per prospect, updated in place:
+// new preview URL, status back to 'pending' for her review, rebuild_status
+// 'ready_for_review', and a `rebuild_round` counter on that same row so the
+// history is visible without a second row. Fixed below — see
+// `resolveTargetRow`. The round-by-round notes/attachments history is
+// unaffected either way: it's already kept in prospect_approval_feedback,
+// keyed by prospect_key (the slug with any trailing -vN stripped), not by
+// this row's own id or count.
+//
 // action "decisions": read back rows Nicole needs for her side of the
 // pipeline (approved/rejected only, optionally filtered by batch and/or an
 // "updated since" cursor for polling). Each decision now also carries its
@@ -18,21 +37,8 @@
 // attachments as short-lived signed URLs (the bucket is private, so a bare
 // storage path is useless to Nicole's side) and the latest round flagged.
 // History is keyed by prospect_key (the slug with any trailing -vN
-// stripped), not by this row's own id, so a rebuild that lands as a new row
-// (acme-roofing-v2) still carries the rounds left on acme-roofing (v1).
-//
-// CRE-413: a new prospect pushed on an insert (never on an update to an
-// existing (batch, slug) row) may carry `rebuilt_from_approval_id` — the id
-// of the prospect_approvals row whose rejection this push is the rebuild
-// for. When present: the new row is tagged `rebuilt_from` (so the admin
-// page can show a "Rebuilt" badge once that UI change ships) and the
-// referenced old row immediately flips to rebuild_status
-// 'ready_for_review' — no polling wait, since Camille (the rebuild owner,
-// CRE-413/CRE-415) is already calling this endpoint as the normal last step
-// of a rebuild. Silently ignored if
-// the referenced id doesn't exist or isn't actually a rejected row with an
-// open rebuild — this push must never fail just because that linkage was
-// stale or wrong.
+// stripped), not by this row's own id — unaffected by the rebuild-in-place
+// fix above, since there's still exactly one prospect_key per prospect.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const ATTACHMENT_BUCKET = "prospect-approval-attachments";
@@ -231,6 +237,52 @@ async function feedbackByProspectKey(sb: SupabaseClient, prospectKeys: string[])
   return byKey;
 }
 
+interface ExistingRow {
+  id: string;
+  slug: string;
+  status: string;
+  rebuild_round: number | null;
+}
+
+// Find the row a push with a *new* slug should land on instead of inserting
+// a second one for the same prospect. Two ways in:
+//   1. `rebuilt_from_approval_id` names the row directly — it must still be
+//      in this batch and still 'rejected' (the state Bree's "Sent back"
+//      leaves it in), otherwise it's stale/wrong and we fall through.
+//   2. No id given (or it didn't resolve): fall back to matching on the
+//      base slug — prospectKeyAndVersion strips a trailing -vN, so
+//      "west-pool-service-v2" and "west-pool-service" share a base.
+async function resolveTargetRow(
+  sb: SupabaseClient,
+  batch: string,
+  slug: string,
+  rebuiltFromApprovalId: string | null | undefined,
+): Promise<ExistingRow | null> {
+  if (rebuiltFromApprovalId) {
+    const { data } = await sb
+      .from("prospect_approvals")
+      .select("id, slug, status, rebuild_round")
+      .eq("id", rebuiltFromApprovalId)
+      .eq("batch", batch)
+      .eq("status", "rejected")
+      .maybeSingle();
+    if (data) return data as ExistingRow;
+  }
+
+  const { prospectKey } = prospectKeyAndVersion(slug);
+  const { data: candidates } = await sb
+    .from("prospect_approvals")
+    .select("id, slug, status, rebuild_round")
+    .eq("batch", batch)
+    .ilike("slug", `${prospectKey}%`);
+  for (const candidate of (candidates ?? []) as ExistingRow[]) {
+    if (prospectKeyAndVersion(candidate.slug).prospectKey === prospectKey) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -286,7 +338,7 @@ Deno.serve(async (req) => {
   if (problem) return json({ error: problem }, 400);
 
   const b = body as { batch: string; prospects: ProspectInput[] };
-  const results: { slug: string; id?: string; error?: string }[] = [];
+  const results: { slug: string; id?: string; merged_into?: string; error?: string }[] = [];
 
   for (const p of b.prospects) {
     const { data: existing } = await sb
@@ -312,47 +364,59 @@ Deno.serve(async (req) => {
     };
 
     if (existing) {
+      // Exact (batch, slug) match — plain re-push, e.g. editing content
+      // without a version change. Never touches status/notes/decided_at.
       const { error } = await sb.from("prospect_approvals").update(content).eq("id", existing.id);
       if (error) {
         results.push({ slug: p.slug, error: error.message });
         continue;
       }
       results.push({ slug: p.slug, id: existing.id as string });
-    } else {
-      const { data: inserted, error } = await sb
-        .from("prospect_approvals")
-        .insert({
-          ...content,
-          batch: b.batch,
-          slug: p.slug,
-          status: "pending",
-          rebuilt_from: p.rebuilt_from_approval_id ?? null,
-        })
-        .select("id")
-        .single();
+      continue;
+    }
+
+    const target = await resolveTargetRow(sb, b.batch, p.slug, p.rebuilt_from_approval_id);
+
+    if (target) {
+      // Rebuild landing on a new slug (e.g. west-pool-service -> -v2): one
+      // row, updated in place — new slug, new content, back in Bree's
+      // queue. Only flip status/rebuild_status when the target was actually
+      // 'rejected' (a real rebuild cycle); a same-base-slug match on a
+      // pending/approved row just means the content/slug changed, so leave
+      // its decision alone, same as the exact-match branch above.
+      const wasRejected = target.status === "rejected";
+      const update: Record<string, unknown> = { ...content, slug: p.slug };
+      if (wasRejected) {
+        update.status = "pending";
+        update.rebuild_status = "ready_for_review";
+        update.rebuild_stuck_reason = null;
+        update.rebuild_round = (target.rebuild_round ?? 0) + 1;
+      }
+      const { error } = await sb.from("prospect_approvals").update(update).eq("id", target.id);
       if (error) {
         results.push({ slug: p.slug, error: error.message });
         continue;
       }
-      results.push({ slug: p.slug, id: inserted.id as string });
-
-      // CRE-413: tell the row being rebuilt that its replacement is ready to
-      // review. Best-effort — a bad/stale rebuilt_from_approval_id must
-      // never fail the push itself, since the new preview row was already
-      // created successfully above.
-      if (p.rebuilt_from_approval_id) {
-        const { error: linkErr } = await sb
-          .from("prospect_approvals")
-          .update({ rebuild_status: "ready_for_review" })
-          .eq("id", p.rebuilt_from_approval_id)
-          .eq("status", "rejected");
-        if (linkErr) {
-          console.error(
-            `[prospect-approvals-sync] push ${p.slug}: failed to flag rebuilt_from_approval_id ${p.rebuilt_from_approval_id} as ready_for_review: ${linkErr.message}`,
-          );
-        }
-      }
+      results.push({ slug: p.slug, id: target.id, merged_into: target.id });
+      continue;
     }
+
+    // Truly new prospect — never seen this batch+base-slug before.
+    const { data: inserted, error } = await sb
+      .from("prospect_approvals")
+      .insert({
+        ...content,
+        batch: b.batch,
+        slug: p.slug,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (error) {
+      results.push({ slug: p.slug, error: error.message });
+      continue;
+    }
+    results.push({ slug: p.slug, id: inserted.id as string });
   }
 
   const failed = results.filter((r) => r.error);
