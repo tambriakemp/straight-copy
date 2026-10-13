@@ -8,10 +8,19 @@
 // on /admin/approvals (wired in a follow-up PR after the Oct 12 9 AM CT send).
 //
 // Idempotent by construction: the only way to proceed past the atomic claim
-// below is to be the caller that flips rebuild_issue_id from NULL to a
-// placeholder in the same statement that reads it, so a duplicate trigger
-// fire or a manual re-run for the same approval_id always no-ops as
-// { skipped: true } rather than creating a second issue.
+// below is to be the caller that flips rebuild_issue_id (or rebuild_status)
+// away from the "unclaimed" value in the same statement that reads it, so a
+// duplicate trigger fire or a manual re-run for the same approval_id always
+// no-ops as { skipped: true } rather than creating a second issue.
+//
+// "Unclaimed" is rebuild_issue_id IS NULL (round 1) OR rebuild_status =
+// 'ready_for_review' (round 2+: a prior rebuild was already resubmitted and
+// this is a fresh rejection of that resubmitted version). Round-1-only used
+// to be the only condition, which meant a prospect rejected a SECOND time
+// after already going through one rebuild cycle could never get a new
+// rebuild issue — rebuild_issue_id is set once and never cleared, so both
+// this claim and the trigger's WHEN clause silently no-op'd forever. Fixed
+// 2026-10-13 alongside the matching trigger change.
 //
 // Auth uses _shared/webhook-auth.ts's hasAgentSecret (CLAUDE_WEBHOOK_SECRET,
 // the canonical shared-secret check per CRE-249) — the same value the
@@ -152,14 +161,25 @@ Deno.serve(async (req) => {
   const apiKey = await getSecret(sb, "paperclip_board_api_key");
   if (!apiKey) return json({ error: "paperclip_board_api_key is not set" }, 500);
 
-  // Atomic claim: only the caller that actually flips rebuild_issue_id from
-  // NULL in this statement proceeds to create a Paperclip issue.
+  // Atomic claim: only the caller that actually flips both rebuild_issue_id
+  // to the placeholder AND rebuild_status away from 'ready_for_review' in
+  // this statement proceeds to create a Paperclip issue. Flipping
+  // rebuild_status here too (not just on success below) closes the race a
+  // round-2+ claim would otherwise have: without it, a second concurrent
+  // call would still see rebuild_status = 'ready_for_review' (unchanged)
+  // and pass the "OR ready_for_review" branch even though rebuild_issue_id
+  // is already "__creating__".
   const { data: claimed, error: claimErr } = await sb
     .from("prospect_approvals")
-    .update({ rebuild_issue_id: "__creating__", updated_at: new Date().toISOString() })
+    .update({
+      rebuild_issue_id: "__creating__",
+      rebuild_status: "queued",
+      rebuild_issue_closed_at: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", approvalId)
     .eq("status", "rejected")
-    .is("rebuild_issue_id", null)
+    .or("rebuild_issue_id.is.null,rebuild_status.eq.ready_for_review")
     .select("id, batch, slug, company, preview_url, status, rebuild_issue_id")
     .maybeSingle();
   if (claimErr) return json({ error: claimErr.message }, 500);
@@ -201,8 +221,10 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[create-rebuild-issue] approval ${row.id} failed: ${msg}`);
-    // Release the claim so a retry (hourly sync or a manual re-run) can try again.
-    await sb.from("prospect_approvals").update({ rebuild_issue_id: null }).eq("id", row.id);
+    // Release the claim so a retry (hourly sync or a manual re-run) can try
+    // again — rebuild_status back to null too, not just rebuild_issue_id, so
+    // a round-2+ row doesn't sit displaying "Queued" with no issue behind it.
+    await sb.from("prospect_approvals").update({ rebuild_issue_id: null, rebuild_status: null }).eq("id", row.id);
     return json({ error: msg }, 500);
   }
 });

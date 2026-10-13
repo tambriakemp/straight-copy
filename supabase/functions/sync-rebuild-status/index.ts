@@ -39,6 +39,7 @@ interface TrackedRow {
   id: string;
   rebuild_issue_id: string;
   rebuild_status: string | null;
+  rebuild_issue_closed_at: string | null;
 }
 
 async function latestBlockedComment(apiKey: string, issueId: string): Promise<string | null> {
@@ -76,7 +77,11 @@ Deno.serve(async (req) => {
     .eq("rebuild_issue_id", "__creating__")
     .lt("updated_at", staleCutoff);
   if (stuck?.length) {
-    await sb.from("prospect_approvals").update({ rebuild_issue_id: null }).in(
+    // rebuild_status too, not just rebuild_issue_id — create-rebuild-issue's
+    // claim now sets rebuild_status: 'queued' as part of the same atomic
+    // write (closes a round-2+ claim race), so releasing the claim has to
+    // undo both or the row sits displaying "Queued" with no issue behind it.
+    await sb.from("prospect_approvals").update({ rebuild_issue_id: null, rebuild_status: null }).in(
       "id",
       stuck.map((r: { id: string }) => r.id),
     );
@@ -85,7 +90,7 @@ Deno.serve(async (req) => {
 
   const { data, error } = await sb
     .from("prospect_approvals")
-    .select("id, rebuild_issue_id, rebuild_status")
+    .select("id, rebuild_issue_id, rebuild_status, rebuild_issue_closed_at")
     .not("rebuild_issue_id", "is", null)
     .neq("rebuild_issue_id", "__creating__");
   if (error) return json({ error: error.message }, 500);
@@ -112,9 +117,28 @@ Deno.serve(async (req) => {
         blockedReason,
       });
 
-      if (update.rebuild_status === row.rebuild_status) continue; // no change, skip the write
+      // "Rebuilds: N of M done" (batch progress) needs to know when the
+      // Paperclip issue itself closed, which rebuild_status can't say on its
+      // own — 'ready_for_review' covers both "still open, already
+      // resubmitted" and "closed, already resubmitted". Tracked separately:
+      // set once when the issue first reaches a terminal state, cleared if
+      // it's ever reopened (rare, but a stale closed_at on a reopened issue
+      // would overcount a batch as further along than it is).
+      const issueTerminal = issueStatus === "done" || issueStatus === "cancelled";
+      const desiredClosedAt = issueTerminal ? (row.rebuild_issue_closed_at ?? new Date().toISOString()) : null;
 
-      const { error: upErr } = await sb.from("prospect_approvals").update(update).eq("id", row.id);
+      const statusChanged = update.rebuild_status !== row.rebuild_status;
+      const closedAtChanged = desiredClosedAt !== row.rebuild_issue_closed_at;
+      if (!statusChanged && !closedAtChanged) continue; // no change, skip the write
+
+      const payload: Record<string, unknown> = {};
+      if (statusChanged) {
+        payload.rebuild_status = update.rebuild_status;
+        payload.rebuild_stuck_reason = update.rebuild_stuck_reason;
+      }
+      if (closedAtChanged) payload.rebuild_issue_closed_at = desiredClosedAt;
+
+      const { error: upErr } = await sb.from("prospect_approvals").update(payload).eq("id", row.id);
       if (upErr) throw new Error(`update: ${upErr.message}`);
       updated++;
     } catch (e) {

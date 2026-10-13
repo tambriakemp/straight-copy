@@ -3777,6 +3777,7 @@ export type Database = {
           notes: string | null
           preview_image_url: string | null
           preview_url: string | null
+          rebuild_issue_closed_at: string | null
           rebuild_issue_id: string | null
           rebuild_issue_identifier: string | null
           rebuild_round: number
@@ -3805,6 +3806,7 @@ export type Database = {
           notes?: string | null
           preview_image_url?: string | null
           preview_url?: string | null
+          rebuild_issue_closed_at?: string | null
           rebuild_issue_id?: string | null
           rebuild_issue_identifier?: string | null
           rebuild_round?: number
@@ -3833,6 +3835,7 @@ export type Database = {
           notes?: string | null
           preview_image_url?: string | null
           preview_url?: string | null
+          rebuild_issue_closed_at?: string | null
           rebuild_issue_id?: string | null
           rebuild_issue_identifier?: string | null
           rebuild_round?: number

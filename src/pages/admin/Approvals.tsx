@@ -7,7 +7,10 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import { supabase } from "@/integrations/supabase/client";
 import SidePanel from "@/components/admin/SidePanel";
-import { nextCutoffLabel, roundProgress } from "@/lib/prospectRound";
+import {
+  nextCutoffLabel, roundProgress, effectiveStatus, statusChip, rebuildBatchProgress,
+  type EffectiveStatus,
+} from "@/lib/prospectRound";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 const ATTACHMENT_BUCKET = "prospect-approval-attachments";
@@ -56,6 +59,19 @@ const db = supabase as unknown as { from: (table: string) => any };
 
 type Status = "pending" | "approved" | "rejected";
 
+// Order matters here — it's the left-to-right order of the filter tabs.
+const STATUS_FILTERS: { key: EffectiveStatus | "all"; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "pending", label: "Pending" },
+  { key: "rebuilt", label: "Rebuilt" },
+  { key: "queued", label: "Queued" },
+  { key: "rebuilding", label: "Rebuilding" },
+  { key: "stuck", label: "Stuck" },
+  { key: "approved", label: "Approved" },
+  { key: "sent_back", label: "Sent back" },
+  { key: "skipped", label: "Skipped" },
+];
+
 interface Prospect {
   id: string;
   batch: string;
@@ -77,6 +93,13 @@ interface Prospect {
   decided_by: string | null;
   created_at: string;
   updated_at: string;
+  // CRE-413 rebuild-issue-per-rejection pipeline — see @/lib/prospectRound
+  // for what each of these means together.
+  rebuild_issue_id: string | null;
+  rebuild_status: "queued" | "rebuilding" | "ready_for_review" | "stuck" | null;
+  rebuild_stuck_reason: string | null;
+  rebuild_round: number;
+  rebuild_issue_closed_at: string | null;
 }
 
 interface FeedbackAttachment {
@@ -137,6 +160,8 @@ export default function Approvals() {
    * turn "I'll come back to this" into a decision.
    */
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  /** Which status chip the Queue list is scoped to — "all" shows everything. */
+  const [statusFilter, setStatusFilter] = useState<EffectiveStatus | "all">("all");
 
   const load = async () => {
     const { data, error } = await db.from("prospect_approvals").select("*")
@@ -329,12 +354,32 @@ export default function Approvals() {
   const roundStatuses = scoped.map((p) => p.status);
   const progress = roundProgress(roundStatuses, skipped.size);
   const cutoff = nextCutoffLabel();
+  // "Rebuilds: N of M done" — only every row that's had a rebuild issue
+  // created counts toward M, so a batch with no rejections yet shows
+  // nothing rather than "0 of 0 done".
+  const rebuildProgress = useMemo(() => rebuildBatchProgress(scoped), [scoped]);
 
   // The queue is the round in the order it was ingested, pending first:
   // you work down it, and a decided one dropping out from under the
   // cursor would lose your place. They stay, greyed by their pill.
   const queue = scoped;
   const current = queue.find((p) => p.id === currentId) ?? queue[0] ?? null;
+
+  // Status-chip filter tags scope the Queue list only — advance/current
+  // still walk the full, unfiltered queue so Approve/Skip/Send back keep
+  // landing on the next real pending row even while a filter is applied.
+  const statusCounts = useMemo(() => {
+    const counts = {} as Record<EffectiveStatus, number>;
+    for (const p of queue) {
+      const s = effectiveStatus(p, skipped.has(p.id));
+      counts[s] = (counts[s] ?? 0) + 1;
+    }
+    return counts;
+  }, [queue, skipped]);
+  const visibleQueue = useMemo(
+    () => (statusFilter === "all" ? queue : queue.filter((p) => effectiveStatus(p, skipped.has(p.id)) === statusFilter)),
+    [queue, statusFilter, skipped],
+  );
 
   const advance = (fromId: string) => {
     const i = queue.findIndex((p) => p.id === fromId);
@@ -379,7 +424,7 @@ export default function Approvals() {
                 key={b}
                 type="button"
                 className={`cv-tabpill ${batch === b ? "cv-tabpill--on" : ""}`}
-                onClick={() => { setBatch(b); setCurrentId(null); setSkipped(new Set()); }}
+                onClick={() => { setBatch(b); setCurrentId(null); setSkipped(new Set()); setStatusFilter("all"); }}
               >
                 {b} · {pending} pending
               </button>
@@ -407,6 +452,11 @@ export default function Approvals() {
             <span className="cv-bar cv-bar--invert" style={{ height: 10 }}>
               <i style={{ width: `${progress.pct}%` }} />
             </span>
+            {rebuildProgress.total > 0 && (
+              <div style={{ fontSize: 13, color: "#C9CFDB", marginTop: 8 }}>
+                Rebuilds: {rebuildProgress.done} of {rebuildProgress.total} done
+              </div>
+            )}
           </div>
         </section>
 
@@ -427,11 +477,25 @@ export default function Approvals() {
                 <span style={{ fontWeight: 600 }}>Queue</span>
                 <span className="cv-chip cv-chip--gray">{queue.length} in this round</span>
               </div>
-              {queue.map((p) => {
-                const tone = p.status === "approved" ? "green" : p.status === "rejected" ? "red"
-                  : skipped.has(p.id) ? "gray" : "amber";
-                const label = p.status === "approved" ? "Approved" : p.status === "rejected" ? "Sent back"
-                  : skipped.has(p.id) ? "Skipped" : "Pending";
+              <div className="cv-filter-tabs" style={{ padding: "0 6px 12px" }}>
+                {STATUS_FILTERS.filter((f) => f.key === "all" || statusCounts[f.key as EffectiveStatus]).map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    className={`cv-filter-tab ${statusFilter === f.key ? "cv-filter-tab--active" : ""}`}
+                    onClick={() => setStatusFilter(f.key)}
+                  >
+                    {f.label} {f.key === "all" ? queue.length : statusCounts[f.key as EffectiveStatus] ?? 0}
+                  </button>
+                ))}
+              </div>
+              {!visibleQueue.length ? (
+                <p style={{ margin: 0, padding: "0 6px", fontSize: 13, color: "var(--cv-muted)" }}>
+                  Nothing in this filter.
+                </p>
+              ) : visibleQueue.map((p) => {
+                const effective = effectiveStatus(p, skipped.has(p.id));
+                const chip = statusChip(effective);
                 return (
                   <button
                     key={p.id}
@@ -443,7 +507,19 @@ export default function Approvals() {
                       <b>{p.company}</b>
                       <small>{[p.trade, p.city].filter(Boolean).join(" · ") || "No sector on file"}</small>
                     </span>
-                    <span className={`cv-chip cv-chip--${tone}`}>{label}</span>
+                    <span style={{ display: "flex", gap: 6 }}>
+                      {effective === "rebuilt" && (
+                        <span className="cv-chip cv-chip--bronze">
+                          Rebuilt{p.rebuild_round > 0 ? ` · Round ${p.rebuild_round}` : ""}
+                        </span>
+                      )}
+                      <span
+                        className={`cv-chip cv-chip--${chip.tone}`}
+                        title={effective === "stuck" ? p.rebuild_stuck_reason ?? undefined : undefined}
+                      >
+                        {chip.label}
+                      </span>
+                    </span>
                   </button>
                 );
               })}

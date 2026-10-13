@@ -96,3 +96,93 @@ export function roundProgress(
     pct: total === 0 ? 0 : Math.floor((decided / total) * 100),
   };
 }
+
+// CRE-413: the rebuild-issue-per-rejection pipeline's own statuses, layered
+// on top of the three above. A row's main `status` only ever says
+// pending/approved/rejected — `rebuild_status` (set by create-rebuild-issue
+// on rejection, pushed to 'ready_for_review' by prospect-approvals-sync on
+// resubmit, and polled hourly otherwise) is what tells Queued/Rebuilding/
+// Stuck apart from a plain "Sent back", and "rebuilt" apart from a plain
+// "Pending" — see the CRE-413 migrations and _shared/rebuildStatus.ts.
+export type RebuildStatus = "queued" | "rebuilding" | "ready_for_review" | "stuck" | null;
+
+export interface RebuildAwareProspect {
+  status: "pending" | "approved" | "rejected";
+  rebuild_status: RebuildStatus;
+}
+
+export type EffectiveStatus =
+  | "pending" | "rebuilt" | "queued" | "rebuilding" | "stuck" | "approved" | "sent_back" | "skipped";
+
+export interface StatusChip {
+  label: string;
+  tone: "amber" | "bronze" | "blue" | "violet" | "red" | "green" | "gray";
+}
+
+const STATUS_CHIPS: Record<EffectiveStatus, StatusChip> = {
+  pending: { label: "Pending", tone: "amber" },
+  // Main chip stays "Pending" — a rebuilt row is back in the review queue,
+  // not a new kind of pending. The "Rebuilt" badge is a separate chip next
+  // to it, read off this same effective status by the caller.
+  rebuilt: { label: "Pending", tone: "amber" },
+  queued: { label: "Queued", tone: "blue" },
+  rebuilding: { label: "Rebuilding", tone: "violet" },
+  stuck: { label: "Stuck", tone: "red" },
+  approved: { label: "Approved", tone: "green" },
+  sent_back: { label: "Sent back", tone: "red" },
+  skipped: { label: "Skipped", tone: "gray" },
+};
+
+/**
+ * Which of the eight states a row is actually in, given its main status,
+ * rebuild_status, and whether this session has skipped it.
+ *
+ * `rebuild_status` only has meaning while a row is `rejected` (queued /
+ * rebuilding / stuck) or freshly `pending` again after a resubmit
+ * (ready_for_review -> "rebuilt"); a `rejected` row with no rebuild_status
+ * yet (the trigger hasn't landed, or this predates the pipeline) reads as a
+ * plain "Sent back" rather than erroring.
+ */
+export function effectiveStatus(p: RebuildAwareProspect, isSkipped: boolean): EffectiveStatus {
+  if (p.status === "approved") return "approved";
+  if (p.status === "rejected") {
+    if (p.rebuild_status === "queued") return "queued";
+    if (p.rebuild_status === "rebuilding") return "rebuilding";
+    if (p.rebuild_status === "stuck") return "stuck";
+    return "sent_back";
+  }
+  // A resubmit landing while this row is marked skipped-this-session means
+  // there's genuinely new work to look at, so it outranks the skip.
+  if (p.rebuild_status === "ready_for_review") return "rebuilt";
+  if (isSkipped) return "skipped";
+  return "pending";
+}
+
+export function statusChip(effective: EffectiveStatus): StatusChip {
+  return STATUS_CHIPS[effective];
+}
+
+export interface RebuildBatchProgress {
+  /** Rows in scope that have ever had a rebuild issue created. */
+  total: number;
+  /** Of those, how many have a rebuild issue that is actually closed. */
+  done: number;
+}
+
+/**
+ * "Rebuilds: N of M done" — M is every row that has ever had a rebuild
+ * issue created (rebuild_issue_id set, excluding the transient
+ * "__creating__" claim sentinel), N is how many of those have
+ * rebuild_issue_closed_at set.
+ *
+ * Deliberately not derived from rebuild_status: 'ready_for_review' covers
+ * both "still open, already resubmitted" and "closed, already resubmitted"
+ * (see _shared/rebuildStatus.ts), and this needs the second one specifically.
+ */
+export function rebuildBatchProgress(
+  rows: Array<{ rebuild_issue_id: string | null; rebuild_issue_closed_at: string | null }>,
+): RebuildBatchProgress {
+  const tracked = rows.filter((r) => r.rebuild_issue_id && r.rebuild_issue_id !== "__creating__");
+  const done = tracked.filter((r) => r.rebuild_issue_closed_at).length;
+  return { total: tracked.length, done };
+}
