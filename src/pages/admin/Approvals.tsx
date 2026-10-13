@@ -61,8 +61,9 @@ const db = supabase as unknown as { from: (table: string) => any };
 type Status = "pending" | "approved" | "rejected";
 
 // Order matters here — it's the left-to-right order of the filter tabs.
-const STATUS_FILTERS: { key: EffectiveStatus | "all"; label: string }[] = [
-  { key: "all", label: "All" },
+// No "All" tab (CRE-444): Pending is the default view Bree lands on, and
+// every other status is one click away, not folded into one giant list.
+const STATUS_FILTERS: { key: EffectiveStatus; label: string }[] = [
   { key: "pending", label: "Pending" },
   { key: "rebuilt", label: "Rebuilt" },
   { key: "queued", label: "Queued" },
@@ -146,7 +147,6 @@ export default function Approvals() {
   const { user } = useAdminAuth();
   const isMobile = useIsMobile();
   const [prospects, setProspects] = useState<Prospect[] | null>(null);
-  const [batch, setBatch] = useState<string>("all");
   const [panelId, setPanelId] = useState<string | null>(null);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [attachmentDrafts, setAttachmentDrafts] = useState<Record<string, AttachmentDraft[]>>({});
@@ -162,32 +162,21 @@ export default function Approvals() {
    * turn "I'll come back to this" into a decision.
    */
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
-  /** Which status chip the Queue list is scoped to — "all" shows everything. */
-  const [statusFilter, setStatusFilter] = useState<EffectiveStatus | "all">("all");
+  /** Which status chip the Queue list is scoped to — defaults to Pending. */
+  const [statusFilter, setStatusFilter] = useState<EffectiveStatus>("pending");
 
   const load = async () => {
+    // One running list (CRE-444): no batch split here — oldest ingested
+    // first, so new prospects land at the bottom as they're added rather
+    // than forcing a click through a dated tab to find them. `batch`
+    // stays on the row and in the database for the rebuild pipeline and
+    // SureContact tagging; it just no longer slices what's shown here.
     const { data, error } = await db.from("prospect_approvals").select("*")
-      .order("batch", { ascending: false }).order("created_at", { ascending: true });
+      .order("created_at", { ascending: true });
     if (error) { toast.error(error.message); return; }
     setProspects((data ?? []) as Prospect[]);
   };
   useEffect(() => { load(); }, []);
-
-  const batches = useMemo(() => {
-    const set = new Set((prospects ?? []).map((p) => p.batch));
-    return Array.from(set).sort().reverse();
-  }, [prospects]);
-
-  // Default to the most recent batch once it's known, rather than "all" —
-  // a big outreach round should open already scoped to this week's work.
-  useEffect(() => {
-    if (batch === "all" && batches.length) setBatch(batches[0]);
-  }, [batches, batch]);
-
-  const scoped = useMemo(
-    () => (prospects ?? []).filter((p) => batch === "all" || p.batch === batch),
-    [prospects, batch],
-  );
 
   // Attachments are uploaded only at save time — a panel opened, attached-to,
   // then closed without submitting leaves no orphan files in the bucket.
@@ -352,19 +341,18 @@ export default function Approvals() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panelId]);
 
-  // The round the queue is showing, as the canvas's header reads it.
-  const roundStatuses = scoped.map((p) => p.status);
+  // The queue is every prospect ever ingested, in the order it was ingested,
+  // pending first: you work down it, and a decided one dropping out from
+  // under the cursor would lose your place. They stay, greyed by their pill.
+  const queue = useMemo(() => prospects ?? [], [prospects]);
+  const roundStatuses = queue.map((p) => p.status);
   const progress = roundProgress(roundStatuses, skipped.size);
   const cutoff = nextCutoffLabel();
   // "Rebuilds: N of M done" — only every row that's had a rebuild issue
   // created counts toward M, so a batch with no rejections yet shows
   // nothing rather than "0 of 0 done".
-  const rebuildProgress = useMemo(() => rebuildBatchProgress(scoped), [scoped]);
+  const rebuildProgress = useMemo(() => rebuildBatchProgress(queue), [queue]);
 
-  // The queue is the round in the order it was ingested, pending first:
-  // you work down it, and a decided one dropping out from under the
-  // cursor would lose your place. They stay, greyed by their pill.
-  const queue = scoped;
   const current = queue.find((p) => p.id === currentId) ?? queue[0] ?? null;
 
   // Status-chip filter tags scope the Queue list only — advance/current
@@ -379,7 +367,7 @@ export default function Approvals() {
     return counts;
   }, [queue, skipped]);
   const visibleQueue = useMemo(
-    () => (statusFilter === "all" ? queue : queue.filter((p) => effectiveStatus(p, skipped.has(p.id)) === statusFilter)),
+    () => queue.filter((p) => effectiveStatus(p, skipped.has(p.id)) === statusFilter),
     [queue, statusFilter, skipped],
   );
 
@@ -411,27 +399,12 @@ export default function Approvals() {
     <AdminLayout topBar={false}>
       <div className="cv-admin cv-page" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
 
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
-          <div style={{ flex: "1 1 300px", minWidth: 0 }}>
-            <h1 className="cv-page-title">Prospects</h1>
-            <p className="cv-page-sub">
-              Review each redesigned homepage before it goes out. Approved ones
-              are emailed at the cutoff.
-            </p>
-          </div>
-          {batches.map((b) => {
-            const pending = (prospects ?? []).filter((p) => p.batch === b && p.status === "pending").length;
-            return (
-              <button
-                key={b}
-                type="button"
-                className={`cv-tabpill ${batch === b ? "cv-tabpill--on" : ""}`}
-                onClick={() => { setBatch(b); setCurrentId(null); setSkipped(new Set()); setStatusFilter("all"); }}
-              >
-                {b} · {pending} pending
-              </button>
-            );
-          })}
+        <div>
+          <h1 className="cv-page-title">Prospects</h1>
+          <p className="cv-page-sub">
+            Review each redesigned homepage before it goes out. Approved ones
+            are emailed at the cutoff.
+          </p>
         </div>
 
         <section
@@ -487,17 +460,20 @@ export default function Approvals() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 6px 12px" }}>
                 <span style={{ fontWeight: 600 }}>Queue</span>
-                <span className="cv-chip cv-chip--gray">{queue.length} in this round</span>
+                <span className="cv-chip cv-chip--gray">{queue.length} total</span>
               </div>
               <div className="cv-filter-tabs" style={{ padding: "0 6px 12px" }}>
-                {STATUS_FILTERS.filter((f) => f.key === "all" || statusCounts[f.key as EffectiveStatus]).map((f) => (
+                {/* Pending always shows, even at zero, since it's the default
+                    view (CRE-444) — every other tab only appears once there's
+                    something in it, same as before. */}
+                {STATUS_FILTERS.filter((f) => f.key === "pending" || statusCounts[f.key]).map((f) => (
                   <button
                     key={f.key}
                     type="button"
                     className={`cv-filter-tab ${statusFilter === f.key ? "cv-filter-tab--active" : ""}`}
                     onClick={() => setStatusFilter(f.key)}
                   >
-                    {f.label} {f.key === "all" ? queue.length : statusCounts[f.key as EffectiveStatus] ?? 0}
+                    {f.label} {statusCounts[f.key] ?? 0}
                   </button>
                 ))}
               </div>
@@ -518,6 +494,7 @@ export default function Approvals() {
                     <span className="cv-q__who">
                       <b>{p.company}</b>
                       <small>{[p.trade, p.city].filter(Boolean).join(" · ") || "No sector on file"}</small>
+                      <small>Added {formatCT(p.created_at)}</small>
                     </span>
                     <span style={{ display: "flex", gap: 6 }}>
                       {effective === "rebuilt" && (
