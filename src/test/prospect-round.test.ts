@@ -2,7 +2,9 @@
 // being wrong: a header reading "Monday, Oct 12 at 9:00 AM" when the real
 // deadline was this morning looks exactly as convincing as one that is right.
 import { describe, it, expect } from "vitest";
-import { nextCutoffLabel, daysToCutoff, roundProgress } from "@/lib/prospectRound";
+import {
+  nextCutoffLabel, daysToCutoff, roundProgress, effectiveStatus, rebuildBatchProgress,
+} from "@/lib/prospectRound";
 
 // 15:00Z is 10am Central year-round, so these are unambiguous.
 const at = (iso: string) => new Date(iso);
@@ -87,5 +89,57 @@ describe("roundProgress", () => {
   it("reaches 100 only when everything is decided", () => {
     expect(roundProgress(statuses(5, 5, 0), 0).pct).toBe(100);
     expect(roundProgress(statuses(5, 4, 1), 0).pct).toBe(90);
+  });
+});
+
+describe("effectiveStatus", () => {
+  it("is approved regardless of rebuild_status", () => {
+    expect(effectiveStatus({ status: "approved", rebuild_status: "stuck" }, false)).toBe("approved");
+  });
+
+  it("reads queued/rebuilding/stuck off a rejected row's rebuild_status", () => {
+    expect(effectiveStatus({ status: "rejected", rebuild_status: "queued" }, false)).toBe("queued");
+    expect(effectiveStatus({ status: "rejected", rebuild_status: "rebuilding" }, false)).toBe("rebuilding");
+    expect(effectiveStatus({ status: "rejected", rebuild_status: "stuck" }, false)).toBe("stuck");
+  });
+
+  it("falls back to plain sent_back when rejected with no rebuild_status yet", () => {
+    expect(effectiveStatus({ status: "rejected", rebuild_status: null }, false)).toBe("sent_back");
+  });
+
+  it("is sent_back even if ready_for_review somehow lingers on a rejected row", () => {
+    // Shouldn't happen in practice (a resubmit flips status to pending in the
+    // same write), but rejected must win over any stale rebuild_status.
+    expect(effectiveStatus({ status: "rejected", rebuild_status: "ready_for_review" }, false)).toBe("sent_back");
+  });
+
+  it("is rebuilt when pending with ready_for_review, otherwise plain pending", () => {
+    expect(effectiveStatus({ status: "pending", rebuild_status: "ready_for_review" }, false)).toBe("rebuilt");
+    expect(effectiveStatus({ status: "pending", rebuild_status: null }, false)).toBe("pending");
+  });
+
+  it("skipped wins over pending but not over ready_for_review", () => {
+    expect(effectiveStatus({ status: "pending", rebuild_status: null }, true)).toBe("skipped");
+    expect(effectiveStatus({ status: "pending", rebuild_status: "ready_for_review" }, true)).toBe("rebuilt");
+  });
+});
+
+describe("rebuildBatchProgress", () => {
+  it("is zero of zero when nothing in the batch has ever been rebuilt", () => {
+    const rows = [{ rebuild_issue_id: null, rebuild_issue_closed_at: null }];
+    expect(rebuildBatchProgress(rows)).toEqual({ total: 0, done: 0 });
+  });
+
+  it("counts a tracked row as not done until rebuild_issue_closed_at is set", () => {
+    const rows = [
+      { rebuild_issue_id: "iss-1", rebuild_issue_closed_at: null },
+      { rebuild_issue_id: "iss-2", rebuild_issue_closed_at: "2026-10-13T00:00:00Z" },
+    ];
+    expect(rebuildBatchProgress(rows)).toEqual({ total: 2, done: 1 });
+  });
+
+  it("does not count a mid-claim '__creating__' sentinel as tracked", () => {
+    const rows = [{ rebuild_issue_id: "__creating__", rebuild_issue_closed_at: null }];
+    expect(rebuildBatchProgress(rows)).toEqual({ total: 0, done: 0 });
   });
 });
