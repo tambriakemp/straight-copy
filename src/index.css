@@ -266,7 +266,15 @@
 }
 
 /* ---------- Shell frame ---------- */
-.cv-shell { height: 100vh; min-height: 100vh; display: flex; background: var(--cv-bg); overflow: hidden; }
+/* CRE-428/441: 100vh is the LARGEST possible mobile-Safari viewport, with
+   the address bar collapsed. Right after a page load (or the admin login
+   redirect) the bar is still showing, the real viewport is shorter than
+   100vh, and the last flex child in this column — the mobile bottom nav —
+   renders below the visible fold until something scrolls it into view.
+   100dvh tracks the address bar live, same fix already used for the
+   feedback board's full-bleed canvas (.cv-fb). vh stays first as the
+   fallback for browsers without dvh support. */
+.cv-shell { height: 100vh; min-height: 100vh; height: 100dvh; min-height: 100dvh; display: flex; background: var(--cv-bg); overflow: hidden; }
 
 /* ---------- Side nav (desktop) ---------- */
 .cv-sidenav {
@@ -414,6 +422,15 @@
   border-radius: 999px; padding: 1px 5px; font-weight: 600;
 }
 
+/* CRE-441: CvCheckbox's visual box is 16px — right for a dense brief row,
+   wrong for a thumb. An invisible ::after pads the real tap area to 40px
+   without touching layout or the checkbox's own size. */
+.cv-checkbox-hit { position: relative; }
+.cv-checkbox-hit::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  width: 40px; height: 40px; transform: translate(-50%, -50%);
+}
+
 /* ---------- Shared primitives ---------- */
 .cv-page-header { padding: 32px 32px 0; }
 @media (max-width: 640px) { .cv-page-header__row { flex-wrap: wrap; } }
@@ -494,6 +511,10 @@ button.cv-kpi:hover .cv-kpi__value { color: var(--cv-accent); }
 .cv-filter-tab {
   font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--cv-border);
   background: var(--cv-sunken); color: var(--cv-muted); cursor: pointer; font-family: var(--cv-font-sans);
+  /* CRE-441: these pills measured 29px tall — under the ~40px a thumb
+     reliably hits. min-height plus centered content keeps the pill's
+     compact look while giving it a real tap target. */
+  min-height: 40px; display: inline-flex; align-items: center; box-sizing: border-box;
 }
 .cv-filter-tab--active { background: var(--cv-accent-tint); color: var(--cv-accent); border-color: var(--cv-accent); font-weight: 500; }
 
@@ -1635,6 +1656,45 @@ a.ref:hover { color: var(--cv-accent); border-color: var(--cv-accent); }
    Mirrors the Cre8 CRM mockup: ink/charcoal background,
    bronze accent, Cormorant + Karla.
    ============================================================ */
+/* The dark theme's custom properties and base type, with none of the
+   page-shell structure (height, flex, overflow). CRE-441: NewClientDialog
+   and the Ventures "new venture" dialog put the plain .crm-shell class on
+   a DialogContent to borrow this theming, which also pulled in
+   `height: 100vh; display: flex; overflow: hidden` meant for a full-page
+   shell — on a mobile-width data-mobile-bottom-sheet dialog that fights
+   the sheet's own height/position rules and the dialog renders as a
+   broken sliver instead of a bottom sheet. Dialogs use .crm-vars instead;
+   every page-level .crm-shell usage is untouched. */
+.crm-vars {
+  --crm-cream:       hsl(30 18% 95%);
+  --crm-warm-white:  hsl(40 20% 97%);
+  --crm-stone:       hsl(30 10% 78%);
+  --crm-mist:        hsl(30 10% 89%);
+  --crm-taupe:       hsl(30 8% 62%);
+  --crm-charcoal:    hsl(36 5% 16%);
+  --crm-ink:         hsl(40 8% 10%);
+  --crm-accent:      hsl(30 25% 44%);
+  --crm-accent-hover: hsl(30 25% 38%);
+  --crm-border-dark: hsl(40 20% 97% / 0.08);
+  --crm-font-serif: 'Cormorant Garamond', 'EB Garamond', Georgia, serif;
+  --crm-font-sans:  'Karla', 'Inter', system-ui, -apple-system, sans-serif;
+  --crm-ease-soft:  cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --crm-ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --crm-dur-base:   300ms;
+  --crm-dur-slow:   500ms;
+
+  background: var(--crm-ink);
+  color: var(--crm-warm-white);
+  font-family: var(--crm-font-sans);
+  font-size: 19px;
+  line-height: 1.6;
+  font-weight: 300;
+}
+
+/* Every existing page-level .crm-shell usage keeps getting both the theme
+   (duplicated from .crm-vars above, not composed from it, so this block
+   has no dependency on class order in the markup) and the page-shell
+   structure, unchanged from before this split. */
 .crm-shell {
   --crm-cream:       hsl(30 18% 95%);
   --crm-warm-white:  hsl(40 20% 97%);
@@ -3511,7 +3571,19 @@ html { -webkit-text-size-adjust: 100%; }
   .roster__toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
   .roster__actions { justify-content: flex-start; flex-wrap: wrap; }
 
-  /* Any element that wants to become a bottom sheet on mobile */
+  /* Any element that wants to become a bottom sheet on mobile.
+     CRE-441: shadcn's DialogContent also carries `left-[50%] top-[50%]
+     translate-x-[-50%] translate-y-[-50%]` for its default centered-modal
+     positioning. Overriding the inset properties here left that transform
+     in place, so the correctly-sized, correctly-inset sheet was then
+     shifted up and left by half its own box — on a phone-sized dialog
+     that is most of the screen, so it rendered as a small dark sliver in
+     the top-left corner instead of a bottom sheet. The sheetUp keyframe
+     masked it for its 240ms run (animated transform wins over the static
+     declaration while it plays) and then the moment it finished, nothing
+     held the override, so it snapped to the broken position right after
+     the open animation — every dialog with this attribute was affected,
+     not just the two that also happened to carry page-shell CSS. */
   [data-mobile-bottom-sheet="true"] {
     right: 0 !important;
     left: 0 !important;
@@ -3523,6 +3595,7 @@ html { -webkit-text-size-adjust: 100%; }
     max-height: 92dvh !important;
     border-top-left-radius: 20px !important;
     border-top-right-radius: 20px !important;
+    transform: none !important;
     animation: sheetUp 240ms cubic-bezier(0.32, 0.72, 0, 1) !important;
   }
 }

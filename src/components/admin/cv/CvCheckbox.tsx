@@ -35,6 +35,7 @@ export default function CvCheckbox({
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
       <button
         type="button"
+        className="cv-checkbox-hit"
         aria-label={done ? "Mark not done" : "Mark done"}
         disabled={busy}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggle(); }}

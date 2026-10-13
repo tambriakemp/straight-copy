@@ -90,7 +90,7 @@ export default function NewClientDialog({
       <DialogTrigger asChild>
         <button type="button" className={triggerClassName}>{label}</button>
       </DialogTrigger>
-      <DialogContent data-mobile-bottom-sheet="true" className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md overflow-y-auto">
+      <DialogContent data-mobile-bottom-sheet="true" className="crm-vars !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">New client</DialogTitle>
         </DialogHeader>
