@@ -40,6 +40,7 @@ export default function BriefCheckItem({
     <div style={{ display: "flex", alignItems: "flex-start", gap: 8, width: "100%" }}>
       <button
         type="button"
+        className="cv-checkbox-hit"
         aria-label={done ? "Mark not done" : "Mark done"}
         disabled={busy}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggle(); }}

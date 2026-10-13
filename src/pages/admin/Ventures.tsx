@@ -77,7 +77,7 @@ export default function Ventures() {
               </DialogTrigger>
               <DialogContent
                 data-mobile-bottom-sheet="true"
-                className="crm-shell !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md overflow-y-auto">
+                className="crm-vars !bg-[hsl(36_5%_16%)] !border-[hsl(40_20%_97%/0.08)] !text-[hsl(40_20%_97%)] !rounded-none !max-w-md overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="font-serif italic text-2xl text-[hsl(40_20%_97%)]">New venture</DialogTitle>
                 </DialogHeader>

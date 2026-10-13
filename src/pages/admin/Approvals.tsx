@@ -7,6 +7,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import { supabase } from "@/integrations/supabase/client";
 import SidePanel from "@/components/admin/SidePanel";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   nextCutoffLabel, roundProgress, effectiveStatus, statusChip, rebuildBatchProgress,
   type EffectiveStatus,
@@ -143,6 +144,7 @@ function randomSecret(len = 40) {
 
 export default function Approvals() {
   const { user } = useAdminAuth();
+  const isMobile = useIsMobile();
   const [prospects, setProspects] = useState<Prospect[] | null>(null);
   const [batch, setBatch] = useState<string>("all");
   const [panelId, setPanelId] = useState<string | null>(null);
@@ -471,7 +473,17 @@ export default function Approvals() {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
             <section
               className="cv-card"
-              style={{ flex: "1 1 280px", minWidth: 0, padding: 16, maxHeight: "calc(100vh - 40px)", overflow: "auto", position: "sticky", top: 20 }}
+              style={isMobile
+                // On a phone the queue and the detail card stack (flex-wrap
+                // kicks in well before 280px+520px fits a line). A sticky,
+                // near-full-viewport-tall queue above the detail card buried
+                // the preview dozens of rows down — this is the fix for
+                // CRE-441 ("mobile shows only the site names"). Capping the
+                // height, dropping sticky, and moving the queue after the
+                // detail card (via `order`) means the thing you actually
+                // came to look at is the first thing on screen.
+                ? { order: 2, flex: "1 1 auto", width: "100%", minWidth: 0, padding: 16, maxHeight: 260, overflow: "auto" }
+                : { flex: "1 1 280px", minWidth: 0, padding: 16, maxHeight: "calc(100vh - 40px)", overflow: "auto", position: "sticky", top: 20 }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 6px 12px" }}>
                 <span style={{ fontWeight: 600 }}>Queue</span>
@@ -528,7 +540,11 @@ export default function Approvals() {
             {current && (
               <section
                 className="cv-card cv-card-pad"
-                style={{ flex: "3 1 520px", minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}
+                style={{
+                  flex: isMobile ? "1 1 auto" : "3 1 520px", width: isMobile ? "100%" : undefined,
+                  order: isMobile ? 1 : undefined,
+                  minWidth: 0, display: "flex", flexDirection: "column", gap: 16,
+                }}
               >
                 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
                   <div style={{ flex: "1 1 240px", minWidth: 0 }}>
