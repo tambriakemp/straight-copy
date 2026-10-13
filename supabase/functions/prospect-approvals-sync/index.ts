@@ -49,6 +49,22 @@
 // splitting into `insertContent` (full, null-defaulted — only safe for a
 // brand-new row with nothing to preserve) and `patchContent` (sparse — only
 // the keys the caller actually sent), used by the two UPDATE branches.
+//
+// CRE-413 follow-up bug fix (2026-10-13, Camille via comment on CRE-413):
+// resolveTargetRow's id-based match required the target to still be
+// 'rejected', but three of Camille's rebuild targets (Knight, Pristine,
+// American Best Door) had already drifted to 'pending' by the time she
+// went to push — none of the three had ever reached 'approved' either, so
+// the drift isn't a decision Bree made, just a stale earlier attempt that
+// never got resubmitted and left the row in the one state the id-match
+// filter refused to touch. An explicit rebuilt_from_approval_id is the
+// caller naming the row directly, so it's trusted to resolve regardless of
+// current status — short of 'approved', which stays untouchable by design.
+// The fuzzy base-slug fallback (no id given) keeps the stricter
+// rejected-only check, since it has no explicit intent behind it and an
+// unordered match across a row and its own stray duplicate is exactly what
+// made CRE-419's fallback ambiguous — now resolved deterministically
+// (prefer a 'rejected' sibling, else the earliest-created row).
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
 const ATTACHMENT_BUCKET = "prospect-approval-attachments";
@@ -252,45 +268,63 @@ interface ExistingRow {
   slug: string;
   status: string;
   rebuild_round: number | null;
+  created_at: string;
+}
+
+interface ResolvedTarget {
+  row: ExistingRow;
+  matchedBy: "id" | "slug";
 }
 
 // Find the row a push with a *new* slug should land on instead of inserting
 // a second one for the same prospect. Two ways in:
-//   1. `rebuilt_from_approval_id` names the row directly — it must still be
-//      in this batch and still 'rejected' (the state Bree's "Sent back"
-//      leaves it in), otherwise it's stale/wrong and we fall through.
+//   1. `rebuilt_from_approval_id` names the row directly — explicit caller
+//      intent, trusted regardless of the row's current status as long as
+//      it's still in this batch and hasn't been finally decided 'approved'.
+//      (A row can drift to 'pending' without ever reaching 'approved' if an
+//      earlier rebuild attempt matched-but-never-resubmitted — CRE-419 —
+//      and the id still names it correctly; only 'approved' is off-limits,
+//      since that's a decision Bree already made.)
 //   2. No id given (or it didn't resolve): fall back to matching on the
 //      base slug — prospectKeyAndVersion strips a trailing -vN, so
-//      "west-pool-service-v2" and "west-pool-service" share a base.
+//      "west-pool-service-v2" and "west-pool-service" share a base. This
+//      path has no explicit intent behind it, so it stays strict: only a
+//      'rejected' sibling counts, and when more than one candidate shares
+//      the base slug (e.g. a stray duplicate pending row sitting next to
+//      the real rejected one), prefer the rejected one, else the
+//      earliest-created — deterministic, where an unordered ilike match
+//      previously picked whichever row Postgres happened to return first.
 async function resolveTargetRow(
   sb: SupabaseClient,
   batch: string,
   slug: string,
   rebuiltFromApprovalId: string | null | undefined,
-): Promise<ExistingRow | null> {
+): Promise<ResolvedTarget | null> {
   if (rebuiltFromApprovalId) {
     const { data } = await sb
       .from("prospect_approvals")
-      .select("id, slug, status, rebuild_round")
+      .select("id, slug, status, rebuild_round, created_at")
       .eq("id", rebuiltFromApprovalId)
       .eq("batch", batch)
-      .eq("status", "rejected")
+      .neq("status", "approved")
       .maybeSingle();
-    if (data) return data as ExistingRow;
+    if (data) return { row: data as ExistingRow, matchedBy: "id" };
   }
 
   const { prospectKey } = prospectKeyAndVersion(slug);
   const { data: candidates } = await sb
     .from("prospect_approvals")
-    .select("id, slug, status, rebuild_round")
+    .select("id, slug, status, rebuild_round, created_at")
     .eq("batch", batch)
     .ilike("slug", `${prospectKey}%`);
-  for (const candidate of (candidates ?? []) as ExistingRow[]) {
-    if (prospectKeyAndVersion(candidate.slug).prospectKey === prospectKey) {
-      return candidate;
-    }
-  }
-  return null;
+  const matches = ((candidates ?? []) as ExistingRow[]).filter(
+    (c) => prospectKeyAndVersion(c.slug).prospectKey === prospectKey,
+  );
+  if (!matches.length) return null;
+  const rejected = matches.filter((c) => c.status === "rejected");
+  const pool = rejected.length ? rejected : matches;
+  pool.sort((a, b) => a.created_at.localeCompare(b.created_at));
+  return { row: pool[0], matchedBy: "slug" };
 }
 
 Deno.serve(async (req) => {
@@ -340,8 +374,29 @@ Deno.serve(async (req) => {
     }, 200);
   }
 
+  // action "lookup": read-only, any status (including 'pending', which
+  // "decisions" deliberately excludes) — self-serve answer to "what is this
+  // row's live status right now", the exact question CRE-419 needed a SQL
+  // round-trip through Bree for. Same shared secret as push/decisions, no
+  // new auth surface.
+  if (action === "lookup") {
+    const b = body as { batch?: string; slug_prefix?: string; slugs?: string[] };
+    let query = sb
+      .from("prospect_approvals")
+      .select(
+        "id, batch, slug, company, status, rebuild_status, rebuild_stuck_reason, rebuild_round, rebuild_issue_id, rebuild_issue_identifier, created_at, updated_at",
+      )
+      .order("updated_at", { ascending: false });
+    if (b.batch) query = query.eq("batch", b.batch);
+    if (b.slug_prefix) query = query.ilike("slug", `${b.slug_prefix}%`);
+    if (b.slugs?.length) query = query.in("slug", b.slugs);
+    const { data, error } = await query;
+    if (error) return json({ error: error.message }, 500);
+    return json({ rows: data ?? [] }, 200);
+  }
+
   if (action !== "push") {
-    return json({ error: "action must be 'push' or 'decisions'" }, 400);
+    return json({ error: "action must be 'push', 'decisions', or 'lookup'" }, 400);
   }
 
   const problem = validatePush(body);
@@ -400,18 +455,23 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    const target = await resolveTargetRow(sb, b.batch, p.slug, p.rebuilt_from_approval_id);
+    const resolved = await resolveTargetRow(sb, b.batch, p.slug, p.rebuilt_from_approval_id);
 
-    if (target) {
+    if (resolved) {
+      const { row: target, matchedBy } = resolved;
       // Rebuild landing on a new slug (e.g. west-pool-service -> -v2): one
       // row, updated in place — new slug, new content, back in Bree's
-      // queue. Only flip status/rebuild_status when the target was actually
-      // 'rejected' (a real rebuild cycle); a same-base-slug match on a
-      // pending/approved row just means the content/slug changed, so leave
-      // its decision alone, same as the exact-match branch above.
-      const wasRejected = target.status === "rejected";
+      // queue. An explicit id match is trusted intent, so it flips
+      // status/rebuild_status whenever the target isn't already 'approved'
+      // (resolveTargetRow's query already excludes that case, so here it's
+      // unconditional). The fuzzy base-slug fallback has no such intent, so
+      // it only flips a target that's actually 'rejected' — a same-base
+      // match on a pending/approved row just means the content/slug
+      // changed, so leave its decision alone, same as the exact-match
+      // branch above.
+      const shouldFlip = matchedBy === "id" || target.status === "rejected";
       const update: Record<string, unknown> = { ...patchContent, slug: p.slug };
-      if (wasRejected) {
+      if (shouldFlip) {
         update.status = "pending";
         update.rebuild_status = "ready_for_review";
         update.rebuild_stuck_reason = null;
