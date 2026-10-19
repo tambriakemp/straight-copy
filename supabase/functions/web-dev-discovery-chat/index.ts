@@ -2,7 +2,11 @@
 // POST { clientId, projectId?, message, conversationHistory }
 //   → { reply, history, completed }
 // Persists the full conversation to public.web_dev_discovery on every turn.
+//
+// CRE-536: requires the caller's own bearer token to resolve to an ACTIVE
+// portal member of clientId (or an admin) via resolvePortalCaller.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,6 +102,14 @@ Deno.serve(async (req) => {
     if (!clientId) {
       return new Response(JSON.stringify({ error: "clientId required" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const caller = await resolvePortalCaller(req, clientId);
+    if (caller.kind === "unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

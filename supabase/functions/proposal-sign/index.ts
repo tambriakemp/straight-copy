@@ -6,6 +6,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { z } from "zod";
 import { logProposalEvent } from "../_shared/proposal-events.ts";
+import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
 import { markDealLostForProposal, markDealSignedForProposal, syncProposalToSureContactDeal } from "../_shared/proposal-deal-sync.ts";
 import { sendProjectInvoice } from "../_shared/surecart-invoices.ts";
 import { PDFDocument, PDFFont, PDFPage, rgb, type PDFImage } from "pdf-lib";
@@ -407,6 +408,12 @@ const ActionSchema = z.discriminatedUnion("action", [
 ]);
 
 const ADMIN_ONLY = new Set(["upload-url", "create", "mark-ready", "void", "delete", "activity", "notify", "supersede"]);
+// CRE-536: these are the portal's — list/get/sign/decline/download — and
+// until now the only check on any of them was "clientId matches
+// proposalId", with no proof the caller was that client at all.
+// isCallerAdmin already covers the admin half; this is the other half,
+// via resolvePortalCaller.
+const PORTAL_ACTIONS = new Set(["list", "get", "sign", "decline", "download"]);
 
 
 interface ProposalRow {
@@ -637,6 +644,14 @@ Deno.serve(async (req) => {
     if (ADMIN_ONLY.has(input.action) && !callerIsAdmin) {
       return new Response(JSON.stringify({ error: "Admin only" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (PORTAL_ACTIONS.has(input.action) && !callerIsAdmin) {
+      const caller = await resolvePortalCaller(req, input.clientId);
+      if (caller.kind === "unauthorized") {
+        return new Response(JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
 
     const { data: client, error: clientErr } = await supabase

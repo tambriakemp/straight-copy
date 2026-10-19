@@ -1,7 +1,31 @@
 // Public: anonymous client posts feedback comments. GET returns existing comments for a page.
 // PATCH/DELETE allow the original author to edit/remove their comment via edit_token.
 // POST replies via action=reply.
+//
+// CRE-536: the client portal's own use of this function — GET (board load)
+// and POST (new comment, no action=reply) — now requires the caller's own
+// bearer token to resolve to an ACTIVE portal member of the client that
+// owns this preview project (or an admin), same as preview-approvals.
+// PATCH/DELETE/reply are not reached from the portal (they're the older
+// in-page widget's edit_token-based flow) and are left as they were.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
+
+// deno-lint-ignore no-explicit-any
+async function ownerClientIdForProject(admin: any, projectId: string): Promise<string | null> {
+  const { data: project } = await admin
+    .from("preview_projects")
+    .select("client_project_id")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (!project?.client_project_id) return null;
+  const { data: cp } = await admin
+    .from("client_projects")
+    .select("client_id")
+    .eq("id", project.client_project_id)
+    .maybeSingle();
+  return cp?.client_id ?? null;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +52,11 @@ Deno.serve(async (req) => {
         .eq("slug", slug)
         .single();
       if (!project || project.archived) return json({ error: "not found" }, 404);
+
+      const ownerClientId = await ownerClientIdForProject(admin, project.id);
+      if (!ownerClientId) return json({ error: "not found" }, 404);
+      const caller = await resolvePortalCaller(req, ownerClientId);
+      if (caller.kind === "unauthorized") return json({ error: "Unauthorized" }, 401);
 
       const { data: comments } = await admin
         .from("preview_comments")
@@ -87,6 +116,11 @@ Deno.serve(async (req) => {
         .eq("slug", slug)
         .single();
       if (!project || project.archived || !project.feedback_enabled) return json({ error: "not found" }, 404);
+
+      const ownerClientId = await ownerClientIdForProject(admin, project.id);
+      if (!ownerClientId) return json({ error: "not found" }, 404);
+      const caller = await resolvePortalCaller(req, ownerClientId);
+      if (caller.kind === "unauthorized") return json({ error: "Unauthorized" }, 401);
 
       const { data: pinNum } = await admin.rpc("next_preview_pin", { _project_id: project.id });
       const editToken = crypto.randomUUID();

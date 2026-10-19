@@ -201,3 +201,11 @@ verify_jwt = false
 # password plus a short-lived HMAC token, both checked inside the function.
 [functions.audit-serve]
 verify_jwt = false
+
+# CRE-536: admin-only invite/status/bulk-invite actions go through
+# resolveCaller()'s "admin" check; the "activate" action (called by the
+# client right after setting their password) checks the caller's own
+# bearer token against client_portal_users. Both checked inside the
+# function, same pattern as the rest of this file.
+[functions.portal-invite]
+verify_jwt = false

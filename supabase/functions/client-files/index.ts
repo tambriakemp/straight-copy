@@ -6,9 +6,11 @@
 // through here as short-lived signed URLs, minted per request.
 //
 // Two callers, one endpoint:
-//   - the portal, anonymous, scoped to one client and one project. It
-//     may list what is visible, record a file it just uploaded, and
-//     delete one it sent itself.
+//   - the portal, scoped to one client and one project, now requiring a
+//     real portal session for that client (CRE-536 — it used to be
+//     anonymous, trusting client_id alone). It may list what is
+//     visible, record a file it just uploaded, and delete one it sent
+//     itself.
 //   - the admin, with a bearer token that is checked against is_admin.
 //     It may do all of that plus share a file TO the client and hide one.
 //
@@ -16,6 +18,7 @@
 // see one marked not visible. Both are decided here rather than in the
 // browser, because the browser is the thing we do not control.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,6 +76,10 @@ Deno.serve(async (req) => {
   if (!clientId) return json({ error: "client_id required" }, 400);
 
   const isAdmin = await callerIsAdmin(req, admin);
+  if (!isAdmin) {
+    const caller = await resolvePortalCaller(req, clientId);
+    if (caller.kind === "unauthorized") return json({ error: "Unauthorized" }, 401);
+  }
 
   try {
     if (action === "list") {
