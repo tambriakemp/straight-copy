@@ -87,56 +87,65 @@ export async function listTasks(
     tasksQ.eq("client_project_id", projectId);
     epicsQ.eq("client_project_id", projectId);
   }
-  const [tasksRes, epicsRes, attachRes] = await Promise.all([
-    tasksQ,
-    epicsQ,
-    sb.from("project_task_attachments").select("*"),
-  ]);
+  const [tasksRes, epicsRes] = await Promise.all([tasksQ, epicsQ]);
   if (tasksRes.error) throw tasksRes.error;
   if (epicsRes.error) throw epicsRes.error;
-  if (attachRes.error) throw attachRes.error;
 
   const taskIds = (tasksRes.data ?? []).map((t: any) => t.id);
-  const taskIdSet = new Set(taskIds);
 
   const actByTask = new Map<string, any[]>();
+  const attachByTask = new Map<string, any[]>();
+
+  // Everything below was previously unconditional, including a
+  // project_task_attachments select("*") with NO scoping at all — the
+  // entire table, every call, regardless of projectId. That full-table
+  // fetch grew with agency-wide attachment volume and is what made
+  // list_tasks time out and 502 at the edge (CRE-535). Scope it the same
+  // way project_task_activity already was, and skip both entirely when
+  // there are no tasks to attach to.
   if (taskIds.length) {
-    const actRes = await sb.from("project_task_activity")
-      .select("id, task_id, occurred_at, kind, message, metadata")
-      .in("task_id", taskIds)
-      .order("occurred_at", { ascending: false });
+    const [actRes, attachRes] = await Promise.all([
+      sb.from("project_task_activity")
+        .select("id, task_id, occurred_at, kind, message, metadata")
+        .in("task_id", taskIds)
+        .order("occurred_at", { ascending: false }),
+      sb.from("project_task_attachments").select("*").in("task_id", taskIds),
+    ]);
+
     if (!actRes.error) {
       for (const a of actRes.data ?? []) {
         const arr = actByTask.get(a.task_id) ?? [];
         arr.push(a); actByTask.set(a.task_id, arr);
       }
     }
-  }
 
-  const attachByTask = new Map<string, any[]>();
-  for (const a of attachRes.data ?? []) {
-    if (!taskIdSet.has(a.task_id)) continue;
-    const arr = attachByTask.get(a.task_id) ?? [];
-    arr.push(a);
-    attachByTask.set(a.task_id, arr);
-  }
-
-  const allAttachments = (attachRes.data ?? []).filter((a: any) => taskIdSet.has(a.task_id));
-  if (allAttachments.length) {
-    const byBucket = new Map<string, any[]>();
+    if (attachRes.error) throw attachRes.error;
+    const allAttachments = attachRes.data ?? [];
     for (const a of allAttachments) {
-      const bucket = (a as any).bucket || "project-task-attachments";
-      const arr = byBucket.get(bucket) ?? [];
+      const arr = attachByTask.get(a.task_id) ?? [];
       arr.push(a);
-      byBucket.set(bucket, arr);
+      attachByTask.set(a.task_id, arr);
     }
-    for (const [bucket, atts] of byBucket) {
-      const signed = await sb.storage
-        .from(bucket)
-        .createSignedUrls(atts.map((a: any) => a.storage_path), 3600);
-      if (!signed.error) {
-        signed.data?.forEach((s, i) => { (atts[i] as any).signed_url = s.signedUrl; });
+
+    if (allAttachments.length) {
+      const byBucket = new Map<string, any[]>();
+      for (const a of allAttachments) {
+        const bucket = (a as any).bucket || "project-task-attachments";
+        const arr = byBucket.get(bucket) ?? [];
+        arr.push(a);
+        byBucket.set(bucket, arr);
       }
+      // One storage round-trip per bucket, in parallel — this used to be a
+      // sequential for-loop, stacking each bucket's latency on top of the
+      // last.
+      await Promise.all(Array.from(byBucket.entries()).map(async ([bucket, atts]) => {
+        const signed = await sb.storage
+          .from(bucket)
+          .createSignedUrls(atts.map((a: any) => a.storage_path), 3600);
+        if (!signed.error) {
+          signed.data?.forEach((s, i) => { (atts[i] as any).signed_url = s.signedUrl; });
+        }
+      }));
     }
   }
 
