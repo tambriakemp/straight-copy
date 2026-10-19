@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FileSearch, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { supabasePortal } from "@/integrations/supabase/portalClient";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import { auditKind } from "@/lib/auditKinds";
 
@@ -48,19 +49,21 @@ function fmt(iso: string | null): string {
     : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-export default function AuditsSection({ clientProjectId }: { clientProjectId: string }) {
+export default function AuditsSection({
+  clientProjectId, adminPreview,
+}: { clientProjectId: string; adminPreview: boolean }) {
   const [audits, setAudits] = useState<PortalAudit[] | null>(null);
 
   const load = useCallback(async () => {
     // Through the RPC, not the table.
     //
-    // The portal is a link, not a session, so there is nothing for RLS
-    // to let in — and client_audits carries the report's PASSWORD, which
-    // is exactly the column an anon SELECT policy would hand out.
-    // portal_project_audits is SECURITY DEFINER, returns the client-safe
-    // columns only, and only for a report that is both reviewed and
-    // shared.
-    const { data, error } = await supabase
+    // client_audits carries the report's PASSWORD, which is exactly the
+    // column an open SELECT policy would hand out. portal_project_audits
+    // is SECURITY DEFINER, checks the caller is a signed-in portal member
+    // of THIS project's client (or an admin), and returns the client-safe
+    // columns only, for a report that is both reviewed and shared.
+    const sb = adminPreview ? supabase : supabasePortal;
+    const { data, error } = await sb
       .rpc("portal_project_audits", { _client_project_id: clientProjectId });
     if (error) {
       // Until the migration runs the function does not exist. The tab
@@ -77,7 +80,7 @@ export default function AuditsSection({ clientProjectId }: { clientProjectId: st
       reviewed_at: r.reviewed_at, shared_at: r.shared_at, created_at: r.created_at,
       versionCount: r.version_count ?? 1, latestVersion: r.version_count ?? 1,
     })));
-  }, [clientProjectId]);
+  }, [clientProjectId, adminPreview]);
 
   useEffect(() => { void load(); }, [load]);
 

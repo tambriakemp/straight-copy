@@ -21,9 +21,8 @@ import { usd } from "@/lib/clientBalance";
 import { clientStatusLabel } from "@/lib/proposalStatus";
 import { describeTerm, termRows } from "@/lib/proposalTerms";
 import { collectSigningAudit } from "@/lib/signingAudit";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+import { portalFetch } from "@/lib/portalFetch";
+import { useAdminPreview } from "@/hooks/useAdminPreview";
 
 interface PortalProposal {
   id: string;
@@ -41,12 +40,8 @@ interface PortalProposal {
   client_signature_name: string | null;
 }
 
-async function callFn(body: Record<string, unknown>) {
-  const resp = await fetch(`${SUPABASE_URL}/functions/v1/proposal-sign`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-    body: JSON.stringify(body),
-  });
+async function callFn(body: Record<string, unknown>, adminPreview: boolean) {
+  const resp = await portalFetch("proposal-sign", body, adminPreview);
   const data = await resp.json();
   if (!resp.ok) throw new Error(data.error || "Request failed");
   return data as Record<string, unknown>;
@@ -55,6 +50,7 @@ async function callFn(body: Record<string, unknown>) {
 export default function PortalProposal() {
   const { clientId, proposalId } = useParams<{ clientId: string; proposalId: string }>();
   const navigate = useNavigate();
+  const adminPreview = useAdminPreview();
   const [p, setP] = useState<PortalProposal | null>(null);
   const [who, setWho] = useState("");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -72,7 +68,7 @@ export default function PortalProposal() {
       // `get` is the portal-safe read: it refuses a draft, a voided one
       // and anything superseded, so a stale link cannot show a client a
       // proposal that is no longer the one on the table.
-      const data = await callFn({ action: "get", clientId, proposalId });
+      const data = await callFn({ action: "get", clientId, proposalId }, adminPreview);
       // `get` hands back the row AND both signed URLs AND the client, so
       // there is no second call to make. Asking `download` separately was
       // a round trip for something already in hand — and it reads
@@ -96,7 +92,7 @@ export default function PortalProposal() {
     } finally {
       setLoading(false);
     }
-  }, [clientId, proposalId]);
+  }, [clientId, proposalId, adminPreview]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -110,7 +106,7 @@ export default function PortalProposal() {
         action: "sign", clientId, proposalId,
         signatureType: "typed", signatureName: name, signatureData: name, agreed: true,
         audit: collectSigningAudit(),
-      });
+      }, adminPreview);
       toast.success("Signed — thank you");
       setStep("read");
       await load();
@@ -124,7 +120,7 @@ export default function PortalProposal() {
   const decline = async () => {
     setBusy(true);
     try {
-      await callFn({ action: "decline", clientId, proposalId, reason: reason.trim() || undefined, confirm: true });
+      await callFn({ action: "decline", clientId, proposalId, reason: reason.trim() || undefined, confirm: true }, adminPreview);
       toast.success("Thanks for letting us know.");
       setStep("read");
       await load();

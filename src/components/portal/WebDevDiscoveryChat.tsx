@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+import { supabasePortal } from "@/integrations/supabase/portalClient";
+import { portalFetch } from "@/lib/portalFetch";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -13,6 +12,7 @@ type Props = {
   contactName: string | null;
   /** True once the client has signed (and the agency has counter-signed) the contract for this project. */
   contractSigned: boolean;
+  adminPreview: boolean;
 };
 
 export default function WebDevDiscoveryChat({
@@ -20,7 +20,9 @@ export default function WebDevDiscoveryChat({
   projectId,
   contactName,
   contractSigned,
+  adminPreview,
 }: Props) {
+  const sb = adminPreview ? supabase : supabasePortal;
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -42,7 +44,7 @@ export default function WebDevDiscoveryChat({
     let cancelled = false;
     (async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await sb
           .from("web_dev_discovery")
           .select("conversation, completed, submitted_at")
           .eq("client_project_id", projectId)
@@ -64,7 +66,7 @@ export default function WebDevDiscoveryChat({
       }
     })();
     return () => { cancelled = true; };
-  }, [clientId, projectId, contractSigned]);
+  }, [clientId, projectId, contractSigned, sb]);
 
   // Scroll to bottom on new messages.
   useEffect(() => {
@@ -76,19 +78,11 @@ export default function WebDevDiscoveryChat({
     async (message: string, history: Msg[]): Promise<void> => {
       setSending(true);
       try {
-        const resp = await fetch(`${SUPABASE_URL}/functions/v1/web-dev-discovery-chat`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${PUB_KEY}`,
-          },
-          body: JSON.stringify({
-            clientId,
-            projectId,
-            message,
-            conversationHistory: history,
-          }),
-        });
+        const resp = await portalFetch(
+          "web-dev-discovery-chat",
+          { clientId, projectId, message, conversationHistory: history },
+          adminPreview,
+        );
 
         if (!resp.ok) {
           if (resp.status === 429) toast.error("AI is busy — please wait a moment.");
@@ -113,7 +107,7 @@ export default function WebDevDiscoveryChat({
         setSending(false);
       }
     },
-    [clientId, projectId],
+    [clientId, projectId, adminPreview],
   );
 
   // Auto-greet on first open if no conversation exists yet.

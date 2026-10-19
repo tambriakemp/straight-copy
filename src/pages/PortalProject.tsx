@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { supabasePortal } from "@/integrations/supabase/portalClient";
+import { portalFetch } from "@/lib/portalFetch";
 import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
 import AuditsSection from "@/components/portal/AuditsSection";
 import ContractSection from "@/components/portal/ContractSection";
@@ -40,9 +42,6 @@ type PortalClient = {
   active_node: ActiveNode | null;
 };
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-
 const cleanContent = (text: string) =>
   text
     .replace(/\[\[STAGE:\d+\]\]/g, "")
@@ -70,6 +69,11 @@ export default function PortalProject() {
     }
     try { return sessionStorage.getItem(impersonationKey) === "1"; } catch { return false; }
   }, [clientId, searchParams, impersonationKey]);
+
+  // CRE-536: the Supabase client to use for direct table/RPC reads below —
+  // the admin's own session while previewing, otherwise the portal
+  // session the client signed into. Never anon.
+  const sb = adminPreview ? supabase : supabasePortal;
 
   const exitPreview = () => {
     try { sessionStorage.removeItem(impersonationKey); } catch { /* ignore */ }
@@ -162,14 +166,11 @@ export default function PortalProject() {
     if (!clientId) return;
     setLoading(true);
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${PUB_KEY}`,
-        },
-        body: JSON.stringify({ clientId, action: "resolve", asAdmin: adminPreview }),
-      });
+      const resp = await portalFetch(
+        "brand-kit-intake",
+        { clientId, action: "resolve", asAdmin: adminPreview },
+        adminPreview,
+      );
       if (resp.status === 404) {
         setNotFound(true);
         return;
@@ -213,15 +214,15 @@ export default function PortalProject() {
     if (!projectId) { setPhases([]); setPreviewProgress({ approved: 0, total: 0 }); return; }
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.rpc("portal_project_phases", { _client_project_id: projectId });
+      const { data } = await sb.rpc("portal_project_phases", { _client_project_id: projectId });
       if (!cancelled) setPhases((data ?? []) as PhaseNode[]);
 
       try {
-        const r = await fetch(`${SUPABASE_URL}/functions/v1/preview-approvals`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-          body: JSON.stringify({ action: "list", client_project_id: projectId }),
-        });
+        const r = await portalFetch(
+          "preview-approvals",
+          { action: "list", client_project_id: projectId },
+          adminPreview,
+        );
         if (!r.ok) throw new Error("no preview");
         const out = await r.json() as { pages?: Array<{ approval?: unknown }> };
         const pages = out.pages ?? [];
@@ -237,7 +238,7 @@ export default function PortalProject() {
       }
     })();
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [projectId, sb, adminPreview]);
 
   // Check whether the contract for the current web-dev project has been signed.
   // This gates the discovery questionnaire chat.
@@ -246,7 +247,7 @@ export default function PortalProject() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await supabase
+        const { data } = await sb
           .from("client_contracts")
           .select("id, client_signed_at")
           .eq("client_project_id", projectId)
@@ -259,7 +260,7 @@ export default function PortalProject() {
       }
     })();
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [projectId, sb]);
 
 
   // Persist transcript locally
@@ -314,14 +315,11 @@ export default function PortalProject() {
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${PUB_KEY}`,
-        },
-        body: JSON.stringify({ clientId, action: "chat", messages: history }),
-      });
+      const resp = await portalFetch(
+        "brand-kit-intake",
+        { clientId, action: "chat", messages: history },
+        adminPreview,
+      );
 
       if (!resp.ok || !resp.body) {
         if (resp.status === 429) toast.error("AI is busy — please wait a moment.");
@@ -392,14 +390,11 @@ export default function PortalProject() {
     if (!clientId) return;
     setSubmitting(true);
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${PUB_KEY}`,
-        },
-        body: JSON.stringify({ clientId, action: "complete", messages }),
-      });
+      const resp = await portalFetch(
+        "brand-kit-intake",
+        { clientId, action: "complete", messages },
+        adminPreview,
+      );
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || "Submit failed");
       setSubmittedAt(data.submittedAt);
@@ -687,6 +682,7 @@ export default function PortalProject() {
             clientId={clientId!} projectId={currentProject!.id}
             contactName={client.contact_name}
             eyebrow={isWebDev ? null : "Node 01 · Intake"}
+            adminPreview={adminPreview}
           />
         </div>
       )}
@@ -696,6 +692,7 @@ export default function PortalProject() {
           <WebDevDiscoveryChat
             clientId={clientId!} projectId={currentProject!.id}
             contactName={client.contact_name} contractSigned={contractSigned}
+            adminPreview={adminPreview}
           />
         </div>
       )}
@@ -706,7 +703,7 @@ export default function PortalProject() {
           over, one row each. */}
       {isAutomation && (
         <div id="portal-account-access" style={{ scrollMarginTop: 24 }}>
-          <AccountAccessSection clientId={clientId!} tier={client.tier} initial={accountAccess} />
+          <AccountAccessSection clientId={clientId!} tier={client.tier} initial={accountAccess} adminPreview={adminPreview} />
         </div>
       )}
 
@@ -734,7 +731,7 @@ export default function PortalProject() {
           <BrandKitRouter onChoose={setBkPath} />
         ) : bkPath === "yes" ? (
           <BrandKitFastSubmit
-            clientId={clientId!} submitting={submitting} setSubmitting={setSubmitting}
+            clientId={clientId!} adminPreview={adminPreview} submitting={submitting} setSubmitting={setSubmitting}
             onSwitchToChat={() => setBkPath("no")}
             onSubmitted={(at) => {
               setSubmittedAt(at); setBkPath(null);
@@ -764,7 +761,7 @@ export default function PortalProject() {
 
   const money = isAutomation ? (
     <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
-      <SubscriptionSection clientId={clientId!} tier={client.tier} initial={subscription} />
+      <SubscriptionSection clientId={clientId!} tier={client.tier} initial={subscription} adminPreview={adminPreview} />
     </div>
   ) : null;
 
@@ -817,15 +814,16 @@ export default function PortalProject() {
             </p>
           </section>
         ) : tab === "audits" ? (
-          <AuditsSection clientProjectId={currentProject.id} />
+          <AuditsSection clientProjectId={currentProject.id} adminPreview={adminPreview} />
         ) : tab === "files" ? (
           <FilesSection
             clientId={clientId!}
             clientProjectId={currentProject.id}
             clientName={client.contact_name}
+            adminPreview={adminPreview}
           />
         ) : tab === "logins" ? (
-          <PortalLoginsSection clientId={clientId!} clientProjectId={currentProject.id} />
+          <PortalLoginsSection clientId={clientId!} clientProjectId={currentProject.id} adminPreview={adminPreview} />
         ) : tab === "brand" ? brand
           : <>{overview}{money}</>}
       </div>
@@ -1025,9 +1023,10 @@ function BrandKitRouter({ onChoose }: { onChoose: (v: "yes" | "no") => void }) {
 // (bucket: client-assets, folder: brand-kit/), then calls the edge function's
 // fast-complete action to persist intake and notify the team.
 function BrandKitFastSubmit({
-  clientId, submitting, setSubmitting, onSwitchToChat, onSubmitted,
+  clientId, adminPreview, submitting, setSubmitting, onSwitchToChat, onSubmitted,
 }: {
   clientId: string;
+  adminPreview: boolean;
   submitting: boolean;
   setSubmitting: (v: boolean) => void;
   onSwitchToChat: () => void;
@@ -1038,11 +1037,12 @@ function BrandKitFastSubmit({
   const [colors, setColors] = useState("");
   const [fonts, setFonts] = useState("");
   const [guidelinesFile, setGuidelinesFile] = useState<File | null>(null);
+  const sb = adminPreview ? supabase : supabasePortal;
 
   const uploadOne = async (file: File): Promise<{ path: string; name: string; size: number; mime: string }> => {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
     const path = `brand-kit/${clientId}/${Date.now()}-${safeName}`;
-    const { error } = await supabase.storage.from("client-assets").upload(path, file, {
+    const { error } = await sb.storage.from("client-assets").upload(path, file, {
       cacheControl: "3600",
       upsert: false,
       contentType: file.type || undefined,
@@ -1071,13 +1071,9 @@ function BrandKitFastSubmit({
       const logoMeta = logoFile ? await uploadOne(logoFile) : null;
       const guidelinesMeta = guidelinesFile ? await uploadOne(guidelinesFile) : null;
 
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${PUB_KEY}`,
-        },
-        body: JSON.stringify({
+      const resp = await portalFetch(
+        "brand-kit-intake",
+        {
           clientId,
           action: "fast-complete",
           intake: {
@@ -1087,8 +1083,9 @@ function BrandKitFastSubmit({
             colors: colors.trim(),
             typography: fonts.trim(),
           },
-        }),
-      });
+        },
+        adminPreview,
+      );
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || "Submit failed");
 

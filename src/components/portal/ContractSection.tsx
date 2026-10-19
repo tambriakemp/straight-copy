@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ContractTemplate } from "@/lib/contract-templates";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+import { portalFetch } from "@/lib/portalFetch";
 
 type SignedContract = {
   id: string;
@@ -69,11 +67,13 @@ export default function ContractSection({
   projectId,
   contactName,
   eyebrow = "Node 01 · Intake",
+  adminPreview,
 }: {
   clientId: string;
   projectId?: string;
   contactName: string | null;
   eyebrow?: string | null;
+  adminPreview: boolean;
 }) {
   // Collapsed by default; we expand automatically when there's no signed
   // contract yet (so the client sees the document and the sign CTA).
@@ -108,11 +108,7 @@ export default function ContractSection({
   const loadContract = async () => {
     setLoading(true);
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/contract-sign`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-        body: JSON.stringify({ action: "get", clientId, projectId }),
-      });
+      const resp = await portalFetch("contract-sign", { action: "get", clientId, projectId }, adminPreview);
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Failed to load contract");
       setTemplate(data.template);
@@ -245,10 +241,9 @@ export default function ContractSection({
     // Capture browser/device data for legal audit trail
     const audit = collectAuditData();
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/contract-sign`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-        body: JSON.stringify({
+      const resp = await portalFetch(
+        "contract-sign",
+        {
           action: "sign",
           clientId,
           projectId,
@@ -260,9 +255,9 @@ export default function ContractSection({
           contactName: confirmContactName.trim() || undefined,
           contactEmail: confirmEmail.trim() || undefined,
           audit,
-        }),
-
-      });
+        },
+        adminPreview,
+      );
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || "Signing failed");
       toast.success("Contract signed");
@@ -279,11 +274,11 @@ export default function ContractSection({
     if (!contract) return;
     const filename = `cre8-visions-service-agreement-${contract.id}.pdf`;
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/contract-sign`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-        body: JSON.stringify({ action: "download", clientId, contractId: contract.id }),
-      });
+      const resp = await portalFetch(
+        "contract-sign",
+        { action: "download", clientId, contractId: contract.id },
+        adminPreview,
+      );
       const data = await resp.json();
       if (!resp.ok || !data.pdfUrl) throw new Error(data.error || "Download failed");
 

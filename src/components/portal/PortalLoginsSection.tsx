@@ -15,10 +15,8 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { KeyRound, Lock, Globe, Mail, CreditCard } from "lucide-react";
 import EmptyState from "@/components/admin/cv/EmptyState";
+import { portalFetch } from "@/lib/portalFetch";
 import { MASK, subtitleFor, hrefFor, passwordToSend, type ClientLoginRow } from "@/lib/clientLogins";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 const ICONS: Array<{ test: RegExp; icon: typeof KeyRound; bg: string; fg: string }> = [
   { test: /mail|inbox|smtp/i, icon: Mail, bg: "#FFF1E3", fg: "#A8440A" },
@@ -29,12 +27,8 @@ function iconFor(label: string) {
   return ICONS.find((i) => i.test.test(label)) ?? { icon: Lock, bg: "#F3E8FF", fg: "#6B2FB8" };
 }
 
-async function call(action: string, body: Record<string, unknown>) {
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/client-logins`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${PUB_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ action, ...body }),
-  });
+async function call(action: string, body: Record<string, unknown>, adminPreview: boolean) {
+  const res = await portalFetch("client-logins", { action, ...body }, adminPreview);
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((json as { error?: string })?.error ?? res.statusText);
   return json as Record<string, unknown>;
@@ -44,10 +38,11 @@ interface Draft { id: string | null; label: string; url: string; username: strin
 const BLANK: Draft = { id: null, label: "", url: "", username: "", password: "", note: "" };
 
 export default function PortalLoginsSection({
-  clientId, clientProjectId,
+  clientId, clientProjectId, adminPreview,
 }: {
   clientId: string;
   clientProjectId: string;
+  adminPreview: boolean;
 }) {
   const [logins, setLogins] = useState<ClientLoginRow[] | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -56,7 +51,7 @@ export default function PortalLoginsSection({
 
   const load = useCallback(async () => {
     try {
-      const out = await call("portal_list", { client_id: clientId, client_project_id: clientProjectId });
+      const out = await call("portal_list", { client_id: clientId, client_project_id: clientProjectId }, adminPreview);
       setLogins((out.logins ?? []) as ClientLoginRow[]);
       setUnavailable(false);
     } catch {
@@ -66,7 +61,7 @@ export default function PortalLoginsSection({
       setLogins([]);
       setUnavailable(true);
     }
-  }, [clientId, clientProjectId]);
+  }, [clientId, clientProjectId, adminPreview]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -84,7 +79,7 @@ export default function PortalLoginsSection({
         username: draft.username.trim() || null,
         password: passwordToSend(draft.password, draft.id !== null),
         note: draft.note.trim() || null,
-      });
+      }, adminPreview);
       toast.success(draft.id ? "Login updated" : "Login shared with Cre8 Visions");
       setDraft(null);
       await load();
@@ -98,7 +93,7 @@ export default function PortalLoginsSection({
   const remove = async (id: string, label: string) => {
     if (!confirm(`Remove the login "${label}"? Cre8 Visions will no longer have it.`)) return;
     try {
-      await call("portal_delete", { client_id: clientId, client_project_id: clientProjectId, id });
+      await call("portal_delete", { client_id: clientId, client_project_id: clientProjectId, id }, adminPreview);
       toast.success("Login removed");
       await load();
     } catch (e) {
