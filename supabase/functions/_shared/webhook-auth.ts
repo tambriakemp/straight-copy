@@ -65,3 +65,55 @@ export async function resolveCaller(req: Request): Promise<Caller> {
     return { kind: "unauthorized" };
   }
 }
+
+// CRE-536: the client portal (/portal/:clientId) trusted the :clientId in
+// the URL as its only proof of who was asking — same bug class as the
+// admin-triggered functions above, just on the client-facing side. Every
+// portal edge function now resolves the caller against a real Supabase
+// Auth session before trusting the clientId its own request body names.
+export type PortalCaller =
+  | { kind: "portal"; userId: string; clientId: string }
+  | { kind: "admin"; userId: string }
+  | { kind: "unauthorized" };
+
+/**
+ * Resolves whether the caller may act on behalf of `clientId` in the
+ * portal. An admin (same check as resolveCaller's "admin" kind) always
+ * may — that's the existing "preview as admin" path (/portal/:id?as=admin)
+ * from the client's admin page. Otherwise the bearer token's own user must
+ * be an ACTIVE row in client_portal_users for exactly this clientId.
+ * Never trusts clientId alone, and never accepts the anon key.
+ */
+export async function resolvePortalCaller(req: Request, clientId: string): Promise<PortalCaller> {
+  const auth = req.headers.get("Authorization");
+  const bearer = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!bearer || !clientId || !serviceKey) return { kind: "unauthorized" };
+  // The anon key proves nothing — reject it outright rather than letting
+  // auth.getUser() on it resolve to "no user" further down for free.
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (anonKey && bearer === anonKey) return { kind: "unauthorized" };
+
+  try {
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+    const { data, error } = await sb.auth.getUser(bearer);
+    if (error || !data?.user) return { kind: "unauthorized" };
+    const userId = data.user.id;
+
+    const { data: isAdmin } = await sb.rpc("is_admin", { _user_id: userId });
+    if (isAdmin) return { kind: "admin", userId };
+
+    const { data: member } = await sb
+      .from("client_portal_users")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("client_id", clientId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (member) return { kind: "portal", userId, clientId };
+
+    return { kind: "unauthorized" };
+  } catch {
+    return { kind: "unauthorized" };
+  }
+}
