@@ -23,7 +23,17 @@
 //     reads back the client's own third-party passwords turns one
 //     forwarded email into a credential dump. The client can replace a
 //     password; they cannot ask us to read one back to them.
+//
+// CRE-536: those three scopes were real, but "a link that names a real
+// client_id + client_project_id pair" was the only thing any of them
+// checked — no session, nobody's identity, nothing proving the caller
+// was that client rather than someone who found, guessed, or kept a
+// link after being offboarded. Every portal_* action below now also
+// requires the caller's own bearer token to resolve to an ACTIVE
+// client_portal_users row for this clientId (or an admin, for the
+// existing ?as=admin preview) via resolvePortalCaller.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,7 +63,7 @@ Deno.serve(async (req) => {
   const earlyAction = String(early.action ?? "").trim();
 
   if (earlyAction.startsWith("portal_")) {
-    return await handlePortal(earlyAction, early);
+    return await handlePortal(req, earlyAction, early);
   }
 
   const auth = req.headers.get("Authorization") ?? "";
@@ -160,13 +170,17 @@ Deno.serve(async (req) => {
  *
  * There is no reveal. See the note at the top of the file.
  */
-async function handlePortal(action: string, payload: Record<string, unknown>): Promise<Response> {
+async function handlePortal(req: Request, action: string, payload: Record<string, unknown>): Promise<Response> {
   if (!ENC_KEY) return json({ error: "server misconfigured: PROJECT_SECRETS_KEY missing" }, 500);
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
   const clientId = String(payload.client_id ?? "").trim();
   const projectId = String(payload.client_project_id ?? "").trim();
   if (!clientId || !projectId) return json({ error: "client_id and client_project_id required" }, 400);
+
+  // Who is actually asking — not just "does this id pair match itself".
+  const caller = await resolvePortalCaller(req, clientId);
+  if (caller.kind === "unauthorized") return json({ error: "Unauthorized" }, 401);
 
   // The project must belong to the client in the link. Without this an
   // id from one client's portal could name another client's project.

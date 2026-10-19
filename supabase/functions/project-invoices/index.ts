@@ -5,6 +5,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { z } from "zod";
 import { sendProjectInvoice, surecart, checkoutIdFrom } from "../_shared/surecart-invoices.ts";
+import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -116,6 +117,11 @@ const ADMIN_ONLY = new Set([
   "list", "list-schedules", "create-schedule", "schedule",
   "send", "payment-link", "email-payment-link", "void", "delete",
 ]);
+// CRE-536: portal-active/portal-schedule were "public: by clientId" —
+// anyone who knew a clientId could read that client's invoices and
+// payment-schedule. Now requires the caller's own bearer token to
+// resolve to an ACTIVE portal member of that clientId (or an admin).
+const PORTAL_ACTIONS = new Set(["portal-active", "portal-schedule"]);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -135,6 +141,11 @@ Deno.serve(async (req) => {
     if (ADMIN_ONLY.has(input.action)) {
       const ok = await isCallerAdmin(req, supabase);
       if (!ok) return respond({ error: "Admin only" }, 403);
+    }
+
+    if (PORTAL_ACTIONS.has(input.action) && !(await isCallerAdmin(req, supabase))) {
+      const caller = await resolvePortalCaller(req, input.clientId);
+      if (caller.kind === "unauthorized") return respond({ error: "Unauthorized" }, 401);
     }
 
     if (input.action === "list") {

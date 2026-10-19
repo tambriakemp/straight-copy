@@ -5102,6 +5102,15 @@ export type Database = {
           status: string
         }[]
       }
+      portal_whoami: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          business_name: string
+          client_id: string
+          contact_name: string
+          status: string
+        }[]
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {

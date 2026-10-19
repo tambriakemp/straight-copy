@@ -3,6 +3,9 @@ import { useParams, Link } from "react-router-dom";
 import { Send, Upload, Check, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { supabasePortal } from "@/integrations/supabase/portalClient";
+import { portalFetch } from "@/lib/portalFetch";
+import { useAdminPreview } from "@/hooks/useAdminPreview";
 
 interface Msg {
   role: "user" | "assistant";
@@ -30,9 +33,6 @@ const STAGES = [
 ];
 
 type View = "welcome" | "chat" | "done";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 const cleanContent = (text: string) =>
   text
@@ -100,6 +100,8 @@ async function extractDominantColors(file: File, count = 5): Promise<string[]> {
 
 export default function BrandKit() {
   const { clientId } = useParams<{ clientId: string }>();
+  const adminPreview = useAdminPreview();
+  const sb = adminPreview ? supabase : supabasePortal;
   const [view, setView] = useState<View>("welcome");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -132,11 +134,7 @@ export default function BrandKit() {
     if (!clientId) return;
     (async () => {
       try {
-        const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-          body: JSON.stringify({ clientId, action: "resolve" }),
-        });
+        const resp = await portalFetch("brand-kit-intake", { clientId, action: "resolve" }, adminPreview);
         if (!resp.ok) throw new Error("resolve failed");
         const data = await resp.json();
         setContact({
@@ -173,7 +171,7 @@ export default function BrandKit() {
         setHydrating(false);
       }
     })();
-  }, [clientId, lsKey]);
+  }, [clientId, lsKey, adminPreview]);
 
   // Persist transcript locally
   useEffect(() => {
@@ -201,11 +199,7 @@ export default function BrandKit() {
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-        body: JSON.stringify({ clientId, action: "chat", messages: history }),
-      });
+      const resp = await portalFetch("brand-kit-intake", { clientId, action: "chat", messages: history }, adminPreview);
 
       if (!resp.ok || !resp.body) {
         if (resp.status === 429) {
@@ -281,16 +275,16 @@ export default function BrandKit() {
   const persistLogoProgress = async (file: LogoFileMeta | null, colors: string[]) => {
     if (!clientId) return;
     try {
-      await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-        body: JSON.stringify({
+      await portalFetch(
+        "brand-kit-intake",
+        {
           clientId,
           action: "save-logo-progress",
           logoFile: file ? { path: file.path, name: file.name, size: file.size, mime: file.mime } : null,
           extractedColors: colors,
-        }),
-      });
+        },
+        adminPreview,
+      );
     } catch (e) {
       console.warn("save-logo-progress failed:", e);
     }
@@ -313,17 +307,17 @@ export default function BrandKit() {
     try {
       // If we're replacing an existing logo, drop the old storage object first.
       if (logoFile?.path) {
-        try { await supabase.storage.from("client-assets").remove([logoFile.path]); } catch { /* ignore */ }
+        try { await sb.storage.from("client-assets").remove([logoFile.path]); } catch { /* ignore */ }
       }
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
       const path = `brand-kit/${clientId}/${Date.now()}-${safeName}`;
-      const { error } = await supabase.storage.from("client-assets").upload(path, file, {
+      const { error } = await sb.storage.from("client-assets").upload(path, file, {
         cacheControl: "3600",
         upsert: false,
         contentType: file.type || undefined,
       });
       if (error) throw new Error(error.message);
-      const { data: signed } = await supabase.storage.from("client-assets").createSignedUrl(path, 60 * 60 * 24 * 7);
+      const { data: signed } = await sb.storage.from("client-assets").createSignedUrl(path, 60 * 60 * 24 * 7);
       const meta: LogoFileMeta = {
         path,
         name: file.name,
@@ -366,7 +360,7 @@ export default function BrandKit() {
   // extracted-color state, and tells the backend to detach from the admin task.
   const removeLogo = async () => {
     if (logoFile?.path) {
-      try { await supabase.storage.from("client-assets").remove([logoFile.path]); } catch { /* ignore */ }
+      try { await sb.storage.from("client-assets").remove([logoFile.path]); } catch { /* ignore */ }
     }
     setLogoFile(null);
     setExtractedColors([]);
@@ -408,17 +402,11 @@ export default function BrandKit() {
     if (!clientId) return;
     setSubmitting(true);
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-        body: JSON.stringify({
-          clientId,
-          action: "complete",
-          messages,
-          logoFiles: logoFile ? [logoFile] : [],
-          extractedColors,
-        }),
-      });
+      const resp = await portalFetch(
+        "brand-kit-intake",
+        { clientId, action: "complete", messages, logoFiles: logoFile ? [logoFile] : [], extractedColors },
+        adminPreview,
+      );
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || "Submit failed");
       setSubmittedAt(data.submittedAt);

@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   Mail,
   ShieldCheck,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
@@ -20,6 +21,7 @@ const HUB_ITEMS: Array<{ to: string; label: string; description: string; icon: L
   { to: "/admin/ventures", label: "Ventures", description: "Venture pipeline and launches", icon: Rocket },
   { to: "/admin/portfolio", label: "Portfolio", description: "Past and live client work", icon: LayoutGrid },
   { to: "/admin/invites", label: "Invites", description: "Admin and client invites", icon: Mail },
+  { to: "/admin/portal-access", label: "Portal access", description: "Client portal login status and invites", icon: KeyRound },
   { to: "/admin/audits", label: "Client passwords", description: "Portal credential audits", icon: ShieldCheck },
 ];
 

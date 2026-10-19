@@ -1,7 +1,16 @@
 // Public endpoints for client-side preview approvals.
 // Actions: list | comments | events | approve | unapprove | changes_requested
-// Lookup is by preview slug (no admin auth required).
+// Lookup is by preview slug.
+//
+// CRE-536: "no admin auth required" used to mean nobody's identity was
+// checked at all, as long as the slug or client_project_id named a real
+// preview project — anyone holding one client's preview link could post
+// approve/unapprove/changes_requested against ANY preview whose slug or
+// project id they could guess or find. Every action now also requires
+// the caller's own bearer token to resolve to an ACTIVE portal member of
+// the client that owns this preview project (or an admin).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,7 +44,7 @@ Deno.serve(async (req) => {
     const clientProjectId = payload.client_project_id ? String(payload.client_project_id) : null;
     if (!slug && !clientProjectId) return json({ error: "slug or client_project_id required" }, 400);
 
-    const q = admin.from("preview_projects").select("id, slug, name, entry_path, archived, source_type, external_base_url");
+    const q = admin.from("preview_projects").select("id, slug, name, entry_path, archived, source_type, external_base_url, client_project_id");
     // limit(1) on the client_project_id lookup, because maybeSingle() over
     // two rows is an ERROR, not a pick — a project that had a second
     // preview added to it answered 404 to everyone holding its link.
@@ -44,6 +53,21 @@ Deno.serve(async (req) => {
       : q.eq("client_project_id", clientProjectId!).eq("archived", false)
         .order("created_at", { ascending: true }).limit(1).maybeSingle());
     if (!project || project.archived) return json({ error: "not found" }, 404);
+
+    // Resolve the client that owns this preview, then check the caller
+    // against THAT client — never the slug/project id alone.
+    let ownerClientId: string | null = null;
+    if (project.client_project_id) {
+      const { data: cp } = await admin
+        .from("client_projects")
+        .select("client_id")
+        .eq("id", project.client_project_id)
+        .maybeSingle();
+      ownerClientId = cp?.client_id ?? null;
+    }
+    if (!ownerClientId) return json({ error: "not found" }, 404);
+    const caller = await resolvePortalCaller(req, ownerClientId);
+    if (caller.kind === "unauthorized") return json({ error: "Unauthorized" }, 401);
 
     const hasExternal = !!project.external_base_url;
     const extBase = (project.external_base_url || "").replace(/\/+$/, "");

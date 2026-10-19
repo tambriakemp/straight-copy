@@ -26,21 +26,18 @@ import {
   approvalFor, pageVerdict, buildActivity, APPROVAL_LABEL, APPROVAL_CLASS,
   type BoardPage, type BoardComment, type ApprovalRow, type ApprovalEvent, type StatusFilter,
 } from "@/lib/feedbackBoard";
+import { portalFetch, portalFetchGet } from "@/lib/portalFetch";
+import { useAdminPreview } from "@/hooks/useAdminPreview";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 type Tool = "comment" | "browse";
 type Tab = "comments" | "pages" | "activity";
 
 interface ProjectRow { id: string; type: string; name: string }
 
-async function callFn(fn: string, body: Record<string, unknown>) {
-  const r = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-    body: JSON.stringify(body),
-  });
+async function callFn(fn: string, body: Record<string, unknown>, adminPreview: boolean) {
+  const r = await portalFetch(fn, body, adminPreview);
   const out = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error((out as { error?: string }).error || "Request failed");
   return out as Record<string, unknown>;
@@ -64,7 +61,7 @@ interface ApiPage {
  * preview feature shipped and answers for one page at a time.
  */
 async function commentsPerPage(
-  slug: string, previewId: string, pages: BoardPage[],
+  slug: string, previewId: string, pages: BoardPage[], adminPreview: boolean,
 ): Promise<BoardComment[]> {
   const out: BoardComment[] = [];
   // In small batches: a project with forty pages should not open forty
@@ -73,10 +70,10 @@ async function commentsPerPage(
     const batch = pages.slice(i, i + 6);
     const got = await Promise.all(batch.map(async (pg) => {
       try {
-        const r = await fetch(
+        const r = await portalFetchGet(
           `${SUPABASE_URL}/functions/v1/preview-comments?slug=${encodeURIComponent(slug)}`
           + `&page_path=${encodeURIComponent(pg.path)}`,
-          { headers: { Authorization: `Bearer ${PUB_KEY}` } },
+          adminPreview,
         );
         if (!r.ok) return [];
         const data = await r.json() as { comments?: Array<Record<string, unknown>> };
@@ -97,6 +94,7 @@ export default function PortalFeedback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const qs = searchParams.toString() ? `?${searchParams.toString()}` : "";
+  const adminPreview = useAdminPreview();
 
   const [clientName, setClientName] = useState("");
   const [projects, setProjects] = useState<ProjectRow[]>([]);
@@ -134,7 +132,7 @@ export default function PortalFeedback() {
     let cancelled = false;
     (async () => {
       try {
-        const data = await callFn("brand-kit-intake", { clientId, action: "resolve" });
+        const data = await callFn("brand-kit-intake", { clientId, action: "resolve" }, adminPreview);
         if (cancelled) return;
         const c = data.client as { contact_name?: string; business_name?: string } | null;
         setClientName(c?.contact_name || c?.business_name || "");
@@ -147,7 +145,7 @@ export default function PortalFeedback() {
       }
     })();
     return () => { cancelled = true; };
-  }, [clientId]);
+  }, [clientId, adminPreview]);
 
   // ---- the board for the chosen project --------------------------------
   const load = useCallback(async () => {
@@ -155,7 +153,7 @@ export default function PortalFeedback() {
     setLoading(true);
     setNoPreview(false);
     try {
-      const listed = await callFn("preview-approvals", { action: "list", client_project_id: current });
+      const listed = await callFn("preview-approvals", { action: "list", client_project_id: current }, adminPreview);
       const proj = listed.project as { id: string; slug: string; name: string };
       setSlug(proj.slug);
 
@@ -181,8 +179,8 @@ export default function PortalFeedback() {
         }])));
 
       const [cRes, eRes] = await Promise.all([
-        callFn("preview-approvals", { action: "comments", slug: proj.slug }).catch(() => null),
-        callFn("preview-approvals", { action: "events", slug: proj.slug }).catch(() => null),
+        callFn("preview-approvals", { action: "comments", slug: proj.slug }, adminPreview).catch(() => null),
+        callFn("preview-approvals", { action: "events", slug: proj.slug }, adminPreview).catch(() => null),
       ]);
 
       // The bulk `comments` action is new and may not be deployed yet.
@@ -191,7 +189,7 @@ export default function PortalFeedback() {
       // always been there — one request per page, which is the cost of
       // not being deployed, not a reason to show nothing.
       let rows = (cRes?.comments ?? null) as BoardComment[] | null;
-      if (!rows) rows = await commentsPerPage(proj.slug, proj.id, built);
+      if (!rows) rows = await commentsPerPage(proj.slug, proj.id, built, adminPreview);
       setComments(rows);
 
       const evRows = ((eRes?.events ?? []) as Array<Partial<ApprovalEvent>>)
@@ -223,7 +221,7 @@ export default function PortalFeedback() {
     } finally {
       setLoading(false);
     }
-  }, [current]);
+  }, [current, adminPreview]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -260,10 +258,9 @@ export default function PortalFeedback() {
     if (!body) { toast.error("Write the comment first"); return; }
     setSaving(true);
     try {
-      await fetch(`${SUPABASE_URL}/functions/v1/preview-comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-        body: JSON.stringify({
+      await portalFetch(
+        "preview-comments",
+        {
           slug, page_path: page.path,
           // The public endpoint requires a selector — it was written for
           // the in-page widget, which had an element to name. A pin
@@ -272,8 +269,9 @@ export default function PortalFeedback() {
           x_pct: draft.x_pct, y_pct: draft.y_pct,
           author_name: clientName || "Guest",
           body,
-        }),
-      }).then(async (r) => {
+        },
+        adminPreview,
+      ).then(async (r) => {
         const out = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error((out as { error?: string }).error || "Could not save that comment");
       });
@@ -293,7 +291,7 @@ export default function PortalFeedback() {
     try {
       await callFn("preview-approvals", {
         action: "approve", slug, kind: "page", path: pg.path, approver_name: clientName || null,
-      });
+      }, adminPreview);
       await load();
       toast.success(`${pageLabel(pg)} approved`);
     } catch (e) {
@@ -307,7 +305,7 @@ export default function PortalFeedback() {
     try {
       await callFn("preview-approvals", {
         action: "unapprove", slug, kind: "page", path: pg.path, approver_name: clientName || null,
-      });
+      }, adminPreview);
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not undo that");
@@ -323,7 +321,7 @@ export default function PortalFeedback() {
       await callFn("preview-approvals", {
         action: "changes_requested", slug, kind: "page", path: pg.path,
         note, approver_name: clientName || null,
-      });
+      }, adminPreview);
       setRejecting(null); setReason("");
       await load();
       toast.success("Sent back with your note");

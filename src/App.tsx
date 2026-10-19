@@ -23,6 +23,9 @@ const PortalProject = lazy(() => import("./pages/PortalProject.tsx"));
 const PortalProposal = lazy(() => import("./pages/PortalProposal.tsx"));
 const PortalFeedback = lazy(() => import("./pages/PortalFeedback.tsx"));
 const BrandKit = lazy(() => import("./pages/BrandKit.tsx"));
+const PortalLogin = lazy(() => import("./pages/portal/PortalLogin.tsx"));
+const PortalSetPassword = lazy(() => import("./pages/portal/PortalSetPassword.tsx"));
+const RequirePortalAuth = lazy(() => import("./components/portal/RequirePortalAuth.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin.tsx"));
 const McpAuthorize = lazy(() => import("./pages/admin/McpAuthorize.tsx"));
@@ -38,6 +41,7 @@ const LaunchDetail = lazy(() => import("./pages/admin/LaunchDetail.tsx"));
 const AgentWorkspace = lazy(() => import("./pages/admin/AgentWorkspace.tsx"));
 const AgentRunDetail = lazy(() => import("./pages/admin/AgentRunDetail.tsx"));
 const Invites = lazy(() => import("./pages/admin/Invites.tsx"));
+const PortalAccess = lazy(() => import("./pages/admin/PortalAccess.tsx"));
 const ProjectDetail = lazy(() => import("./pages/admin/ProjectDetail.tsx"));
 const ProposalDetail = lazy(() => import("./pages/admin/ProposalDetail.tsx"));
 const ProposalUpload = lazy(() => import("./pages/admin/ProposalUpload.tsx"));
@@ -98,16 +102,24 @@ const App = () => (
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/portal/:clientId" element={<Portal />} />
-            <Route path="/portal/:clientId/projects/:projectId" element={<PortalProject />} />
-            <Route path="/portal/:clientId/proposals/:proposalId" element={<PortalProposal />} />
-            <Route path="/portal/:clientId/brand-kit" element={<BrandKit />} />
+            {/* CRE-536: a bare portal link no longer shows data on its own.
+                RequirePortalAuth checks for either a portal session that is
+                an ACTIVE member of THIS :clientId, or an admin session with
+                ?as=admin (the existing preview path) — and redirects an old,
+                unauthenticated link to /portal/login (with ?next= back to
+                itself) rather than ever rendering the page or 404ing. */}
+            <Route path="/portal/login" element={<PortalLogin />} />
+            <Route path="/portal/set-password" element={<PortalSetPassword />} />
+            <Route path="/portal/:clientId" element={<RequirePortalAuth><Portal /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/projects/:projectId" element={<RequirePortalAuth><PortalProject /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/proposals/:proposalId" element={<RequirePortalAuth><PortalProposal /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/brand-kit" element={<RequirePortalAuth><BrandKit /></RequirePortalAuth>} />
             {/* The feedback board, with and without a project in the path.
                 The side nav links the first; the project page links the
                 second, so a client who got there from a project lands on
                 that project's pages rather than the first one alphabetically. */}
-            <Route path="/portal/:clientId/feedback" element={<PortalFeedback />} />
-            <Route path="/portal/:clientId/projects/:projectId/feedback" element={<PortalFeedback />} />
+            <Route path="/portal/:clientId/feedback" element={<RequirePortalAuth><PortalFeedback /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/projects/:projectId/feedback" element={<RequirePortalAuth><PortalFeedback /></RequirePortalAuth>} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/mcp-authorize" element={<McpAuthorize />} />
             <Route path="/admin/reset-password" element={<ResetPassword />} />
@@ -154,6 +166,7 @@ const App = () => (
             <Route path="/admin/agents/runs/:runId" element={<RequireAdmin><AgentRunDetail /></RequireAdmin>} />
             <Route path="/admin/agents/:id" element={<RequireAdmin><AgentWorkspace /></RequireAdmin>} />
             <Route path="/admin/invites" element={<RequireAdmin><Invites /></RequireAdmin>} />
+            <Route path="/admin/portal-access" element={<RequireAdmin><PortalAccess /></RequireAdmin>} />
             <Route path="/admin/clients/:id/projects/:projectId" element={<RequireAdmin><ProjectDetail /></RequireAdmin>} />
             {/* Full-bleed, outside AdminLayout on purpose: the page under
                 review needs the whole window, which is the point of it. */}

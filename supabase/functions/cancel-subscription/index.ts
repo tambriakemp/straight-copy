@@ -1,13 +1,18 @@
 // Public client-portal edge function — cancels or resumes a SureCart subscription
-// for the client identified by clientId in the request body. Mirrors the access
-// model used by brand-kit-intake (verify_jwt = false; gated by clientId URL).
+// for the client identified by clientId in the request body.
 //
 // Actions:
 //   - cancel : PATCH https://api.surecart.com/v1/subscriptions/{id}/cancel?cancel_behavior=immediate
 //   - resume : PATCH https://api.surecart.com/v1/subscriptions/{id}/resume
 //   - status : returns the current subscription status from the DB
-
+//
+// CRE-536: "gated by clientId" used to mean exactly that and nothing
+// more — any caller who knew (or guessed) a clientId could cancel that
+// client's real, billed subscription. Every action now also requires
+// the caller's own bearer token to resolve to an ACTIVE portal member
+// of that clientId (or an admin) via resolvePortalCaller.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -87,6 +92,9 @@ Deno.serve(async (req) => {
   if (!action || !["cancel", "resume", "status"].includes(action)) {
     return json({ error: "invalid_action" }, 400);
   }
+
+  const caller = await resolvePortalCaller(req, clientId);
+  if (caller.kind === "unauthorized") return json({ error: "Unauthorized" }, 401);
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,

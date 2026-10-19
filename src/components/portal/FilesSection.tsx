@@ -12,12 +12,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Upload, FileText, Download, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { supabasePortal } from "@/integrations/supabase/portalClient";
+import { portalFetch } from "@/lib/portalFetch";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import { fileSize, safeFileName, previewKind } from "@/lib/projectFiles";
 import FilePreview from "@/components/FilePreview";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 const MAX_BYTES = 15 * 1024 * 1024;
 
 export interface ProjectFile {
@@ -34,12 +34,8 @@ export interface ProjectFile {
   url: string | null;
 }
 
-async function call(action: string, body: Record<string, unknown>) {
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/client-files`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${PUB_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ action, ...body }),
-  });
+async function call(action: string, body: Record<string, unknown>, adminPreview: boolean) {
+  const res = await portalFetch("client-files", { action, ...body }, adminPreview);
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((json as { error?: string })?.error ?? res.statusText);
   return json as Record<string, unknown>;
@@ -53,11 +49,12 @@ function when(iso: string): string {
 }
 
 export default function FilesSection({
-  clientId, clientProjectId, clientName,
+  clientId, clientProjectId, clientName, adminPreview,
 }: {
   clientId: string;
   clientProjectId: string;
   clientName: string | null;
+  adminPreview: boolean;
 }) {
   const [files, setFiles] = useState<ProjectFile[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,17 +62,18 @@ export default function FilesSection({
   const [dragging, setDragging] = useState(false);
   const [previewing, setPreviewing] = useState<ProjectFile | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const sb = adminPreview ? supabase : supabasePortal;
 
   const load = useCallback(async () => {
     try {
-      const out = await call("list", { client_id: clientId, client_project_id: clientProjectId });
+      const out = await call("list", { client_id: clientId, client_project_id: clientProjectId }, adminPreview);
       setFiles((out.files ?? []) as ProjectFile[]);
       setUnavailable(false);
     } catch {
       setFiles([]);
       setUnavailable(true);
     }
-  }, [clientId, clientProjectId]);
+  }, [clientId, clientProjectId, adminPreview]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -90,7 +88,7 @@ export default function FilesSection({
       }
       try {
         const path = `project-files/${clientId}/${clientProjectId}/${Date.now()}-${safeFileName(file.name)}`;
-        const { error } = await supabase.storage.from("client-assets").upload(path, file, {
+        const { error } = await sb.storage.from("client-assets").upload(path, file, {
           cacheControl: "3600", upsert: false, contentType: file.type || undefined,
         });
         if (error) throw new Error(error.message);
@@ -105,7 +103,7 @@ export default function FilesSection({
           size_bytes: file.size,
           mime: file.type || null,
           uploaded_by_name: clientName || null,
-        });
+        }, adminPreview);
         done++;
       } catch (e) {
         toast.error(`${file.name}: ${e instanceof Error ? e.message : "upload failed"}`);
@@ -119,7 +117,7 @@ export default function FilesSection({
   const remove = async (f: ProjectFile) => {
     if (!confirm(`Remove ${f.name}?`)) return;
     try {
-      await call("remove", { client_id: clientId, id: f.id });
+      await call("remove", { client_id: clientId, id: f.id }, adminPreview);
       await load();
       toast.success("Removed");
     } catch (e) {

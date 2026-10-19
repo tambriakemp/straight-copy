@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+import { supabasePortal } from "@/integrations/supabase/portalClient";
+import { portalFetch } from "@/lib/portalFetch";
 
 type AccountChecks = Record<string, boolean>;
 type FileEntry = { path: string; name: string; size: number };
@@ -92,11 +91,14 @@ export default function AccountAccessSection({
   clientId,
   tier,
   initial,
+  adminPreview,
 }: {
   clientId: string;
   tier: string;
   initial: AccountAccessState;
+  adminPreview: boolean;
 }) {
+  const sb = adminPreview ? supabase : supabasePortal;
   const isGrowth = tier === "growth";
   const accounts = useMemo(() => ACCOUNTS_BASE.filter((a) => !a.growthOnly || isGrowth), [isGrowth]);
 
@@ -141,15 +143,11 @@ export default function AccountAccessSection({
   const persist = async () => {
     setSaving(true);
     try {
-      const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-        body: JSON.stringify({
-          clientId,
-          action: "account-access-save",
-          accountAccess: { checks, notes, files, fields },
-        }),
-      });
+      const resp = await portalFetch(
+        "brand-kit-intake",
+        { clientId, action: "account-access-save", accountAccess: { checks, notes, files, fields } },
+        adminPreview,
+      );
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || "Save failed");
       setSubmittedAt(data.accountAccess?.submitted_at ?? null);
@@ -196,7 +194,7 @@ export default function AccountAccessSection({
         }
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 120);
         const path = `account-access/${clientId}/${Date.now()}-${safeName}`;
-        const { error } = await supabase.storage.from("client-assets").upload(path, file, {
+        const { error } = await sb.storage.from("client-assets").upload(path, file, {
           cacheControl: "3600",
           upsert: false,
           contentType: file.type || undefined,

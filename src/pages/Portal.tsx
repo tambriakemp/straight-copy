@@ -29,6 +29,7 @@ import {
 } from "@/lib/proposalStatus";
 import { bucketInvoices, type MoneyInvoice } from "@/lib/moneyRollup";
 import { FileText, Receipt } from "lucide-react";
+import { portalFetch } from "@/lib/portalFetch";
 
 type Project = { id: string; type: string; name: string; status: string; updated_at: string };
 type PortalClient = {
@@ -39,10 +40,6 @@ type PortalClient = {
   build_start_date: string | null;
   delivery_date: string | null;
 };
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-
 
 interface PortalProposal {
   id: string; title: string; status: string; client_project_id: string;
@@ -110,11 +107,11 @@ export default function Portal() {
     (async () => {
       setLoading(true);
       try {
-        const resp = await fetch(`${SUPABASE_URL}/functions/v1/brand-kit-intake`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-          body: JSON.stringify({ clientId, action: "resolve", asAdmin: adminPreview }),
-        });
+        const resp = await portalFetch(
+          "brand-kit-intake",
+          { clientId, action: "resolve", asAdmin: adminPreview },
+          adminPreview,
+        );
         if (resp.status === 404) { if (!cancelled) setNotFound(true); return; }
         if (!resp.ok) throw new Error("portal load failed");
         const data = await resp.json();
@@ -139,11 +136,7 @@ export default function Portal() {
     (async () => {
       const call = async (fn: string, body: Record<string, unknown>) => {
         try {
-          const r = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${PUB_KEY}` },
-            body: JSON.stringify(body),
-          });
+          const r = await portalFetch(fn, body, adminPreview);
           return r.ok ? await r.json() : null;
         } catch { return null; }
       };
@@ -178,7 +171,7 @@ export default function Portal() {
       setAllInvoices(flat);
     })();
     return () => { cancelled = true; };
-  }, [clientId]);
+  }, [clientId, adminPreview]);
 
   const qs = searchParams.toString() ? `?${searchParams.toString()}` : "";
 

@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const PUB_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+import { portalFetch } from "@/lib/portalFetch";
 
 export type SubscriptionState = {
   id: string | null;
@@ -39,10 +37,12 @@ export default function SubscriptionSection({
   clientId,
   tier,
   initial,
+  adminPreview,
 }: {
   clientId: string;
   tier: string;
   initial: SubscriptionState;
+  adminPreview: boolean;
 }) {
   const [sub, setSub] = useState<SubscriptionState>(initial);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -77,17 +77,7 @@ export default function SubscriptionSection({
   async function callAction(action: "cancel" | "resume") {
     setWorking(true);
     try {
-      const resp = await fetch(
-        `${SUPABASE_URL}/functions/v1/cancel-subscription`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${PUB_KEY}`,
-          },
-          body: JSON.stringify({ clientId, action }),
-        },
-      );
+      const resp = await portalFetch("cancel-subscription", { clientId, action }, adminPreview);
       const data = await resp.json();
       if (!resp.ok || !data.success) {
         throw new Error(data?.error || "Request failed");

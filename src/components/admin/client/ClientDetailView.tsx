@@ -13,7 +13,7 @@
 //
 // Overview is gone as a tab because the canvas prints it: the identity
 // card down the left is the whole of what that tab held.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -94,6 +94,89 @@ function PortalActions({ clientId }: { clientId: string }) {
   );
 }
 
+type PortalStatus = "not_invited" | "invited" | "active";
+
+const PORTAL_STATUS_LABEL: Record<PortalStatus, string> = {
+  not_invited: "Not invited",
+  invited: "Invited",
+  active: "Active",
+};
+const PORTAL_STATUS_TONE: Record<PortalStatus, string> = {
+  not_invited: "gray",
+  invited: "amber",
+  active: "green",
+};
+
+/**
+ * CRE-536: first-time password setup for existing clients. Nothing here
+ * sends anything on its own — the invite only fires when Bree clicks the
+ * button, same as every other "send" action in this admin.
+ */
+function PortalAccessStatus({ clientId, contactEmail }: { clientId: string; contactEmail: string | null }) {
+  const [status, setStatus] = useState<PortalStatus | null>(null);
+  const [sending, setSending] = useState(false);
+
+  const load = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("portal-invite", {
+        body: { action: "status", clientId },
+      });
+      if (error) throw new Error(error.message);
+      const row = (data?.clients ?? [])[0] as { portal_status?: PortalStatus } | undefined;
+      setStatus(row?.portal_status ?? "not_invited");
+    } catch {
+      setStatus(null);
+    }
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, [clientId]);
+
+  const send = async () => {
+    if (!contactEmail) {
+      toast.error("Add a contact email for this client first");
+      return;
+    }
+    setSending(true);
+    const t = toast.loading(status === "not_invited" ? "Sending portal invite…" : "Resending…");
+    try {
+      const { data, error } = await supabase.functions.invoke("portal-invite", {
+        body: { action: "invite", clientId, email: contactEmail },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Portal invite sent to ${contactEmail}`, { id: t });
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not send the invite", { id: t });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (status === null) return null;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+      <span className={`cv-chip cv-chip--${PORTAL_STATUS_TONE[status]}`}>
+        Portal · {PORTAL_STATUS_LABEL[status]}
+      </span>
+      {status !== "active" && (
+        <button
+          type="button"
+          className="cv-open"
+          style={{ padding: "0 14px" }}
+          disabled={sending || !contactEmail}
+          title={contactEmail ? undefined : "No contact email on file"}
+          onClick={send}
+        >
+          {status === "not_invited" ? "Send portal invite" : "Resend invite"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function IdentityCard({ client, clientId }: { client: ClientRecord; clientId: string }) {
   // The avatar is of the business when there is one, so the square beside
   // "Dr. Khadra Kahin" is the same "Me" you clicked on the Clients list.
@@ -121,6 +204,7 @@ function IdentityCard({ client, clientId }: { client: ClientRecord; clientId: st
       </div>
 
       <PortalActions clientId={clientId} />
+      <PortalAccessStatus clientId={clientId} contactEmail={client.contact_email} />
 
       <div style={{ borderTop: "1px dashed var(--cv-border-strong)" }} />
 

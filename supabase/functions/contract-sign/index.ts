@@ -6,11 +6,19 @@
 //   - download : returns a fresh signed URL for an existing contract PDF.
 //
 // verify_jwt = false (public). Service role mediates all DB access.
+//
+// CRE-536: "get" and "sign" are the portal's; "download" is shared with
+// the admin's own contract tab (which already sends its real admin
+// session). None of the three checked the caller's identity before —
+// only that clientId named a real, unarchived client. All three now
+// require the caller's own bearer token to resolve to an ACTIVE portal
+// member of that clientId, or an admin, via resolvePortalCaller.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { z } from "zod";
 import { PDFDocument, PDFFont, PDFPage, rgb, type PDFImage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { getContractTemplate, type ContractTemplate } from "../_shared/contract-templates.ts";
+import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -645,6 +653,14 @@ Deno.serve(async (req) => {
       );
     }
     const input = parsed.data;
+
+    const caller = await resolvePortalCaller(req, input.clientId);
+    if (caller.kind === "unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Load client (all actions need the client record)
     const { data: client, error: clientErr } = await supabase
