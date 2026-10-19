@@ -201,3 +201,9 @@ verify_jwt = false
 # password plus a short-lived HMAC token, both checked inside the function.
 [functions.audit-serve]
 verify_jwt = false
+
+# pg_cron calls this via pg_net with an x-agent-secret header, checked inside
+# the function — the same arrangement as dispatch-social-schedule and
+# sync-paperclip-pending (CRE-535).
+[functions.portal-health-sweep]
+verify_jwt = false
