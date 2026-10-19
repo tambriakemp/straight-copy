@@ -12,6 +12,7 @@ export interface TemplateEntry {
 import { template as contactConfirmation } from './contact-confirmation.tsx'
 import { template as onboardingNotification } from './onboarding-notification.tsx'
 import { template as onboardingInvite } from './onboarding-invite.tsx'
+import { template as portalInvite } from './portal-invite.tsx'
 import { template as brandKitNotification } from './brand-kit-notification.tsx'
 import { template as webDevDiscoveryNotification } from './web-dev-discovery-notification.tsx'
 import { template as invoicePaymentLink } from './invoice-payment-link.tsx'
@@ -26,6 +27,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'contact-confirmation': contactConfirmation,
   'onboarding-notification': onboardingNotification,
   'onboarding-invite': onboardingInvite,
+  'portal-invite': portalInvite,
   'brand-kit-notification': brandKitNotification,
   'web-dev-discovery-notification': webDevDiscoveryNotification,
   'invoice-payment-link': invoicePaymentLink,
