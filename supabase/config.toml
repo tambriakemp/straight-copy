@@ -209,3 +209,9 @@ verify_jwt = false
 # function, same pattern as the rest of this file.
 [functions.portal-invite]
 verify_jwt = false
+
+# pg_cron calls this via pg_net with an x-agent-secret header, checked inside
+# the function — the same arrangement as dispatch-social-schedule and
+# sync-paperclip-pending (CRE-535).
+[functions.portal-health-sweep]
+verify_jwt = false
