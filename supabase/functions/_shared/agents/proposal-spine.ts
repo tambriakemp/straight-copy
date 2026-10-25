@@ -218,6 +218,21 @@ word of prose about it. A reader looking for the price should find it in the
 first line of that section, not in the fourth paragraph. Use a blockquote for
 the callout when it deserves to sit apart from the body.
 
+**Anything with columns is a table, not a list.** The investment breakdown, the
+month-by-month, what's included against what it costs — write those as markdown
+tables and both the web proposal and the PDF will lay them out properly:
+
+\`\`\`
+| Deliverable | Cadence | Investment |
+| --- | --- | ---: |
+| SEO articles | 5 / month | $2,000 |
+| Paid social management | Ongoing | $1,200 |
+\`\`\`
+
+Right-align a money column with \`---:\`. A header row and the dashes under it
+are both required. Do not fake a table with dashes and spaces — it renders as a
+paragraph of punctuation.
+
 ### Revising
 
 Bree revises by talking to you, the way she talks to Claude. "Make the second
@@ -317,13 +332,81 @@ export function liftThesis(body: string): { thesis: string; rest: string } {
   return { thesis: m[1].trim(), rest: lines.slice(i + 1).join("\n").trim() };
 }
 
+/**
+ * A markdown table, parsed once and rendered twice.
+ *
+ * The real proposals carry 26 of these and they are load-bearing — the
+ * investment breakdown, the month-by-month, the deliverables list. Neither
+ * renderer understood a `|` line, so a table the agent wrote arrived as a
+ * paragraph of pipes in front of a client. The parse lives here, dependency
+ * free, because `proposal-pdf.ts` reaches `npm:pdf-lib` and so can never be
+ * imported by a test; the PDF renderer consumes what this returns.
+ */
+export interface ProposalTable {
+  head: string[];
+  rows: string[][];
+  align: Array<"left" | "center" | "right">;
+}
+
+/** `| --- |`, `| :--- |`, `| ---: |`, `| :---: |`. */
+const DELIM_CELL = /^:?-{3,}:?$/;
+
+function splitRow(line: string): string[] {
+  let s = line.trim();
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|")) s = s.slice(0, -1);
+  return s.split("|").map((c) => c.trim());
+}
+
+/**
+ * Parse the table starting at `start`, or return null if there isn't one.
+ *
+ * Deliberately strict: a header row, then a delimiter row whose cell count
+ * matches it. Three dashes minimum, so a line like `| - | - |` stays prose.
+ * Anything that fails falls through to the ordinary paragraph path rather
+ * than half-rendering.
+ */
+export function parseTable(
+  lines: string[],
+  start: number,
+): { table: ProposalTable; next: number } | null {
+  const header = lines[start];
+  const delim = lines[start + 1];
+  if (!header?.includes("|") || !delim?.includes("-")) return null;
+
+  const head = splitRow(header);
+  const spec = splitRow(delim);
+  if (head.length < 2 || spec.length !== head.length) return null;
+  if (!spec.every((c) => DELIM_CELL.test(c))) return null;
+
+  const align = spec.map((c): "left" | "center" | "right" => {
+    const left = c.startsWith(":");
+    const right = c.endsWith(":");
+    if (left && right) return "center";
+    return right ? "right" : "left";
+  });
+
+  const rows: string[][] = [];
+  let i = start + 2;
+  while (i < lines.length && lines[i].trim() && lines[i].includes("|")) {
+    const cells = splitRow(lines[i]);
+    // A short row is padded and a long one truncated, so a miscounted cell
+    // never shifts the column it lands in.
+    while (cells.length < head.length) cells.push("");
+    rows.push(cells.slice(0, head.length));
+    i++;
+  }
+
+  return { table: { head, rows, align }, next: i };
+}
+
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
 /**
  * Minimal markdown → HTML for section bodies. Deliberately not a full parser:
- * the brief above tells the model to use exactly these four constructs, and a
+ * the brief above tells the model to use exactly these five constructs, and a
  * narrow renderer makes it obvious when it hasn't.
  */
 function mdToHtml(md: string): string {
@@ -342,9 +425,27 @@ function mdToHtml(md: string): string {
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>");
 
-  for (const rawLine of md.split(/\r?\n/)) {
-    const line = rawLine.trimEnd();
-    if (!line.trim()) { flushList(); flushQuote(); continue; }
+  const lines = md.split(/\r?\n/).map((l) => l.trimEnd());
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) { flushList(); flushQuote(); i++; continue; }
+
+    const parsed = parseTable(lines, i);
+    if (parsed) {
+      flushList(); flushQuote();
+      const { table, next } = parsed;
+      const cell = (tag: string, text: string, col: number) =>
+        `<${tag} style="text-align:${table.align[col]}">${inline(text)}</${tag}>`;
+      const head = table.head.map((h, col) => cell("th", h, col)).join("");
+      const body = table.rows
+        .map((r) => `<tr>${r.map((v, col) => cell("td", v, col)).join("")}</tr>`)
+        .join("");
+      out.push(`<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`);
+      i = next;
+      continue;
+    }
+
     const wholeBold = line.trim().match(/^\*\*(.+?)\*\*$/);
     if (line.startsWith("## ")) {
       flushList(); flushQuote();
@@ -366,6 +467,7 @@ function mdToHtml(md: string): string {
       flushList(); flushQuote();
       out.push(`<p>${inline(line.trim())}</p>`);
     }
+    i++;
   }
   flushList(); flushQuote();
   return out.join("");
@@ -437,6 +539,11 @@ const toc = ordered.map(
 .cv-proposal li { margin: 0 0 8px; }
 .cv-proposal li::marker { color: ${PALETTE.bronze}; }
 .cv-proposal blockquote { margin: 20px 0; padding: 18px 22px; background: ${PALETTE.cream}; border-left: 4px solid ${PALETTE.bronze}; font-family: Georgia, serif; font-style: italic; font-size: 17px; color: ${PALETTE.ink}; }
+.cv-proposal table { width: 100%; border-collapse: collapse; margin: 0 0 20px; font-size: 14px; }
+.cv-proposal thead th { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: ${PALETTE.bronze}; padding: 0 12px 8px 0; border-bottom: 1px solid ${PALETTE.sand}; vertical-align: bottom; }
+.cv-proposal tbody td { padding: 10px 12px 10px 0; border-bottom: 1px solid ${PALETTE.mist}; color: ${PALETTE.charcoal}; vertical-align: top; }
+.cv-proposal tbody tr:last-child td { border-bottom: 1px solid ${PALETTE.sand}; }
+.cv-proposal th:last-child, .cv-proposal td:last-child { padding-right: 0; }
 .cv-proposal .gap { color: ${PALETTE.softGray}; font-style: italic; }
 </style>
 <header class="cover">
