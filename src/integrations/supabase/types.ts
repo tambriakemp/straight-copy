@@ -1344,6 +1344,63 @@ export type Database = {
           },
         ]
       }
+      client_portal_users: {
+        Row: {
+          activated_at: string | null
+          client_id: string
+          contact_id: string | null
+          created_at: string
+          email: string
+          id: string
+          invited_at: string | null
+          invited_by: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          client_id: string
+          contact_id?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          client_id?: string
+          contact_id?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_users_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_users_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "client_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_project_files: {
         Row: {
           category: string | null
@@ -2507,6 +2564,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      onboarding_chat_requests: {
+        Row: {
+          created_at: string
+          id: string
+          ip: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip?: string
+        }
+        Relationships: []
       }
       onboarding_invites: {
         Row: {
@@ -5058,6 +5133,14 @@ export type Database = {
         Returns: string
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_portal_member: {
+        Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_portal_member_or_admin: {
+        Args: { _client_id: string }
+        Returns: boolean
+      }
       log_email_event_for_clients_tasks: {
         Args: {
           _client_id: string
@@ -5106,7 +5189,7 @@ export type Database = {
         }[]
       }
       portal_whoami: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           business_name: string
           client_id: string
