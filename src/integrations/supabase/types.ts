@@ -4755,7 +4755,6 @@ export type Database = {
           completed: boolean
           conversation: Json
           created_at: string
-          extracted_intake: Json | null
           id: string
           submitted_at: string | null
           updated_at: string
@@ -4766,7 +4765,6 @@ export type Database = {
           completed?: boolean
           conversation?: Json
           created_at?: string
-          extracted_intake?: Json | null
           id?: string
           submitted_at?: string | null
           updated_at?: string
@@ -4777,7 +4775,6 @@ export type Database = {
           completed?: boolean
           conversation?: Json
           created_at?: string
-          extracted_intake?: Json | null
           id?: string
           submitted_at?: string | null
           updated_at?: string
@@ -5102,15 +5099,6 @@ export type Database = {
           label: string
           order_index: number
           started_at: string
-          status: string
-        }[]
-      }
-      portal_whoami: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          business_name: string
-          client_id: string
-          contact_name: string
           status: string
         }[]
       }
