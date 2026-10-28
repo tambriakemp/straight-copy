@@ -70,6 +70,48 @@ screen changes, because no screen knows which source answered it.
   that source so no dead link is drawn. Worth a card if uploaded proposals
   matter to a licensee.
 
+## What the home screen shows
+
+Bree's decision of 28 Oct: **the client's current projects, plus any task
+waiting on them.** It replaced a question this screen shipped with — the hero
+line, the target date and the "Latest from the team" feed are presentation
+with nowhere to be typed in, so on the plugin source all three were simply
+absent and the screen opened on a greeting and a progress bar.
+
+Both halves of her answer are derived from records that already exist, which
+is the point: nothing here needs an editor somebody has to remember to fill
+in, and nothing can go stale against the project it describes.
+
+| | |
+|---|---|
+| **Your projects** | `HomeView.projects`. Non-archived projects, newest movement first. |
+| **Waiting on you** | `HomeView.waitingOnYou`. Unsigned proposals **and a payable invoice**. |
+
+Three things about the project list worth knowing before changing it:
+
+* **The name is the project's own**, never composed for the client. Paperclip
+  projects are the source of truth, and a second client-facing name would be a
+  second thing to keep true. On the plugin source the name is resolved through
+  the host from `paperclipProjectId`; a project the plugin cannot name is left
+  out of the list rather than listed as "Untitled".
+* **`kind` and `statusLabel` are words, not keys.** `site_preview` on a
+  client's screen is the mistake CRE-797 cost us once already. Both map through
+  `projectKindLabel` / `projectStatusLabel` in `_shared/client-portal-shape.ts`,
+  which hold the `/admin` and Paperclip vocabularies side by side so one
+  spelling cannot mean two things either side of CP-6's import.
+* **The link is drawn only when there is a page.**
+  `/portal/:clientId/projects/:projectId` is the `/admin` project page and
+  takes an `/admin` id, so the bridge links every row and the plugin links
+  only what CP-6 imported (`legacyAdminProjectId`). A row with no button is
+  still a project whose state the client can read. When that page moves —
+  CRE-784 — `pluginProjects` is the line that changes.
+
+**Paying an invoice is now a task and not only a number.** Signing a proposal
+has always produced a row in Waiting on you; a bill the client could pay today
+appeared only as the Next payment card. A list headed "Waiting on you · 1"
+was telling a client the money was not one of the things waiting on them. The
+amount travels in the row's title because the two cards stack on a phone.
+
 ## Configuration
 
 | Variable | What happens without it |
@@ -79,7 +121,7 @@ screen changes, because no screen knows which source answered it.
 | `CLIENT_PORTAL_COMPANY_ID` | ditto |
 | `PORTAL_AGENCY_NAME` | This install answers as `Cre8 Visions` |
 | `PORTAL_MONOGRAM` | The tile beside the name is this agency's `C8`, or a licensee's initials |
-| `PORTAL_CONTACT_NAME` | The screens say "Message us" and "We asked for" |
+| `PORTAL_CONTACT_NAME` | This install answers as `Bree`; a licensee's screens say "Message us" and "We asked for" |
 | `PORTAL_REPLY_WINDOW` | Nothing is said about reply times |
 | `PORTAL_CONTACT_EMAIL` | This install offers its own inbox; a licensee's offers nothing |
 
@@ -89,10 +131,19 @@ module in this feature that knows whose install it is. Nothing downstream of
 it names an agency, a mark or an inbox —
 `src/test/portal-branding.test.tsx` fails if anything starts to.
 
-`PORTAL_CONTACT_NAME` has **no fallback on purpose.** Mockups 14 and 16 put a
-person's first name in running text, and a name compiled into a component
-keeps rendering perfectly after that person leaves. Unset is true whoever is
-reading the mail that week.
+`PORTAL_CONTACT_NAME` answers **`Bree` for this install and nothing for a
+licensee** (Bree's decision, 28 Oct). The name is in `THIS_INSTALL` rather
+than left to the variable on the live project, because a decision that exists
+only as an unset environment variable takes effect when somebody remembers to
+set it during a deploy and silently does not when they do not — and the
+symptom is screens that quietly read "Message us" forever. Setting the
+variable still overrides it, so changing the name is one variable and no
+deploy.
+
+For a licensee the field stays empty, and there the original reasoning holds
+harder: mockups 14 and 16 put a first name in running text, and a name of ours
+on their portal is not a missing default but a wrong one — a client told to
+message somebody at a company they have never heard of.
 
 ### Who the defaults belong to
 
@@ -120,7 +171,7 @@ curl -s -X POST "$SUPABASE_URL/functions/v1/client-portal" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"action":"health"}'
 # → {"ok":true,"source":"admin-tables","plugin":{"baseUrl":false,...},
-#    "wire":"1.1.0","monogram":true}
+#    "wire":"1.2.0","monogram":true}
 ```
 
 Booleans, a source name and a version. A diagnostic that printed the first
@@ -203,6 +254,7 @@ guess of its own.
 
 | | |
 |---|---|
+| `1.2.0` | `HomeView.projects` (CRE-776). Optional; absent draws no card. |
 | `1.1.0` | `PortalBranding.monogram` (CRE-797). Optional; null draws no tile. |
 | `1.0.0` | The four screens, mockups 13-16 (CRE-776). |
 

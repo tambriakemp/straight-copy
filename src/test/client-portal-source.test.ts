@@ -34,9 +34,15 @@ import { describe, expect, it } from "vitest";
 import {
   footnoteFor,
   invoiceRows,
+  pluginProjects,
+  projectKindLabel,
+  projectStatusLabel,
   providerLabel,
 } from "../../supabase/functions/_shared/client-portal-shape";
+import { payWaitingItem } from "../lib/clientPortalWire";
+import { money } from "../lib/clientPortalApi";
 import {
+  adminProjects,
   adminStatus,
   headlineFor,
   invoiceRowsFromAdmin,
@@ -290,6 +296,156 @@ describe("the payments table, from the /admin tables", () => {
       NOW,
     );
     expect(row.amountCents).toBe(0);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* The project list, and paying as a task (Bree's decision of 28 Oct)          */
+/* -------------------------------------------------------------------------- */
+
+describe("what a project is called on a client's screen", () => {
+  it("turns both sources' vocabularies into the same words", () => {
+    // The point of one function over two maps: `complete` from the `/admin`
+    // tables and `completed` from a Paperclip project are the same state, and
+    // a client should not be able to tell which side of CP-6's import their
+    // portal is being served from by reading it.
+    expect(projectStatusLabel("complete")).toBe("Complete");
+    expect(projectStatusLabel("completed")).toBe("Complete");
+    expect(projectStatusLabel("active")).toBe("In progress");
+    expect(projectStatusLabel("in_progress")).toBe("In progress");
+    expect(projectKindLabel("site_preview")).toBe("Website");
+    expect(projectKindLabel("web_development")).toBe("Website");
+  });
+
+  it("says nothing rather than printing a key it does not know", () => {
+    // `site_preview` on a client's home screen is the mistake CRE-797 cost
+    // us once: right in the database, meaningless to the reader. A licensee's
+    // own project type is not a word we are entitled to invent for them.
+    expect(projectKindLabel("brand_sprint")).toBeNull();
+    expect(projectStatusLabel("awaiting_legal")).toBeNull();
+    expect(projectKindLabel(null)).toBeNull();
+    expect(projectStatusLabel(undefined)).toBeNull();
+    // Both sources filter these out; a label would imply somewhere draws one.
+    expect(projectStatusLabel("archived")).toBeNull();
+  });
+});
+
+describe("the project list, from the /admin tables", () => {
+  const PROJECTS = [
+    { id: "p-1", name: "Glowskin website", type: "site_preview", status: "active", updated_at: "2026-10-27T09:00:00.000Z" },
+    { id: "p-2", name: "Booking reminders", type: "automation_build", status: "paused", updated_at: null },
+  ];
+
+  it("names every project and links every one of them", () => {
+    // On this source the project id IS the `/admin` project id, which is what
+    // `/portal/:clientId/projects/:projectId` resolves -- so a client with
+    // three projects can reach a named one directly. That is the thing the
+    // `Project` nav item cannot do: it has no project id, so it guesses when
+    // there is one and gives up when there are several.
+    expect(adminProjects(PROJECTS, "client-7")).toEqual([
+      {
+        id: "p-1",
+        name: "Glowskin website",
+        kind: "Website",
+        statusLabel: "In progress",
+        href: "/portal/client-7/projects/p-1",
+        updatedAt: "2026-10-27T09:00:00.000Z",
+      },
+      {
+        id: "p-2",
+        name: "Booking reminders",
+        kind: "Automation",
+        statusLabel: "On hold",
+        href: "/portal/client-7/projects/p-2",
+        updatedAt: null,
+      },
+    ]);
+  });
+});
+
+describe("the project list, from the plugin", () => {
+  it("leaves out a project it cannot name", () => {
+    // The name is the only part of the row a client can read -- kind, status
+    // and the link are all optional -- so a row without one is a bullet point
+    // saying nothing. The field is optional on the wire because the plugin
+    // resolves it through the host, which is newer than the first release of
+    // this screen: an older plugin sends no `project` at all, and the honest
+    // answer is a shorter list rather than "Untitled project" on somebody's
+    // portal.
+    const rows = pluginProjects(
+      [
+        { id: "cp-1", project: { name: "Glowskin website", status: "in_progress" } },
+        { id: "cp-2", project: null },
+        { id: "cp-3" },
+        { id: "cp-4", project: { name: "   " } },
+      ],
+      "client-7",
+    );
+    expect(rows.map((row) => row.id)).toEqual(["cp-1"]);
+    expect(rows[0]!.statusLabel).toBe("In progress");
+  });
+
+  it("links only a project the /admin page can address", () => {
+    // `/portal/:clientId/projects/:projectId` is the `/admin` project page.
+    // `paperclipProjectId` is not that id and would 404, so the link is drawn
+    // from `legacyAdminProjectId` -- which CP-6's import writes and which is
+    // null for anything created in the plugin.
+    const [imported, native] = pluginProjects(
+      [
+        {
+          id: "cp-1",
+          legacyAdminProjectId: "admin-99",
+          project: { name: "Glowskin website", status: "in_progress" },
+        },
+        { id: "cp-2", legacyAdminProjectId: null, project: { name: "Spring campaign" } },
+      ],
+      "client-7",
+    );
+    expect(imported!.href).toBe("/portal/client-7/projects/admin-99");
+    expect(native!.href).toBeNull();
+    // A project the plugin links to is a project, not a product line, so
+    // there is no kind to report on this source.
+    expect(native!.kind).toBeNull();
+  });
+});
+
+describe("paying, as a task waiting on the client", () => {
+  const ROW = invoiceRowsFromAdmin(
+    [
+      {
+        id: "inv-9",
+        label: "Deposit",
+        amount_cents: 208_000,
+        currency: "usd",
+        status: "sent",
+        due_date: "2026-11-14",
+        paid_at: null,
+        checkout_url: "https://pay.example/1",
+      },
+    ],
+    NOW,
+  )[0]!;
+
+  it("carries the amount, because the two cards stack on a phone", () => {
+    const item = payWaitingItem(ROW, "client-7", money);
+    expect(item).toMatchObject({
+      id: "invoice:inv-9",
+      title: "Pay Deposit · $2,080",
+      icon: "pay",
+      action: "Pay",
+      href: "/portal/client-7/payments",
+    });
+  });
+
+  it("says so when the date has passed", () => {
+    const overdue = { ...ROW, state: "overdue" as const };
+    expect(payWaitingItem(overdue, "client-7", money)!.title).toBe("Pay Deposit · $2,080 — overdue");
+  });
+
+  it("is no task at all when nothing is payable", () => {
+    // A scheduled instalment is a plan, not a task. Offering one as something
+    // waiting on the client sends them to pay an amount nobody has billed.
+    expect(payWaitingItem(null, "client-7", money)).toBeNull();
   });
 });
 

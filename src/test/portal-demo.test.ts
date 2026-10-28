@@ -176,6 +176,32 @@ describe("the fixtures cover what a reviewer has to look at", () => {
     expect(new Set(home.updates.map((one) => one.tone))).toEqual(new Set(["accent", "positive"]));
   });
 
+  it("home carries a project with every field and one with none but a name", () => {
+    const home = demoCall<{ view: HomeView }>("home", {}).view;
+    const projects = home.projects ?? [];
+    expect(projects.length).toBeGreaterThan(1);
+
+    // The full row, and the row that is a name and nothing else -- which is
+    // what a project the plugin can name and say nothing more about looks
+    // like, and the only fixture that proves the meta line is omitted rather
+    // than rendered as an empty gap.
+    expect(projects.some((one) => one.kind !== null && one.statusLabel !== null)).toBe(true);
+    expect(
+      projects.some(
+        (one) => one.kind === null && one.statusLabel === null && one.updatedAt === null,
+      ),
+    ).toBe(true);
+    // A name long enough to need `.cp-projects__text`'s wrap rule at 375px,
+    // which is where CRE-796's shape bites on two other screens.
+    expect(Math.max(...projects.map((one) => one.name.length))).toBeGreaterThan(40);
+
+    // One row with a link and one without, because that is the difference
+    // the screen draws -- one Open button and rows without one. Both have to
+    // appear in a screenshot or half of the decision goes unreviewed.
+    expect(projects.some((one) => one.href !== null)).toBe(true);
+    expect(projects.some((one) => one.href === null)).toBe(true);
+  });
+
   it("payments carries every state, and a paid row both with and without a receipt", () => {
     const payments = demoCall<{ view: PaymentsView }>("payments", {}).view;
     const states = new Set(payments.rows.map((row) => row.state));

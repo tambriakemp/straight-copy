@@ -27,6 +27,7 @@ import {
   initialsFor,
   ladder,
   monogramFor,
+  payWaitingItem,
   stepPosition,
   type AgreementView,
   type AgreementsView,
@@ -37,11 +38,12 @@ import {
   type PaymentsView,
   type PortalBranding,
   type PortalMe,
+  type PortalProject,
   type SharedLogin,
   type SignRequest,
   type SignResult,
 } from "@/lib/clientPortalWire";
-import { PortalRequestError } from "@/lib/clientPortalApi";
+import { money, PortalRequestError } from "@/lib/clientPortalApi";
 
 /* -------------------------------------------------------------------------- */
 /* Dates                                                                       */
@@ -325,6 +327,53 @@ const state: DemoState = {
 /* Views                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The project list, with the three rows that break it.
+ *
+ * One with everything, one a client can see but not open, and one whose name
+ * is long enough to need the wrap rule at 375px -- the width the row's `Open`
+ * button gets pushed off if `min-width: 0` is ever dropped from
+ * `.cp-projects__text`, which is the shape of CRE-796 on two other screens.
+ *
+ * The first row carries an `href` and the other two do not, which is the
+ * difference the screen draws: one Open button and two rows without one. The
+ * link leaves the harness -- `/portal/:clientId/projects/:id` is not one of
+ * the four screens auth is bypassed for -- and that is the same bargain the
+ * waiting rows above already strike with `/portal/demo/files` and
+ * `/portal/demo/project`. Drawing it is worth more than following it would
+ * be: a button that appears in no screenshot is a button nobody reviews, and
+ * the design gate is the reason these fixtures exist.
+ */
+const PROJECTS: PortalProject[] = [
+  {
+    id: "proj-site",
+    name: "Glowskin Studio website",
+    kind: "Website",
+    statusLabel: "In progress",
+    href: "/portal/demo/projects/demo-site",
+    updatedAt: daysOut(-1),
+  },
+  {
+    id: "proj-automation",
+    name: "Booking reminders and review requests automation for the front desk",
+    kind: "Automation",
+    statusLabel: "Starting soon",
+    href: null,
+    updatedAt: null,
+  },
+  {
+    // Every optional field empty: the row is a name and nothing else, which
+    // is what a project the plugin can name and say nothing else about looks
+    // like. It proves the meta line is omitted rather than rendered blank.
+    id: "proj-bare",
+    name: "Spring campaign",
+    kind: null,
+    statusLabel: null,
+    href: null,
+    updatedAt: null,
+  },
+];
+
 function homeView(): HomeView {
   const unpaid = state.payments.filter((row) => row.state !== "paid");
   const next = unpaid[0] ?? null;
@@ -346,10 +395,12 @@ function homeView(): HomeView {
   // second time: a fixture whose "Step 5 of 7" disagreed with its own
   // progress bar would look like a bug in the screen.
   const step = stepPosition(milestones);
+  const payRow = payWaitingItem(next, "demo", money);
 
   return {
     branding: BRANDING,
     me: ME,
+    projects: PROJECTS,
     headline: "Your new site is being built",
     stepNumber: step?.stepNumber ?? null,
     stepCount: step?.stepCount ?? null,
@@ -385,18 +436,12 @@ function homeView(): HomeView {
         href: "/portal/demo/project",
         primary: false,
       },
-      ...(next
-        ? [
-            {
-              id: "todo-pay",
-              title: `${next.label} — ${next.state === "overdue" ? "overdue" : "due soon"}`,
-              icon: "pay" as const,
-              action: "Pay",
-              href: "/portal/demo/payments",
-              primary: false,
-            },
-          ]
-        : []),
+      // Composed by the function both sources call, not written out here.
+      // This row used to read "Content milestone — overdue", which is a
+      // sentence no server has ever sent: the harness was showing QA a row
+      // that did not exist. It is also the row CRE-776's 28 Oct decision
+      // added, so the demo was previewing it before the servers had it.
+      ...(payRow ? [payRow] : []),
       {
         // Informational: no href, so no button. The row that proves a
         // missing button is a decision.

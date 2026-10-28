@@ -118,12 +118,31 @@ describe("the branding an install resolves to", () => {
     expectNothingOfOurs(JSON.stringify(branding));
   });
 
-  it("says nothing about a contact person nobody configured", () => {
-    // No default here, unlike the rest: mockups 14 and 16 put a first name
-    // in running text, and a defaulted name keeps rendering perfectly after
-    // that person leaves.
-    expect(resolveBranding(settings()).contactName).toBeNull();
+  it("names this agency's own contact, and overrides them from a setting", () => {
+    // Bree's decision of 28 Oct, and the reason it is a default rather than
+    // an environment variable on the live project: a decision that exists
+    // only as an unset variable takes effect when somebody remembers to set
+    // it during a deploy, and silently does not when they do not. The
+    // setting still wins, so changing the name is still one variable and no
+    // deploy.
+    expect(resolveBranding(settings()).contactName).toBe("Bree");
     expect(resolveBranding(settings({ PORTAL_CONTACT_NAME: "Rosa" })).contactName).toBe("Rosa");
+  });
+
+  it("says nothing about a contact person on a licensee's install", () => {
+    // Where the original "no default at all" reasoning still holds, and
+    // harder: for a licensee a name of ours is not a missing default but a
+    // wrong one -- a client told to message a person at another company.
+    // Unset, mockups 14 and 16 read "Message us" and "We asked for".
+    expect(
+      resolveBranding(settings({ PORTAL_AGENCY_NAME: "Northhill Studio" })).contactName,
+    ).toBeNull();
+    expect(
+      resolveBranding(settings({
+        PORTAL_AGENCY_NAME: "Northhill Studio",
+        PORTAL_CONTACT_NAME: "Rosa",
+      })).contactName,
+    ).toBe("Rosa");
   });
 
   it("treats a setting somebody cleared as unset", () => {
@@ -275,6 +294,7 @@ describe("no file in the portal hardcodes this agency", () => {
     );
     expect(identity).toContain(THIS_INSTALL.agencyName);
     expect(identity).toContain(THIS_INSTALL.monogram);
+    expect(identity).toContain(THIS_INSTALL.contactName);
     expect(identity).toContain(THIS_INSTALL.contactEmail);
   });
 });

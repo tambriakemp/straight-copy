@@ -56,13 +56,18 @@
  * than this copy" and draws what it would draw for an unset value -- never as
  * an error, and never by substituting a guess of its own.
  *
+ *   1.2.0  `HomeView.projects` (CRE-776, Bree's decision of 28 Oct). The home
+ *          screen lists the client's own projects rather than deriving one
+ *          hero line from the first of them. Optional, so a frontend built
+ *          against this copy renders nothing extra against a server that
+ *          predates it instead of an empty card.
  *   1.1.0  `PortalBranding.monogram` (CRE-797). Optional; null means draw no
  *          tile at all. The tile beside the agency name was the two
  *          characters `C8` compiled into the component until this field
  *          existed, which put our mark on a licensee's client's screen.
  *   1.0.0  The four screens, mockups 13-16 (CRE-776).
  */
-export const PORTAL_WIRE_VERSION = "1.1.0";
+export const PORTAL_WIRE_VERSION = "1.2.0";
 
 /** The agency, as the client sees it. Never hardcoded: licensees are not us. */
 export interface PortalBranding {
@@ -156,6 +161,51 @@ export interface PortalMilestone {
  */
 export type WaitingIcon = "sign" | "upload" | "review" | "pay";
 
+/**
+ * One of the client's projects, as the home screen lists them.
+ *
+ * THE FIELD THAT SETTLED QUESTION 1 ON CRE-776. The home screen used to open
+ * on a hero line, a target date and a "Latest from the team" feed, all three
+ * of which are presentation with nowhere to be typed in: the plugin has no
+ * editor for them and no mockup draws one, so on the plugin backend they were
+ * simply absent. Bree's answer was to show what the system already knows
+ * instead -- the client's current projects, and the tasks waiting on them.
+ * Both are derived from records that exist, which is why neither needs a
+ * screen somebody has to remember to fill in.
+ *
+ * Every field here is read from the project, and `name` is the project's own
+ * name rather than anything composed for the client. Paperclip projects are
+ * the source of truth; a second client-facing name would be a second thing to
+ * keep true.
+ */
+export interface PortalProject {
+  id: string;
+  /** "Glowskin Studio website" -- the project's name, verbatim. */
+  name: string;
+  /**
+   * What kind of work it is, in a client's words: "Website", "Automation".
+   *
+   * Null rather than the stored key when nothing maps. `site_preview` on a
+   * client's screen is the same class of mistake as a monogram nobody chose:
+   * correct in the database and meaningless to the person reading it.
+   */
+  kind: string | null;
+  /** "In progress", "On hold". Null says nothing rather than guessing. */
+  statusLabel: string | null;
+  /**
+   * Where the client opens it, or null to draw no link.
+   *
+   * Null is a real answer and not a missing one. The project page is the
+   * `/admin` one -- the seam CRE-784 is about -- and it is addressed by an
+   * `/admin` project id. A project that exists only in the plugin has no such
+   * id until CP-6 has linked it, and a row with no link beats a link to a
+   * page that 404s.
+   */
+  href: string | null;
+  /** When it last moved, for "updated 3 days ago". Null when unknown. */
+  updatedAt: string | null;
+}
+
 /** A thing the client has to do. The whole point of the home screen. */
 export interface WaitingItem {
   id: string;
@@ -204,6 +254,16 @@ export interface TeamUpdate {
 export interface HomeView {
   branding: PortalBranding;
   me: PortalMe;
+  /**
+   * The client's current projects, newest movement first. Archived ones are
+   * not here: a portal is for work in flight.
+   *
+   * Optional for the reason the version note above gives, and not because an
+   * empty list is unexpected -- a client between projects legitimately has
+   * none, and the card then says so. Absent means "a server older than this
+   * copy", and a reader draws no card at all rather than an empty one.
+   */
+  projects?: PortalProject[];
   /** "Your new site is being built". Null when there is no live project. */
   headline: string | null;
   /** 1-based, for "Step 5 of 7". Null when no milestones are shared. */
@@ -572,6 +632,58 @@ export function paymentTotals(rows: PaymentRow[]): {
     totalCents,
     paidCents,
     next: next ? { amountCents: next.amountCents, dueOn: next.dueOn } : null,
+  };
+}
+
+/**
+ * "Pay the deposit" as a row in Waiting on you.
+ *
+ * Bree named paying an invoice as one of the two things that belong in that
+ * list (28 Oct), and it was the one missing: signing a proposal has always
+ * produced a row, while a bill the client could pay today appeared only as
+ * the Next payment card. That card is the amount; this is the task. A client
+ * reading a list headed "Waiting on you · 1" was being told the money was
+ * not one of the things waiting on them.
+ *
+ * The amount travels in the title because the two cards stack on a phone, so
+ * the figure is a scroll away rather than beside it.
+ *
+ * HERE RATHER THAN IN `client-portal-shape.ts`, which is where the rest of
+ * the composition lives, because the QA harness needs it too and cannot
+ * reach a module outside `src`. A fixture that wrote this row out by hand is
+ * a fixture that shows QA a row no server sends -- which is exactly what the
+ * harness did before this moved: it read "Content milestone — overdue",
+ * a sentence neither source has ever produced.
+ *
+ * `formatMoney` is a parameter for the same reason `instalmentSummary` takes
+ * one: this contract does not own formatting, because the browser is the
+ * only party that knows the reader's locale.
+ *
+ * `null` when nothing is payable -- an unbilled instalment is a plan, not a
+ * task, and offering one sends a client to pay an amount nobody has asked
+ * for.
+ */
+export function payWaitingItem(
+  next: PaymentRow | null | undefined,
+  clientId: string,
+  formatMoney: (cents: number, currency: string) => string,
+): WaitingItem | null {
+  if (!next) return null;
+  const amount = formatMoney(next.amountCents, next.currency);
+  return {
+    id: `invoice:${next.id}`,
+    title:
+      next.state === "overdue"
+        ? `Pay ${next.label} · ${amount} — overdue`
+        : `Pay ${next.label} · ${amount}`,
+    icon: "pay",
+    action: "Pay",
+    href: `/portal/${encodeURIComponent(clientId)}/payments`,
+    // `markFirstPrimary` decides this, and it hands the violet button to the
+    // first row with a link. Proposals are pushed before this one, so
+    // signing a contract outranks paying for it -- which is the right way
+    // round, because the bill exists because of the contract.
+    primary: false,
   };
 }
 

@@ -1,9 +1,17 @@
 // Mockup 13: the client's home.
 //
-// Four things, in the order a client cares about them: where the work is up
-// to, what is waiting on THEM, what they owe, and what has happened lately.
-// The second is the reason the page exists -- a portal that only reports
-// status is a page nobody opens twice.
+// Five things, in the order a client cares about them: where the work is up
+// to, what is waiting on THEM, what they owe, what they have on with us, and
+// what has happened lately. The second is the reason the page exists -- a
+// portal that only reports status is a page nobody opens twice.
+//
+// The fourth is Bree's decision of 28 Oct, and it is the answer to a question
+// this screen had been shipped without: the hero line, the target date and
+// the team feed are all presentation with nowhere to be typed in, so on the
+// plugin backend all three were simply absent and the screen opened on a
+// greeting and a progress bar. "The client's current projects plus any tasks
+// waiting on them" is content derived from records that exist, which is why
+// it needs no editor and cannot go stale.
 
 import { Link, useParams } from "react-router-dom";
 import ClientPortalShell, {
@@ -13,7 +21,7 @@ import ClientPortalShell, {
 import { useAdminPreview, usePortalView } from "@/components/portal/useClientPortal";
 import { clientPortal, greeting, money, shortDate, whenWord } from "@/lib/clientPortalApi";
 import { WAITING_ICONS } from "@/lib/clientPortalIcons";
-import type { HomeView, PortalMilestone } from "@/lib/clientPortalWire";
+import type { HomeView, PortalMilestone, PortalProject } from "@/lib/clientPortalWire";
 
 export default function ClientHome() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -41,6 +49,7 @@ export default function ClientHome() {
       ) : (
         <>
           <Hero view={view} />
+          <ProjectsCard projects={view.projects} />
           <div className="cp__cards">
             <WaitingCard view={view} />
             <NextPaymentCard view={view} clientId={clientId ?? ""} />
@@ -101,6 +110,77 @@ function Progress({ milestones }: { milestones: PortalMilestone[] }) {
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * "Your projects", full width between the hero and the three cards.
+ *
+ * Its own row rather than a fourth card: `.cp__cards` is
+ * `auto-fit, minmax(260px, 1fr)` in a 1092px column, so it fits three and a
+ * fourth would sit alone under the first of them with two empty columns
+ * beside it. A list that can run to several rows also wants the width.
+ *
+ * NOT DRAWN AT ALL when the field is absent, which is different from drawing
+ * an empty one. `projects` is optional in the wire contract because the
+ * function and the frontend deploy separately and in that order, so for the
+ * length of a deploy the browser can be newer than the server. An absent
+ * field means "this server does not send projects"; an empty array means
+ * "this client has none", and only the second deserves the sentence saying
+ * so.
+ */
+function ProjectsCard({ projects }: { projects: HomeView["projects"] }) {
+  if (!projects) return null;
+  return (
+    <section className="cp-card cp-projects">
+      <h2 className="cp-card__title">
+        Your projects{projects.length > 0 && <> · {projects.length}</>}
+      </h2>
+      {projects.length === 0 ? (
+        <p className="cp-card__calm">
+          Nothing on the go right now. We will add your next project here.
+        </p>
+      ) : (
+        <ul className="cp-projects__list">
+          {projects.map((project) => (
+            <ProjectRow key={project.id} project={project} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function ProjectRow({ project }: { project: PortalProject }) {
+  // Joined here rather than on the server: which of the three a given source
+  // can answer varies, and a pre-joined string would arrive carrying the
+  // separators for the ones it could not.
+  const meta = [
+    project.kind,
+    project.statusLabel,
+    project.updatedAt ? `updated ${whenWord(project.updatedAt)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <li className="cp-projects__row">
+      <span className="cp-projects__text">
+        <span className="cp-projects__name">{project.name}</span>
+        {/* Omitted rather than empty when a source can answer none of the
+            three, so the row is one line instead of one line and a gap. */}
+        {meta && <span className="cp-projects__meta">{meta}</span>}
+      </span>
+      {/* No link for a project this portal has no page for -- see
+          `pluginProjects`. A row with no button is still a project whose
+          state the client can read, which is the point of the list; a button
+          that 404s is worse than its absence. */}
+      {project.href && (
+        <Link className="cp__btn" to={project.href}>
+          Open
+        </Link>
+      )}
+    </li>
   );
 }
 

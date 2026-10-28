@@ -15,8 +15,117 @@ import {
   paymentState,
   type AgreementView,
   type PaymentRow,
+  type PortalProject,
   type WaitingItem,
 } from "./client-portal-wire.ts";
+
+/* -------------------------------------------------------------------------- */
+/* The project card (mockup 13, Bree's decision of 28 Oct)                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What kind of work a project is, in a client's words.
+ *
+ * Two vocabularies in one map, which is worth defending rather than hiding:
+ * the `/admin` bridge stores `client_projects.type`, and the plugin reads a
+ * Paperclip project that has no type at all. Both sources call the same
+ * function so that one spelling cannot mean "Website" on the bridge and
+ * something else after CP-6 moves the data -- the one visible symptom of a
+ * migration is the words on the client's screen changing, and that is the one
+ * thing nobody is watching for.
+ *
+ * Anything unrecognised is null rather than the key itself. A licensee's own
+ * project type is not a word we are entitled to invent, and `site_preview`
+ * printed on a client's home screen is the mistake CRE-797 already cost us
+ * once: right in the database, meaningless to the reader.
+ */
+export function projectKindLabel(type: string | null | undefined): string | null {
+  const known: Record<string, string> = {
+    site_preview: "Website",
+    web_development: "Website",
+    app_development: "App",
+    automation_build: "Automation",
+    marketing: "Marketing",
+  };
+  return known[(type ?? "").trim().toLowerCase()] ?? null;
+}
+
+/**
+ * What a project's state is called on a client's screen.
+ *
+ * Both vocabularies again -- `active | paused | complete` from the `/admin`
+ * tables, and `backlog | planned | in_progress | completed | cancelled` from
+ * a Paperclip project -- mapped onto the words a client would use. The two
+ * spellings of done deliberately land on the same label.
+ *
+ * `archived` is absent on purpose: both sources filter those rows out before
+ * they reach here, and giving it a label would make it look as though
+ * somewhere draws one.
+ */
+export function projectStatusLabel(status: string | null | undefined): string | null {
+  const known: Record<string, string> = {
+    active: "In progress",
+    in_progress: "In progress",
+    paused: "On hold",
+    complete: "Complete",
+    completed: "Complete",
+    backlog: "Not started yet",
+    planned: "Starting soon",
+    cancelled: "Stopped",
+  };
+  return known[(status ?? "").trim().toLowerCase()] ?? null;
+}
+
+/**
+ * Plugin link rows as the home screen's project list.
+ *
+ * TWO THINGS ARE DROPPED RATHER THAN GUESSED AT.
+ *
+ * A row whose `project` the plugin could not resolve is left out. The name is
+ * the only part of a project row a client can read -- `kind`, `statusLabel`
+ * and the link are all optional -- so a row without one is a bullet point
+ * saying nothing, and "Untitled project" on somebody's portal reads as data
+ * we have lost. Leaving it out is visible in a way that is honest: the card
+ * shows the projects we can name, or no card at all.
+ *
+ * The link is drawn only for a project CP-6 imported, because
+ * `/portal/:clientId/projects/:projectId` is an `/admin` page addressed by an
+ * `/admin` id. `paperclipProjectId` is not that id and would 404. When the
+ * project page itself moves -- CRE-784 -- this is the line that changes, and
+ * `legacyAdminProjectId` stops being load-bearing at the same moment the
+ * bridge does.
+ */
+export function pluginProjects(
+  projects: Array<{
+    id: string;
+    legacyAdminProjectId?: string | null;
+    project?: { name?: string | null; status?: string | null } | null;
+  }>,
+  clientId: string,
+): PortalProject[] {
+  return projects.flatMap((row): PortalProject[] => {
+    const name = (row.project?.name ?? "").trim();
+    if (name.length === 0) return [];
+    const adminId = row.legacyAdminProjectId ?? null;
+    return [
+      {
+        id: row.id,
+        name,
+        // A Paperclip project has no "kind": the plugin links to a project,
+        // not to a product line. Null rather than a word nobody chose.
+        kind: null,
+        statusLabel: projectStatusLabel(row.project?.status ?? null),
+        href: adminId
+          ? `/portal/${encodeURIComponent(clientId)}/projects/${encodeURIComponent(adminId)}`
+          : null,
+        // The link row's own `updatedAt` is when somebody edited what the
+        // client is shown, which is not when the project moved. Saying
+        // nothing beats dating a project by a visibility edit.
+        updatedAt: null,
+      },
+    ];
+  });
+}
 
 /** The slice of a plugin invoice these functions read. */
 export interface ShapeInvoice {
