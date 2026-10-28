@@ -234,20 +234,46 @@ so it dies with the tab rather than waiting in a browser tomorrow.
 **It is read-only, and that is an allowlist.** `VIEW_AS_READS` in
 `_shared/portal-view-as.ts` names the function-and-action pairs a view-as
 token may reach, and **fails closed**: anything not named gets a 401. Today
-that is the four client screens, the contract download, and the one
-`proposal-sign` action the bridge delegates that download to. Signing,
-declining, paying and sharing a login are not on it, which is Bree's condition
-on the card — she must not be able to sign or pay as the client by accident.
-The inverse (a denylist of writes) would have had the opposite default, and
-the default is the whole question.
+that is the six dark-nav screens, the contract download, and the one
+`proposal-sign` action the bridge delegates that download to — `client-portal`
+(`home`, `agreements`, `payments`, `logins`, `document`), `proposal-sign`
+(`download`), and, since CRE-818, `brand-kit-intake` (`resolve`) and
+`client-files` (`list`). Signing, declining, paying, sharing a login,
+uploading a file and advancing a journey node are not on it, which is Bree's
+condition on the card — she must not be able to sign or pay as the client by
+accident. The inverse (a denylist of writes) would have had the opposite
+default, and the default is the whole question.
 
-**The older portal frame does not open in a view-as session**, and that is the
-honest limitation rather than an oversight: Project, Files, Proposals, Brand
-Kit and Feedback read through functions with no allowlist entry, so they 401.
+**An entry is not enough on its own: the function must pass its action.**
+`resolvePortalCaller(req, clientId)` with two arguments refuses every view-as
+token, because the allowlist cannot answer "may this token do this" without
+being told what "this" is. `brand-kit-intake` and `client-files` were both
+reachable screens that still 401'd for exactly that reason until CRE-818.
+`src/test/portal-view-as.test.ts` pins the three-argument call on all three
+browser-facing functions, and pins `x-portal-view-as` in each one's CORS
+`Access-Control-Allow-Headers` — a header a function does not advertise is a
+header the browser drops at preflight, so the request never arrives to be
+logged.
+
+**Two blocks on the Project screen cannot be previewed at all**, whatever the
+allowlist says. The phase ladder, the signed-contract check and the
+discovery-chat history are read through `supabasePortal` (PostgREST), and a
+view-as session has no Supabase session for RLS to recognise; the page-review
+count is `preview-approvals`, which is deliberately not on the list. Each
+would fail silently and read as a real answer — no phases, contract unsigned,
+nothing to review — so `ClientProject.tsx` skips those reads in a view-as
+session and names the four missing blocks in a panel instead. Files is
+complete: `list` is allowed, and the drop zone and the remove buttons are
+replaced by a line saying a preview is read-only.
+
+**The older light frame still does not open in a view-as session**, and that
+is the honest limitation rather than an oversight: Proposals, Brand Kit and
+Feedback read through functions with no allowlist entry, so they 401.
 `?as=admin` still works there for an admin with a session in the tab. Adding
-one of them is one line in `VIEW_AS_READS` plus that function's own redeploy;
-doing it blind, for a page whose write actions nobody has read, is how a
-preview learns to sign things.
+one of them is one line in `VIEW_AS_READS`, the action passed through to
+`resolvePortalCaller`, and that function's own redeploy; doing it blind, for a
+page whose write actions nobody has read, is how a preview learns to sign
+things.
 
 **Every look is logged.** `portal_view_as_log` takes a `minted` row when an
 admin asks and one `redeemed` row the first time the token is used — the
@@ -463,6 +489,15 @@ the order is `SQL → secrets → functions → publish`:
    undeployed one simply goes on refusing view-as tokens — it fails closed, so
    there is no ordering hazard in leaving them.
 4. **Publish**, which is the owner pressing Publish in Lovable.
+
+**CRE-818 adds two more functions to step 3 and nothing to steps 1 and 2.**
+`brand-kit-intake` and `client-files` are what the Project and Files screens
+call, and they change in the same two ways: the action is passed to
+`resolvePortalCaller`, and `x-portal-view-as` is added to their CORS
+`Access-Control-Allow-Headers`. Both need deploying with `_shared/`, and both
+fail closed until they are — an undeployed one goes on 401ing view-as
+requests, which is the behaviour the card is fixing, not a new one. No
+migration and no secret.
 
 Otherwise nothing here needs a migration against this database. The
 plugin-side migrations belong to the Agent Platform repository and run against

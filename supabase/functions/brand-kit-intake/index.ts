@@ -18,8 +18,10 @@ import { CLAUDE_MODEL } from "../_shared/models.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  // `x-portal-view-as` is a non-simple header, so a browser will preflight it
+  // and drop the request if it is not named here. CRE-818.
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-portal-view-as, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
@@ -208,7 +210,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const caller = await resolvePortalCaller(req, clientId);
+    // `action` is passed so that a CRE-811 view-as token can be checked
+    // against the read allowlist in `_shared/portal-view-as.ts`, which since
+    // CRE-818 lets `resolve` -- and only `resolve` -- through. Without the
+    // argument every view-as caller is refused, which is the right default
+    // and is why the Project and Files screens used to error in a preview.
+    const caller = await resolvePortalCaller(req, clientId, action);
     if (caller.kind === "unauthorized") {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -231,7 +238,16 @@ Deno.serve(async (req) => {
     // ---------- RESOLVE ----------
     if (action === "resolve") {
       // Flip portal_accessed when a real client (not admin impersonation) loads the portal.
-      if (!body.asAdmin) {
+      //
+      // CRE-818: `caller.kind` is the half of this the browser cannot lie
+      // about. `body.asAdmin` is a flag the frontend sets and was the only
+      // guard here, which was survivable while every caller held a session --
+      // but a view-as token resolves to `admin` and is the one caller whose
+      // whole purpose is to look without leaving a mark. A preview that
+      // ticked "the client opened their portal" would be this card's bug in
+      // the one direction nobody would notice, because the checklist does not
+      // say who ticked it.
+      if (!body.asAdmin && caller.kind !== "admin") {
         try { await flipChecklistItem(supabase as any, clientId, "intake", "intake.portal_accessed"); } catch {/* ignore */}
       }
       const { data: row } = await supabase

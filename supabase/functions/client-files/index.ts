@@ -22,7 +22,10 @@ import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  // `x-portal-view-as` is a non-simple header, so a browser will preflight it
+  // and drop the request if it is not named here. CRE-818.
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-portal-view-as",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -77,7 +80,18 @@ Deno.serve(async (req) => {
 
   const isAdmin = await callerIsAdmin(req, admin);
   if (!isAdmin) {
-    const caller = await resolvePortalCaller(req, clientId);
+    // `action` is passed so that a CRE-811 view-as token can be checked
+    // against the read allowlist in `_shared/portal-view-as.ts`, which since
+    // CRE-818 lets `list` through and nothing else. Omitting it refused every
+    // view-as caller, which is why the Files screen errored in a preview.
+    //
+    // A view-as caller lands here rather than above it on purpose:
+    // `callerIsAdmin` refuses the anon key, which is the bearer a view-as
+    // request carries, so `isAdmin` stays FALSE and the list below is
+    // filtered to `visible_to_client` exactly as the client's own would be.
+    // An admin preview that showed the hidden rows would be showing something
+    // the client cannot see, which is the opposite of the point.
+    const caller = await resolvePortalCaller(req, clientId, action);
     if (caller.kind === "unauthorized") return json({ error: "Unauthorized" }, 401);
   }
 
