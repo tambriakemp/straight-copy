@@ -166,9 +166,55 @@ binding", the `@vitejs/plugin-react-swc` addon cannot be materialised in that
 sandbox. `vitest.node.config.mts` runs the same suite with esbuild doing the
 JSX; the gate is still `npm run test`.
 
-The screens were compared against the mockups by rendering the real
-components against stubbed data at 1440px. The harness is not in this repo —
-see the CRE-776 card.
+## Reviewing the screens: the QA harness
+
+All four client screens sit behind `RequirePortalAuth` and a real Supabase
+session, so reviewing them used to need a live portal account for a live
+client. QA has none, and the consequence was CRE-789: an audit that could
+check the auth gate at four widths and not one pixel of the screens behind
+it. Every statement about their content came from comparing mockups to the
+developer's own screenshots, which is the author marking his own work.
+
+```sh
+VITE_PORTAL_DEMO=1 npm run dev     # then open /portal/demo
+```
+
+That serves all four screens from fixtures, with no session and no network:
+`/portal/demo`, `/portal/demo/agreements`, `/portal/demo/payments`,
+`/portal/demo/logins`. Signing, declining, sharing and removing a login all
+work and stick until you reload. Credentials were the alternative and are
+the worse answer — they expire, leak, need rotating, and are ours, so a
+licensee's QA hits the same wall on their first day. A harness ships with
+the product.
+
+**The fixtures carry the awkward rows on purpose**, because a list is broken
+by its awkward row: every payment state, every waiting icon, a proposal
+built here and one that arrived as an uploaded PDF, a paid row with a
+receipt and one without, a request from an agent and one from a person, and
+labels long enough to overflow a 375px column.
+
+**Three things keep it out of production**, and none is trusted alone:
+
+1. **A build flag.** `VITE_PORTAL_DEMO` is read through `import.meta.env` at
+   every use site, so with it unset each guard folds to `false` at build
+   time and the fixtures are never emitted. Verified against the real build
+   output, not assumed:
+   ```sh
+   npm run build && grep -rl "Northhill\|demo_unimplemented" dist/   # no matches
+   ```
+2. **A reserved client id.** Even in a demo build the harness answers for
+   `demo` alone — not a UUID, so it cannot collide with a real client. Any
+   other id takes the real path: real session, real function, real refusal.
+3. **No network.** The harness never calls `portalFetch`, so it has no route
+   to a real client's data in any configuration.
+
+The flag belongs on the command line and **not in `.env`** — `.env` is
+committed here and feeds the production build, so a line in it would ship
+the harness to clients. `src/test/portal-demo.test.ts` fails if one appears,
+and also pins the three properties above and the opt-in route list.
+
+Before the harness existed the screens were compared against the mockups by
+rendering the real components against stubbed data at 1440px.
 
 ## Deploying
 

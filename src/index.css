@@ -5264,7 +5264,16 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
   font-size: 30px;
   line-height: 1.3;
   margin: 2px 0 14px;
-  min-height: 40px;
+  /* 44px, not 40: the empty state below adds 4px of padding and a 1px rule,
+     which under border-box is exactly what the reserved height is for --
+     but 40px was shorter than that, so the panel still dropped 4px the
+     moment a client typed their first character. A gap this small is easy
+     to miss in review and is the whole of what reserving the height was
+     meant to prevent, on the one panel where somebody is reading carefully.
+     Found with the QA harness, and only findable that way: this is a
+     measurement in a real browser, so the jsdom suite cannot pin it. Check
+     it by eye, or re-measure the panel empty and typed at /portal/demo. */
+  min-height: 44px;
   overflow-wrap: anywhere;
 }
 /* Empty, the reserved height needs a reason to exist or it reads as a gap

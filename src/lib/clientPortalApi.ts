@@ -13,6 +13,7 @@
 // database rather than four requests doing it across the Atlantic.
 
 import { portalFetch } from "@/lib/portalFetch";
+import { isDemoClient } from "@/lib/portalDemo";
 import type {
   AgreementsView,
   HomeView,
@@ -52,6 +53,17 @@ async function call<T>(
   body: Record<string, unknown>,
   adminPreview: boolean,
 ): Promise<T> {
+  // The QA harness, and the only place it is reachable from. Both halves of
+  // the condition matter: the first folds to `false` at build time with the
+  // flag unset, which takes the `import()` below with it so the fixtures are
+  // never emitted; the second keeps even a demo build answering from
+  // fixtures for one reserved id and from the real server for every other.
+  // See `portalDemo.ts`.
+  if (import.meta.env.VITE_PORTAL_DEMO === "1" && isDemoClient(clientId)) {
+    const { demoCall } = await import("@/lib/portalDemoData");
+    return demoCall<T>(action, body);
+  }
+
   let response: Response;
   try {
     response = await portalFetch("client-portal", { action, clientId, ...body }, adminPreview);

@@ -3,6 +3,7 @@ import { Navigate, useParams } from "react-router-dom";
 import { usePortalAuth } from "@/hooks/usePortalAuth";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useAdminPreview } from "@/hooks/useAdminPreview";
+import { isDemoClient } from "@/lib/portalDemo";
 
 /**
  * Guards every /portal/:clientId* route. CRE-536: a bare link used to be
@@ -13,11 +14,35 @@ import { useAdminPreview } from "@/hooks/useAdminPreview";
  * Old links with neither land here and redirect to the portal login,
  * which sends them back to the same URL once they're signed in.
  */
-export default function RequirePortalAuth({ children }: { children: ReactNode }) {
+export default function RequirePortalAuth({
+  children,
+  demoable = false,
+}: {
+  children: ReactNode;
+  /**
+   * Whether this route may be served by the QA harness.
+   *
+   * Opt-in per route, and set on exactly the four CP-5 client screens,
+   * because those are the only ones the harness has fixtures for. The rest
+   * of `/portal/:clientId/*` reads Supabase through the browser client and
+   * would be a real gate to remove, so it keeps its gate even in a demo
+   * build. An auditable list beats a blanket bypass: the routes that can
+   * skip auth are the ones that say so, in `App.tsx`.
+   */
+  demoable?: boolean;
+}) {
   const { clientId } = useParams<{ clientId: string }>();
   const { loading: portalLoading, user: portalUser, isMemberOf } = usePortalAuth();
   const { loading: adminLoading, user: adminUser, isAdmin } = useAdminAuth();
   const adminPreview = useAdminPreview();
+
+  // The QA harness. Dead and eliminated unless `VITE_PORTAL_DEMO=1` was set
+  // at build time, and then only for the reserved id -- see `portalDemo.ts`.
+  // Placed above the loading branch deliberately: the harness has no session
+  // to wait for, and waiting on one would leave QA at "Loading…" forever.
+  if (import.meta.env.VITE_PORTAL_DEMO === "1" && demoable && isDemoClient(clientId)) {
+    return <>{children}</>;
+  }
 
   if (portalLoading || (adminPreview && adminLoading)) {
     return (
