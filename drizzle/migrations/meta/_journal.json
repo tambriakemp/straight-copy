@@ -127,6 +127,13 @@
       "when": 1793161569029,
       "tag": "0017_portal_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793161594860,
+      "tag": "0018_grant_client_portal_users",
+      "breakpoints": true
     }
   ]
 }
