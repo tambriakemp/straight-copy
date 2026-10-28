@@ -2823,6 +2823,53 @@ export type Database = {
           },
         ]
       }
+      portal_view_as_log: {
+        Row: {
+          actor_label: string
+          actor_user_id: string | null
+          client_id: string
+          created_at: string
+          event: string
+          expires_at: string
+          id: string
+          issuer: string
+          jti: string
+          user_agent: string | null
+        }
+        Insert: {
+          actor_label: string
+          actor_user_id?: string | null
+          client_id: string
+          created_at?: string
+          event: string
+          expires_at: string
+          id?: string
+          issuer: string
+          jti: string
+          user_agent?: string | null
+        }
+        Update: {
+          actor_label?: string
+          actor_user_id?: string | null
+          client_id?: string
+          created_at?: string
+          event?: string
+          expires_at?: string
+          id?: string
+          issuer?: string
+          jti?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_view_as_log_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       preview_approval_events: {
         Row: {
           action: string
