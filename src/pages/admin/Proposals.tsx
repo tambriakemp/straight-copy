@@ -11,18 +11,16 @@
 // Grouping reads off the timestamps rather than `status` — see
 // @/lib/proposalStatus for why.
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import ProposalGroupList from "@/components/admin/proposal/ProposalGroupList";
+import { ReadOnlyNotice } from "@/components/admin/ReadOnlyNotice";
 import { usd } from "@/lib/clientBalance";
 import { loadAdminOperations, projectMap, type AdminOperations } from "@/lib/adminOperations";
 import { daysOut } from "@/lib/proposalStatus";
 import { groupFamilies } from "@/lib/proposalGroups";
 
 export default function Proposals() {
-  const navigate = useNavigate();
   const [data, setData] = useState<AdminOperations | null>(null);
   const [copying, setCopying] = useState<string | null>(null);
 
@@ -57,12 +55,7 @@ export default function Proposals() {
             <h1 className="cv-page-title">Proposals</h1>
             <p className="cv-page-sub">Every proposal across your clients, grouped by what happens next.</p>
           </div>
-          <button
-            type="button" className="cv-open cv-open--dark" style={{ padding: "0 20px" }}
-            onClick={() => navigate("/admin/proposals/new")}
-          >
-            <Plus size={16} style={{ marginRight: 7 }} /> Upload proposal
-          </button>
+          <ReadOnlyNotice subject="proposal list" />
         </div>
 
         <div className="cv-stat-row">

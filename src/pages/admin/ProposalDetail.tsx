@@ -16,6 +16,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import { supabase } from "@/integrations/supabase/client";
 import { usd } from "@/lib/clientBalance";
+import { ReadOnlyNotice } from "@/components/admin/ReadOnlyNotice";
 import { proposalGroup, clientStatusLabel, type ProposalLike } from "@/lib/proposalStatus";
 import { describeTerm, termRows } from "@/lib/proposalTerms";
 
@@ -91,7 +92,6 @@ export default function ProposalDetail() {
   const [versions, setVersions] = useState<ProposalRow[]>([]);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -134,19 +134,6 @@ export default function ProposalDetail() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const run = async (key: string, body: Record<string, unknown>, ok: string) => {
-    setBusy(key);
-    try {
-      await callFn(body);
-      toast.success(ok);
-      await load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "That didn't work");
-    } finally {
-      setBusy(null);
-    }
-  };
-
   if (loading) {
     return <AdminLayout topBar={false}><div className="cv-admin cv-page"><p className="cv-page-sub">Loading…</p></div></AdminLayout>;
   }
@@ -183,16 +170,11 @@ export default function ProposalDetail() {
               <span className="cv-chip cv-chip--gray">Version {p.version}</span>
               <span className={`cv-chip cv-chip--${status.tone}`}>{status.label}</span>
             </div>
+            <ReadOnlyNotice subject="proposal" />
           </div>
           <a className="cv-open" style={{ padding: "0 18px" }} href={portalUrl} target="_blank" rel="noreferrer">
             See client view <ExternalLink size={14} style={{ marginLeft: 6 }} />
           </a>
-          <button
-            type="button" className="cv-open cv-open--dark" style={{ padding: "0 18px" }}
-            onClick={() => navigate(`/admin/proposals/new?project=${p.client_project_id}&client=${p.client_id}&supersedes=${p.id}`)}
-          >
-            Upload new version
-          </button>
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
@@ -239,12 +221,6 @@ export default function ProposalDetail() {
                 <p style={{ margin: 0, fontSize: 13, color: "var(--cv-muted)" }}>
                   It has been sent and is waiting on {clientName}.
                 </p>
-                <button
-                  type="button" className="cv-open" disabled={busy === "notify"}
-                  onClick={() => run("notify", { action: "notify", clientId: p.client_id, proposalId: p.id }, "Reminder sent")}
-                >
-                  {busy === "notify" ? "Sending…" : "Resend email"}
-                </button>
                 <button
                   type="button" className="cv-open"
                   onClick={async () => {
