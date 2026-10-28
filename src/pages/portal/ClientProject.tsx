@@ -98,9 +98,44 @@ export default function ClientProject() {
           client={resolved.data.client}
           project={resolved.project!}
           adminPreview={adminPreview}
+          viewAs={viewAsGrant}
         />
       )}
     </ClientPortalShell>
+  );
+}
+
+/**
+ * What a view-as session cannot reach on this screen, and why.
+ *
+ * CRE-818. Three of the four things below this line are not read through an
+ * allowlisted edge function: the phase ladder and the contract row come
+ * through `supabasePortal` (PostgREST), and the discovery chat's history does
+ * too. A view-as session has NO Supabase session at all -- the token is the
+ * whole credential -- so RLS answers those with nothing whatever
+ * `VIEW_AS_READS` says. The fourth, the page-review count, is an edge
+ * function (`preview-approvals`) that is deliberately not on the allowlist.
+ *
+ * The failure is silent in every case: no rows reads as an empty ladder, a
+ * missing contract row reads as "not signed yet", and no approvals read as
+ * "nothing to review". Each of those is a SENTENCE THE PORTAL WOULD BE
+ * TELLING AN ADMIN ABOUT A CLIENT, and three of them would be false. So the
+ * reads are skipped rather than attempted, and the screen says which four
+ * blocks are missing -- an admin who can see the gap can go and look properly
+ * in `/admin`, and one who cannot see it believes the zero.
+ */
+function ViewAsGaps() {
+  return (
+    <section className="cp-panel">
+      <h2 className="cp-panel__title">Four things a preview cannot show</h2>
+      <p className="cp-panel__body" style={{ marginBottom: 0 }}>
+        The to-do list, the phase ladder, the page-review count and the discovery chat are
+        read with the client's own sign-in, which a preview does not have. They are left out
+        rather than drawn empty, because an empty one reads as a real answer — no contract
+        signed, no pages to review, nothing started. The client's admin page has all four.
+        Everything else on this screen is what the client sees.
+      </p>
+    </section>
   );
 }
 
@@ -111,6 +146,7 @@ function ProjectBody({
   client,
   project,
   adminPreview,
+  viewAs,
 }: {
   clientId: string;
   me: HomeView["me"];
@@ -118,6 +154,8 @@ function ProjectBody({
   client: { business_name: string | null; contact_name: string | null; build_start_date: string | null; delivery_date: string | null; delivery_video_url: string | null };
   project: ResolvedProjectRow;
   adminPreview: boolean;
+  /** A CRE-811 view-as grant, which is read-only AND sessionless. See `ViewAsGaps`. */
+  viewAs: boolean;
 }) {
   const sb = adminPreview ? supabase : supabasePortal;
   const [phases, setPhases] = useState<PhaseNode[]>([]);
@@ -126,6 +164,7 @@ function ProjectBody({
 
   // The phase ladder and the page-review count.
   useEffect(() => {
+    if (viewAs) return;
     let cancelled = false;
 
     // The QA harness. Project has no preview-approvals fixture, so this
@@ -169,11 +208,12 @@ function ProjectBody({
     return () => {
       cancelled = true;
     };
-  }, [project.id, sb, adminPreview, clientId]);
+  }, [project.id, sb, adminPreview, clientId, viewAs]);
 
   // Whether the contract for this project has been signed -- gates the
   // discovery chat exactly as it does on the old project page.
   useEffect(() => {
+    if (viewAs) return;
     let cancelled = false;
 
     // The QA harness has no `client_contracts` row for this id, and shows
@@ -201,15 +241,20 @@ function ProjectBody({
     return () => {
       cancelled = true;
     };
-  }, [project.id, sb, clientId]);
+  }, [project.id, sb, clientId, viewAs]);
 
   const isAutomation = project.type === "automation_build";
   const isWebDev = project.type === "web_development";
   const isPreviewable =
     project.type === "app_development" || project.type === "web_development" || project.type === "marketing";
 
+  // Every row of the to-do list is derived from `contractSigned` or
+  // `previewProgress`, neither of which a view-as session could read. An
+  // unsigned-looking contract and a zero page count would make this list read
+  // "nothing has happened yet" for a client six weeks in. `ViewAsGaps` says
+  // so instead.
   const todo: TodoItem[] = [];
-  if (isAutomation || isWebDev) {
+  if (!viewAs && (isAutomation || isWebDev)) {
     todo.push({
       key: "contract",
       title: "Sign the contract",
@@ -219,7 +264,7 @@ function ProjectBody({
       cta: contractSigned ? "View" : "Open the contract",
     });
   }
-  if (isWebDev) {
+  if (!viewAs && isWebDev) {
     todo.push({
       key: "discovery",
       title: "Answer the discovery questions",
@@ -268,6 +313,8 @@ function ProjectBody({
           {contactEmail ? ` We'll keep you posted at ${contactEmail}.` : ""}
         </p>
       </div>
+
+      {viewAs && <ViewAsGaps />}
 
       {todo.length > 0 && (
         <section className="cp-card">
@@ -346,7 +393,7 @@ function ProjectBody({
         </section>
       )}
 
-      {isPreviewable && (
+      {isPreviewable && !viewAs && (
         <section className="cp-card">
           <div className="cp-outlink">
             <div style={{ flex: "2 1 280px", minWidth: 0 }}>
@@ -378,7 +425,11 @@ function ProjectBody({
         </section>
       )}
 
-      {isWebDev && (
+      {/* Not merely empty in a view-as session: the chat auto-greets when it
+          finds no history, and the greet is a POST to `web-dev-discovery-chat`
+          that would 401 and raise a toast. Not mounted at all is the honest
+          version AND the quiet one. */}
+      {isWebDev && !viewAs && (
         <div id="cp-discovery" style={{ scrollMarginTop: 24 }}>
           <ClientDiscoveryChat
             clientId={clientId}

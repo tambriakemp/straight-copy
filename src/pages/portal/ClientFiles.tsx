@@ -82,6 +82,7 @@ export default function ClientFiles() {
           clientName={resolved.data?.client.contact_name ?? null}
           agencyName={shell.data.branding?.agencyName || FALLBACK_AGENCY_NAME}
           adminPreview={adminPreview}
+          viewAs={viewAsGrant}
         />
       )}
     </ClientPortalShell>
@@ -94,12 +95,24 @@ function FilesBody({
   clientName,
   agencyName,
   adminPreview,
+  viewAs,
 }: {
   clientId: string;
   clientProjectId: string;
   clientName: string | null;
   agencyName: string;
   adminPreview: boolean;
+  /**
+   * A CRE-811 view-as grant (CRE-818).
+   *
+   * `client-files`' `list` is on the read allowlist, so both tables below are
+   * the client's real files. `register` and `remove` are NOT, and the upload
+   * itself goes to storage through a Supabase session a view-as tab does not
+   * have -- so the drop zone and the remove buttons are two controls that
+   * would fail twice over. A disabled button is still a button somebody
+   * clicks; the drop zone becomes a sentence instead.
+   */
+  viewAs: boolean;
 }) {
   const {
     files, shared, sent, busy, unavailable, dragging, inputRef, onDragOver, onDragLeave, onDrop, upload, remove,
@@ -113,7 +126,14 @@ function FilesBody({
         <p className="cp-sub">Send files to {agencyName} and download what they've shared with you.</p>
       </div>
 
-      {unavailable ? (
+      {viewAs ? (
+        <section className="cp-card">
+          <p className="cp-card__calm">
+            The client sees a drop zone here. A preview is read-only, so it is left out rather
+            than shown and refused — the two lists below are their real files.
+          </p>
+        </section>
+      ) : unavailable ? (
         <section className="cp-card">
           <p className="cp-card__calm">
             File sharing isn't switched on yet. Reply to our last email with anything you need to
@@ -191,7 +211,7 @@ function FilesBody({
                 mine
                 agencyName={agencyName}
                 onPreview={setPreviewing}
-                onRemove={remove}
+                onRemove={viewAs ? undefined : remove}
               />
             ))}
           </ul>

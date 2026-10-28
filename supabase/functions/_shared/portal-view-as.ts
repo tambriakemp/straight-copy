@@ -116,7 +116,7 @@ export type ViewAsResult =
  * entry here is a screen an admin cannot preview, and the cost of forgetting
  * one in a denylist is Bree signing a client's contract.
  *
- * Both entries are reads. `document` is on the list because seeing the
+ * Every entry is a read. `document` is on the list because seeing the
  * contract is seeing what the client sees, and a contract is a thing to see.
  *
  * `proposal-sign` is there for one action out of its sixteen, and not because
@@ -127,18 +127,30 @@ export type ViewAsResult =
  * that this token may reach. `sign`, `decline` and `void` are not, which is
  * the point.
  *
- * WHAT IS DELIBERATELY ABSENT. `client-files`, `client-logins`,
- * `project-invoices` and the rest of the portal's functions have no entry, so
- * the older portal frame -- Project, Files, Proposals, Brand Kit, Feedback --
- * does not open in a view-as session. Those pages are the frame CP-5 is
- * replacing (see `ClientPortalShell`'s header), and the four screens that
- * ARE the portal are covered. Adding one is one line here plus that
- * function's own redeploy; doing it blind, for a page whose write actions
- * nobody has read, is how a preview learns to sign things.
+ * `brand-kit-intake` and `client-files` are the two CRE-808 added (CRE-818).
+ * The dark nav is six items now, not four, and Project and Files are two of
+ * them: `resolve` is how both screens learn which live project a client has,
+ * and `list` is the file table itself. ONE ACTION EACH. `brand-kit-intake`
+ * answers to six more, and five of those write -- `complete` advances the
+ * client's journey node and emails the team, `fast-complete` does it with no
+ * conversation at all; `client-files` has `register`, `remove` and
+ * `set_visible`. None of them is here, so a preview reads the file list and
+ * cannot add to it, take from it or hide a row.
+ *
+ * WHAT IS DELIBERATELY ABSENT. `client-logins`, `preview-approvals`,
+ * `web-dev-discovery-chat`, `project-invoices` and the rest have no entry, so
+ * what they answer is closed to a view-as session. Two of those are visible
+ * as holes on the Project screen -- the page-review count and the discovery
+ * chat -- and that screen says so in words rather than drawing a zero; see
+ * `ClientProject.tsx`. Adding an entry is one line here plus that function's
+ * own redeploy; doing it blind, for a function whose write actions nobody has
+ * read, is how a preview learns to sign things.
  */
 export const VIEW_AS_READS: Record<string, readonly string[]> = {
   "client-portal": ["home", "agreements", "payments", "logins", "document"],
   "proposal-sign": ["download"],
+  "brand-kit-intake": ["resolve"],
+  "client-files": ["list"],
 };
 
 /** Whether `action` on `fn` is a read a view-as token may make. */

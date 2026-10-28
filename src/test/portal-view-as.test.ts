@@ -166,6 +166,11 @@ describe("the read allowlist", () => {
     expect(viewAsMayRead("proposal-sign", "download")).toBe(true);
   });
 
+  it("lets Project and Files through, one action each (CRE-818)", () => {
+    expect(viewAsMayRead("brand-kit-intake", "resolve")).toBe(true);
+    expect(viewAsMayRead("client-files", "list")).toBe(true);
+  });
+
   it("refuses every write on the portal, which is the point of it", () => {
     for (const action of [
       "sign",
@@ -182,11 +187,49 @@ describe("the read allowlist", () => {
     }
   });
 
+  it("refuses the writes that sit beside the two CRE-818 reads", () => {
+    // `brand-kit-intake` answers to seven actions, and five of the six that
+    // are not `resolve` write -- `complete` advances the client's journey
+    // node and emails the team, and `fast-complete` does it without even a
+    // conversation. `account-access-resolve` is a read and still not here,
+    // because no screen in the dark nav asks for it. The day one of these is
+    // added next to `resolve` is the day this test has to be what notices.
+    for (const action of [
+      "chat",
+      "complete",
+      "fast-complete",
+      "account-access-resolve",
+      "account-access-save",
+      "save-logo-progress",
+    ]) {
+      expect(viewAsMayRead("brand-kit-intake", action), action).toBe(false);
+    }
+    // `remove` deletes the object out of storage as well as the row, so it is
+    // the one here with no undo at all.
+    for (const action of ["register", "remove", "set_visible"]) {
+      expect(viewAsMayRead("client-files", action), action).toBe(false);
+    }
+  });
+
   it("fails closed for a function nobody has thought about", () => {
-    expect(viewAsMayRead("client-files", "list")).toBe(false);
+    // Both of these ARE reads a preview would like, and neither is on the
+    // list: the Project screen says in words that it cannot show them rather
+    // than drawing the empty answer they would give. CRE-818.
+    expect(viewAsMayRead("preview-approvals", "list")).toBe(false);
+    expect(viewAsMayRead("web-dev-discovery-chat", "chat")).toBe(false);
     expect(viewAsMayRead("portal-invite", "invite")).toBe(false);
     expect(viewAsMayRead("contract-sign", "get")).toBe(false);
     expect(viewAsMayRead("", "")).toBe(false);
+  });
+
+  it("names a function that is on the list by the key it is reached at", () => {
+    // The allowlist key has to be the name `functionNameFromUrl` derives, or
+    // the entry points at nothing and the symptom is a 401 that looks like a
+    // bad token. Pinned for the two added in CRE-818, because both were
+    // written from the card rather than from a URL.
+    for (const fn of ["brand-kit-intake", "client-files"]) {
+      expect(functionNameFromUrl(`https://x.supabase.co/functions/v1/${fn}`)).toBe(fn);
+    }
   });
 
   it("names the function from its own request URL", () => {
@@ -205,17 +248,72 @@ describe("the header name, on both sides of the wire", () => {
     expect(VIEW_AS_HEADER).toBe(CANONICAL_HEADER);
   });
 
-  it("is the string the browser-facing CORS allowlist names", () => {
+  // Every function the BROWSER posts a view-as token to, which is not the
+  // same set as `VIEW_AS_READS`: `proposal-sign` is on the allowlist but is
+  // only ever reached server-to-server from `client-portal/legacy-source.ts`,
+  // so no preflight happens and its CORS line is not this test's business.
+  const browserFacing = ["client-portal", "brand-kit-intake", "client-files"];
+
+  it.each(browserFacing)("is the string %s's CORS allowlist names", (fn) => {
     // A header a function does not advertise is a header the browser drops at
     // preflight, and the symptom is a portal that works in curl and 401s in
-    // Chrome.
+    // Chrome -- with no request reaching the function to log why.
     const index = readFileSync(
-      join(__dirname, "../../supabase/functions/client-portal/index.ts"),
+      join(__dirname, `../../supabase/functions/${fn}/index.ts`),
       "utf8",
     );
-    const allowHeaders = /Access-Control-Allow-Headers":\s*([\s\S]*?),?\n\s*"Access-Control-Allow-Methods/
-      .exec(index)?.[1] ?? "";
+    const allowHeaders =
+      /Access-Control-Allow-Headers":\s*([\s\S]*?),?\n\s*(?:"Access-Control-|\})/
+        .exec(index)?.[1] ?? "";
+    expect(allowHeaders, `${fn} has no Allow-Headers this test could read`).not.toBe("");
     expect(allowHeaders).toContain(VIEW_AS_HEADER);
+  });
+});
+
+describe("the action reaches the allowlist (CRE-818)", () => {
+  // `resolvePortalCaller(req, clientId)` with no third argument refuses EVERY
+  // view-as token, by design -- the allowlist cannot answer "may this token
+  // do this" without being told what "this" is. That default is right and it
+  // is also exactly the bug this card fixed: two functions were on the
+  // allowlist and still 401ing, because neither passed its action. A call
+  // site that loses the argument again fails here rather than in a preview.
+  const callers = ["brand-kit-intake", "client-files", "client-portal"];
+
+  it.each(callers)("%s passes its parsed action through", (fn) => {
+    const source = readFileSync(
+      join(__dirname, `../../supabase/functions/${fn}/index.ts`),
+      "utf8",
+    );
+    const calls = source.match(/resolvePortalCaller\([^)]*\)/g) ?? [];
+    expect(calls.length, `${fn} does not call resolvePortalCaller`).toBeGreaterThan(0);
+    for (const call of calls) {
+      // Three arguments, not two. `req, clientId` alone is the closed default.
+      expect(call.split(",").map((part) => part.trim()), call).toEqual([
+        "resolvePortalCaller(req",
+        "clientId",
+        "action)",
+      ]);
+    }
+  });
+});
+
+describe("brand-kit-intake's resolve does not write (CRE-818)", () => {
+  // `resolve` is on the read allowlist, and it was never purely a read: it
+  // flips the `intake.portal_accessed` checklist item. That was gated on
+  // `body.asAdmin`, a flag the browser sets -- fine while every caller held a
+  // session, and not fine for a token whose entire purpose is to look without
+  // leaving a mark. The checklist does not record who ticked it, so a preview
+  // that ticked it would be wrong in the one way nobody would ever notice.
+  const source = readFileSync(
+    join(__dirname, "../../supabase/functions/brand-kit-intake/index.ts"),
+    "utf8",
+  );
+
+  it("gates the checklist flip on the resolved caller, not just the body flag", () => {
+    const guard = /if \(!body\.asAdmin[^)]*\) \{\s*\n\s*try \{ await flipChecklistItem/
+      .exec(source)?.[0] ?? "";
+    expect(guard, "the flipChecklistItem guard moved or changed shape").not.toBe("");
+    expect(guard).toContain('caller.kind !== "admin"');
   });
 });
 
