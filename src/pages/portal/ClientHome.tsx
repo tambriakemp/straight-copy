@@ -25,7 +25,7 @@ import type { HomeView, PortalMilestone, PortalProject } from "@/lib/clientPorta
 
 export default function ClientHome() {
   const { clientId } = useParams<{ clientId: string }>();
-  const { adminPreview, exitPreview } = useAdminPreview(clientId);
+  const { adminPreview, viewAsGrant, actor, exitPreview } = useAdminPreview(clientId);
   const load = usePortalView<HomeView>(
     clientId ? () => clientPortal.home(clientId, adminPreview) : null,
     [clientId, adminPreview],
@@ -40,6 +40,8 @@ export default function ClientHome() {
       me={view?.me ?? null}
       tab="home"
       adminPreview={adminPreview}
+      viewAsGrant={viewAsGrant}
+      actor={actor}
       onExitPreview={exitPreview}
     >
       {load.error && !view ? (

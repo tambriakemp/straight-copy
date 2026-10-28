@@ -39,7 +39,7 @@ export default function ClientAgreements() {
   const { clientId } = useParams<{ clientId: string }>();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
-  const { adminPreview, exitPreview } = useAdminPreview(clientId);
+  const { adminPreview, viewAsGrant, actor, exitPreview } = useAdminPreview(clientId);
 
   const load = usePortalView<AgreementsView>(
     clientId ? () => clientPortal.agreements(clientId, adminPreview) : null,
@@ -69,6 +69,8 @@ export default function ClientAgreements() {
       me={view?.me ?? null}
       tab="agreements"
       adminPreview={adminPreview}
+      viewAsGrant={viewAsGrant}
+      actor={actor}
       onExitPreview={exitPreview}
     >
       {load.error && !view ? (

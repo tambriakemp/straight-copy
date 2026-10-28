@@ -33,7 +33,7 @@ import type { LoginRequest, LoginsView, SharedLogin } from "@/lib/clientPortalWi
 
 export default function ClientLogins() {
   const { clientId } = useParams<{ clientId: string }>();
-  const { adminPreview, exitPreview } = useAdminPreview(clientId);
+  const { adminPreview, viewAsGrant, actor, exitPreview } = useAdminPreview(clientId);
   const load = usePortalView<LoginsView>(
     clientId ? () => clientPortal.logins(clientId, adminPreview) : null,
     [clientId, adminPreview],
@@ -48,6 +48,8 @@ export default function ClientLogins() {
       me={view?.me ?? null}
       tab="logins"
       adminPreview={adminPreview}
+      viewAsGrant={viewAsGrant}
+      actor={actor}
       onExitPreview={exitPreview}
     >
       {load.error && !view ? (

@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import SidePanel from "@/components/admin/SidePanel";
 import ClientCompaniesCard from "@/components/admin/ClientCompaniesCard";
 import ProjectResourcesSheet from "@/components/admin/ProjectResourcesSheet";
+import { openPortalAsClient } from "@/lib/portalViewAs";
 
 type Tab = "projects" | "info";
 
@@ -231,15 +232,22 @@ export default function AgentClientView({
             <TooltipProvider delayDuration={150}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <a
+                  {/* CRE-811: a view-as grant the server mints and logs, not
+                      a `?as=admin` the destination has to make good on. */}
+                  <button
+                    type="button"
                     className="detail__portal-btn detail__portal-btn--ghost detail__portal-btn--icon acv__portal-link"
-                    href={`/portal/${client.id}?as=admin`}
-                    target="_blank"
-                    rel="noreferrer"
+                    onClick={() => {
+                      void openPortalAsClient(client.id).catch((caught: unknown) => {
+                        toast.error(
+                          caught instanceof Error ? caught.message : "Could not open the portal",
+                        );
+                      });
+                    }}
                     aria-label={`Open ${name}'s portal`}
                   >
                     <Eye size={15} strokeWidth={1.5} />
-                  </a>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent>View this client's portal</TooltipContent>
               </Tooltip>

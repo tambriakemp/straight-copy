@@ -2,17 +2,26 @@ import { ReactNode } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { usePortalAuth } from "@/hooks/usePortalAuth";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import { useAdminPreview } from "@/hooks/useAdminPreview";
+import { useAdminPreview, useViewAsGrant } from "@/hooks/useAdminPreview";
 import { isDemoClient } from "@/lib/portalDemo";
 
 /**
  * Guards every /portal/:clientId* route. CRE-536: a bare link used to be
- * enough to see a client's data; now it needs one of two sessions:
+ * enough to see a client's data; now it needs one of three things:
+ *  - a CRE-811 view-as token for THIS :clientId, which the server signed for
+ *    an admin it had already authenticated, or
  *  - a portal session whose client_portal_users row matches THIS :clientId, or
  *  - an admin session with ?as=admin (the existing preview-as-admin path),
  *    remembered in sessionStorage the same way Portal.tsx already does.
- * Old links with neither land here and redirect to the portal login,
+ * Old links with none of them land here and redirect to the portal login,
  * which sends them back to the same URL once they're signed in.
+ *
+ * THE VIEW-AS TOKEN IS CHECKED FIRST, AND WITHOUT WAITING FOR A SESSION.
+ * That is the fix for what Bree reported on CRE-811: **Open portal** opens a
+ * NEW TAB, the `?as=admin` branch below needs an admin Supabase session to
+ * have been found in that tab, and when it had not been the only honest thing
+ * left to do was show the client login. A token needs nothing from the
+ * browser it arrives in.
  */
 export default function RequirePortalAuth({
   children,
@@ -35,6 +44,16 @@ export default function RequirePortalAuth({
   const { loading: portalLoading, user: portalUser, isMemberOf } = usePortalAuth();
   const { loading: adminLoading, user: adminUser, isAdmin } = useAdminAuth();
   const adminPreview = useAdminPreview();
+  const viewAsGrant = useViewAsGrant();
+
+  // CRE-811: a signed grant for this client, so there is nothing to wait for
+  // and nothing to look up. Above the loading branch for the same reason the
+  // demo branch is: a tab arriving on a view-as token has no session of
+  // either kind, and waiting on one would leave it at "Loading…" and then
+  // bounce it to the client login.
+  if (viewAsGrant) {
+    return <>{children}</>;
+  }
 
   // The QA harness. Dead and eliminated unless `VITE_PORTAL_DEMO=1` was set
   // at build time, and then only for the reserved id -- see `portalDemo.ts`.

@@ -26,6 +26,7 @@ import { avatarFor } from "@/lib/avatar";
 import { projectTypeStyle } from "@/lib/projectType";
 import { countsFor } from "@/lib/taskCounts";
 import { usd } from "@/lib/clientBalance";
+import { openPortalAsClient } from "@/lib/portalViewAs";
 import { useClientRecord, type ClientProjectRow, type ClientRecord } from "./useClientRecord";
 
 type Tab = "projects" | "notes" | "logins";
@@ -55,6 +56,30 @@ function humanise(s: string | null | undefined): string {
  * anywhere else in the admin.
  */
 function PortalActions({ clientId }: { clientId: string }) {
+  const [opening, setOpening] = useState(false);
+
+  /**
+   * CRE-811. This was an `<a href="/portal/<id>?as=admin" target="_blank">`,
+   * which asked the new tab to let us in and had no way to make it. When that
+   * tab found no admin Supabase session it showed the CLIENT LOGIN, which is
+   * what Bree reported.
+   *
+   * It is a button now because the grant has to be fetched before the tab can
+   * be sent anywhere: `openPortalAsClient` asks the server for a short-lived,
+   * read-only, single-client token -- from THIS tab, where the admin session
+   * is already proven -- and opens the portal with it. Each click is logged.
+   */
+  const openPortal = async () => {
+    setOpening(true);
+    try {
+      await openPortalAsClient(clientId);
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Could not open the portal");
+    } finally {
+      setOpening(false);
+    }
+  };
+
   const copy = async (path: string, label: string) => {
     try {
       await navigator.clipboard.writeText(`${window.location.origin}${path}`);
@@ -81,9 +106,9 @@ function PortalActions({ clientId }: { clientId: string }) {
       <button type="button" className="cv-open cv-open--dark" onClick={() => copy(`/portal/${clientId}`, "Portal link")}>
         Copy portal link
       </button>
-      <a className="cv-open" href={`/portal/${clientId}?as=admin`} target="_blank" rel="noreferrer">
-        Open portal
-      </a>
+      <button type="button" className="cv-open" onClick={openPortal} disabled={opening}>
+        {opening ? "Opening…" : "Open portal"}
+      </button>
       <button type="button" className="cv-open" onClick={() => copy(`/portal/${clientId}?focus=contract`, "Contract link")}>
         Contract link
       </button>

@@ -647,7 +647,11 @@ Deno.serve(async (req) => {
     }
 
     if (PORTAL_ACTIONS.has(input.action) && !callerIsAdmin) {
-      const caller = await resolvePortalCaller(req, input.clientId);
+      // `input.action` is passed so a CRE-811 view-as token can be checked
+      // against the read allowlist: the client portal's bridge delegates
+      // `document` here as `download`, and that one action is all a view-as
+      // token may reach. Signing and declining stay closed to it.
+      const caller = await resolvePortalCaller(req, input.clientId, input.action);
       if (caller.kind === "unauthorized") {
         return new Response(JSON.stringify({ error: "Unauthorized" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
