@@ -26,7 +26,11 @@ const ClientHome = lazy(() => import("./pages/portal/ClientHome.tsx"));
 const ClientAgreements = lazy(() => import("./pages/portal/ClientAgreements.tsx"));
 const ClientPayments = lazy(() => import("./pages/portal/ClientPayments.tsx"));
 const ClientLogins = lazy(() => import("./pages/portal/ClientLogins.tsx"));
-const ClientProjectJump = lazy(() => import("./pages/portal/ClientProjectJump.tsx"));
+// CRE-784/CRE-808: Project and Files, mockups 17-18. These replace
+// ClientProjectJump, which used to resolve a project id and redirect into
+// the old light project page below.
+const ClientProject = lazy(() => import("./pages/portal/ClientProject.tsx"));
+const ClientFiles = lazy(() => import("./pages/portal/ClientFiles.tsx"));
 const PortalProject = lazy(() => import("./pages/PortalProject.tsx"));
 const PortalProposal = lazy(() => import("./pages/PortalProposal.tsx"));
 const PortalFeedback = lazy(() => import("./pages/PortalFeedback.tsx"));
@@ -129,11 +133,12 @@ const App = () => (
             <Route path="/portal/:clientId/agreements" element={<RequirePortalAuth demoable><ClientAgreements /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/payments" element={<RequirePortalAuth demoable><ClientPayments /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/logins" element={<RequirePortalAuth demoable><ClientLogins /></RequirePortalAuth>} />
-            {/* Project and Files are drawn in the new nav and have no new
-                screens: both already exist on the project page. These resolve
-                a project id and hand over. */}
-            <Route path="/portal/:clientId/project" element={<RequirePortalAuth><ClientProjectJump /></RequirePortalAuth>} />
-            <Route path="/portal/:clientId/files" element={<RequirePortalAuth><ClientProjectJump focus="files" /></RequirePortalAuth>} />
+            {/* CRE-784/CRE-808: Project and Files, mockups 17-18. Each
+                resolves its own project id (see useResolvedProject) rather
+                than redirecting into the old light project page the way
+                ClientProjectJump used to. */}
+            <Route path="/portal/:clientId/project" element={<RequirePortalAuth><ClientProject /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/files" element={<RequirePortalAuth><ClientFiles /></RequirePortalAuth>} />
             {/* The old portal home, kept as the project LIST. A client with
                 several projects reaches it from Project above; one with a
                 single project is sent straight into it and never sees this. */}
