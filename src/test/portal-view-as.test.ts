@@ -295,3 +295,35 @@ describe("the browser's half: adopting a grant", () => {
     expect(viewAsTokenFor(CLIENT)).toBeNull();
   });
 });
+
+describe("proposal-sign's own admin check, against a view-as session", () => {
+  // A view-as session sends the anon key in Authorization and its real
+  // credential in x-portal-view-as. If proposal-sign read that bearer as an
+  // admin, `sign` and `decline` would skip the allowlist gate entirely -- so
+  // the anon key has to be refused before auth.getUser() is consulted, not
+  // because GoTrue happens to find no user behind a sub-less JWT (CRE-813 #2).
+  // The function imports Deno globals and cannot be imported here, so the
+  // guard is pinned by reading its source, as the CORS check above does.
+  const source = readFileSync(
+    join(__dirname, "../../supabase/functions/proposal-sign/index.ts"),
+    "utf8",
+  );
+  const isCallerAdmin = /async function isCallerAdmin[\s\S]*?\n}/.exec(source)?.[0] ?? "";
+
+  it("has a body to check at all", () => {
+    expect(isCallerAdmin).toContain("admin_users");
+  });
+
+  it("refuses the anon key explicitly", () => {
+    expect(isCallerAdmin).toContain("SUPABASE_ANON_KEY");
+    expect(isCallerAdmin).toMatch(/token === anonKey\) return false/);
+  });
+
+  it("refuses it before asking GoTrue who the bearer is", () => {
+    // The call, not the word -- the comment above the guard names
+    // auth.getUser() too, and matching that would pass for the wrong reason.
+    expect(isCallerAdmin.indexOf("anonKey")).toBeLessThan(
+      isCallerAdmin.indexOf("supabase.auth.getUser("),
+    );
+  });
+});

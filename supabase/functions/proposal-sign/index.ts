@@ -274,6 +274,12 @@ async function isCallerAdmin(req: Request, supabase: any): Promise<boolean> {
   const auth = req.headers.get("authorization") || "";
   const token = auth.replace(/^Bearer\s+/i, "");
   if (!token) return false;
+  // The anon key proves nothing, and a view-as session sends exactly that in
+  // Authorization (its real credential is x-portal-view-as). Reject it here
+  // rather than relying on auth.getUser() happening to find no user for a
+  // sub-less JWT — same explicit check resolvePortalCaller makes.
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (anonKey && token === anonKey) return false;
   try {
     const { data: { user } } = await supabase.auth.getUser(token);
     if (!user) return false;

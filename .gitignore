@@ -28,3 +28,6 @@ dist-ssr
 # tool here, nothing in the deploy path reads this, and a lockfile appearing in
 # the repo is a way to change what actually ships for no benefit.
 deno.lock
+
+# tsc -b incremental build artifacts
+*.tsbuildinfo
