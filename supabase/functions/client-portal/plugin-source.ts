@@ -145,6 +145,26 @@ interface PluginProposal {
   updatedAt: string;
 }
 
+/**
+ * The PDF an uploaded proposal arrived as, as the plugin reports it.
+ *
+ * OPTIONAL, AND ABSENT MEANS AN OLDER PLUGIN, the same rule `project` carries
+ * above: before CRE-801 the plugin had no such table and the proposal detail
+ * route returned no such field, so absent must draw what "no document" draws
+ * rather than an error or a dead link. `Boolean(detail.sourceDocument)` gets
+ * that right for both an older server and a proposal with nothing attached.
+ *
+ * Never the bytes. Those come only from the download route, which has
+ * authorised the caller for them specifically.
+ */
+interface PluginSourceDocument {
+  id: string;
+  pdfSha256: string;
+  byteSize: number;
+  contentType: string;
+  uploadedAt: string;
+}
+
 interface PluginSignature {
   signerSide: string;
   signerName: string;
@@ -372,6 +392,7 @@ export class PluginSource implements PortalSource {
       proposal: PluginProposal;
       signatures: PluginSignature[];
       schedule: PluginScheduleItem[];
+      sourceDocument?: PluginSourceDocument | null;
     }>(ctx, `/proposals/${encodeURIComponent(proposal.id)}`);
 
     const blocks = Array.isArray(detail.proposal.blocks)
@@ -407,10 +428,11 @@ export class PluginSource implements PortalSource {
         detail.schedule.map((item) => ({ label: item.label, amountCents: item.amountCents })),
         (cents) => formatMoney(cents, detail.proposal.currency),
       ),
-      // Always false on this backend, even when a source PDF exists: see
-      // `document()` for why the plugin cannot serve it. Drawing a link that
-      // leads to a 501 is worse than drawing none.
-      hasSourcePdf: false,
+      // True exactly when the plugin holds the document, which since CRE-801
+      // it can. Not `source === "pdf_upload"`: an imported proposal is marked
+      // an upload and may have no bytes yet, and a link drawn from the label
+      // rather than from the document would 404 in a client's hands.
+      hasSourcePdf: Boolean(detail.sourceDocument),
       hasSignedDocument: Boolean(clientSignature),
       signedAt: clientSignature?.signedAt ?? null,
       signerName: clientSignature?.signerName ?? null,
@@ -569,37 +591,31 @@ export class PluginSource implements PortalSource {
   }
 
   /**
-   * The sealed contract, from the plugin's own download route.
+   * Either document, from the plugin's own download route.
    *
-   * The seal is re-checked on the way out by the plugin, so bytes that no
-   * longer hash to what was recorded are refused rather than served. Nothing
+   * Both hashes are re-checked on the way out **by the plugin**, so bytes that
+   * no longer match what was recorded are refused rather than served. Nothing
    * is re-checked here: a second opinion on a hash this side never computed
    * would be theatre.
    *
-   * `source` is not available on this backend. An uploaded proposal's PDF is
-   * in the host object store, which a plugin can only reach with the
-   * `plugin.assets.read` capability -- a name that does not exist on a stock
-   * Paperclip, so a manifest declaring it is refused at install. The plugin
-   * therefore has no route to serve it, `hasSourcePdf` is reported `false`
-   * so no link is drawn, and this refusal is the backstop.
+   * `source` worked on the legacy bridge and not here until CRE-801, because
+   * an uploaded proposal's PDF was in the host object store and a plugin can
+   * only reach that with `plugin.assets.read` -- a capability name that does
+   * not exist on a stock Paperclip, so a manifest declaring it is refused at
+   * install. The plugin now keeps those bytes in its own schema instead, which
+   * needs no capability, and the two kinds differ here by one path segment.
    */
   async document(
     ctx: PortalCallerContext,
     kind: "signed" | "source",
     proposalId: string,
   ): Promise<PortalDocument> {
-    if (kind === "source") {
-      throw new PortalError(
-        501,
-        "source_document_unavailable",
-        "The original proposal cannot be downloaded here yet. Ask us and we will email it.",
-      );
-    }
+    const path = kind === "source" ? "source-document" : "signed-document";
     const result = await this.#get<{
       filename: string;
       contentType: string;
       contentBase64: string;
-    }>(ctx, `/proposals/${encodeURIComponent(proposalId)}/signed-document`);
+    }>(ctx, `/proposals/${encodeURIComponent(proposalId)}/${path}`);
     return {
       form: "bytes",
       filename: result.filename,
