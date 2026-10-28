@@ -121,10 +121,14 @@ const App = () => (
             {/* CRE-776: mockups 13-16. Real routes rather than a `?v=`
                 view switcher, so a client can send "here is the payment
                 page" to their bookkeeper and the back button works. */}
-            <Route path="/portal/:clientId" element={<RequirePortalAuth><ClientHome /></RequirePortalAuth>} />
-            <Route path="/portal/:clientId/agreements" element={<RequirePortalAuth><ClientAgreements /></RequirePortalAuth>} />
-            <Route path="/portal/:clientId/payments" element={<RequirePortalAuth><ClientPayments /></RequirePortalAuth>} />
-            <Route path="/portal/:clientId/logins" element={<RequirePortalAuth><ClientLogins /></RequirePortalAuth>} />
+            {/* `demoable` on these four and nowhere else: they are the only
+                screens the QA harness has fixtures for, and the only ones
+                that read nothing through the browser's Supabase client.
+                CRE-789 could not review any of them. See portalDemo.ts. */}
+            <Route path="/portal/:clientId" element={<RequirePortalAuth demoable><ClientHome /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/agreements" element={<RequirePortalAuth demoable><ClientAgreements /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/payments" element={<RequirePortalAuth demoable><ClientPayments /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/logins" element={<RequirePortalAuth demoable><ClientLogins /></RequirePortalAuth>} />
             {/* Project and Files are drawn in the new nav and have no new
                 screens: both already exist on the project page. These resolve
                 a project id and hand over. */}
