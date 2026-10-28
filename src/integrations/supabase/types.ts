@@ -5105,6 +5105,7 @@ export type Database = {
       }
       fire_email_status_poll: { Args: never; Returns: undefined }
       fire_kickoff_webhook: { Args: { _client_id: string }; Returns: undefined }
+      fire_portal_health_sweep: { Args: never; Returns: undefined }
       fire_queue_routine: {
         Args: {
           p_client_project_id: string
