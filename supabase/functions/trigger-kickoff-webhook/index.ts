@@ -16,6 +16,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { splitContactName, upsertSureContact } from "../_shared/surecontact.ts";
 import { resolveCaller } from "../_shared/webhook-auth.ts";
+import { findLatestWebDevProject } from "../_shared/web-dev-emails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -132,7 +133,13 @@ Deno.serve(async (req) => {
     }
 
     const { firstName, lastName } = splitContactName(client.contact_name);
-    const portalUrl = `${PORTAL_BASE_URL.replace(/\/$/, "")}/portal/${clientId}`;
+    // CRE-780: consistent with web-dev-emails.ts / sync-client-to-surecontact
+    // — land on the client's web-dev project page when one exists.
+    const baseUrl = PORTAL_BASE_URL.replace(/\/$/, "");
+    const webDevProject = await findLatestWebDevProject(supabase, clientId);
+    const portalUrl = webDevProject
+      ? `${baseUrl}/portal/${clientId}/projects/${webDevProject.id}`
+      : `${baseUrl}/portal/${clientId}`;
     const tierLabel = client.tier === "growth" ? "Growth" : "Launch";
 
     // 1) Upsert contact so SureContact has an up-to-date record + custom fields

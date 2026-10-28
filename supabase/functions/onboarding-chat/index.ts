@@ -1,14 +1,36 @@
 // Streaming AI chat for guided client onboarding (Anthropic Claude).
 // Enforces 19 required intake fields before allowing completion so the
 // downstream brand-voice generator has high-signal source material.
+//
+// CRE-780: verify_jwt=false and, unlike save-onboarding and
+// onboarding-session, no caller check of any kind — the frontend sent only
+// the public anon key, which proves nothing. This is also the function
+// that gets called once per conversational turn, i.e. the most expensive
+// repeated path. Now: an invited client (token in the body) is validated
+// against onboarding_invites the same way onboarding-session already does;
+// an anonymous prospect (no token — the public top-of-funnel flow is
+// intentionally open, same as save-onboarding) is capped by a per-IP
+// sliding-window rate limit instead.
+import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { CLAUDE_MODEL } from "../_shared/models.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const CLAUDE_MODEL = "claude-sonnet-4-5";
 const MAX_TOKENS = 1024;
+const MAX_MESSAGES = 60;
+const MAX_MESSAGE_LENGTH = 4000;
+const RATE_LIMIT_WINDOW_MINUTES = 10;
+const RATE_LIMIT_MAX_PER_WINDOW = 30;
+
+function clientIp(req: Request): string | null {
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0].trim();
+  return req.headers.get("x-real-ip");
+}
 
 const SYSTEM_PROMPT = `You are the CRE8 Visions onboarding guide — a warm, editorial, genuinely curious strategist helping a new client lay the foundation for their custom AI Operating System. You are not a form. You are a conversation partner whose job is to surface the *texture* of who they are so we can build an AI that sounds exactly like them.
 
@@ -115,12 +137,67 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { messages } = await req.json();
+    const { messages, token } = await req.json();
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+    if (messages.length > MAX_MESSAGES) {
+      return new Response(JSON.stringify({ error: "conversation is too long" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const oversized = messages.some(
+      (m: any) => typeof m?.content === "string" && m.content.length > MAX_MESSAGE_LENGTH,
+    );
+    if (oversized) {
+      return new Response(JSON.stringify({ error: "a message is too long" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    if (typeof token === "string" && token) {
+      // An invited client — validate the same way onboarding-session does.
+      // A bad or stale token must not fall through to the open rate limit.
+      const { data: invite } = await supabase
+        .from("onboarding_invites")
+        .select("id, revoked, expires_at")
+        .eq("token", token)
+        .maybeSingle();
+      if (!invite || invite.revoked || (invite.expires_at && new Date(invite.expires_at) < new Date())) {
+        return new Response(JSON.stringify({ error: "Invalid or expired invite." }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else {
+      // The public, not-yet-a-client flow — intentionally open (same as
+      // save-onboarding), but capped by IP so it can't run up Anthropic
+      // cost. Rate-limit BEFORE the Anthropic call, not after.
+      const ip = clientIp(req);
+      if (ip) {
+        const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
+        const { count } = await supabase
+          .from("onboarding_chat_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("ip", ip)
+          .gte("created_at", windowStart);
+        if ((count ?? 0) >= RATE_LIMIT_MAX_PER_WINDOW) {
+          return new Response(JSON.stringify({ error: "Too many requests — please wait a few minutes and try again." }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        await supabase.from("onboarding_chat_requests").insert({ ip });
+      }
     }
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");

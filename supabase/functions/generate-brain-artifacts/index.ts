@@ -19,6 +19,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { renderArtifactPdf } from "./pdf.ts";
 import { BRAIN_ARTIFACTS, BrainArtifactDef, BrainArtifactContext } from "./prompts.ts";
+import { CLAUDE_MODEL } from "../_shared/models.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +28,7 @@ const corsHeaders = {
 };
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-5";
+const MODEL = CLAUDE_MODEL;
 const BUCKET = "client-assets";
 
 

@@ -52,6 +52,10 @@ Deno.serve(async (req) => {
     const clientId = typeof body.clientId === "string" ? body.clientId : "";
     const projectId = typeof body.projectId === "string" ? body.projectId : null;
     const conversation: Msg[] = Array.isArray(body.conversation) ? (body.conversation as Msg[]) : [];
+    // CRE-780: a fixed key meant a redone discovery never re-notified.
+    // Fold in the submission timestamp so each completion gets its own
+    // idempotency key; fall back to "now" if the caller didn't pass one.
+    const submittedAt = typeof body.submittedAt === "string" ? body.submittedAt : new Date().toISOString();
 
     if (!clientId) {
       return new Response(JSON.stringify({ error: "clientId required" }), {
@@ -73,7 +77,7 @@ Deno.serve(async (req) => {
       body: {
         templateName: "web-dev-discovery-notification",
         recipientEmail: "hello@cre8visions.com",
-        idempotencyKey: `web-dev-discovery-${projectId ?? clientId}`,
+        idempotencyKey: `web-dev-discovery-${projectId ?? clientId}-${submittedAt}`,
         templateData: {
           clientId,
           projectId,

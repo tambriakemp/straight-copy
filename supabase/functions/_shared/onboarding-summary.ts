@@ -2,6 +2,8 @@
 // `save-onboarding` and `onboarding-session` so they stay in lockstep.
 // Captures every field the brand-voice generator depends on.
 
+import { CLAUDE_MODEL } from "./models.ts";
+
 export const SUMMARY_SYSTEM = `You extract a structured intake summary from a CRE8 Visions client onboarding conversation. Pull values ONLY from what the user actually said — never invent. For string-array fields, return an array of short specific items. If a field truly wasn't covered, return "Not specified" for strings, [] for arrays, or null for nullable fields.`;
 
 export const SUMMARY_TOOL = {
@@ -108,7 +110,7 @@ export async function extractSummaryWithClaude(transcript: string, apiKey: strin
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
+        model: CLAUDE_MODEL,
         max_tokens: 3000,
         system: SUMMARY_SYSTEM,
         tools: [SUMMARY_TOOL],

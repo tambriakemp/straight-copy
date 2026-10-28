@@ -14,6 +14,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { flipChecklistItem } from "../_shared/auto-checklist.ts";
 import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
+import { CLAUDE_MODEL } from "../_shared/models.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +23,6 @@ const corsHeaders = {
 };
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
-const CLAUDE_MODEL = "claude-sonnet-4-5";
 const MAX_TOKENS = 1024;
 
 const SYSTEM_PROMPT = `You are the CRE8 Visions Brand Kit guide — a warm, editorial, deeply curious creative director helping a client define the visual foundation of their brand.
@@ -272,6 +272,24 @@ Deno.serve(async (req) => {
       const projects = (projectsRows ?? []) as Array<{ id: string; type: string; name: string; status: string; updated_at: string }>;
       const projectTypes = Array.from(new Set(projects.map((r) => r.type).filter(Boolean)));
 
+      // CRE-780: the Brand Kit is Node 03 of the Web Dev journey — it stays
+      // locked until the discovery chat for the client's web_development
+      // project is complete. Clients with no web_development project at all
+      // (e.g. social-only) are never gated by this. Admins (including the
+      // "preview as admin" path) always bypass the gate — they need to be
+      // able to see and test the page regardless of the client's progress.
+      const webDevProject = projects.find((p) => p.type === "web_development") ?? null;
+      let discoveryGate: { required: boolean; completed: boolean; projectId: string | null } =
+        { required: false, completed: true, projectId: null };
+      if (webDevProject && caller.kind !== "admin") {
+        const { data: discoveryRow } = await supabase
+          .from("web_dev_discovery")
+          .select("completed")
+          .eq("client_project_id", webDevProject.id)
+          .maybeSingle();
+        discoveryGate = { required: true, completed: !!discoveryRow?.completed, projectId: webDevProject.id };
+      }
+
       return new Response(
         JSON.stringify({
           client: portalData,
@@ -282,6 +300,7 @@ Deno.serve(async (req) => {
           onboardingInvite,
           projectTypes,
           projects,
+          discoveryGate,
           subscription: {
             id: row?.surecart_subscription_id ?? null,
             status: row?.subscription_status ?? null,

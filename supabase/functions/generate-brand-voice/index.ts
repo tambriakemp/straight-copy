@@ -3,6 +3,7 @@
 // the matching public.clients row + brand_voice journey_node.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { renderBrandVoicePdf } from "./pdf.ts";
+import { CLAUDE_MODEL } from "../_shared/models.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +12,7 @@ const corsHeaders = {
 };
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-5";
+const MODEL = CLAUDE_MODEL;
 const BUCKET = "client-assets";
 // 10 years in seconds
 const SIGNED_URL_TTL = 60 * 60 * 24 * 365 * 10;

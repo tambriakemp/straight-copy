@@ -15,16 +15,23 @@ export interface WebDevEmailTemplate {
   label: string;
 }
 
+// CRE-780: these 8 ids didn't exist in SureContact ("Template not found" on
+// aa81debf.../375741e8...) — replaced with the real ids, matched by name.
 export const WEB_DEV_EMAIL_TEMPLATES: Record<string, WebDevEmailTemplate> = {
-  "web-dev-kickoff":                { uuid: "aa81debf-6a31-422c-aaf1-2a814a56c665", trigger: "agency", label: "Kickoff" },
-  "web-dev-contract-signed":        { uuid: "375741e8-113d-4f03-8b03-c9d87b9afa7e", trigger: "auto",   label: "Contract signed" },
-  "web-dev-questionnaire-complete": { uuid: "ccd63937-b260-44a8-a2ee-bd0a8c53e4e5", trigger: "auto",   label: "Questionnaire complete" },
-  "web-dev-design-concepts-ready":  { uuid: "4d87b58a-51c4-418d-9856-ff0705a8766b", trigger: "agency", label: "Design concepts ready" },
-  "web-dev-design-approved":        { uuid: "08c4a5e9-60ba-40dc-8bcc-472bd66c5978", trigger: "agency", label: "Design approved — dev starting" },
-  "web-dev-prelaunch-preview":      { uuid: "d2283bd3-d69a-4e98-ba28-27d370f5b254", trigger: "agency", label: "Pre-launch preview" },
-  "web-dev-launch-confirmation":    { uuid: "5b4efb27-bec3-42be-bc81-c3febfabb0e3", trigger: "agency", label: "Launch confirmation" },
-  "web-dev-postlaunch-followup":    { uuid: "745635fc-cbdb-470b-a529-fecf506fbfd4", trigger: "auto",   label: "Post-launch follow-up" },
+  "web-dev-kickoff":                { uuid: "6ae6694f-eaa9-4565-a8c0-3a9aacf5ded0", trigger: "agency", label: "Kickoff" },
+  "web-dev-contract-signed":        { uuid: "4d90fb2d-b077-48bc-995f-0d533f105641", trigger: "auto",   label: "Contract signed" },
+  "web-dev-questionnaire-complete": { uuid: "049399da-b336-4317-a96a-ca26da6f5e8f", trigger: "auto",   label: "Questionnaire complete" },
+  "web-dev-design-concepts-ready":  { uuid: "9c170670-6b62-4347-87a6-65cb4213c9eb", trigger: "agency", label: "Design concepts ready" },
+  "web-dev-design-approved":        { uuid: "fbb68e73-7195-45be-9b50-cabdbe780ce6", trigger: "agency", label: "Design approved — dev starting" },
+  "web-dev-prelaunch-preview":      { uuid: "1af163de-d03e-4fb7-8022-2ff8e0f6ecfa", trigger: "agency", label: "Pre-launch preview" },
+  "web-dev-launch-confirmation":    { uuid: "8ed5d561-df8b-43c8-9ee2-00ecd21bb6ff", trigger: "agency", label: "Launch confirmation" },
+  "web-dev-postlaunch-followup":    { uuid: "c5366a69-a133-4835-bb59-a0c00a14ff1c", trigger: "auto",   label: "Post-launch follow-up" },
 };
+
+// Templates whose CTA button should land the client directly on the
+// discovery chat rather than the bare project page — the two earliest
+// sends, whose SureContact copy already says "Start my discovery chat".
+const DEEP_LINK_TO_DISCOVERY = new Set(["web-dev-kickoff", "web-dev-contract-signed"]);
 
 export interface SendWebDevEmailArgs {
   taskId?: string | null;
@@ -112,8 +119,13 @@ export async function sendWebDevTemplate(
     return { ok: false, status: 422, error: "Client has no email on file" };
   }
 
-  // Build merge fields
-  const portalUrl = `https://cre8visions.com/portal`;
+  // Build merge fields. CRE-780: this used to send the bare
+  // https://cre8visions.com/portal, which has no route — build a real,
+  // per-client (and, when we have one, per-project) link instead.
+  const baseUrl = (Deno.env.get("PORTAL_BASE_URL") || "https://cre8visions.com").replace(/\/$/, "");
+  const portalUrl = args.projectId
+    ? `${baseUrl}/portal/${args.clientId}/projects/${args.projectId}${DEEP_LINK_TO_DISCOVERY.has(args.templateKey) ? "#portal-discovery" : ""}`
+    : `${baseUrl}/portal/${args.clientId}`;
   let projectName: string | null = null;
   if (args.projectId) {
     const { data: proj } = await sb

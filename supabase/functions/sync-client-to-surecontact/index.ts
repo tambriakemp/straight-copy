@@ -16,6 +16,7 @@ import {
   upsertSureContact,
 } from "../_shared/surecontact.ts";
 import { resolveCaller } from "../_shared/webhook-auth.ts";
+import { findLatestWebDevProject } from "../_shared/web-dev-emails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,7 +98,13 @@ Deno.serve(async (req) => {
     allStageTags.add("Stage: Complete");
 
     const baseUrl = PORTAL_BASE_URL.replace(/\/$/, "");
-    const portalUrl = `${baseUrl}/portal/${clientId}`;
+    // CRE-780: land on the client's actual web-dev project page when one
+    // exists, consistent with web-dev-emails.ts, rather than always the
+    // generic client-level hub.
+    const webDevProject = await findLatestWebDevProject(supabase, clientId);
+    const portalUrl = webDevProject
+      ? `${baseUrl}/portal/${clientId}/projects/${webDevProject.id}`
+      : `${baseUrl}/portal/${clientId}`;
     const contractUrl = `${baseUrl}/portal/${clientId}/contract`;
     const brandKitUrl = `${baseUrl}/portal/${clientId}/brand-kit`;
     // Every unknown tier used to fall through to "Launch", which filed a

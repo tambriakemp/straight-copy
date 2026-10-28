@@ -50,6 +50,9 @@ export default function RequirePortalAuth({ children }: { children: ReactNode })
     );
   }
 
-  const returnTo = `${window.location.pathname}${window.location.search}`;
+  // CRE-780: keep the #anchor (e.g. #portal-discovery) so a logged-out
+  // client lands back on the exact section they were sent to, not just the
+  // top of the project page.
+  const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   return <Navigate to={`/portal/login?next=${encodeURIComponent(returnTo)}`} replace />;
 }
