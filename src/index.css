@@ -5476,10 +5476,63 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
     "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
 }
 
-/* The table scrolls rather than squashing on a phone. Four columns of money
-   and dates do not usefully reflow. */
-@media (max-width: 620px) {
-  .cp-table { display: block; overflow-x: auto; white-space: nowrap; }
+@media (max-width: 768px) {
+  .cp-table { border: 0; border-radius: 0; background: none; display: block; }
+  .cp-table thead { display: none; }
+  .cp-table tbody { display: grid; gap: 12px; }
+  .cp-table tr {
+    display: block;
+    border: 1px solid var(--cp-line);
+    border-radius: var(--cp-radius);
+    background: var(--cp-surface);
+    padding: 16px;
+  }
+  .cp-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--cp-line);
+    font-size: 14px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .cp-table td:last-child { border-bottom: 0; }
+
+  .cp-table__name {
+    order: -1;
+    padding: 0 0 12px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--cp-line);
+    font-size: 16px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    align-items: flex-start;
+  }
+  .cp-table__name .cp-chip { margin-top: 1px; flex: 0 0 auto; }
+
+  .cp-table td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cp-faint);
+    font-weight: 600;
+  }
+  .cp-table td[data-label] { text-align: right; max-width: 420px; }
+
+  .cp-table__act {
+    order: 99;
+    padding-top: 14px;
+    justify-content: stretch;
+    gap: 10px;
+    min-height: 0;
+  }
+  .cp-table__act > * + * { margin-left: 0; }
+  .cp-table__act .cp__btn { flex: 1 1 0; min-height: 44px; }
+
   .cp__main { padding: 24px 16px 48px; }
   .cp-doc { padding: 24px 20px 28px; }
   .cp-hero { padding: 22px 20px 26px; }

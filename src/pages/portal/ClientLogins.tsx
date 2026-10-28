@@ -153,9 +153,9 @@ function LoginRow({
         </span>
         {login.label}
       </td>
-      <td className="cp-mono">{login.username ?? "—"}</td>
-      <td className="cp-mono cp-mask">{login.masked}</td>
-      <td>{shortDate(login.sharedAt)}</td>
+      <td className="cp-mono" data-label="Username">{login.username ?? "—"}</td>
+      <td className="cp-mono cp-mask" data-label="Password">{login.masked}</td>
+      <td data-label="Shared">{shortDate(login.sharedAt)}</td>
       <td className="cp-table__act">
         {confirming ? (
           <>
