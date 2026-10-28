@@ -17,6 +17,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+// The line-drawn eye mockup 16 puts in the password field, as an SVG -- which
+// is also the only version of it that cannot fail. U+1F441 is
+// `Emoji_Presentation=No`, so a browser hunts for it in the element's text
+// fonts and never reaches the colour-emoji font that has it, putting a tofu
+// box on the face of a control the client presses to check their own typing.
+import { Eye, EyeOff } from "lucide-react";
 import ClientPortalShell, {
   PortalLoading,
   PortalProblem,
@@ -343,13 +349,16 @@ function SharePanel({
             onClick={() => setShown((value) => !value)}
             aria-label={shown ? "Hide the password" : "Show what I typed"}
           >
-            {shown ? "🙈" : "👁"}
+            {shown ? <EyeOff size={16} strokeWidth={1.75} /> : <Eye size={16} strokeWidth={1.75} />}
           </button>
         </span>
       </label>
 
       <p className="cp-locked">
-        <span aria-hidden="true">🔒</span>
+        {/* The mockup's yellow padlock, and it survives being one: U+1F512 is
+            `Emoji_Presentation=Yes`, so a browser goes straight to the
+            colour-emoji font for it. The eye above is the opposite case. */}
+        <span className="cp-locked__icon" aria-hidden="true">🔒️</span>
         Encrypted the moment you press Share. Not even shown back to you.
       </p>
 

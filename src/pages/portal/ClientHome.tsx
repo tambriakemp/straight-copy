@@ -12,6 +12,7 @@ import ClientPortalShell, {
 } from "@/components/portal/ClientPortalShell";
 import { useAdminPreview, usePortalView } from "@/components/portal/useClientPortal";
 import { clientPortal, greeting, money, shortDate, whenWord } from "@/lib/clientPortalApi";
+import { WAITING_ICONS } from "@/lib/clientPortalIcons";
 import type { HomeView, PortalMilestone } from "@/lib/clientPortalWire";
 
 export default function ClientHome() {
@@ -120,7 +121,7 @@ function WaitingCard({ view }: { view: HomeView }) {
             <li key={item.id} className="cp-todo__row">
               {item.icon && (
                 <span className="cp-todo__icon" aria-hidden="true">
-                  {item.icon}
+                  {WAITING_ICONS[item.icon]}
                 </span>
               )}
               <span className="cp-todo__title">{item.title}</span>

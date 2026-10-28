@@ -230,7 +230,7 @@ export class LegacySource implements PortalSource {
       waiting.push({
         id: `proposal:${required(proposal, "id")}`,
         title: `Sign ${required(proposal, "title")}`,
-        icon: "✎",
+        icon: "sign",
         action: "Review and sign",
         href: `/portal/${ctx.clientId}/agreements?id=${encodeURIComponent(required(proposal, "id"))}`,
         primary: true,

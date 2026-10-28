@@ -5101,7 +5101,17 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
 
 .cp-todo { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
 .cp-todo__row { display: flex; align-items: center; gap: 10px; }
-.cp-todo__icon { font-size: 16px; }
+/* Emoji, as the mockup draws them. The width is fixed so the titles line up
+   whatever the client's emoji font makes of the glyph, and the font stack
+   names the emoji families explicitly rather than trusting the fallback
+   chain to reach one. `WAITING_ICONS` has the rest of the story. */
+.cp-todo__icon {
+  flex: 0 0 auto;
+  width: 18px;
+  font-size: 16px;
+  font-family:
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
+}
 .cp-todo__title { flex: 1 1 auto; font-size: 14px; }
 
 .cp-amount { font-size: 34px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
@@ -5236,6 +5246,9 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
   right: 6px;
   top: 50%;
   transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 34px;
   min-width: 34px;
   border: 0;
@@ -5254,6 +5267,18 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
   min-height: 40px;
   overflow-wrap: anywhere;
 }
+/* Empty, the reserved height needs a reason to exist or it reads as a gap
+   the page forgot to fill. A signing line and a ghost of the words give it
+   one, and both are gone as soon as there is a name to draw -- so the state
+   a client signs in is the one in mockup 14, unchanged. */
+.cp-signature--empty {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--cp-line);
+}
+/* Faint enough that nobody reads it as a signature already made. */
+.cp-signature__ghost { color: var(--cp-faint); opacity: 0.32; }
 .cp-styles { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .cp-styles__one {
   flex: 1 1 110px;
@@ -5416,6 +5441,11 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
       rgba(124, 92, 255, 0.10) 0 10px,
       rgba(124, 92, 255, 0.04) 10px 20px
     );
+}
+.cp-locked__icon {
+  flex: 0 0 auto;
+  font-family:
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
 }
 
 /* The table scrolls rather than squashing on a phone. Four columns of money

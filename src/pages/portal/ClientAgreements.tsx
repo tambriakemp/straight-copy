@@ -420,8 +420,22 @@ function SignPanel({
       {/* The mark, as it will be recorded. Shown the moment there is a name
           to show: a signature the signer never saw is a signature they
           cannot be said to have adopted. */}
-      <p className="cp-signature" style={{ fontFamily: fontFor(view, style) }}>
-        {typed || " "}
+      {/* The height is reserved whether or not anything has been typed, so
+          the consent line and the Sign button do not jump down the page
+          mid-sentence on the one panel where a client is reading carefully.
+          Reserved space with nothing in it reads as a glitch, though, so
+          while it is empty it draws a signing line and a ghost of the words
+          -- the paper idiom for "your name goes here", which needs no
+          explaining. Both go the moment a real name arrives. */}
+      <p
+        className={`cp-signature${typed ? "" : " cp-signature--empty"}`}
+        style={{ fontFamily: fontFor(view, style) }}
+      >
+        {typed || (
+          <span className="cp-signature__ghost" aria-hidden="true">
+            Your signature
+          </span>
+        )}
       </p>
 
       {view.signing.styles.length > 1 && (

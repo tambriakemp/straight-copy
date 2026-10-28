@@ -229,7 +229,7 @@ export class PluginSource implements PortalSource {
       waitingOnYou.push({
         id: `proposal:${proposal.id}`,
         title: `Sign ${proposal.title}`,
-        icon: "✎",
+        icon: "sign",
         action: "Review and sign",
         href: `/portal/${ctx.clientId}/agreements?id=${encodeURIComponent(proposal.id)}`,
         primary: true,

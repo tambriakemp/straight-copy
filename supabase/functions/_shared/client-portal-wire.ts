@@ -84,13 +84,28 @@ export interface PortalMilestone {
   state: MilestoneState;
 }
 
+/**
+ * Which icon mockup 13 draws on the left of a waiting row.
+ *
+ * A NAME, NOT A CHARACTER, and that is deliberate. A glyph here is a bet
+ * that the client's machine has a font covering it: several of the obvious
+ * candidates (U+1F5BC a picture frame, U+1F441 an eye, U+270E a pencil) are
+ * `Emoji_Presentation=No`, so a browser looks for them in the element's TEXT
+ * font stack and never falls through to the colour-emoji font that does have
+ * them. When the text fonts come up empty the client gets a tofu box. Naming
+ * the icon and drawing it as an SVG cannot fail that way on any machine, and
+ * it keeps the slot closed: a licensee's plugin names an icon from this list
+ * rather than posting arbitrary characters into the client's screen.
+ */
+export type WaitingIcon = "sign" | "upload" | "review" | "pay";
+
 /** A thing the client has to do. The whole point of the home screen. */
 export interface WaitingItem {
   id: string;
   /** "Upload 6 treatment-room photos" */
   title: string;
-  /** The emoji on the left in mockup 13. Null draws no icon rather than a box. */
-  icon: string | null;
+  /** The icon on the left in mockup 13. Null draws no icon at all. */
+  icon: WaitingIcon | null;
   /** The button label: "Upload", "Open", "Review and sign". */
   action: string;
   /**
