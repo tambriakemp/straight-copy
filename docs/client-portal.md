@@ -450,9 +450,13 @@ the order is `SQL → secrets → functions → publish`:
    `portal-view-as` refuses to mint without the table, on purpose, so doing
    this second means a window where the button returns "not set up yet".
 2. **Set `PORTAL_VIEW_AS_KEY`** in the project's edge-function secrets, to a
-   long random value. Generate it where it will live; it belongs in no commit,
-   comment or log. `PORTAL_VIEW_AS_PLUGIN_KEY` is only needed once the Agent
-   Platform plugin's own button is in use.
+   long random value. This project runs on **Lovable Cloud**: there is no
+   Supabase dashboard access and no project keys on this side, so the secret
+   is added by asking Lovable to store it — its agent can generate the value
+   itself, or render its own secure secret form, and neither route puts the
+   value in the chat transcript. Generate it where it will live; it belongs in
+   no commit, comment or log. `PORTAL_VIEW_AS_PLUGIN_KEY` is only needed once
+   the Agent Platform plugin's own button is in use.
 3. **Deploy `portal-view-as` (new), `client-portal` and `proposal-sign`**, plus
    `_shared/`. Those three are the only ones whose behaviour changes.
    `_shared/webhook-auth.ts` is imported by eleven functions, but an
