@@ -336,6 +336,17 @@ describe("the project list, from the /admin tables", () => {
     { id: "p-2", name: "Booking reminders", type: "automation_build", status: "paused", updated_at: null },
   ];
 
+  it("drops a nameless row, the same as the plugin path does", () => {
+    // `client_projects.name` is NOT NULL and the empty string satisfies
+    // that, so this is reachable. The two sources answering differently for
+    // the same shape of bad row is how a client's portal would change under
+    // them at CP-6's import -- a row that reads as blank on one and is
+    // absent on the other.
+    expect(adminProjects([{ id: "p-1", name: "  ", type: null, status: "active" }], "c")).toEqual(
+      [],
+    );
+  });
+
   it("names every project and links every one of them", () => {
     // On this source the project id IS the `/admin` project id, which is what
     // `/portal/:clientId/projects/:projectId` resolves -- so a client with

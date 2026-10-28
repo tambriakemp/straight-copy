@@ -690,16 +690,25 @@ export function invoiceRowsFromAdmin(invoices: Row[], now: Date): PaymentRow[] {
  * there is one and gives up when there are several.
  */
 export function adminProjects(projects: Row[], clientId: string): PortalProject[] {
-  return projects.map((row): PortalProject => {
+  return projects.flatMap((row): PortalProject[] => {
     const id = required(row, "id");
-    return {
-      id,
-      name: required(row, "name"),
-      kind: projectKindLabel(text(row, "type")),
-      statusLabel: projectStatusLabel(text(row, "status")),
-      href: `/portal/${encodeURIComponent(clientId)}/projects/${encodeURIComponent(id)}`,
-      updatedAt: text(row, "updated_at"),
-    };
+    // Nameless rows are dropped, the same rule `pluginProjects` applies to a
+    // project the host would not name. `client_projects.name` is NOT NULL
+    // and the empty string satisfies that, so this is reachable here as well
+    // -- and the two sources answering differently for the same shape of bad
+    // row is how a client's portal changes under them at the import.
+    const name = required(row, "name").trim();
+    if (name.length === 0) return [];
+    return [
+      {
+        id,
+        name,
+        kind: projectKindLabel(text(row, "type")),
+        statusLabel: projectStatusLabel(text(row, "status")),
+        href: `/portal/${encodeURIComponent(clientId)}/projects/${encodeURIComponent(id)}`,
+        updatedAt: text(row, "updated_at"),
+      },
+    ];
   });
 }
 
