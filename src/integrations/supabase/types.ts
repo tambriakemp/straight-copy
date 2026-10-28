@@ -2508,24 +2508,6 @@ export type Database = {
           },
         ]
       }
-      onboarding_chat_requests: {
-        Row: {
-          created_at: string
-          id: string
-          ip: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          ip: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          ip?: string
-        }
-        Relationships: []
-      }
       onboarding_invites: {
         Row: {
           business_name: string | null
@@ -5120,6 +5102,15 @@ export type Database = {
           label: string
           order_index: number
           started_at: string
+          status: string
+        }[]
+      }
+      portal_whoami: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          business_name: string
+          client_id: string
+          contact_name: string
           status: string
         }[]
       }
