@@ -172,11 +172,34 @@ see the CRE-776 card.
 
 ## Deploying
 
-`supabase/functions/client-portal/` is a **new** function, and Lovable only
-deploys functions its own agent edited. Ask the project agent to deploy
-`client-portal` and `_shared/`, and tell it explicitly not to change any
-code. Until that happens the function does not exist and the screens say they
-could not reach the server.
+Two steps, and **they are ordered: deploy the function first, then publish.**
+
+1. **Deploy the function.** `supabase/functions/client-portal/` is a **new**
+   function, and Lovable only deploys functions its own agent edited. Ask the
+   project agent to deploy `client-portal` and `_shared/`, and tell it
+   explicitly not to change any code.
+2. **Publish.** Merging to `main` does not publish; publishing is the owner
+   pressing Publish in Lovable.
+
+### Why the order is not a preference
+
+`/portal/:clientId` is the route every client already lands on, and it now
+renders `ClientHome` instead of the old project list — the three new screens
+hang off it. All four reach their data through the one call in
+`src/lib/clientPortalApi.ts`, and that call names one function. So publishing
+before the deploy does not degrade one screen for the clients who go looking
+for it: **every current client's portal fails at the front door**, and all
+four screens behind it fail too, for exactly as long as the gap between the
+two steps lasts.
+
+It fails tidily — each screen renders `PortalProblem`, an explanation and a
+Retry button, rather than a blank page or a stack trace — and that is the
+behaviour we want when the server is unreachable for any reason. It is still
+an outage every client can see. Deploy first and the gap never exists.
+
+The `legacy-source.ts` bridge does not rescue this. The bridge lives *inside*
+the function, so an undeployed function means no data regardless of which
+source would have answered.
 
 Nothing here needs a migration against this database. The plugin-side
 migrations belong to the Agent Platform repository and run against a
