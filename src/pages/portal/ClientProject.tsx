@@ -30,6 +30,7 @@ import { phaseLadder, phaseSummary, PHASE_WORD, type PhaseNode } from "@/lib/jou
 import { supabase } from "@/integrations/supabase/client";
 import { supabasePortal } from "@/integrations/supabase/portalClient";
 import { portalFetch } from "@/lib/portalFetch";
+import { isDemoClient } from "@/lib/portalDemo";
 import { useEffect, useState } from "react";
 import type { HomeView } from "@/lib/clientPortalWire";
 // Pure string maps, free of `Deno` and of anything the edge function needs a
@@ -126,6 +127,21 @@ function ProjectBody({
   // The phase ladder and the page-review count.
   useEffect(() => {
     let cancelled = false;
+
+    // The QA harness. Project has no preview-approvals fixture, so this
+    // reads as a project with nothing to review yet -- the honest state a
+    // real project with no preview pages is in, not a gap (CRE-819).
+    if (import.meta.env.VITE_PORTAL_DEMO === "1" && isDemoClient(clientId)) {
+      void import("@/lib/portalDemoData").then(({ demoProjectPhases }) => {
+        if (cancelled) return;
+        setPhases(demoProjectPhases());
+        setPreviewProgress({ approved: 0, total: 0 });
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     (async () => {
       const { data } = await sb.rpc("portal_project_phases", { _client_project_id: project.id });
       if (!cancelled) setPhases((data ?? []) as PhaseNode[]);
@@ -153,12 +169,21 @@ function ProjectBody({
     return () => {
       cancelled = true;
     };
-  }, [project.id, sb, adminPreview]);
+  }, [project.id, sb, adminPreview, clientId]);
 
   // Whether the contract for this project has been signed -- gates the
   // discovery chat exactly as it does on the old project page.
   useEffect(() => {
     let cancelled = false;
+
+    // The QA harness has no `client_contracts` row for this id, and shows
+    // the contract as still open -- the same state the home screen's
+    // "Review and sign" fixture is already in (CRE-819).
+    if (import.meta.env.VITE_PORTAL_DEMO === "1" && isDemoClient(clientId)) {
+      setContractSigned(false);
+      return;
+    }
+
     (async () => {
       try {
         const { data } = await sb
@@ -176,7 +201,7 @@ function ProjectBody({
     return () => {
       cancelled = true;
     };
-  }, [project.id, sb]);
+  }, [project.id, sb, clientId]);
 
   const isAutomation = project.type === "automation_build";
   const isWebDev = project.type === "web_development";

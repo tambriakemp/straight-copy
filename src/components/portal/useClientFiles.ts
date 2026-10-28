@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { supabasePortal } from "@/integrations/supabase/portalClient";
 import { portalFetch } from "@/lib/portalFetch";
 import { safeFileName } from "@/lib/projectFiles";
+import { isDemoClient } from "@/lib/portalDemo";
 
 export const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -74,6 +75,15 @@ export function useClientFiles({
   const sb = adminPreview ? supabase : supabasePortal;
 
   const load = useCallback(async () => {
+    // The QA harness. `client-files` is not `client-portal`, so this call
+    // sits outside that function's own demo guard and needs its own -- see
+    // `demoProjectFiles` in `portalDemoData.ts` (CRE-819).
+    if (import.meta.env.VITE_PORTAL_DEMO === "1" && isDemoClient(clientId)) {
+      const { demoProjectFiles } = await import("@/lib/portalDemoData");
+      setFiles(demoProjectFiles());
+      setUnavailable(false);
+      return;
+    }
     try {
       const out = await call("list", { client_id: clientId, client_project_id: clientProjectId }, adminPreview);
       setFiles((out.files ?? []) as ProjectFile[]);
@@ -91,6 +101,10 @@ export function useClientFiles({
   const upload = useCallback(
     async (list: FileList | null) => {
       if (!list?.length) return;
+      if (import.meta.env.VITE_PORTAL_DEMO === "1" && isDemoClient(clientId)) {
+        toast.error("The demo can't send files.");
+        return;
+      }
       setBusy(true);
       let done = 0;
       for (const file of Array.from(list)) {
@@ -140,6 +154,10 @@ export function useClientFiles({
   const remove = useCallback(
     async (file: ProjectFile) => {
       if (!confirm(`Remove ${file.name}?`)) return;
+      if (import.meta.env.VITE_PORTAL_DEMO === "1" && isDemoClient(clientId)) {
+        toast.error("The demo can't remove files.");
+        return;
+      }
       try {
         await call("remove", { client_id: clientId, id: file.id }, adminPreview);
         await load();

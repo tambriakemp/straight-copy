@@ -10,6 +10,7 @@ import { useSearchParams } from "react-router-dom";
 import { PortalRequestError } from "@/lib/clientPortalApi";
 import { portalFetch } from "@/lib/portalFetch";
 import { adoptViewAsFromUrl, clearViewAs, viewAsActor } from "@/lib/portalViewAs";
+import { isDemoClient } from "@/lib/portalDemo";
 
 /**
  * Whether this is an admin looking at the portal as the client, and who.
@@ -217,6 +218,31 @@ export function useResolvedProject(
     if (!clientId) return;
     let cancelled = false;
     setState({ status: "loading", projectId: null, project: null, data: null });
+
+    function settle(payload: ResolvedProjectData & { projects?: ResolvedProjectRow[] }) {
+      if (cancelled) return;
+      const live = (payload.projects ?? [])
+        .filter((project) => project.status !== "archived")
+        .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
+      if (live.length === 0) {
+        setState({ status: "missing", projectId: null, project: null, data: null });
+      } else if (live.length > 1) {
+        setState({ status: "choose", projectId: null, project: null, data: null });
+      } else {
+        setState({ status: "ready", projectId: live[0]!.id, project: live[0]!, data: payload });
+      }
+    }
+
+    // The QA harness. `brand-kit-intake` is not `client-portal`, so this
+    // call sits outside that function's own demo guard and needs its own --
+    // see `demoResolveProject` in `portalDemoData.ts` (CRE-819).
+    if (import.meta.env.VITE_PORTAL_DEMO === "1" && isDemoClient(clientId)) {
+      void import("@/lib/portalDemoData").then(({ demoResolveProject }) => settle(demoResolveProject()));
+      return () => {
+        cancelled = true;
+      };
+    }
+
     (async () => {
       try {
         const response = await portalFetch(
@@ -228,17 +254,7 @@ export function useResolvedProject(
         const payload = (await response.json()) as ResolvedProjectData & {
           projects?: ResolvedProjectRow[];
         };
-        if (cancelled) return;
-        const live = (payload.projects ?? [])
-          .filter((project) => project.status !== "archived")
-          .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
-        if (live.length === 0) {
-          setState({ status: "missing", projectId: null, project: null, data: null });
-        } else if (live.length > 1) {
-          setState({ status: "choose", projectId: null, project: null, data: null });
-        } else {
-          setState({ status: "ready", projectId: live[0]!.id, project: live[0]!, data: payload });
-        }
+        settle(payload);
       } catch {
         if (!cancelled) setState({ status: "error", projectId: null, project: null, data: null });
       }
