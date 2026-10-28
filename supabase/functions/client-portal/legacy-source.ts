@@ -38,6 +38,7 @@ import {
   ladder,
   paymentState,
   paymentTotals,
+  payWaitingItem,
   stepPosition,
   type AgreementLineItem,
   type AgreementView,
@@ -47,13 +48,21 @@ import {
   type PaymentRow,
   type PaymentsView,
   type PortalMe,
+  type PortalProject,
   type SharedLogin,
   type SignRequest,
   type SignResult,
   type TeamUpdate,
   type WaitingItem,
 } from "../_shared/client-portal-wire.ts";
-import { footnoteFor, providerLabel } from "../_shared/client-portal-shape.ts";
+import {
+  footnoteFor,
+  formatMoney,
+  markFirstPrimary,
+  projectKindLabel,
+  projectStatusLabel,
+  providerLabel,
+} from "../_shared/client-portal-shape.ts";
 import {
   badRequest,
   notFound,
@@ -239,16 +248,23 @@ export class LegacySource implements PortalSource {
 
     const payments = invoiceRowsFromAdmin(rows(invoices), ctx.now);
     const nextPayable = payments.find((row) => row.payable) ?? null;
+    const payRow = payWaitingItem(nextPayable, ctx.clientId, formatMoney);
+    if (payRow) waiting.push(payRow);
 
     return {
       branding: ctx.branding,
       me,
+      projects: adminProjects(rows(projects), ctx.clientId),
       headline: headlineFor(project),
       stepNumber: position?.stepNumber ?? null,
       stepCount: position?.stepCount ?? null,
       targetDate: text(client, "delivery_date"),
       milestones,
-      waitingOnYou: waiting,
+      // Through the same helper the plugin path uses. This list used to set
+      // `primary: true` on every proposal it pushed, so a client with two
+      // unsigned contracts got two violet buttons -- the one thing the field
+      // exists to prevent.
+      waitingOnYou: markFirstPrimary(waiting),
       nextPayment: nextPayable
         ? {
             invoiceId: nextPayable.id,
@@ -655,6 +671,44 @@ export function invoiceRowsFromAdmin(invoices: Row[], now: Date): PaymentRow[] {
       receiptUrl: null,
       payable: (state === "ready" || state === "overdue") && Boolean(row.checkout_url),
     };
+  });
+}
+
+/**
+ * `client_projects` rows as the home screen's project list.
+ *
+ * The query that feeds this already excluded `archived` and already ordered
+ * by `updated_at` -- it was fetched for the hero line and only its first row
+ * was ever read. So the list Bree asked for was one map away from data this
+ * function was already paying for.
+ *
+ * Every row gets a link here, unlike the plugin path: on this source the
+ * project id IS the `/admin` project id, which is what
+ * `/portal/:clientId/projects/:projectId` resolves. A client with three
+ * projects can therefore reach a named one directly, which is the thing the
+ * `Project` nav item cannot do -- it has no project id, so it guesses when
+ * there is one and gives up when there are several.
+ */
+export function adminProjects(projects: Row[], clientId: string): PortalProject[] {
+  return projects.flatMap((row): PortalProject[] => {
+    const id = required(row, "id");
+    // Nameless rows are dropped, the same rule `pluginProjects` applies to a
+    // project the host would not name. `client_projects.name` is NOT NULL
+    // and the empty string satisfies that, so this is reachable here as well
+    // -- and the two sources answering differently for the same shape of bad
+    // row is how a client's portal changes under them at the import.
+    const name = required(row, "name").trim();
+    if (name.length === 0) return [];
+    return [
+      {
+        id,
+        name,
+        kind: projectKindLabel(text(row, "type")),
+        statusLabel: projectStatusLabel(text(row, "status")),
+        href: `/portal/${encodeURIComponent(clientId)}/projects/${encodeURIComponent(id)}`,
+        updatedAt: text(row, "updated_at"),
+      },
+    ];
   });
 }
 

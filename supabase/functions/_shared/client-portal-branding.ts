@@ -51,6 +51,20 @@ export const THIS_INSTALL = {
   agencyName: "Cre8 Visions",
   /** Not the initials of the name above: the mark this agency actually uses. */
   monogram: "C8",
+  /**
+   * The person this agency's clients message. Bree's decision, 28 Oct.
+   *
+   * Here rather than left to `PORTAL_CONTACT_NAME` on the live project, and
+   * the distinction matters: a decision that only exists as an unset
+   * environment variable is a decision that takes effect when somebody
+   * remembers to set it during a deploy, and silently does not when they do
+   * not. The symptom would be the screens quietly saying "Message us"
+   * forever, which is exactly the kind of wrong nothing reports. In this file
+   * it is in effect the moment the function deploys, `PORTAL_CONTACT_NAME`
+   * still overrides it, and a licensee answering under another name gets
+   * null -- so the original reason this had no default at all is intact.
+   */
+  contactName: "Bree",
   contactEmail: "info@cre8visions.com",
 } as const;
 
@@ -66,12 +80,17 @@ export const BRANDING_SETTINGS = [
 /**
  * The branding every client screen renders, from this install's settings.
  *
- * `contactName` has NO default at all, on purpose and unlike the rest.
- * Mockups 14 and 16 put a person's first name in running text ("Message
- * Tambria", "TAMBRIA ASKED FOR"), and a name defaulted here keeps rendering
- * perfectly after that person leaves. Unset means the screens say "Message
- * us" and "We asked for", which stays true whoever is reading the mail that
- * week.
+ * `contactName` is gated on `ours` like the monogram and the inbox, and it is
+ * the field where that gate earns the most. Mockups 14 and 16 put a person's
+ * first name in running text ("Message Bree", "BREE ASKED FOR"), so for a
+ * licensee it is not a missing default but a wrong one: a client being told
+ * to message a person at another company. Unset for them means the screens
+ * say "Message us" and "We asked for", which is true of whoever is reading
+ * the mail that week.
+ *
+ * For this install it answers "Bree" (Bree's decision, 28 Oct), overridable
+ * by `PORTAL_CONTACT_NAME` -- which remains the one thing to change when it
+ * stops being true, with no deploy.
  */
 export function resolveBranding(read: ReadSetting): PortalBranding {
   const configuredName = read("PORTAL_AGENCY_NAME");
@@ -89,7 +108,7 @@ export function resolveBranding(read: ReadSetting): PortalBranding {
       read("PORTAL_MONOGRAM") ?? (ours ? THIS_INSTALL.monogram : null),
       agencyName,
     ),
-    contactName: read("PORTAL_CONTACT_NAME"),
+    contactName: read("PORTAL_CONTACT_NAME") ?? (ours ? THIS_INSTALL.contactName : null),
     replyWindow: read("PORTAL_REPLY_WINDOW"),
     // Null hides the "Ask a question" button rather than offering one that
     // mails somebody else's agency.

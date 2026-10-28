@@ -28,6 +28,7 @@ import {
   ladder,
   paymentState,
   paymentTotals,
+  payWaitingItem,
   stepPosition,
   type AgreementLineItem,
   type AgreementView,
@@ -50,6 +51,7 @@ import {
   invoiceRows,
   markFirstPrimary,
   formatMoney,
+  pluginProjects,
   providerLabel,
   widenStatus,
   type ShapeInvoice,
@@ -99,6 +101,26 @@ interface PluginMilestone {
 interface PluginClientProject {
   id: string;
   paperclipProjectId: string;
+  /**
+   * The `/admin` project this one was imported from, when it was.
+   *
+   * Written by CP-6's import and null for anything created in the plugin. It
+   * is the only id on this row that `/portal/:clientId/projects/:projectId`
+   * can resolve, which is why it decides whether a project row gets a link.
+   */
+  legacyAdminProjectId?: string | null;
+  /**
+   * The linked Paperclip project, which is where its name lives.
+   *
+   * OPTIONAL, AND ABSENT MEANS AN OLDER PLUGIN. The link row carries a
+   * project id and no name -- Paperclip projects are the source of truth, so
+   * the plugin resolves the name through the host rather than keeping a copy
+   * that could go stale. That resolution is new (see the agent-platform PR on
+   * CRE-776), and this contract's rule for a field a server has not got yet
+   * is to draw what an unset value draws: a project with no resolvable name
+   * is left out of the list rather than listed as "Untitled".
+   */
+  project?: { name?: string | null; status?: string | null } | null;
   portalVisibility: {
     milestones?: PluginMilestone[];
     /** Short labels, e.g. "Photos". A list of strings, not of objects. */
@@ -235,6 +257,21 @@ export class PluginSource implements PortalSource {
         primary: true,
       });
     }
+    // Only the billed invoices here: the home card names the next payment
+    // the client can actually make, and an unbilled instalment is not one.
+    const rows = invoiceRows(invoices.invoices, [], ctx.now);
+    const nextPayable = rows.find((row) => row.payable) ?? null;
+    const provider = nextPayable
+      ? providerLabel(
+          invoices.invoices.find((invoice) => invoice.id === nextPayable.id)?.provider ?? null,
+        )
+      : null;
+
+    // Before the labels below, not after: the two rows a client can act on
+    // belong at the top of a list of things waiting on them.
+    const payRow = payWaitingItem(nextPayable, ctx.clientId, formatMoney);
+    if (payRow) waitingOnYou.push(payRow);
+
     // `waitingOnClient` is a list of short labels -- "Photos", "Copy for the
     // About page". There is no link to send the client to, because the thing
     // being waited on happens off the portal, so the row is drawn with no
@@ -251,19 +288,10 @@ export class PluginSource implements PortalSource {
       });
     }
 
-    // Only the billed invoices here: the home card names the next payment
-    // the client can actually make, and an unbilled instalment is not one.
-    const rows = invoiceRows(invoices.invoices, [], ctx.now);
-    const nextPayable = rows.find((row) => row.payable) ?? null;
-    const provider = nextPayable
-      ? providerLabel(
-          invoices.invoices.find((invoice) => invoice.id === nextPayable.id)?.provider ?? null,
-        )
-      : null;
-
     return {
       branding: ctx.branding,
       me,
+      projects: pluginProjects(projects.clientProjects, ctx.clientId),
       headline: visibility?.headline ?? null,
       stepNumber: position?.stepNumber ?? null,
       stepCount: position?.stepCount ?? null,
