@@ -7,19 +7,22 @@
 // client's projects keeps the conversation alive beside it.
 //
 // Two tabs, and only two. Projects is the work; Info is who the work is for.
-// Everything editable opens a side panel rather than expanding in place, so the
-// list you were reading does not move while you type in the middle of it.
+//
+// CRE-803: both tabs used to open a side panel to edit in place — client
+// contact info on Info, create/edit on Projects. Paperclip owns both records
+// now, so neither panel exists any more; see the comment above the removed
+// saveClient/saveProject for what each one did.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, ExternalLink, Eye, FolderOpen, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, ExternalLink, Eye, FolderOpen } from "lucide-react";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import SidePanel from "@/components/admin/SidePanel";
 import ClientCompaniesCard from "@/components/admin/ClientCompaniesCard";
 import ProjectResourcesSheet from "@/components/admin/ProjectResourcesSheet";
+import { ReadOnlyNotice } from "@/components/admin/ReadOnlyNotice";
 
 type Tab = "projects" | "info";
 
@@ -30,10 +33,6 @@ const TYPE_LABEL: Record<string, string> = {
   web_development: "Web",
   marketing: "Marketing",
 };
-
-const PROJECT_TYPES = [
-  "automation_build", "app_development", "web_development", "marketing",
-] as const;
 
 interface Client {
   id: string;
@@ -85,13 +84,6 @@ export default function AgentClientView({
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [editClient, setEditClient] = useState<null | {
-    contact_name: string; contact_email: string; contact_phone: string;
-  }>(null);
-  const [projectDraft, setProjectDraft] = useState<null | {
-    id: string | null; name: string; type: string; company_id: string; status: string;
-  }>(null);
-  const [saving, setSaving] = useState(false);
   // Links, credentials and files for one project. It used to hang off a project
   // tile; the tiles are gone, so it hangs off the row instead — dropping the
   // control would have made the resources unreachable rather than tidier.
@@ -125,85 +117,21 @@ export default function AgentClientView({
     return m;
   }, [companies]);
 
-  const saveClient = async () => {
-    if (!editClient || !client) return;
-    setSaving(true);
-    const { error } = await supabase.from("clients").update({
-      contact_name: editClient.contact_name.trim() || null,
-      contact_email: editClient.contact_email.trim() || null,
-      contact_phone: editClient.contact_phone.trim() || null,
-    }).eq("id", client.id);
-    setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success("Client updated");
-    setEditClient(null);
-    await load();
-  };
-
-  const saveProject = async () => {
-    if (!projectDraft) return;
-    const name = projectDraft.name.trim();
-    if (!name) return toast.error("A project needs a name.");
-    setSaving(true);
-    const payload = {
-      client_id: clientId,
-      name,
-      type: projectDraft.type,
-      company_id: projectDraft.company_id || null,
-      // Written alongside company_id only while the readers still expect it.
-      business_name: companyName[projectDraft.company_id] ?? null,
-    };
-    if (projectDraft.id) {
-      const { error } = await supabase.from("client_projects")
-        .update({ ...payload, status: projectDraft.status }).eq("id", projectDraft.id);
-      setSaving(false);
-      if (error) return toast.error(error.message);
-      toast.success("Project updated");
-      setProjectDraft(null);
-      return void load();
-    }
-
-    const { data: proj, error } = await supabase.from("client_projects")
-      .insert(payload).select("id").single();
-    if (error || !proj) {
-      setSaving(false);
-      return toast.error(error?.message ?? "Could not create the project");
-    }
-
-    // An automation build without its journey nodes is an empty checklist that
-    // looks finished. The templates are seeded here for the same reason the old
-    // form did it — the project is useless until they exist, and nothing else
-    // creates them.
-    if (projectDraft.type === "automation_build") {
-      const { data: tpls } = await supabase
-        .from("journey_templates")
-        .select("id, key, label, order_index, checklist")
-        .eq("tier", client?.tier ?? "launch")
-        .order("order_index");
-      if (tpls?.length) {
-        const { error: jErr } = await supabase.from("journey_nodes").insert(
-          tpls.map((t) => ({
-            client_id: clientId,
-            client_project_id: proj.id,
-            template_id: t.id,
-            key: t.key,
-            label: t.label,
-            order_index: t.order_index,
-            checklist: t.checklist,
-          })),
-        );
-        // Loud rather than silent: the project exists but is missing its spine,
-        // and finding that out later looks like the checklist was never set up.
-        if (jErr) toast.error(`Project created, but its checklist failed: ${jErr.message}`);
-      }
-    }
-
-    setSaving(false);
-    toast.success("Project created");
-    setProjectDraft(null);
-    if (onOpenProject) { await load(); onOpenProject(proj.id); return; }
-    navigate(`/admin/clients/${clientId}/projects/${proj.id}`);
-  };
+  // CRE-803: Paperclip is the source of truth for clients and client_projects
+  // as of the CP-6 cutover, so the two side panels that used to hang off this
+  // view — "Edit client" and "New/edit project" — are gone, and with them
+  // saveClient and saveProject. They are kept as a comment, not deleted,
+  // because reviving either means reviving exactly this shape, journey-node
+  // seeding on project creation included:
+  //
+  //   const { error } = await supabase.from("clients").update({
+  //     contact_name, contact_email, contact_phone,
+  //   }).eq("id", client.id);
+  //
+  //   const { data: proj, error } = projectDraft.id
+  //     ? await supabase.from("client_projects").update({ ...payload, status }).eq("id", projectDraft.id)
+  //     : await supabase.from("client_projects").insert(payload).select("id").single();
+  //   // + seed journey_nodes from journey_templates for a new automation_build project
 
   if (loading) return <p className="ws__work-sub">Loading…</p>;
   if (!client) return <p className="ws__work-sub">Client not found.</p>;
@@ -287,16 +215,7 @@ export default function AgentClientView({
                 <span className="acv__bar-note">
                   {projects.length === 0 ? "No projects yet." : "Open one to see its work."}
                 </span>
-                <button
-                  className="crm-btn crm-btn--primary crm-btn--sm"
-                  onClick={() => setProjectDraft({
-                    id: null, name: "", type: "automation_build",
-                    company_id: companies.find((c) => c.is_primary)?.id ?? "",
-                    status: "active",
-                  })}
-                >
-                  <Plus size={12} /> New project
-                </button>
+                <ReadOnlyNotice subject="project list" />
               </div>
 
               {/* A list, the same shape as the client roster — so moving between
@@ -330,17 +249,6 @@ export default function AgentClientView({
                     >
                       <FolderOpen size={12} />
                     </button>
-                    <button
-                      className="plist__edit"
-                      title="Edit this project"
-                      aria-label={`Edit ${p.name}`}
-                      onClick={() => setProjectDraft({
-                        id: p.id, name: p.name, type: p.type,
-                        company_id: p.company_id ?? "", status: p.status,
-                      })}
-                    >
-                      <Pencil size={12} />
-                    </button>
                   </li>
                 ))}
               </ul>
@@ -349,16 +257,7 @@ export default function AgentClientView({
             <div className="acv__info">
               <div className="acv__bar">
                 <span className="acv__bar-note">The person we deal with.</span>
-                <button
-                  className="crm-btn crm-btn--ghost crm-btn--sm"
-                  onClick={() => setEditClient({
-                    contact_name: client.contact_name ?? "",
-                    contact_email: client.contact_email ?? "",
-                    contact_phone: client.contact_phone ?? "",
-                  })}
-                >
-                  <Pencil size={12} /> Edit
-                </button>
+                <ReadOnlyNotice subject="client" />
               </div>
               <dl className="acv__dl">
                 <dt>Name</dt><dd>{client.contact_name || "—"}</dd>
@@ -382,103 +281,6 @@ export default function AgentClientView({
         open={!!resourcesFor}
         onOpenChange={(v) => { if (!v) setResourcesFor(null); }}
       />
-
-      <SidePanel
-        open={!!editClient}
-        title="Edit client"
-        subtitle="Businesses are managed under Companies."
-        onClose={() => setEditClient(null)}
-        footer={
-          <>
-            <button className="crm-btn crm-btn--ghost" onClick={() => setEditClient(null)} disabled={saving}>Cancel</button>
-            <button className="crm-btn crm-btn--primary" onClick={() => void saveClient()} disabled={saving}>
-              {saving ? "Saving…" : "Save changes"}
-            </button>
-          </>
-        }
-      >
-        {editClient && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div>
-              <label className="crm-label">Client name</label>
-              <input className="crm-input" value={editClient.contact_name} autoFocus
-                onChange={(e) => setEditClient({ ...editClient, contact_name: e.target.value })} />
-            </div>
-            <div>
-              <label className="crm-label">Email</label>
-              <input className="crm-input" type="email" value={editClient.contact_email}
-                onChange={(e) => setEditClient({ ...editClient, contact_email: e.target.value })} />
-            </div>
-            <div>
-              <label className="crm-label">Phone</label>
-              <input className="crm-input" value={editClient.contact_phone}
-                onChange={(e) => setEditClient({ ...editClient, contact_phone: e.target.value })} />
-            </div>
-          </div>
-        )}
-      </SidePanel>
-
-      <SidePanel
-        open={!!projectDraft}
-        title={projectDraft?.id ? "Edit project" : "New project"}
-        onClose={() => setProjectDraft(null)}
-        footer={
-          <>
-            <button className="crm-btn crm-btn--ghost" onClick={() => setProjectDraft(null)} disabled={saving}>Cancel</button>
-            <button className="crm-btn crm-btn--primary" onClick={() => void saveProject()} disabled={saving}>
-              {saving ? "Saving…" : projectDraft?.id ? "Save changes" : "Create project"}
-            </button>
-          </>
-        }
-      >
-        {projectDraft && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div>
-              <label className="crm-label">Project name *</label>
-              <input className="crm-input" value={projectDraft.name} autoFocus
-                onChange={(e) => setProjectDraft({ ...projectDraft, name: e.target.value })} />
-            </div>
-            <div>
-              <label className="crm-label">Type</label>
-              <select className="crm-input" value={projectDraft.type}
-                onChange={(e) => setProjectDraft({ ...projectDraft, type: e.target.value })}>
-                {PROJECT_TYPES.map((t) => (
-                  <option key={t} value={t}>{TYPE_LABEL[t]}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="crm-label">Company</label>
-              {companies.length === 0 ? (
-                <p style={{ fontSize: 15, color: "var(--crm-taupe)", margin: "4px 0 0" }}>
-                  No companies yet — add one first, on the right.
-                </p>
-              ) : (
-                <select className="crm-input" value={projectDraft.company_id}
-                  onChange={(e) => setProjectDraft({ ...projectDraft, company_id: e.target.value })}>
-                  <option value="">— not assigned —</option>
-                  {companies.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}{c.is_primary ? " (primary)" : ""}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            {projectDraft.id && (
-              <div>
-                <label className="crm-label">Status</label>
-                <select className="crm-input" value={projectDraft.status}
-                  onChange={(e) => setProjectDraft({ ...projectDraft, status: e.target.value })}>
-                  {["active", "paused", "complete", "archived"].map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-        )}
-      </SidePanel>
     </div>
   );
 }
