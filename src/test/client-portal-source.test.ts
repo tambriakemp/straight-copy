@@ -1,0 +1,409 @@
+/**
+ * The shaping the client portal's two data sources do (CRE-776).
+ *
+ * The composition for mockups 13-16 happens on the server, which is what
+ * keeps the plugin's API key out of the browser -- and means a reader of the
+ * screens cannot see the decisions. These are the ones worth pinning:
+ *
+ * **The payments table shows the whole schedule, not just the bills.** A
+ * client looking at a three-payment contract and seeing two rows reads it as
+ * a cheaper contract. Covered from both sources, because they derive it
+ * differently: the plugin joins invoices to schedule items, and the `/admin`
+ * tables carry both states on one row.
+ *
+ * **A scheduled instalment is never "Ready to pay".** A date is a plan and
+ * billing is the event. Getting this wrong sends a client to a payment page
+ * for an amount the agency has no record of asking for.
+ *
+ * **A provider key a licensee invented falls through to itself.** A button
+ * saying "Pay with Stripe" for money going somewhere else is worse than one
+ * saying "Pay with acme-pay".
+ *
+ * These import from `supabase/functions/`, which `tsconfig.app.json` does not
+ * include -- the same arrangement `agent-history.test.ts` and
+ * `proposal-defaults.test.ts` already use.
+ *
+ * Both modules are deliberately free of `Deno` and of `npm:` specifiers.
+ * `client-portal-shape.ts` exists for exactly that reason: the shaping used
+ * to live in `plugin-source.ts`, which holds the plugin credential and
+ * reaches `Deno.env`, and importing that from a test pulled `Deno` into the
+ * app's own typecheck.
+ */
+
+import { describe, expect, it } from "vitest";
+import {
+  footnoteFor,
+  invoiceRows,
+  providerLabel,
+} from "../../supabase/functions/_shared/client-portal-shape";
+import {
+  adminStatus,
+  headlineFor,
+  invoiceRowsFromAdmin,
+  isNodeDone,
+  lineItemsFrom,
+  recentUpdates,
+} from "../../supabase/functions/client-portal/legacy-source";
+
+const NOW = new Date("2026-10-28T12:00:00.000Z");
+
+/* -------------------------------------------------------------------------- */
+/* The plugin source                                                           */
+/* -------------------------------------------------------------------------- */
+
+function pluginInvoice(over: Record<string, unknown> = {}) {
+  return {
+    id: "inv-1",
+    paymentScheduleId: "sched-1",
+    number: "INV-1",
+    amountCents: 120_000,
+    currency: "usd",
+    status: "paid",
+    provider: "paypal",
+    checkoutUrl: null,
+    receiptUrl: null,
+    issuedAt: "2026-10-01T00:00:00Z",
+    dueOn: "2026-10-03",
+    paidAt: "2026-10-03T09:00:00Z",
+    ...over,
+  } as Parameters<typeof invoiceRows>[0][number];
+}
+
+function scheduleItem(over: Record<string, unknown> = {}) {
+  return {
+    id: "sched-1",
+    sequence: 1,
+    label: "Deposit",
+    amountCents: 120_000,
+    currency: "usd",
+    dueRule: "date",
+    dueOn: "2026-10-03",
+    dueMilestone: null,
+    status: "due",
+    ...over,
+  } as Parameters<typeof invoiceRows>[1][number];
+}
+
+describe("the payments table, from the plugin", () => {
+  it("reads mockup 15 back: two bills and one instalment nobody has raised", () => {
+    const rows = invoiceRows(
+      [
+        pluginInvoice({ id: "a", paymentScheduleId: "s1", paidAt: "2026-10-03T09:00:00Z" }),
+        pluginInvoice({
+          id: "b",
+          paymentScheduleId: "s2",
+          status: "sent",
+          paidAt: null,
+          amountCents: 240_000,
+          dueOn: "2026-11-14",
+          checkoutUrl: "https://paypal.test/c/2",
+        }),
+      ],
+      [
+        scheduleItem({ id: "s1", label: "Deposit" }),
+        scheduleItem({ id: "s2", label: "Design approved", dueOn: "2026-11-14" }),
+        scheduleItem({
+          id: "s3",
+          label: "Launch",
+          amountCents: 120_000,
+          dueRule: "milestone",
+          dueOn: null,
+          dueMilestone: "Before launch",
+        }),
+      ],
+      NOW,
+    );
+
+    expect(rows.map((row) => [row.label, row.state, row.payable])).toEqual([
+      ["Deposit", "paid", false],
+      ["Design approved", "ready", true],
+      // The row nobody has billed. Shown, with no button and its own wording.
+      ["Launch", "later", false],
+    ]);
+    expect(rows[2].dueNote).toBe("Before launch");
+    expect(rows[2].dueOn).toBeNull();
+  });
+
+  it("labels a row from the schedule, not from the invoice number", () => {
+    // The words a client reads are the licensee's. "INV-1" is ours.
+    const [row] = invoiceRows([pluginInvoice()], [scheduleItem({ label: "Deposit" })], NOW);
+    expect(row.label).toBe("Deposit");
+  });
+
+  it("falls back to the invoice number when nothing links it to a schedule", () => {
+    const [row] = invoiceRows([pluginInvoice({ paymentScheduleId: null })], [], NOW);
+    expect(row.label).toBe("INV-1");
+  });
+
+  it("does not list a schedule item twice once it has been billed", () => {
+    const rows = invoiceRows([pluginInvoice()], [scheduleItem()], NOW);
+    expect(rows).toHaveLength(1);
+  });
+
+  it("carries the provider receipt through, and only on a paid row", () => {
+    const [paid] = invoiceRows(
+      [pluginInvoice({ receiptUrl: "https://paypal.test/r/1" })],
+      [],
+      NOW,
+    );
+    expect(paid.receiptUrl).toBe("https://paypal.test/r/1");
+
+    const [unpaid] = invoiceRows(
+      [pluginInvoice({ paidAt: null, status: "sent", receiptUrl: "https://paypal.test/r/1" })],
+      [],
+      NOW,
+    );
+    expect(unpaid.receiptUrl).toBeNull();
+  });
+
+  it("marks a bill whose date has gone as overdue, not merely ready", () => {
+    const [row] = invoiceRows(
+      [pluginInvoice({ paidAt: null, status: "sent", dueOn: "2026-10-01" })],
+      [],
+      NOW,
+    );
+    expect(row.state).toBe("overdue");
+    expect(row.payable).toBe(true);
+  });
+});
+
+describe("naming the payment provider", () => {
+  it("knows the common ones", () => {
+    expect(providerLabel("paypal")).toBe("PayPal");
+    expect(providerLabel("stripe")).toBe("Stripe");
+  });
+
+  it("passes a licensee's own key through rather than guessing", () => {
+    // "Pay with Stripe" for money going to somebody else is worse than
+    // "Pay with acme-pay".
+    expect(providerLabel("acme-pay")).toBe("acme-pay");
+  });
+
+  it("names nothing for a payment taken by hand", () => {
+    expect(providerLabel("manual")).toBeNull();
+    expect(providerLabel("builtin")).toBeNull();
+    expect(providerLabel(null)).toBeNull();
+  });
+});
+
+describe("the line under the payments table", () => {
+  it("names the provider when there is exactly one", () => {
+    expect(footnoteFor(["PayPal"])).toBe(
+      "Payments go straight to PayPal. We never see or store your card.",
+    );
+  });
+
+  it("says something true when there are several, or none", () => {
+    expect(footnoteFor(["PayPal", "Stripe"])).toContain("our payment provider");
+    expect(footnoteFor([])).toContain("our payment provider");
+  });
+
+  it("treats one provider named twice as one provider", () => {
+    expect(footnoteFor(["PayPal", "PayPal"])).toContain("PayPal");
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* The /admin tables                                                           */
+/* -------------------------------------------------------------------------- */
+
+describe("the payments table, from the /admin tables", () => {
+  it("separates a raised bill from a scheduled one", () => {
+    const rows = invoiceRowsFromAdmin(
+      [
+        {
+          id: "a",
+          label: "Deposit",
+          amount_cents: 120_000,
+          currency: "usd",
+          status: "paid",
+          due_date: "2026-10-03",
+          paid_at: "2026-10-03T09:00:00Z",
+          checkout_url: "https://sc.test/1",
+        },
+        {
+          id: "b",
+          label: "Design approved",
+          amount_cents: 240_000,
+          currency: "usd",
+          status: "sent",
+          due_date: "2026-11-14",
+          paid_at: null,
+          checkout_url: "https://sc.test/2",
+        },
+        {
+          id: "c",
+          label: "Launch",
+          amount_cents: 120_000,
+          currency: "usd",
+          status: "scheduled",
+          due_date: null,
+          paid_at: null,
+          checkout_url: null,
+        },
+      ],
+      NOW,
+    );
+    expect(rows.map((row) => [row.label, row.state, row.payable])).toEqual([
+      ["Deposit", "paid", false],
+      ["Design approved", "ready", true],
+      ["Launch", "later", false],
+    ]);
+  });
+
+  it("will not offer to take money with no checkout to send them to", () => {
+    const [row] = invoiceRowsFromAdmin(
+      [
+        {
+          id: "a",
+          label: "Deposit",
+          amount_cents: 1000,
+          currency: "usd",
+          status: "sent",
+          due_date: null,
+          paid_at: null,
+          checkout_url: null,
+        },
+      ],
+      NOW,
+    );
+    // Billed, so the client is told it is ready -- and the button is absent,
+    // because pressing it could only fail.
+    expect(row.state).toBe("ready");
+    expect(row.payable).toBe(false);
+  });
+
+  it("reads an amount that is not a number as zero rather than NaN", () => {
+    const [row] = invoiceRowsFromAdmin(
+      [
+        {
+          id: "a",
+          label: "Deposit",
+          amount_cents: null,
+          currency: "usd",
+          status: "scheduled",
+          due_date: null,
+          paid_at: null,
+          checkout_url: null,
+        },
+      ],
+      NOW,
+    );
+    expect(row.amountCents).toBe(0);
+  });
+});
+
+describe("whether a journey node is finished", () => {
+  it("accepts every spelling two years of writers have used", () => {
+    for (const status of ["complete", "completed", "done", "approved", "skipped"]) {
+      expect(isNodeDone({ status })).toBe(true);
+    }
+    expect(isNodeDone({ status: "COMPLETE " })).toBe(true);
+  });
+
+  it("believes a completion timestamp over any status", () => {
+    expect(isNodeDone({ status: "pending", completed_at: "2026-10-01T00:00:00Z" })).toBe(true);
+  });
+
+  it("does not count work that is merely under way", () => {
+    expect(isNodeDone({ status: "in_progress" })).toBe(false);
+    expect(isNodeDone({})).toBe(false);
+  });
+});
+
+describe("the hero line", () => {
+  it("names what is being built", () => {
+    expect(headlineFor({ type: "site_preview" })).toBe("Your new site is being built");
+    expect(headlineFor({ type: "automation_build" })).toBe("Your automation is being built");
+  });
+
+  it("says nothing at all when there is no project", () => {
+    // A hero that invents a sentence about somebody's project is worse than
+    // a hero with no sentence.
+    expect(headlineFor(null)).toBeNull();
+    expect(headlineFor({ type: "something_new" })).toBeNull();
+  });
+
+  it("uses the project's own name for a kind it does not recognise", () => {
+    expect(headlineFor({ type: "something_new", name: "The rebrand" })).toBe(
+      "The rebrand is under way",
+    );
+  });
+});
+
+describe("latest from the team", () => {
+  it("takes the three most recent things, newest first", () => {
+    const updates = recentUpdates(
+      [
+        { id: "p1", title: "Website proposal", sent_at: "2026-10-01T00:00:00Z", client_signed_at: null },
+        { id: "p2", title: "Retainer", sent_at: "2026-10-02T00:00:00Z", client_signed_at: "2026-10-05T00:00:00Z" },
+      ],
+      [{ id: "i1", label: "Deposit", paid_at: "2026-10-06T00:00:00Z" }],
+      [
+        { key: "brand", label: "Brand", completed_at: "2026-10-07T00:00:00Z" },
+        { key: "kickoff", label: "Kickoff", completed_at: null },
+      ],
+      );
+    expect(updates.map((update) => update.title)).toEqual([
+      "Brand is done",
+      "Deposit received, thank you",
+      "Retainer is signed",
+    ]);
+    expect(updates.every((update) => update.tone === "positive")).toBe(true);
+  });
+
+  it("marks an unsigned proposal as something that needs them", () => {
+    const [update] = recentUpdates(
+      [{ id: "p1", title: "Website proposal", sent_at: "2026-10-01T00:00:00Z", client_signed_at: null }],
+      [],
+      [],
+    );
+    expect(update).toMatchObject({ title: "Website proposal is ready for you", tone: "accent" });
+  });
+
+  it("reports nothing when nothing has happened", () => {
+    expect(recentUpdates([], [], [])).toEqual([]);
+  });
+});
+
+describe("a proposal's status, as the client sees it", () => {
+  it("believes the signature over the status column", () => {
+    // These tables are written by several things; a row carrying a signature
+    // timestamp and a stale status is signed.
+    expect(adminStatus({ status: "sent", client_signed_at: "2026-10-05T00:00:00Z" })).toBe("signed");
+    expect(adminStatus({ status: "sent", declined_at: "2026-10-05T00:00:00Z" })).toBe("declined");
+  });
+
+  it("closes a voided or superseded proposal", () => {
+    expect(adminStatus({ status: "voided" })).toBe("void");
+    expect(adminStatus({ status: "superseded" })).toBe("void");
+  });
+
+  it("treats anything else as something to sign", () => {
+    expect(adminStatus({ status: "sent" })).toBe("sent");
+  });
+});
+
+describe("line items out of free-form payment terms", () => {
+  it("takes what it recognises, in either spelling", () => {
+    expect(
+      lineItemsFrom({
+        line_items: [
+          { description: "Website design & build", amount_cents: 460_000 },
+          { label: "Booking integration", amountCents: 60_000 },
+        ],
+      }),
+    ).toEqual([
+      { description: "Website design & build", amountCents: 460_000 },
+      { description: "Booking integration", amountCents: 60_000 },
+    ]);
+  });
+
+  it("returns nothing rather than guessing", () => {
+    // An investment table with invented rows is a price list the client
+    // could hold us to.
+    expect(lineItemsFrom(null)).toEqual([]);
+    expect(lineItemsFrom({ line_items: "see attached" })).toEqual([]);
+    expect(lineItemsFrom({ line_items: [{ amount_cents: 1000 }] })).toEqual([]);
+  });
+});

@@ -296,7 +296,11 @@ export default function PortalProject() {
     if (loading || notFound || !client || !focus) return;
     const target = focus === "contract" ? { tab: "overview" as const, id: "portal-contract" }
       : focus === "brand-kit" ? { tab: "brand" as const, id: "portal-brand-kit" }
-        : null;
+        // CRE-776: the new client nav has a Files item and no Files screen of
+        // its own — it opens this tab. No id to scroll to, because the tab
+        // IS the destination; the empty string simply finds nothing.
+        : focus === "files" ? { tab: "files" as const, id: "" }
+          : null;
     if (!target) return;
     setTab(target.tab);
     const t = window.setTimeout(() => {
