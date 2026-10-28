@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PortalRequestError } from "@/lib/clientPortalApi";
+import { portalFetch } from "@/lib/portalFetch";
 import { adoptViewAsFromUrl, clearViewAs, viewAsActor } from "@/lib/portalViewAs";
 
 /**
@@ -141,4 +142,111 @@ export function usePortalView<T>(
     error,
     reload: useCallback(() => setNonce((value) => value + 1), []),
   };
+}
+
+/** One of the client's live (non-archived) projects, as `brand-kit-intake`'s `resolve` action lists them. */
+export interface ResolvedProjectRow {
+  id: string;
+  type: string;
+  name: string;
+  status: string;
+  updated_at: string;
+}
+
+/**
+ * The parts of `brand-kit-intake`'s `resolve` response the Project screen
+ * reads beyond the project list itself.
+ *
+ * Narrowed to what is used here rather than mirroring the whole payload --
+ * `accountAccess`, `onboardingInvite` and `subscription` belong to the Brand
+ * tab on the old project page, which this screen does not draw.
+ */
+export interface ResolvedClient {
+  business_name: string | null;
+  contact_name: string | null;
+  tier: string;
+  build_start_date: string | null;
+  delivery_date: string | null;
+  delivery_video_url: string | null;
+}
+
+export interface ResolvedProjectData {
+  client: ResolvedClient;
+  contactEmail: string | null;
+  projects: ResolvedProjectRow[];
+}
+
+export type ResolvedProjectStatus = "loading" | "ready" | "missing" | "choose" | "error";
+
+export interface ResolvedProject {
+  status: ResolvedProjectStatus;
+  /** Set only when `status === "ready"`. */
+  projectId: string | null;
+  /** Set only when `status === "ready"`. */
+  project: ResolvedProjectRow | null;
+  /** The raw resolve payload, for the fields above the project list. Set on `"ready"`. */
+  data: ResolvedProjectData | null;
+}
+
+/**
+ * The one project a client sees on the Project and Files screens, or the
+ * reason there isn't one.
+ *
+ * Lifted from `ClientProjectJump.tsx` rather than duplicated by hand: both
+ * screens need the exact same answer to "which project", and a second copy
+ * of the archived-filter and the sort is a second chance for it to drift
+ * from the one the jump page used to redirect on.
+ *
+ * A client with more than one live project is `"choose"` rather than a
+ * guess -- the home screen's hero can pick one because a hero with two
+ * progress bars is not a hero, but a screen with its own address silently
+ * picking one of three hides the other two.
+ */
+export function useResolvedProject(
+  clientId: string | undefined,
+  adminPreview: boolean,
+): ResolvedProject {
+  const [state, setState] = useState<ResolvedProject>({
+    status: "loading",
+    projectId: null,
+    project: null,
+    data: null,
+  });
+
+  useEffect(() => {
+    if (!clientId) return;
+    let cancelled = false;
+    setState({ status: "loading", projectId: null, project: null, data: null });
+    (async () => {
+      try {
+        const response = await portalFetch(
+          "brand-kit-intake",
+          { clientId, action: "resolve", asAdmin: adminPreview },
+          adminPreview,
+        );
+        if (!response.ok) throw new Error("resolve failed");
+        const payload = (await response.json()) as ResolvedProjectData & {
+          projects?: ResolvedProjectRow[];
+        };
+        if (cancelled) return;
+        const live = (payload.projects ?? [])
+          .filter((project) => project.status !== "archived")
+          .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
+        if (live.length === 0) {
+          setState({ status: "missing", projectId: null, project: null, data: null });
+        } else if (live.length > 1) {
+          setState({ status: "choose", projectId: null, project: null, data: null });
+        } else {
+          setState({ status: "ready", projectId: live[0]!.id, project: live[0]!, data: payload });
+        }
+      } catch {
+        if (!cancelled) setState({ status: "error", projectId: null, project: null, data: null });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, adminPreview]);
+
+  return state;
 }

@@ -5549,3 +5549,129 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
   .cp-hero { padding: 22px 20px 26px; }
   .cp-hero__head { font-size: 24px; }
 }
+
+/* -- project & files (mockups 17-18, CRE-784/CRE-808) ---------------------
+   Additive only: nothing below redefines a `.cp-*` class 13-16 already use.
+   `.cp-pill--amber` is the one new pill variant the mockups actually draw
+   (mockup 18 reuses `--sent`). The rest of this block is not all named on
+   the build card either, but the rendered mockup HTML -- the source the
+   PNGs came from, built against these real tokens -- defines every one of
+   them (`.cp-card-head`, `.cp-bar`, `.cp-todo__what`/`__sub`/`__title--done`,
+   `.cp-step__when`, `.cp-outlink*` among them), and the card's own CSS
+   summary did not list all of what it had already used. Copied verbatim
+   from the mockup rather than re-derived, so this matches the pixels Bree
+   approved rather than a second guess at them. */
+
+.cp-pill--amber { background: rgba(233, 162, 59, 0.16); color: #f0c383; }
+
+/* The header row inside a `.cp-card` -- a title on the left, a pill or a
+   date on the right. Mockups 13-16's cards never needed two things on that
+   line at once. */
+.cp-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+
+/* The to-do row grows a second line (mockup 17): what it is, then why it
+   matters or when it happened. Mockup 13's own to-do rows (home screen,
+   "waiting on you") are one line each and never needed `__what`/`__sub`. */
+.cp-todo__what { flex: 1 1 auto; }
+.cp-todo__sub { font-size: 13px; color: var(--cp-faint); display: block; margin-top: 2px; }
+.cp-todo__title--done { color: var(--cp-dim); }
+
+/* The thin fill bar under "Page reviews" -- the dark system's answer to the
+   old admin side's `.cv-bar`. */
+.cp-bar { display: block; height: 8px; border-radius: 999px; background: var(--cp-surface-2); overflow: hidden; }
+.cp-bar > i { display: block; height: 100%; background: var(--cp-accent); border-radius: 999px; }
+
+/* The phase ladder's second line (mockup 17 "Where things stand"). The
+   milestone ladder on the home screen (mockup 13) has no second line, which
+   is why this did not exist before this card. */
+.cp-step__when { font-size: 12px; color: var(--cp-faint); opacity: 0.8; display: block; margin-top: 2px; }
+.cp-steps__foot { color: var(--cp-dim); font-size: 14px; margin: 14px 0 0; }
+
+/* A card that points at a tool deliberately not rebuilt here -- the
+   feedback board and the delivery walkthrough. */
+.cp-outlink { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.cp-outlink__note { color: var(--cp-faint); font-size: 12px; margin-top: 6px; }
+
+/* The discovery chat transcript (mockup 17). One bubble style, two
+   alignments, the same idiom `.cp-chat__row--me`/`--them` names it with. */
+.cp-chat { display: grid; gap: 10px; margin-top: 4px; }
+.cp-chat__row { display: flex; }
+.cp-chat__row--me { justify-content: flex-end; }
+.cp-chat__bubble { max-width: 72%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.cp-chat__row--them .cp-chat__bubble { background: var(--cp-surface-2); color: var(--cp-text); border-bottom-left-radius: 4px; }
+.cp-chat__row--me .cp-chat__bubble { background: var(--cp-accent); color: var(--cp-accent-ink); border-bottom-right-radius: 4px; }
+.cp-chat__input { display: flex; gap: 8px; margin-top: 14px; }
+.cp-chat__input input {
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--cp-line);
+  background: var(--cp-surface-2);
+  color: var(--cp-text);
+  font: inherit;
+}
+.cp-chat__input input::placeholder { color: var(--cp-faint); }
+.cp-chat__input input:focus {
+  outline: none;
+  border-color: var(--cp-accent);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.28);
+}
+
+/* The drop zone (mockup 18). */
+.cp-drop { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border-style: dashed; border-color: #3a3a42; }
+.cp-drop[data-dragging="yes"] { border-color: var(--cp-accent); }
+.cp-drop__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--cp-surface-2);
+  color: var(--cp-dim);
+  flex: 0 0 auto;
+}
+.cp-drop__what { flex: 1 1 240px; min-width: 0; }
+.cp-drop__title { font-weight: 500; font-size: 14px; }
+.cp-drop__sub { font-size: 13px; color: var(--cp-faint); margin-top: 2px; }
+
+/* The two file lists (mockup 18) -- one row style for a shared or sent
+   file, reusing the `.cp-table` row idiom rather than a grid of cells. */
+.cp-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.cp-file { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--cp-line); flex-wrap: wrap; }
+.cp-files li:last-child .cp-file { border-bottom: 0; padding-bottom: 0; }
+.cp-files li:first-child .cp-file { padding-top: 0; }
+.cp-file__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: var(--cp-surface-2);
+  color: var(--cp-dim);
+  flex: 0 0 auto;
+}
+.cp-file__what { flex: 1 1 200px; min-width: 0; display: grid; }
+.cp-file__name {
+  font-size: 14px;
+  color: var(--cp-text);
+  font-weight: 500;
+  display: block;
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.cp-file__name--link { text-decoration: underline; text-decoration-color: var(--cp-line); cursor: pointer; }
+.cp-file__meta { font-size: 13px; color: var(--cp-faint); display: block; margin-top: 2px; overflow-wrap: anywhere; }
+.cp-file__actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+
+/* Neither screen may scroll the page sideways on a phone: the phase ladder
+   is seven columns and a file row carries up to three controls. */
+@media (max-width: 620px) {
+  .cp-file { gap: 10px; }
+  .cp-file__what { flex-basis: 160px; }
+}

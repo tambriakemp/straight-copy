@@ -8,38 +8,14 @@
 // The bucket is private on purpose — the portal is a link, and a link
 // that also hands out permanent file URLs turns one forwarded address
 // into a document archive that never expires.
-import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import { Upload, FileText, Download, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { supabasePortal } from "@/integrations/supabase/portalClient";
-import { portalFetch } from "@/lib/portalFetch";
 import EmptyState from "@/components/admin/cv/EmptyState";
-import { fileSize, safeFileName, previewKind } from "@/lib/projectFiles";
+import { fileSize, previewKind } from "@/lib/projectFiles";
 import FilePreview from "@/components/FilePreview";
+import { useClientFiles, type ProjectFile } from "@/components/portal/useClientFiles";
 
-const MAX_BYTES = 15 * 1024 * 1024;
-
-export interface ProjectFile {
-  id: string;
-  name: string;
-  storage_path: string;
-  size_bytes: number | null;
-  mime: string | null;
-  direction: string;
-  category: string | null;
-  uploaded_by_name: string | null;
-  visible_to_client: boolean;
-  created_at: string;
-  url: string | null;
-}
-
-async function call(action: string, body: Record<string, unknown>, adminPreview: boolean) {
-  const res = await portalFetch("client-files", { action, ...body }, adminPreview);
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((json as { error?: string })?.error ?? res.statusText);
-  return json as Record<string, unknown>;
-}
+export type { ProjectFile };
 
 function when(iso: string): string {
   const d = new Date(iso);
@@ -56,78 +32,10 @@ export default function FilesSection({
   clientName: string | null;
   adminPreview: boolean;
 }) {
-  const [files, setFiles] = useState<ProjectFile[] | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [unavailable, setUnavailable] = useState(false);
-  const [dragging, setDragging] = useState(false);
   const [previewing, setPreviewing] = useState<ProjectFile | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const sb = adminPreview ? supabase : supabasePortal;
-
-  const load = useCallback(async () => {
-    try {
-      const out = await call("list", { client_id: clientId, client_project_id: clientProjectId }, adminPreview);
-      setFiles((out.files ?? []) as ProjectFile[]);
-      setUnavailable(false);
-    } catch {
-      setFiles([]);
-      setUnavailable(true);
-    }
-  }, [clientId, clientProjectId, adminPreview]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const upload = async (list: FileList | null) => {
-    if (!list?.length) return;
-    setBusy(true);
-    let done = 0;
-    for (const file of Array.from(list)) {
-      if (file.size > MAX_BYTES) {
-        toast.error(`${file.name} is over 15MB`);
-        continue;
-      }
-      try {
-        const path = `project-files/${clientId}/${clientProjectId}/${Date.now()}-${safeFileName(file.name)}`;
-        const { error } = await sb.storage.from("client-assets").upload(path, file, {
-          cacheControl: "3600", upsert: false, contentType: file.type || undefined,
-        });
-        if (error) throw new Error(error.message);
-        // Two steps on purpose: the bytes go straight to storage, and
-        // only then is a row written. A failed upload leaves no row
-        // claiming a file that is not there.
-        await call("register", {
-          client_id: clientId,
-          client_project_id: clientProjectId,
-          name: file.name,
-          storage_path: path,
-          size_bytes: file.size,
-          mime: file.type || null,
-          uploaded_by_name: clientName || null,
-        }, adminPreview);
-        done++;
-      } catch (e) {
-        toast.error(`${file.name}: ${e instanceof Error ? e.message : "upload failed"}`);
-      }
-    }
-    setBusy(false);
-    if (inputRef.current) inputRef.current.value = "";
-    if (done) { await load(); toast.success(`Sent ${done} file${done === 1 ? "" : "s"}`); }
-  };
-
-  const remove = async (f: ProjectFile) => {
-    if (!confirm(`Remove ${f.name}?`)) return;
-    try {
-      await call("remove", { client_id: clientId, id: f.id }, adminPreview);
-      await load();
-      toast.success("Removed");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not remove that file");
-    }
-  };
-
-  const rows = files ?? [];
-  const shared = rows.filter((f) => f.direction === "to_client");
-  const sent = rows.filter((f) => f.direction !== "to_client");
+  const {
+    files, shared, sent, busy, unavailable, dragging, inputRef, onDragOver, onDragLeave, onDrop, upload, remove,
+  } = useClientFiles({ clientId, clientProjectId, clientName, adminPreview });
 
   const row = (f: ProjectFile, mine: boolean) => (
     <div key={f.id} className="cv-it">
@@ -153,7 +61,7 @@ export default function FilesSection({
         </a>
       )}
       {mine && (
-        <button type="button" className="cv-mini cv-mini--danger" onClick={() => remove(f)}>
+        <button type="button" className="cv-mini cv-mini--danger" onClick={() => void remove(f)}>
           <Trash2 size={14} />
         </button>
       )}
@@ -183,9 +91,9 @@ export default function FilesSection({
         <section
           className="cv-card cv-card-pad cv-drop"
           data-dragging={dragging ? "yes" : undefined}
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => { e.preventDefault(); setDragging(false); void upload(e.dataTransfer.files); }}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
         >
           <span className="cv-ic" style={{ background: "#E7EEFF", color: "#2447C0" }}>
             <Upload size={22} />

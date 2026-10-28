@@ -28,3 +28,21 @@ export const WAITING_ICONS: Record<WaitingIcon, string> = {
   review: "\u{1F440}️",
   pay: "\u{1F4B3}️",
 };
+
+export type TodoIconKey = "contract" | "discovery" | "review";
+
+/**
+ * The to-do row icons mockup 17 draws. Same rule as `WAITING_ICONS` above,
+ * and the same failure mode if a future entry drops the selector: `discovery`
+ * shipped once without it and rendered fine in a quick check, because its
+ * fallback font happened to carry the glyph -- the kind of pass that does not
+ * survive the next browser or OS.
+ */
+export const TODO_ICONS: Record<TodoIconKey, string> = {
+  contract: "✍️",
+  discovery: "\u{1F4AC}️",
+  review: "\u{1F440}️",
+};
+
+/** The same row, once it's done. */
+export const TODO_DONE_ICON = "\u{2705}️";
