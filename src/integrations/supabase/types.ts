@@ -4755,6 +4755,7 @@ export type Database = {
           completed: boolean
           conversation: Json
           created_at: string
+          extracted_intake: Json | null
           id: string
           submitted_at: string | null
           updated_at: string
@@ -4765,6 +4766,7 @@ export type Database = {
           completed?: boolean
           conversation?: Json
           created_at?: string
+          extracted_intake?: Json | null
           id?: string
           submitted_at?: string | null
           updated_at?: string
@@ -4775,6 +4777,7 @@ export type Database = {
           completed?: boolean
           conversation?: Json
           created_at?: string
+          extracted_intake?: Json | null
           id?: string
           submitted_at?: string | null
           updated_at?: string

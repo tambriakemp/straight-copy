@@ -99,6 +99,13 @@
       "when": 1791854679581,
       "tag": "0013_prospect_rebuild_closed_at_and_round2",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793159956695,
+      "tag": "0014_web_dev_discovery_structured_fields",
+      "breakpoints": true
     }
   ]
 }
