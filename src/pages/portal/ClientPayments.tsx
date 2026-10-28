@@ -24,7 +24,7 @@ import type { PaymentRow, PaymentsView } from "@/lib/clientPortalWire";
 
 export default function ClientPayments() {
   const { clientId } = useParams<{ clientId: string }>();
-  const { adminPreview, exitPreview } = useAdminPreview(clientId);
+  const { adminPreview, viewAsGrant, actor, exitPreview } = useAdminPreview(clientId);
   const load = usePortalView<PaymentsView>(
     clientId ? () => clientPortal.payments(clientId, adminPreview) : null,
     [clientId, adminPreview],
@@ -64,6 +64,8 @@ export default function ClientPayments() {
       me={view?.me ?? null}
       tab="payments"
       adminPreview={adminPreview}
+      viewAsGrant={viewAsGrant}
+      actor={actor}
       onExitPreview={exitPreview}
     >
       {load.error && !view ? (
@@ -171,14 +173,14 @@ function Row({
   return (
     <tr>
       <td className="cp-table__name">{row.label}</td>
-      <td>
+      <td data-label="Due">
         {/* A date when there is one, and the rule in the licensee's own
             words when there is not -- "Before launch" is information, and
             an empty cell is not. */}
         {row.dueOn ? shortDate(row.dueOn) : (row.dueNote ?? "—")}
       </td>
-      <td>{money(row.amountCents, row.currency || currency)}</td>
-      <td>
+      <td data-label="Amount">{money(row.amountCents, row.currency || currency)}</td>
+      <td data-label="Status">
         <span className={`cp-pill cp-pill--${row.state}`}>
           {STATE_WORD[row.state]}
           {row.state === "paid" && row.paidWith && ` · ${row.paidWith}`}

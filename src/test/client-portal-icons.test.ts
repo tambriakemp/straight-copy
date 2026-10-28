@@ -16,7 +16,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { WAITING_ICONS } from "../lib/clientPortalIcons";
+import { TODO_DONE_ICON, TODO_ICONS, WAITING_ICONS } from "../lib/clientPortalIcons";
 
 const VS16 = "️";
 
@@ -34,5 +34,22 @@ describe("the waiting-row icons", () => {
     // missing; this fails the test run if the union gains a member and the
     // table is widened to `string` to keep up.
     expect(Object.keys(WAITING_ICONS).sort()).toEqual(["pay", "review", "sign", "upload"]);
+  });
+});
+
+describe("the to-do row icons", () => {
+  it("every one asks for emoji presentation", () => {
+    for (const [name, glyph] of Object.entries(TODO_ICONS)) {
+      expect(glyph.endsWith(VS16), `${name} (${JSON.stringify(glyph)}) must end in U+FE0F`).toBe(
+        true,
+      );
+    }
+    expect(TODO_DONE_ICON.endsWith(VS16), `done (${JSON.stringify(TODO_DONE_ICON)}) must end in U+FE0F`).toBe(
+      true,
+    );
+  });
+
+  it("covers every key the to-do list uses", () => {
+    expect(Object.keys(TODO_ICONS).sort()).toEqual(["contract", "discovery", "review"]);
   });
 });

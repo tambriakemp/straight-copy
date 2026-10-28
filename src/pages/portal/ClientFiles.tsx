@@ -30,6 +30,11 @@ import FilePreview from "@/components/FilePreview";
 import { fileSize, previewKind } from "@/lib/projectFiles";
 import type { HomeView } from "@/lib/clientPortalWire";
 
+// This is licensed, client-facing UI -- the agency's own name is sample
+// text, same as mockup 18 drew it, not something to fall back on for a
+// licensee whose branding hasn't loaded yet.
+const FALLBACK_AGENCY_NAME = "the team";
+
 function when(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime())
@@ -39,7 +44,7 @@ function when(iso: string): string {
 
 export default function ClientFiles() {
   const { clientId } = useParams<{ clientId: string }>();
-  const { adminPreview, exitPreview } = useAdminPreview(clientId);
+  const { adminPreview, viewAsGrant, actor, exitPreview } = useAdminPreview(clientId);
 
   const shell = usePortalView<HomeView>(
     clientId ? () => clientPortal.home(clientId, adminPreview) : null,
@@ -58,6 +63,8 @@ export default function ClientFiles() {
       me={shell.data?.me ?? null}
       tab="files"
       adminPreview={adminPreview}
+      viewAsGrant={viewAsGrant}
+      actor={actor}
       onExitPreview={exitPreview}
     >
       {shell.error && !shell.data ? (
@@ -73,6 +80,7 @@ export default function ClientFiles() {
           clientId={clientId ?? ""}
           clientProjectId={resolved.projectId!}
           clientName={resolved.data?.client.contact_name ?? null}
+          agencyName={shell.data.branding?.agencyName || FALLBACK_AGENCY_NAME}
           adminPreview={adminPreview}
         />
       )}
@@ -84,11 +92,13 @@ function FilesBody({
   clientId,
   clientProjectId,
   clientName,
+  agencyName,
   adminPreview,
 }: {
   clientId: string;
   clientProjectId: string;
   clientName: string | null;
+  agencyName: string;
   adminPreview: boolean;
 }) {
   const {
@@ -100,7 +110,7 @@ function FilesBody({
     <>
       <div>
         <h1 className="cp-h1">Files</h1>
-        <p className="cp-sub">Send files to Cre8 Visions and download what they've shared with you.</p>
+        <p className="cp-sub">Send files to {agencyName} and download what they've shared with you.</p>
       </div>
 
       {unavailable ? (
@@ -154,12 +164,12 @@ function FilesBody({
           <p className="cp-card__calm">Loading…</p>
         ) : shared.length === 0 ? (
           <p className="cp-card__calm">
-            Nothing yet. Contracts, designs and deliverables Cre8 Visions sends you show up here.
+            Nothing yet. Contracts, designs and deliverables {agencyName} sends you show up here.
           </p>
         ) : (
           <ul className="cp-files">
             {shared.map((file) => (
-              <FileRow key={file.id} file={file} mine={false} onPreview={setPreviewing} />
+              <FileRow key={file.id} file={file} mine={false} agencyName={agencyName} onPreview={setPreviewing} />
             ))}
           </ul>
         )}
@@ -175,7 +185,14 @@ function FilesBody({
         ) : (
           <ul className="cp-files">
             {sent.map((file) => (
-              <FileRow key={file.id} file={file} mine onPreview={setPreviewing} onRemove={remove} />
+              <FileRow
+                key={file.id}
+                file={file}
+                mine
+                agencyName={agencyName}
+                onPreview={setPreviewing}
+                onRemove={remove}
+              />
             ))}
           </ul>
         )}
@@ -196,11 +213,13 @@ function FilesBody({
 function FileRow({
   file,
   mine,
+  agencyName,
   onPreview,
   onRemove,
 }: {
   file: ProjectFile;
   mine: boolean;
+  agencyName: string;
   onPreview: (file: ProjectFile) => void;
   onRemove?: (file: ProjectFile) => Promise<void>;
 }) {
@@ -227,7 +246,7 @@ function FileRow({
           </span>
         </span>
         <span className={`cp-pill${mine ? " cp-pill--sent" : ""}`}>
-          {mine ? "From you" : "From Cre8 Visions"}
+          {mine ? "From you" : `From ${agencyName}`}
         </span>
         <span className="cp-file__actions">
           {file.url && (

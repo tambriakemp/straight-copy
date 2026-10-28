@@ -1,15 +1,15 @@
-// The frame around mockups 13-16: the dark top bar, the pill nav, the avatar.
+// The frame around mockups 13-18: the dark top bar, the pill nav, the avatar.
 //
 // A SECOND SHELL, NOT A REPLACEMENT FOR `PortalShell`. That one is the
-// light, side-navigation frame the project and feedback pages still use, and
-// those pages are untouched by this card -- the brief is mockups 13-16 and
-// says to ask before adding or renaming UI. Redrawing screens nobody drew
-// would be exactly that.
+// light, side-navigation frame the feedback board and `/admin` still use,
+// untouched by either of these cards -- the brief is to build to the
+// mockups and ask before adding or renaming UI. Redrawing screens nobody
+// drew would be exactly that.
 //
-// The consequence is visible and worth stating rather than hiding: Project
-// and Files in the nav below lead to pages in the older frame. They work; the
-// seam shows. Flagged on the card rather than fixed by redesigning two
-// screens on my own initiative.
+// One seam remains on purpose: a client with more than one live project
+// still lands on the old light project list from Project and Files, because
+// nobody has drawn a project switcher for the dark surface. Flagged on
+// CRE-784 rather than fixed by inventing one here.
 //
 // WHY THE NAV IS A LIST OF LINKS AND NOT A VIEW SWITCHER
 //
@@ -35,12 +35,7 @@ interface NavItem {
   to: (clientId: string) => string;
 }
 
-/**
- * The six destinations in mockup 13, in that order.
- *
- * Project and Files point at the pages that already serve them. There is no
- * mockup for either, so neither was rebuilt.
- */
+/** The six destinations in mockup 13, in that order. */
 const NAV: NavItem[] = [
   { tab: "home", label: "Home", to: (id) => `/portal/${id}` },
   { tab: "project", label: "Project", to: (id) => `/portal/${id}/project` },
@@ -56,6 +51,8 @@ export default function ClientPortalShell({
   me,
   tab,
   adminPreview,
+  viewAsGrant = false,
+  actor = "",
   onExitPreview,
   children,
 }: {
@@ -64,24 +61,39 @@ export default function ClientPortalShell({
   me: PortalMe | null;
   tab: ClientPortalTab;
   adminPreview: boolean;
+  /**
+   * Whether the grant is a CRE-811 view-as token. Changes what the bar says,
+   * because the two cases differ in a way that matters to the person reading
+   * it: a token is READ-ONLY and the server will refuse a signature or a
+   * payment made under it, and `?as=admin` with a real admin session is not.
+   */
+  viewAsGrant?: boolean;
+  /** The admin, by name, when the token says. */
+  actor?: string;
   onExitPreview?: () => void;
   children: ReactNode;
 }) {
   const { search } = useLocation();
   // The `?as=admin` preview has to survive navigation, or the first click
-  // inside a preview drops back out of it.
+  // inside a preview drops back out of it. A view-as token needs none of
+  // this: it is in `sessionStorage`, so every link in the tab already carries
+  // it and no URL has to.
   const keep = adminPreview && search.includes("as=admin") ? search : "";
 
   return (
     <div className="cp">
       {adminPreview && (
         <div className="cp__preview" role="status">
-          <strong>Admin preview</strong>
-          <span>You are viewing this portal as the client. Clients never see this bar.</span>
+          <strong>{viewAsGrant ? "Viewing as client" : "Admin preview"}</strong>
+          <span>
+            {viewAsGrant
+              ? `You are seeing exactly what the client sees${actor ? `, signed in as ${actor}` : ""}. This view is read-only — signing and paying are refused. Clients never see this bar.`
+              : "You are viewing this portal as the client. Clients never see this bar."}
+          </span>
           <a href="/admin/clients">Back to admin</a>
           {onExitPreview && (
             <button type="button" onClick={onExitPreview}>
-              Exit preview
+              {viewAsGrant ? "End view-as" : "Exit preview"}
             </button>
           )}
         </div>

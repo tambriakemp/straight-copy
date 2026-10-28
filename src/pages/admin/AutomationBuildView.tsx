@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { differenceInCalendarDays, format } from "date-fns";
 import { syncChecklist, templateIdFor, type ChecklistItem as ChecklistItemTpl } from "@/lib/journey-checklists";
+import { openPortalAsClient } from "@/lib/portalViewAs";
 import { Eye, Copy, RefreshCw, FileSignature, MessageSquare, Pencil, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -996,16 +997,23 @@ function BrandKitPanel({ client }: { client: Client }) {
           <button className="crm-btn crm-btn--ghost" onClick={copyPortal} style={{ fontSize: 17 }}>
             Copy link
           </button>
-          <a
+          {/* CRE-811: a server-minted, read-only, logged view-as grant,
+              rather than a `?as=admin` the portal tab has to honour on its
+              own. Same behaviour as Open portal on the client page. */}
+          <button
             className="crm-btn crm-btn--ghost"
-            href={`${portalUrl}?as=admin`}
-            target="_blank"
-            rel="noreferrer"
-            style={{ fontSize: 17, textDecoration: "none" }}
-            title="Open as an admin preview (your admin session is unchanged)"
+            onClick={() => {
+              void openPortalAsClient(client.id).catch((caught: unknown) => {
+                toast.error(
+                  caught instanceof Error ? caught.message : "Could not open the portal",
+                );
+              });
+            }}
+            style={{ fontSize: 17 }}
+            title="Open the client's portal as the client, read-only. Your admin session is unchanged."
           >
             Open as client ↗
-          </a>
+          </button>
         </div>
       </div>
 

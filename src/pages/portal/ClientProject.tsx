@@ -40,8 +40,9 @@ import type { HomeView } from "@/lib/clientPortalWire";
 // is a different, older vocabulary ("Web development") built for the admin
 // side.
 import { projectKindLabel } from "../../../supabase/functions/_shared/client-portal-shape";
+import { TODO_DONE_ICON, TODO_ICONS, type TodoIconKey } from "@/lib/clientPortalIcons";
 
-type TodoKey = "contract" | "discovery" | "review";
+type TodoKey = TodoIconKey;
 type TodoState = "done" | "now" | "later";
 
 interface TodoItem {
@@ -55,20 +56,9 @@ interface TodoItem {
   cta: string;
 }
 
-// Local and fixed, not sent by a server: each entry below is reviewed once
-// here rather than assembled from data. `discovery`'s balloon and
-// `review`'s eyes are `Emoji_Presentation=Yes` already; `contract`'s writing
-// hand is not, so it carries U+FE0F the way `WAITING_ICONS.sign` does.
-const TODO_ICON: Record<TodoKey, string> = {
-  contract: "✍️",
-  discovery: "\u{1F4AC}",
-  review: "\u{1F440}️",
-};
-const DONE_ICON = "✅";
-
 export default function ClientProject() {
   const { clientId } = useParams<{ clientId: string }>();
-  const { adminPreview, exitPreview } = useAdminPreview(clientId);
+  const { adminPreview, viewAsGrant, actor, exitPreview } = useAdminPreview(clientId);
 
   const shell = usePortalView<HomeView>(
     clientId ? () => clientPortal.home(clientId, adminPreview) : null,
@@ -87,6 +77,8 @@ export default function ClientProject() {
       me={shell.data?.me ?? null}
       tab="project"
       adminPreview={adminPreview}
+      viewAsGrant={viewAsGrant}
+      actor={actor}
       onExitPreview={exitPreview}
     >
       {shell.error && !shell.data ? (
@@ -264,7 +256,7 @@ function ProjectBody({
             {todo.map((item) => (
               <li key={item.key} className="cp-todo__row">
                 <span className="cp-todo__icon" aria-hidden="true">
-                  {item.state === "done" ? DONE_ICON : TODO_ICON[item.key]}
+                  {item.state === "done" ? TODO_DONE_ICON : TODO_ICONS[item.key]}
                 </span>
                 <span className="cp-todo__what">
                   <span className={`cp-todo__title${item.state === "done" ? " cp-todo__title--done" : ""}`}>

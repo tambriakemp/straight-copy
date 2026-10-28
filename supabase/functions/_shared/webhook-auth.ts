@@ -17,6 +17,14 @@
 // key, which ships in every browser bundle and proves nothing — resolves to
 // "unauthorized".
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import {
+  VIEW_AS_HEADER,
+  functionNameFromUrl,
+  verifyViewAsToken,
+  viewAsMayRead,
+  type ViewAsClaims,
+  type ViewAsKeys,
+} from "./portal-view-as.ts";
 
 export type Caller =
   | { kind: "secret" }
@@ -73,7 +81,7 @@ export async function resolveCaller(req: Request): Promise<Caller> {
 // Auth session before trusting the clientId its own request body names.
 export type PortalCaller =
   | { kind: "portal"; userId: string; clientId: string }
-  | { kind: "admin"; userId: string }
+  | { kind: "admin"; userId: string; viewAs?: ViewAsClaims }
   | { kind: "unauthorized" };
 
 /**
@@ -83,8 +91,27 @@ export type PortalCaller =
  * from the client's admin page. Otherwise the bearer token's own user must
  * be an ACTIVE row in client_portal_users for exactly this clientId.
  * Never trusts clientId alone, and never accepts the anon key.
+ *
+ * CRE-811 adds a third way in, in front of the other two: an `x-portal-view-as`
+ * token, which is how **Open portal** now works. Pass `action` to enable it —
+ * a call site that does not is one where no action has been parsed yet, and a
+ * view-as token is refused there, because `VIEW_AS_READS` can only answer
+ * "may this token do this" if it is told what "this" is. Fail closed.
+ *
+ * A view-as caller resolves to `{ kind: "admin", viewAs }` rather than a kind
+ * of its own, deliberately: the eleven functions that already branch on
+ * `caller.kind === "admin"` keep compiling and keep behaving, and the
+ * narrowing that makes the token read-only happens here, once, instead of in
+ * each of them.
  */
-export async function resolvePortalCaller(req: Request, clientId: string): Promise<PortalCaller> {
+export async function resolvePortalCaller(
+  req: Request,
+  clientId: string,
+  action?: string,
+): Promise<PortalCaller> {
+  const viewAs = await resolveViewAsCaller(req, clientId, action);
+  if (viewAs !== null) return viewAs;
+
   const auth = req.headers.get("Authorization");
   const bearer = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -115,5 +142,102 @@ export async function resolvePortalCaller(req: Request, clientId: string): Promi
     return { kind: "unauthorized" };
   } catch {
     return { kind: "unauthorized" };
+  }
+}
+
+/* -- CRE-811: the view-as token --------------------------------------------
+ *
+ * The signing keys, one per issuer. Read here rather than passed in because
+ * this is the only place in the portal that verifies, and an env read is not
+ * a thing to hand around.
+ *
+ * AN UNSET KEY REFUSES ITS ISSUER. There is no development fallback, no
+ * default and no "sign with the service key if nothing else is set" -- the
+ * failure mode of a signature scheme with a guessable key is worse than the
+ * failure mode of a button that says it is not configured.
+ */
+function viewAsKeys(): ViewAsKeys {
+  return {
+    admin: Deno.env.get("PORTAL_VIEW_AS_KEY") ?? "",
+    plugin: Deno.env.get("PORTAL_VIEW_AS_PLUGIN_KEY") ?? "",
+  };
+}
+
+/**
+ * `null` when this is not a view-as request at all, so the caller falls
+ * through to the session checks. A PRESENT-BUT-BAD token is `unauthorized`
+ * and never falls through: a request that carried a forged or expired token
+ * must not quietly succeed on some other credential it also happened to have.
+ */
+async function resolveViewAsCaller(
+  req: Request,
+  clientId: string,
+  action: string | undefined,
+): Promise<PortalCaller | null> {
+  const token = req.headers.get(VIEW_AS_HEADER);
+  if (token === null || token.length === 0) return null;
+
+  const fn = functionNameFromUrl(req.url);
+  const result = await verifyViewAsToken(token, viewAsKeys());
+  if (!result.ok) {
+    console.warn("[view-as] refused", { fn, reason: result.reason });
+    return { kind: "unauthorized" };
+  }
+  const claims = result.claims;
+
+  // The token names one client. A request naming another is the bug this
+  // check exists for, whoever signed the token.
+  if (!clientId || claims.cid !== clientId) {
+    console.warn("[view-as] refused", { fn, reason: "wrong_client", jti: claims.jti });
+    return { kind: "unauthorized" };
+  }
+
+  if (action === undefined || !viewAsMayRead(fn, action)) {
+    console.warn("[view-as] refused", {
+      fn,
+      action: action ?? "(not parsed)",
+      reason: "not_a_read",
+      jti: claims.jti,
+    });
+    return { kind: "unauthorized" };
+  }
+
+  await logViewAsRedeemed(claims, req);
+  return { kind: "admin", userId: claims.sub, viewAs: claims };
+}
+
+/**
+ * One audit row the first time a token is actually used.
+ *
+ * The mint is already logged by `functions/portal-view-as`; this is the other
+ * half of the question Bree asked -- who looked, not just who asked to. The
+ * unique index on `(jti, event)` is what makes it one row rather than one per
+ * request, so the insert below is a no-op on every call after the first.
+ *
+ * NEVER FAILS THE REQUEST. A log that can deny a read is a log that takes the
+ * portal down when the table is missing, and the deploy order here is
+ * function first, migration second. It warns and carries on.
+ */
+async function logViewAsRedeemed(claims: ViewAsClaims, req: Request): Promise<void> {
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!serviceKey) return;
+  try {
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+    const { error } = await sb.from("portal_view_as_log").insert({
+      jti: claims.jti,
+      event: "redeemed",
+      issuer: claims.iss,
+      client_id: claims.cid,
+      actor_user_id: claims.iss === "admin" ? claims.sub : null,
+      actor_label: claims.act,
+      expires_at: new Date(claims.exp * 1000).toISOString(),
+      user_agent: req.headers.get("user-agent"),
+    });
+    // 23505 is the unique violation, i.e. "already logged", i.e. working.
+    if (error && error.code !== "23505") {
+      console.warn("[view-as] redeem not logged", { jti: claims.jti, code: error.code });
+    }
+  } catch (caught) {
+    console.warn("[view-as] redeem not logged", caught);
   }
 }
