@@ -5500,7 +5500,11 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
   }
   .cp-table td:last-child { border-bottom: 0; }
 
-  .cp-table__name {
+  /* Both of these must out-specify `.cp-table td` above, which is (0,1,1) to
+     a bare class's (0,1,0) -- so a bare `.cp-table__name` loses every property
+     the td rule also sets, which is most of them. Qualifying with `td` makes
+     it (0,2,1) and the card title is a title again. */
+  .cp-table td.cp-table__name {
     order: -1;
     padding: 0 0 12px;
     margin-bottom: 4px;
@@ -5509,6 +5513,13 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
     white-space: normal;
     overflow-wrap: anywhere;
     align-items: flex-start;
+    /* A title is one thing, not a label/value pair, so it opts out of the
+       space-between the other cells want -- otherwise the chip sits at one
+       edge and the name it belongs to at the other, which only a name long
+       enough to fill the line hides. Spacing is left to the chip's own
+       margin, the same 10px desktop uses. */
+    justify-content: flex-start;
+    gap: 0;
   }
   .cp-table__name .cp-chip { margin-top: 1px; flex: 0 0 auto; }
 
@@ -5523,7 +5534,7 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
   }
   .cp-table td[data-label] { text-align: right; max-width: 420px; }
 
-  .cp-table__act {
+  .cp-table td.cp-table__act {
     order: 99;
     padding-top: 14px;
     justify-content: stretch;
