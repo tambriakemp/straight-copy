@@ -112,6 +112,10 @@ export default function BrandKit() {
   const [contact, setContact] = useState<{ contact_name: string | null; business_name: string | null } | null>(null);
   const [hydrating, setHydrating] = useState(true);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  // CRE-780: Node 03 (Brand Kit) stays locked until the web-dev discovery
+  // chat is complete. null while unknown (still hydrating).
+  const [discoveryLocked, setDiscoveryLocked] = useState<boolean | null>(null);
+  const [discoveryProjectId, setDiscoveryProjectId] = useState<string | null>(null);
   // Logo upload flow state
   const [awaitingLogoUpload, setAwaitingLogoUpload] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -141,6 +145,11 @@ export default function BrandKit() {
           contact_name: data.client?.contact_name ?? null,
           business_name: data.client?.business_name ?? null,
         });
+        const gate = data.discoveryGate as { required: boolean; completed: boolean; projectId: string | null } | undefined;
+        const locked = !!gate?.required && !gate.completed;
+        setDiscoveryLocked(locked);
+        setDiscoveryProjectId(gate?.projectId ?? null);
+        if (locked) return;
         if (data.submittedAt) {
           setSubmittedAt(data.submittedAt);
           setView("done");
@@ -431,6 +440,41 @@ export default function BrandKit() {
   };
 
   const progressPct = Math.min(100, Math.round(((stage - 1) / (STAGES.length - 1)) * 100));
+
+  if (discoveryLocked) {
+    return (
+      <div
+        className="min-h-screen w-full grid place-items-center text-center px-8"
+        style={{ background: "#1A1916", color: "#F5F2EE", fontFamily: "'Karla', sans-serif" }}
+      >
+        <div style={{ maxWidth: 440 }}>
+          <p style={{ fontSize: 12, letterSpacing: "0.35em", textTransform: "uppercase", color: "#8B7355", marginBottom: 20 }}>
+            Locked · Awaiting Discovery
+          </p>
+          <h1 style={{ fontFamily: "Cormorant Garamond, serif", fontWeight: 300, fontSize: 36, margin: "0 0 16px" }}>
+            Finish your <em>discovery chat</em> first.
+          </h1>
+          <p style={{ color: "#A89F94", fontSize: 16, lineHeight: 1.7, marginBottom: 28 }}>
+            The Brand Kit opens once your web development discovery questionnaire is complete —
+            that's where we learn enough about your business to design around it.
+          </p>
+          {clientId && (
+            <Link
+              to={
+                discoveryProjectId
+                  ? `/portal/${clientId}/projects/${discoveryProjectId}#portal-discovery`
+                  : `/portal/${clientId}`
+              }
+              className="crm-btn crm-btn--primary"
+              style={{ display: "inline-flex" }}
+            >
+              Go to the discovery chat
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

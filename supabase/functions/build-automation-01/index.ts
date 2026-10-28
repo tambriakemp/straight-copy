@@ -32,6 +32,7 @@ import {
   NurtureEmailSpec,
 } from "./prompts.ts";
 import { upsertSureContact } from "../_shared/surecontact.ts";
+import { CLAUDE_MODEL } from "../_shared/models.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,7 +41,7 @@ const corsHeaders = {
 };
 
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-5";
+const MODEL = CLAUDE_MODEL;
 const BUCKET = "client-assets";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

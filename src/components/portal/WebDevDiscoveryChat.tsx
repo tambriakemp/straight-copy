@@ -100,6 +100,10 @@ export default function WebDevDiscoveryChat({
           setCompleted(true);
           setSubmittedAt(new Date().toISOString());
         }
+
+        if (Array.isArray(data?.warnings)) {
+          for (const w of data.warnings as string[]) toast.error(w);
+        }
       } catch (e) {
         console.error(e);
         toast.error("Connection error.");
@@ -171,7 +175,7 @@ export default function WebDevDiscoveryChat({
 
       {completed && (
         <div role="status" aria-live="polite" style={completeBannerStyle}>
-          Your questionnaire is complete. Bree has been notified and will be in touch within 48 hours.
+          Your questionnaire is complete. Bree has been notified — your next step is the Brand Kit, which just unlocked in your portal.
           {submittedAt && (
             <span style={{ display: "block", marginTop: 4, opacity: 0.7, fontSize: 13, letterSpacing: "0.06em" }}>
               Submitted {new Date(submittedAt).toLocaleString()}

@@ -1,8 +1,9 @@
 // Anthropic Claude caller for social copy generation.
 // Uses tool_use to enforce a structured response shape.
+import { CLAUDE_MODEL } from "../models.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_MODEL = CLAUDE_MODEL;
 
 export interface AnthropicTool {
   name: string;
