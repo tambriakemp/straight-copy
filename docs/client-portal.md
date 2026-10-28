@@ -61,14 +61,25 @@ screen changes, because no screen knows which source answered it.
   here kept the address. The Receipt button on mockup 15 is absent on this
   source and present on the plugin, which has a column for it as of CP-5.
 
-### What the plugin cannot do, yet
+### The source PDF of an uploaded proposal
 
-* **Serve the source PDF of an uploaded proposal.** It is in the host object
-  store, which a plugin can only reach with `plugin.assets.read` — a
-  capability name that does not exist on a stock Paperclip, so a manifest
-  declaring it is refused at install. `hasSourcePdf` is reported `false` on
-  that source so no dead link is drawn. Worth a card if uploaded proposals
-  matter to a licensee.
+Both sources serve it, and they hold it in different places — worth knowing
+before CP-6, because the import does not move it.
+
+On the bridge it is a path in `source_pdf_path`. On the plugin it is in the
+plugin's own schema, as of CRE-801: the bytes could not stay in the host object
+store, which a plugin can only reach with `plugin.assets.read`, a capability
+name that does not exist on a stock Paperclip and whose presence in a manifest
+means refused at install. So the plugin keeps its own copy and serves it with
+no capability at all.
+
+`hasSourcePdf` is true on either source exactly when that source holds the
+document, so the link is drawn on the proposals that have one and not on the
+ones that do not. **The distinction that matters after the import:** the
+snapshot export carries `source: 'pdf_upload'` and no bytes, so an imported
+proposal is marked an upload with nothing to download until somebody attaches
+the file from the board. Until then `/admin` remains the only holder of the
+historical PDFs — a retention fact for the cutover, not a bug in either source.
 
 ## What the home screen shows
 
