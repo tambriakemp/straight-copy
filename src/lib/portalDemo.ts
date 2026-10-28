@@ -1,4 +1,4 @@
-// The QA harness gate for the four client screens (mockups 13-16).
+// The QA harness gate for the client screens (mockups 13-18).
 //
 // WHY THIS EXISTS. Every client screen sits behind `RequirePortalAuth` and a
 // real Supabase session, so reviewing them needs a live portal account for a
@@ -7,6 +7,7 @@
 // not check a single pixel of the screens behind it. Every statement about
 // their content rested on comparing mockups to the developer's own
 // screenshots, which is not review -- it is the author marking his own work.
+// CRE-819 adds Project and Files (mockups 17-18) to the same gate.
 //
 // The alternative was test portal credentials. Credentials expire, leak, need
 // rotating, and are ours: a licensee's QA hits the same wall on their first

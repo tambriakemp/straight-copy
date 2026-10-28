@@ -125,10 +125,13 @@ const App = () => (
             {/* CRE-776: mockups 13-16. Real routes rather than a `?v=`
                 view switcher, so a client can send "here is the payment
                 page" to their bookkeeper and the back button works. */}
-            {/* `demoable` on these four and nowhere else: they are the only
+            {/* `demoable` on these six and nowhere else: they are the only
                 screens the QA harness has fixtures for, and the only ones
                 that read nothing through the browser's Supabase client.
-                CRE-789 could not review any of them. See portalDemo.ts. */}
+                CRE-789 could not review any of them. CRE-819 added Project
+                and Files, which needed three more call sites fixtured
+                before `demoable` here would render anything. See
+                portalDemo.ts and portalDemoData.ts. */}
             <Route path="/portal/:clientId" element={<RequirePortalAuth demoable><ClientHome /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/agreements" element={<RequirePortalAuth demoable><ClientAgreements /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/payments" element={<RequirePortalAuth demoable><ClientPayments /></RequirePortalAuth>} />
@@ -137,8 +140,8 @@ const App = () => (
                 resolves its own project id (see useResolvedProject) rather
                 than redirecting into the old light project page the way
                 ClientProjectJump used to. */}
-            <Route path="/portal/:clientId/project" element={<RequirePortalAuth><ClientProject /></RequirePortalAuth>} />
-            <Route path="/portal/:clientId/files" element={<RequirePortalAuth><ClientFiles /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/project" element={<RequirePortalAuth demoable><ClientProject /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/files" element={<RequirePortalAuth demoable><ClientFiles /></RequirePortalAuth>} />
             {/* The old portal home, kept as the project LIST. A client with
                 several projects reaches it from Project above; one with a
                 single project is sent straight into it and never sees this. */}

@@ -7,12 +7,14 @@
 //
 // TYPED AGAINST THE REAL WIRE CONTRACT, which is the point of it. Every
 // fixture below is a `HomeView`/`AgreementsView`/`PaymentsView`/`LoginsView`
-// from `clientPortalWire.ts` -- the same types the screens compile against
-// and the same ones the edge function fills. So the harness cannot quietly
-// drift into showing QA a shape the server stopped sending: the build fails
-// the moment the contract changes under it. A hand-rolled JSON blob would
-// have rotted silently, which is the usual fate of fixtures and the reason
-// people stop trusting them.
+// from `clientPortalWire.ts`, or -- for Project and Files, CRE-819, which
+// read three other endpoints directly instead -- the same types those call
+// sites compile against (`ResolvedClient`/`ResolvedProjectRow`, `PhaseNode`,
+// `ProjectFile`). So the harness cannot quietly drift into showing QA a
+// shape the server stopped sending: the build fails the moment any of those
+// contracts changes under it. A hand-rolled JSON blob would have rotted
+// silently, which is the usual fate of fixtures and the reason people stop
+// trusting them.
 //
 // WHAT THE FIXTURES ARE CHOSEN FOR. Not a happy path. The screens are mostly
 // lists, and what breaks a list is the awkward row, so the data carries the
@@ -44,6 +46,13 @@ import {
   type SignResult,
 } from "@/lib/clientPortalWire";
 import { money, PortalRequestError } from "@/lib/clientPortalApi";
+// Type-only, so this stays what the test below checks it is: data, with no
+// route to the browser's real client. `ResolvedClient`/`ResolvedProjectRow`
+// and `ProjectFile` are erased at build time like every other type import --
+// neither hook is ever called from here.
+import type { ResolvedClient, ResolvedProjectRow } from "@/components/portal/useClientPortal";
+import type { ProjectFile } from "@/components/portal/useClientFiles";
+import type { PhaseNode } from "@/lib/journeyPhases";
 
 /* -------------------------------------------------------------------------- */
 /* Dates                                                                       */
@@ -516,6 +525,125 @@ function paymentsView(): PaymentsView {
 
 function loginsView(): LoginsView {
   return { branding: BRANDING, me: ME, logins: state.logins, requests: state.requests };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Project and Files (CRE-819)                                                 */
+/* -------------------------------------------------------------------------- */
+//
+// Neither screen is reached through `demoCall`. CRE-784/CRE-808 built them to
+// read three other endpoints directly -- `brand-kit-intake`'s `resolve`, the
+// `portal_project_phases` RPC, `client-files`' `list` -- so `demoable` alone
+// rendered an empty page: `isDemoClient` had no answer at any of those three
+// sites. These exports are that answer, one per site, imported the same
+// dynamic way `demoCall` already is wherever a call site needs them --
+// `useClientPortal.ts`, `ClientProject.tsx`, `useClientFiles.ts`.
+//
+// One project, not three: `useResolvedProject` redirects to a chooser the
+// moment it sees more than one live project, and that chooser is not a
+// screen this harness has fixtures for. The project ladder mirrors Home's
+// milestones exactly -- same keys, same done/open split -- because it is
+// the same client on the same journey, just read through a different door.
+
+const DEMO_PROJECT: ResolvedProjectRow = {
+  id: "proj-main",
+  type: "web_development",
+  name: "Glowskin Studio website",
+  status: "active",
+  updated_at: daysOut(-1),
+};
+
+/** `brand-kit-intake`'s `resolve`, narrowed to what `useResolvedProject` reads. */
+export function demoResolveProject(): {
+  client: ResolvedClient;
+  contactEmail: string | null;
+  projects: ResolvedProjectRow[];
+} {
+  return {
+    client: {
+      business_name: ME.businessName,
+      contact_name: ME.displayName,
+      tier: "standard",
+      build_start_date: daysOut(-34).slice(0, 10),
+      delivery_date: daysOut(16).slice(0, 10),
+      delivery_video_url: null,
+    },
+    contactEmail: BRANDING.contactEmail,
+    projects: [DEMO_PROJECT],
+  };
+}
+
+/**
+ * `portal_project_phases`, for "Where things stand".
+ *
+ * Same four keys and the same done/open line as `homeView`'s milestone
+ * ladder -- "Build" is in progress on both screens, not just on the one
+ * that was fixtured first.
+ */
+export function demoProjectPhases(): PhaseNode[] {
+  return [
+    { id: "ph-kickoff", key: "kickoff", label: "Kickoff", order_index: 0, status: "done", completed_at: daysOut(-34) },
+    { id: "ph-discovery", key: "discovery", label: "Discovery", order_index: 1, status: "done", completed_at: daysOut(-27) },
+    { id: "ph-sitemap", key: "sitemap", label: "Sitemap", order_index: 2, status: "done", completed_at: daysOut(-20) },
+    { id: "ph-copy", key: "copy_and_ux", label: "Words & design", order_index: 3, status: "done", completed_at: daysOut(-10) },
+    { id: "ph-build", key: "build", label: "Build", order_index: 4, status: "in_progress", started_at: daysOut(-6) },
+    { id: "ph-review", key: "review", label: "Your review", order_index: 5, status: null },
+    { id: "ph-launch", key: "launch", label: "Launch", order_index: 6, status: null },
+  ];
+}
+
+/**
+ * `client-files`' `list`, both directions.
+ *
+ * `file-brand-kit`'s name is the one this card exists for: long, and with
+ * no space or hyphen for a narrow column to break on, which is exactly the
+ * shape CRE-808's own fixture never had one of.
+ */
+export function demoProjectFiles(): ProjectFile[] {
+  return [
+    {
+      id: "file-brand-kit",
+      name: "Glowskin_Studio_Brand_Guidelines_FINAL_v3_approved_2026.pdf",
+      storage_path: "project-files/demo/proj-main/brand-guidelines.pdf",
+      size_bytes: 2_458_112,
+      mime: "application/pdf",
+      direction: "to_client",
+      category: "Brand kit",
+      uploaded_by_name: AGENCY_NAME,
+      visible_to_client: true,
+      created_at: daysOut(-5),
+      url: "https://example.invalid/files/brand-guidelines.pdf",
+    },
+    {
+      // A previewable image, so the row's name renders as the clickable
+      // button variant and not just the plain one above.
+      id: "file-homepage-mock",
+      name: "Homepage mockup.png",
+      storage_path: "project-files/demo/proj-main/homepage-mockup.png",
+      size_bytes: 812_000,
+      mime: "image/png",
+      direction: "to_client",
+      category: "Design",
+      uploaded_by_name: AGENCY_NAME,
+      visible_to_client: true,
+      created_at: daysOut(-1),
+      url: "https://example.invalid/files/homepage-mockup.png",
+    },
+    {
+      // The one row in "Sent by you", so that list is not empty either.
+      id: "file-treatment-room-1",
+      name: "treatment-room-1.jpg",
+      storage_path: "project-files/demo/proj-main/treatment-room-1.jpg",
+      size_bytes: 1_240_000,
+      mime: "image/jpeg",
+      direction: "from_client",
+      category: null,
+      uploaded_by_name: ME.displayName,
+      visible_to_client: true,
+      created_at: daysOut(-2),
+      url: "https://example.invalid/files/treatment-room-1.jpg",
+    },
+  ];
 }
 
 /* -------------------------------------------------------------------------- */

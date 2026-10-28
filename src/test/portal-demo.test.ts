@@ -122,10 +122,11 @@ describe("the harness cannot be switched on by the production build", () => {
     }
   });
 
-  it("keeps the auth bypass to the four screens it has fixtures for", () => {
+  it("keeps the auth bypass to the six screens it has fixtures for", () => {
     // `demoable` is opt-in per route. The rest of /portal/:clientId/* reads
     // Supabase through the browser client, so a blanket bypass would be a
-    // real gate removed. This pins the list to exactly the CP-5 four.
+    // real gate removed. This pins the list to the CP-5 four plus Project
+    // and Files (CRE-819).
     const app = readFileSync(path.join(ROOT, "src/App.tsx"), "utf8");
     const demoable = [...app.matchAll(/path="([^"]+)"[^>]*element=\{<RequirePortalAuth demoable>/g)]
       .map((match) => match[1]);
@@ -133,8 +134,10 @@ describe("the harness cannot be switched on by the production build", () => {
       [
         "/portal/:clientId",
         "/portal/:clientId/agreements",
+        "/portal/:clientId/files",
         "/portal/:clientId/logins",
         "/portal/:clientId/payments",
+        "/portal/:clientId/project",
       ].sort(),
     );
   });
