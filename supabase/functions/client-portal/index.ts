@@ -46,13 +46,17 @@ import {
   type PortalBranding,
 } from "../_shared/client-portal-wire.ts";
 import { resolveBranding, settingsFrom } from "../_shared/client-portal-branding.ts";
+import { VIEW_AS_HEADER } from "../_shared/portal-view-as.ts";
 import { LegacySource, type Db } from "./legacy-source.ts";
 import { PluginSource } from "./plugin-source.ts";
 import { PortalError, type PortalCallerContext, type PortalSource } from "./source.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  // `x-portal-view-as` is a non-simple header, so a browser will preflight it
+  // and drop the request if it is not named here. CRE-811.
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-portal-view-as",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -96,6 +100,12 @@ function sourceFor(req: Request, admin: Db): PortalSource {
   if (config) return new PluginSource(new PluginClient(config));
 
   const auth = req.headers.get("Authorization") ?? "";
+  // CRE-811: a view-as session has no Supabase bearer at all -- the token IS
+  // the credential -- so it has to travel with the forwarded call or the
+  // bridge's composed answer comes back three-quarters empty. Carried rather
+  // than exchanged for the service key, so the function on the other end
+  // still re-checks it against its own entry in the read allowlist.
+  const viewAs = req.headers.get(VIEW_AS_HEADER);
   return new LegacySource(
     admin,
     async (fn, body) => {
@@ -104,7 +114,11 @@ function sourceFor(req: Request, admin: Db): PortalSource {
       // opinion rather than this one repeated.
       const response = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: auth },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: auth,
+          ...(viewAs ? { [VIEW_AS_HEADER]: viewAs } : {}),
+        },
         body: JSON.stringify(body),
       });
       const text = await response.text();
@@ -160,7 +174,10 @@ Deno.serve(async (req) => {
 
   if (!clientId) return json({ error: "clientId required" }, 400);
 
-  const caller = await resolvePortalCaller(req, clientId);
+  // `action` is passed so that a CRE-811 view-as token can be checked against
+  // the read allowlist in `_shared/portal-view-as.ts`. Without it a view-as
+  // caller is refused, which is the right default and not what we want here.
+  const caller = await resolvePortalCaller(req, clientId, action);
   if (caller.kind === "unauthorized") return json({ error: "Unauthorized" }, 401);
 
   // Narrowed to the `Db` slice rather than kept as the full client: this

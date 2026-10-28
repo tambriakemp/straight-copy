@@ -215,3 +215,11 @@ verify_jwt = false
 # sync-paperclip-pending (CRE-535).
 [functions.portal-health-sweep]
 verify_jwt = false
+
+# CRE-811: mints the short-lived view-as token behind "Open portal". It is
+# only ever called by a signed-in admin from /admin, and the gateway checking
+# that JWT in front of resolveCaller()'s own "admin" check costs nothing — so
+# unlike most of this file, this one is left verified. The function refuses
+# anything that is not an admin regardless.
+[functions.portal-view-as]
+verify_jwt = true

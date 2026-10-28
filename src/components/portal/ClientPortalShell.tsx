@@ -56,6 +56,8 @@ export default function ClientPortalShell({
   me,
   tab,
   adminPreview,
+  viewAsGrant = false,
+  actor = "",
   onExitPreview,
   children,
 }: {
@@ -64,24 +66,39 @@ export default function ClientPortalShell({
   me: PortalMe | null;
   tab: ClientPortalTab;
   adminPreview: boolean;
+  /**
+   * Whether the grant is a CRE-811 view-as token. Changes what the bar says,
+   * because the two cases differ in a way that matters to the person reading
+   * it: a token is READ-ONLY and the server will refuse a signature or a
+   * payment made under it, and `?as=admin` with a real admin session is not.
+   */
+  viewAsGrant?: boolean;
+  /** The admin, by name, when the token says. */
+  actor?: string;
   onExitPreview?: () => void;
   children: ReactNode;
 }) {
   const { search } = useLocation();
   // The `?as=admin` preview has to survive navigation, or the first click
-  // inside a preview drops back out of it.
+  // inside a preview drops back out of it. A view-as token needs none of
+  // this: it is in `sessionStorage`, so every link in the tab already carries
+  // it and no URL has to.
   const keep = adminPreview && search.includes("as=admin") ? search : "";
 
   return (
     <div className="cp">
       {adminPreview && (
         <div className="cp__preview" role="status">
-          <strong>Admin preview</strong>
-          <span>You are viewing this portal as the client. Clients never see this bar.</span>
+          <strong>{viewAsGrant ? "Viewing as client" : "Admin preview"}</strong>
+          <span>
+            {viewAsGrant
+              ? `You are seeing exactly what the client sees${actor ? `, signed in as ${actor}` : ""}. This view is read-only — signing and paying are refused. Clients never see this bar.`
+              : "You are viewing this portal as the client. Clients never see this bar."}
+          </span>
           <a href="/admin/clients">Back to admin</a>
           {onExitPreview && (
             <button type="button" onClick={onExitPreview}>
-              Exit preview
+              {viewAsGrant ? "End view-as" : "Exit preview"}
             </button>
           )}
         </div>

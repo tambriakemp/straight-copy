@@ -24,7 +24,7 @@ import type { PaymentRow, PaymentsView } from "@/lib/clientPortalWire";
 
 export default function ClientPayments() {
   const { clientId } = useParams<{ clientId: string }>();
-  const { adminPreview, exitPreview } = useAdminPreview(clientId);
+  const { adminPreview, viewAsGrant, actor, exitPreview } = useAdminPreview(clientId);
   const load = usePortalView<PaymentsView>(
     clientId ? () => clientPortal.payments(clientId, adminPreview) : null,
     [clientId, adminPreview],
@@ -64,6 +64,8 @@ export default function ClientPayments() {
       me={view?.me ?? null}
       tab="payments"
       adminPreview={adminPreview}
+      viewAsGrant={viewAsGrant}
+      actor={actor}
       onExitPreview={exitPreview}
     >
       {load.error && !view ? (
