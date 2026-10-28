@@ -89,9 +89,24 @@ export default function ClientPortalShell({
 
       <header className="cp__bar">
         <Link to={`/portal/${clientId}${keep}`} className="cp__brand">
-          <span className="cp__mark" aria-hidden="true">
-            C8
-          </span>
+          {/* Read, exactly like the name beside it. This tile held the two
+              characters `C8` until CRE-797, so a portal branded "Northhill
+              Studio" drew our mark against their name -- on the client-facing
+              surface of something we license.
+
+              Absent rather than derived when there is nothing to draw: for an
+              install that chose no tile, and for a server older than the
+              field (the function is deployed before the frontend is
+              published, so that window is real). The tile is a 28px square in
+              a flex row with a gap, so its absence closes up rather than
+              leaving a hole, and nothing here invents a monogram to fill it.
+              Deriving one would be this component having an opinion about
+              somebody else's brand. */}
+          {branding?.monogram ? (
+            <span className="cp__mark" aria-hidden="true">
+              {branding.monogram}
+            </span>
+          ) : null}
           <span className="cp__brandname">{branding?.agencyName ?? "Client portal"}</span>
           <span className="cp__brandnote">· client portal</span>
         </Link>

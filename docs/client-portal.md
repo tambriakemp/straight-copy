@@ -77,15 +77,41 @@ screen changes, because no screen knows which source answered it.
 | `CLIENT_PORTAL_API_URL` | The `/admin` tables answer instead |
 | `CLIENT_PORTAL_API_KEY` | ditto — a Paperclip **agent API key** |
 | `CLIENT_PORTAL_COMPANY_ID` | ditto |
-| `PORTAL_AGENCY_NAME` | Defaults to `Cre8 Visions` |
+| `PORTAL_AGENCY_NAME` | This install answers as `Cre8 Visions` |
+| `PORTAL_MONOGRAM` | The tile beside the name is this agency's `C8`, or a licensee's initials |
 | `PORTAL_CONTACT_NAME` | The screens say "Message us" and "We asked for" |
 | `PORTAL_REPLY_WINDOW` | Nothing is said about reply times |
-| `PORTAL_CONTACT_EMAIL` | Defaults to the agency inbox |
+| `PORTAL_CONTACT_EMAIL` | This install offers its own inbox; a licensee's offers nothing |
+
+All five are resolved in **one place**,
+`supabase/functions/_shared/client-portal-branding.ts`, which is the only
+module in this feature that knows whose install it is. Nothing downstream of
+it names an agency, a mark or an inbox —
+`src/test/portal-branding.test.tsx` fails if anything starts to.
 
 `PORTAL_CONTACT_NAME` has **no fallback on purpose.** Mockups 14 and 16 put a
 person's first name in running text, and a name compiled into a component
 keeps rendering perfectly after that person leaves. Unset is true whoever is
 reading the mail that week.
+
+### Who the defaults belong to
+
+The defaults in that table are **this agency's identity, not the product's**,
+and they apply only to an install answering under this agency's name. Set
+`PORTAL_AGENCY_NAME` to anything else and none of them do: the monogram
+becomes the initials of that name and the contact address becomes nothing,
+which hides the "Ask a question" button rather than offering one that mails
+somebody else's agency. Unset and set-to-our-own-name are the same install,
+deliberately — otherwise setting the variable explicitly would change what
+this agency's own clients see.
+
+`PORTAL_MONOGRAM` exists because a mark is not derivable from a name: this
+agency's is `C8` and the initials of "Cre8 Visions" are `CV`. It takes up to
+three characters, or the literal `none` for no tile at all. **A licensee who
+sets nothing gets their own initials, and never ours** — CRE-797 was `C8`
+written into the top bar beside a name read from `agencyName`, which put our
+mark on a licensee's client's screen and was invisible in every screenshot
+taken of our own portal.
 
 Check what an install resolved to, without revealing anything:
 
@@ -93,11 +119,15 @@ Check what an install resolved to, without revealing anything:
 curl -s -X POST "$SUPABASE_URL/functions/v1/client-portal" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"action":"health"}'
-# → {"ok":true,"source":"admin-tables","plugin":{"baseUrl":false,...}}
+# → {"ok":true,"source":"admin-tables","plugin":{"baseUrl":false,...},
+#    "wire":"1.1.0","monogram":true}
 ```
 
-Booleans and a source name. A diagnostic that printed the first characters of
-a key is a diagnostic somebody pastes into a ticket.
+Booleans, a source name and a version. A diagnostic that printed the first
+characters of a key is a diagnostic somebody pastes into a ticket — and
+`monogram` is a boolean for the same reason in miniature: whether a tile will
+be drawn is a deploy question, which two characters are in it is branding the
+licensee owns.
 
 ## Routes
 
@@ -150,7 +180,35 @@ ships through.
 
 The pure shaping is in `_shared/client-portal-shape.ts` rather than beside
 the source that uses it: a module that reaches `Deno` cannot be imported by
-the frontend test suite at all.
+the frontend test suite at all. Same for the branding resolution in
+`_shared/client-portal-branding.ts`, and it matters more there: the branch
+that matters most is the one only a licensee's install takes, which no
+screenshot of our own portal would ever show.
+
+### Its revision
+
+`PORTAL_WIRE_VERSION` is in the contract and reported by `health`. It exists
+because the two halves are deployed separately **and in an order** (see
+Deploying, below): the gap between deploying the function and publishing the
+frontend is exactly the window in which one half speaks a shape the other
+does not, so "has the field landed on the server yet" should be a request
+somebody can make rather than a thing they assume.
+
+The promise is the one the plugin's own `v1` API makes: a revision never
+removes a field, never renames one, and never changes what an enum member
+means. It may **add an optional field**, so every reader treats an absent
+optional field as a server older than its own copy and draws what it would
+draw for an unset value — never as an error, and never by substituting a
+guess of its own.
+
+| | |
+|---|---|
+| `1.1.0` | `PortalBranding.monogram` (CRE-797). Optional; null draws no tile. |
+| `1.0.0` | The four screens, mockups 13-16 (CRE-776). |
+
+Bump it in the canonical copy, copy it across to the mirror, and add the row.
+`src/test/portal-branding.test.tsx` fails if this page stops naming the
+current revision.
 
 ## Verifying
 

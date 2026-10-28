@@ -35,10 +35,65 @@
 // browser is the only party that knows the reader's locale and time zone. A
 // server that pre-formatted "Nov 14" would be guessing at both.
 
+/* -------------------------------------------------------------------------- */
+/* What revision of this contract a server speaks                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * This contract's revision, bumped by hand when a field is added.
+ *
+ * It exists because the two halves are deployed separately AND IN AN ORDER --
+ * `docs/client-portal.md` spells out why the edge function goes out before
+ * the frontend is published -- and the gap between those two steps is exactly
+ * the window in which one half is speaking a shape the other does not. The
+ * `health` action reports this, so "has the new field landed on the server
+ * yet" is a request somebody can make rather than a thing they assume.
+ *
+ * The promise is the one the plugin's own v1 API makes, and for the same
+ * reason: a revision never removes a field, never renames one, and never
+ * changes what an enum member means. It MAY add an optional field. So every
+ * reader of this contract treats an absent optional field as "a server older
+ * than this copy" and draws what it would draw for an unset value -- never as
+ * an error, and never by substituting a guess of its own.
+ *
+ *   1.1.0  `PortalBranding.monogram` (CRE-797). Optional; null means draw no
+ *          tile at all. The tile beside the agency name was the two
+ *          characters `C8` compiled into the component until this field
+ *          existed, which put our mark on a licensee's client's screen.
+ *   1.0.0  The four screens, mockups 13-16 (CRE-776).
+ */
+export const PORTAL_WIRE_VERSION = "1.1.0";
+
 /** The agency, as the client sees it. Never hardcoded: licensees are not us. */
 export interface PortalBranding {
   /** "Cre8 Visions" -- the name in the top bar. */
   agencyName: string;
+  /**
+   * Up to three characters for the tile beside the name, or null for no tile.
+   *
+   * THE FIELD THE FIRST LINE OF THIS INTERFACE WAS MISSING. The name was read
+   * from `agencyName` and the tile next to it was `C8`, written into
+   * `ClientPortalShell`, so an install branded "Northhill Studio" drew our
+   * monogram against their name (CRE-797). A monogram is branding, and
+   * branding belongs to whoever is licensed to show it.
+   *
+   * Resolved on the server by `monogramFor`, which is also what the demo
+   * harness uses, so there is one answer rather than one per caller:
+   *
+   *   * what the install configured, when it configured something;
+   *   * otherwise `initialsFor(agencyName)` -- the only fallback that is
+   *     right for whoever installed this;
+   *   * null, meaning the tile is not drawn, for an install that says so and
+   *     for a name that yields no legible initials.
+   *
+   * Optional rather than required, because of the deploy order above: a
+   * server that predates 1.1.0 sends no `monogram` at all, and the tile is
+   * then absent for as long as that lasts. The component never derives one
+   * for itself -- a component that derives a monogram is a component with an
+   * opinion about somebody else's brand, and there is no default it could
+   * pick that is right for every licensee. Least of all ours.
+   */
+  monogram?: string | null;
   /**
    * The person a client messages, by first name. Mockups 14 and 16 put this
    * in running text ("Message Tambria", "TAMBRIA ASKED FOR"), which is
@@ -371,6 +426,40 @@ export function initialsFor(name: string): string {
   const first = words[0]![0] ?? "";
   const last = words.length > 1 ? (words[words.length - 1]![0] ?? "") : "";
   return (first + last).toUpperCase();
+}
+
+/**
+ * The monogram for the tile beside the agency name, or null for no tile.
+ *
+ * `configured` is whatever the install chose, and it wins: an agency whose
+ * mark is not its initials ("C8" for Cre8 Visions, "&" for an ampersand
+ * logo) has no other way to say so. Three answers, in order:
+ *
+ *   * the literal `none`, which means DRAW NO TILE. A real answer and not an
+ *     unset value: a wordmark that wants no tile beside it is a design
+ *     decision, and the alternative is handing a licensee initials they
+ *     deliberately did not ask for.
+ *   * anything else configured, trimmed and clipped to three characters. A
+ *     longer string is not a monogram, and the tile is a 28px square: it
+ *     would render as a smear rather than as the thing somebody typed.
+ *     Clipped with `Array.from` and not `slice`, so a mark that starts
+ *     outside the BMP loses a whole character rather than half of one.
+ *   * nothing configured: the initials of the agency name.
+ *
+ * Null when none of that yields something legible. `initialsFor` answers "?"
+ * for a blank name, and a tile with a question mark in it reads to a client
+ * as a bug on their own portal -- so no tile is the better answer, and it is
+ * the one a licensee gets before they have configured anything at all.
+ */
+export function monogramFor(
+  configured: string | null | undefined,
+  agencyName: string,
+): string | null {
+  const chosen = (configured ?? "").trim();
+  if (chosen.toLowerCase() === "none") return null;
+  if (chosen.length > 0) return Array.from(chosen).slice(0, 3).join("");
+  const initials = initialsFor(agencyName);
+  return initials === "?" ? null : initials;
 }
 
 /**

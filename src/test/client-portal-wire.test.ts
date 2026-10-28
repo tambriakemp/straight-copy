@@ -24,6 +24,7 @@ import {
   initialsFor,
   instalmentSummary,
   ladder,
+  monogramFor,
   paymentState,
   paymentTotals,
   stepPosition,
@@ -74,6 +75,47 @@ describe("initials", () => {
 
   it("answers for an empty name rather than throwing", () => {
     expect(initialsFor("   ")).toBe("?");
+  });
+});
+
+describe("the monogram on the tile beside the agency name (CRE-797)", () => {
+  it("takes what the install configured, whatever the name is", () => {
+    // The case the field exists for: a mark that is not the initials of the
+    // name. There is no other way for an agency to say so.
+    expect(monogramFor("C8", "Cre8 Visions")).toBe("C8");
+    expect(monogramFor("&", "Hart & Co")).toBe("&");
+  });
+
+  it("falls back to the initials of the agency name, not to anybody's mark", () => {
+    expect(monogramFor(null, "Northhill Studio")).toBe("NS");
+    expect(monogramFor(undefined, "Northhill Studio")).toBe("NS");
+    // Blank and whitespace are "not configured", not "configured as empty".
+    expect(monogramFor("", "Northhill Studio")).toBe("NS");
+    expect(monogramFor("   ", "Northhill Studio")).toBe("NS");
+  });
+
+  it("draws no tile when the install says none", () => {
+    // A wordmark that wants no tile beside it is a design decision, and the
+    // alternative is initials a licensee deliberately did not ask for.
+    expect(monogramFor("none", "Northhill Studio")).toBeNull();
+    expect(monogramFor("None", "Northhill Studio")).toBeNull();
+    expect(monogramFor("  NONE  ", "Northhill Studio")).toBeNull();
+  });
+
+  it("draws no tile rather than a question mark", () => {
+    // `initialsFor` answers "?" for a blank name. A question-mark tile reads
+    // to a client as a bug on their own portal.
+    expect(monogramFor(null, "   ")).toBeNull();
+    expect(monogramFor(null, "")).toBeNull();
+  });
+
+  it("clips a long value to three characters, and never to half of one", () => {
+    // The tile is a 28px square. A sentence in it is a smear, not a mark.
+    expect(monogramFor("Northhill Studio", "Northhill Studio")).toBe("Nor");
+    // Clipped by character and not by UTF-16 unit: `slice(0, 3)` on an
+    // astral-plane mark would hand the browser a lone surrogate.
+    expect(monogramFor("🅝🅢", "Northhill Studio")).toBe("🅝🅢");
+    expect(Array.from(monogramFor("🅝🅢🅒🅞", "x") ?? "")).toHaveLength(3);
   });
 });
 
