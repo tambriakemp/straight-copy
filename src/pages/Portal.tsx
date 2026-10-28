@@ -16,7 +16,7 @@
 // rather than left unreferenced: an orphaned component that renders the
 // previous design is one import away from coming back.
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import PortalShell, { type PortalView } from "@/components/portal/PortalShell";
 import ProjectTypeIcon from "@/components/admin/cv/ProjectTypeIcon";
 import EmptyState from "@/components/admin/cv/EmptyState";
@@ -58,6 +58,7 @@ interface PortalInvoice {
 export default function Portal() {
   const { clientId } = useParams<{ clientId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
 
   const impersonationKey = clientId ? `cre8-portal-as-admin-${clientId}` : "";
   const adminPreview = useMemo(() => {
@@ -86,8 +87,18 @@ export default function Portal() {
   // The view lives in the URL as ?v=, so a link from a project page can
   // land on Payments rather than on Home with a note to go and find it.
   const urlView = searchParams.get("v");
+  // CRE-776: this page is mounted at /portal/:clientId/projects now -- the
+  // client's home is the new ClientHome at /portal/:clientId. Landing on the
+  // old home view at a URL ending in "projects" would show a client two home
+  // screens with different designs, so the path decides the default and ?v=
+  // still overrides it for the links that already carry one.
+  const atProjects = location.pathname.endsWith("/projects");
   const [view, setViewState] = useState<PortalView>(
-    urlView === "projects" || urlView === "proposals" || urlView === "payments" ? urlView : "home",
+    urlView === "projects" || urlView === "proposals" || urlView === "payments"
+      ? urlView
+      : atProjects
+        ? "projects"
+        : "home",
   );
   const setView = (v: PortalView) => {
     setViewState(v);

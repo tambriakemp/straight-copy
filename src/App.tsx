@@ -19,6 +19,14 @@ const Privacy = lazy(() => import("./pages/Privacy.tsx"));
 const Unsubscribe = lazy(() => import("./pages/Unsubscribe.tsx"));
 const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
 const Portal = lazy(() => import("./pages/Portal.tsx"));
+// CRE-776: the client portal, mockups 13-16. These replace the old Portal
+// page as the client's home; Portal itself stays, at /projects, as the list
+// the new nav's Project item resolves against.
+const ClientHome = lazy(() => import("./pages/portal/ClientHome.tsx"));
+const ClientAgreements = lazy(() => import("./pages/portal/ClientAgreements.tsx"));
+const ClientPayments = lazy(() => import("./pages/portal/ClientPayments.tsx"));
+const ClientLogins = lazy(() => import("./pages/portal/ClientLogins.tsx"));
+const ClientProjectJump = lazy(() => import("./pages/portal/ClientProjectJump.tsx"));
 const PortalProject = lazy(() => import("./pages/PortalProject.tsx"));
 const PortalProposal = lazy(() => import("./pages/PortalProposal.tsx"));
 const PortalFeedback = lazy(() => import("./pages/PortalFeedback.tsx"));
@@ -110,7 +118,22 @@ const App = () => (
                 itself) rather than ever rendering the page or 404ing. */}
             <Route path="/portal/login" element={<PortalLogin />} />
             <Route path="/portal/set-password" element={<PortalSetPassword />} />
-            <Route path="/portal/:clientId" element={<RequirePortalAuth><Portal /></RequirePortalAuth>} />
+            {/* CRE-776: mockups 13-16. Real routes rather than a `?v=`
+                view switcher, so a client can send "here is the payment
+                page" to their bookkeeper and the back button works. */}
+            <Route path="/portal/:clientId" element={<RequirePortalAuth><ClientHome /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/agreements" element={<RequirePortalAuth><ClientAgreements /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/payments" element={<RequirePortalAuth><ClientPayments /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/logins" element={<RequirePortalAuth><ClientLogins /></RequirePortalAuth>} />
+            {/* Project and Files are drawn in the new nav and have no new
+                screens: both already exist on the project page. These resolve
+                a project id and hand over. */}
+            <Route path="/portal/:clientId/project" element={<RequirePortalAuth><ClientProjectJump /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/files" element={<RequirePortalAuth><ClientProjectJump focus="files" /></RequirePortalAuth>} />
+            {/* The old portal home, kept as the project LIST. A client with
+                several projects reaches it from Project above; one with a
+                single project is sent straight into it and never sees this. */}
+            <Route path="/portal/:clientId/projects" element={<RequirePortalAuth><Portal /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/projects/:projectId" element={<RequirePortalAuth><PortalProject /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/proposals/:proposalId" element={<RequirePortalAuth><PortalProposal /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/brand-kit" element={<RequirePortalAuth><BrandKit /></RequirePortalAuth>} />
