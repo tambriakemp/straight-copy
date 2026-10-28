@@ -41,7 +41,11 @@ import {
   describeConfig,
   readPluginConfig,
 } from "../_shared/client-portal-plugin.ts";
-import type { PortalBranding } from "../_shared/client-portal-wire.ts";
+import {
+  PORTAL_WIRE_VERSION,
+  type PortalBranding,
+} from "../_shared/client-portal-wire.ts";
+import { resolveBranding, settingsFrom } from "../_shared/client-portal-branding.ts";
 import { LegacySource, type Db } from "./legacy-source.ts";
 import { PluginSource } from "./plugin-source.ts";
 import { PortalError, type PortalCallerContext, type PortalSource } from "./source.ts";
@@ -66,24 +70,16 @@ function json(body: unknown, status = 200): Response {
 /**
  * The agency, as the client sees it.
  *
- * Read from the environment rather than written here. `contactName` has NO
- * fallback on purpose: mockups 14 and 16 put a person's first name in running
- * text ("Message Tambria", "TAMBRIA ASKED FOR"), and a name compiled into a
- * component keeps rendering perfectly after that person leaves. Unset means
- * the screens say "Message us" and "We asked for", which is true whoever is
- * reading their mail that week.
+ * Resolved by `_shared/client-portal-branding.ts`, which is the only module
+ * in this feature that knows whose install this is -- including the monogram
+ * in the top bar, which was two characters written into the component until
+ * CRE-797. The resolution lives there rather than here because it is pure and
+ * this file is not: a module that reads `Deno.env` cannot be imported by the
+ * frontend test suite, and the branch that matters most is the one that only
+ * a licensee's install ever takes.
  */
 function branding(): PortalBranding {
-  const value = (key: string): string | null => {
-    const raw = (Deno.env.get(key) ?? "").trim();
-    return raw.length > 0 ? raw : null;
-  };
-  return {
-    agencyName: value("PORTAL_AGENCY_NAME") ?? "Cre8 Visions",
-    contactName: value("PORTAL_CONTACT_NAME"),
-    replyWindow: value("PORTAL_REPLY_WINDOW"),
-    contactEmail: value("PORTAL_CONTACT_EMAIL") ?? "info@cre8visions.com",
-  };
+  return resolveBranding(settingsFrom(Deno.env));
 }
 
 /**
@@ -147,6 +143,18 @@ Deno.serve(async (req) => {
       ok: true,
       source: config.configured ? "plugin" : "admin-tables",
       plugin: config,
+      // Which revision of the wire contract this deploy speaks. The frontend
+      // is published separately from this function and after it, so a field
+      // the browser reads can be one the server does not send yet; this is
+      // how somebody checks rather than assumes. Not a secret: it is a
+      // version number, like the one in the plugin's own URL path.
+      wire: PORTAL_WIRE_VERSION,
+      // Whether a monogram will be drawn, and never which one -- the value is
+      // branding the licensee owns and a health check is not a place to read
+      // it back. False here with a name set is the CRE-797 failure mode
+      // inverted: an install that has not chosen a mark and whose name
+      // yields no initials.
+      monogram: typeof branding().monogram === "string",
     });
   }
 

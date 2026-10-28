@@ -244,3 +244,13 @@ every build. None mode ignores `node_modules` entirely and resolves the `npm:` p
 hermetically, so checks are stable across `bun install`. CI's `--node-modules-dir=auto`
 flag overrides the config and also passes. As of 2026-10-08 every function typechecks
 clean and `.deno-check-exempt` is an empty ledger — keep it that way.
+
+**Pass the flag locally and you will reinstall node_modules afterwards.** `--node-modules-dir=auto`
+does not merely read the tree, it rewrites it into Deno's own layout
+(`node_modules/.deno/<pkg>@<version>/`, with the top-level names symlinked into it) and
+materialises no platform-specific optional dependency. `@swc/core`'s native binding is
+one, so the next `npm run test` or `npm run build` dies with "Failed to load native
+binding" — the symptom the verification note above attributes to the sandbox, which is
+sometimes this instead, and `npm ci` is the fix. Run plain `deno check` (no flag) locally;
+it honours `"nodeModulesDir": "none"`, resolves the pins hermetically, and leaves
+`node_modules` alone. Keep the flag for CI, where the tree is thrown away anyway.

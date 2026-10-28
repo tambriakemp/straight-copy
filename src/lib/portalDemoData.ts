@@ -26,6 +26,7 @@
 import {
   initialsFor,
   ladder,
+  monogramFor,
   stepPosition,
   type AgreementView,
   type AgreementsView,
@@ -70,8 +71,17 @@ function daysOut(days: number): string {
 // that reads it, and QA cannot review a panel that renders as its own
 // fallback.
 
+const AGENCY_NAME = "Northhill Studio";
+
 const BRANDING: PortalBranding = {
-  agencyName: "Northhill Studio",
+  agencyName: AGENCY_NAME,
+  // Resolved the way the server resolves it, from an install that has
+  // configured no mark -- so what QA reviews is the fallback a licensee
+  // actually gets ("NS"), not a literal written for the harness. This is the
+  // case CRE-797 was found in: the harness's made-up agency name is what made
+  // a hardcoded `C8` visible, and a monogram pasted in here would have hidden
+  // it again.
+  monogram: monogramFor(null, AGENCY_NAME),
   contactName: "Rosa",
   replyWindow: "replies within a business day",
   contactEmail: "hello@example.invalid",
