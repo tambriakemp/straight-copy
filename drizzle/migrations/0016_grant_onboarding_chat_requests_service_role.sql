@@ -1,0 +1,1 @@
+GRANT ALL ON public.onboarding_chat_requests TO service_role;

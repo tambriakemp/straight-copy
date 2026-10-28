@@ -113,6 +113,13 @@
       "when": 1793160008366,
       "tag": "0015_onboarding_chat_rate_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793160075996,
+      "tag": "0016_grant_onboarding_chat_requests_service_role",
+      "breakpoints": true
     }
   ]
 }
