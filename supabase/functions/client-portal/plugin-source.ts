@@ -211,6 +211,9 @@ interface PluginCredential {
   /** Unsealed, like `username` since `001` (CRE-822) -- see `docs/API.md`. */
   note?: string | null;
   sortOrder?: number | null;
+  /** Absent on a plugin that does not file a credential against a project. */
+  projectId?: string | null;
+  projectName?: string | null;
 }
 
 interface PluginCredentialRequest {
@@ -699,6 +702,8 @@ export class PluginSource implements PortalSource {
           masked: credential.secret,
           note: credential.note ?? null,
           sortOrder: credential.sortOrder ?? null,
+          projectId: credential.projectId ?? null,
+          projectName: credential.projectName ?? null,
         })),
       ),
       requests: requests.requests.map((request): LoginRequest => ({

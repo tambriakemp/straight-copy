@@ -14,7 +14,7 @@
 // A password fetched for Copy never enters state at all: it is a local in
 // the click handler until the clipboard write settles.
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 // The line-drawn eye mockup 16 puts in the password field, as an SVG -- which
 // is also the only version of it that cannot fail. U+1F441 is
@@ -29,6 +29,7 @@ import ClientPortalShell, {
 import { useAdminPreview, usePortalView } from "@/components/portal/useClientPortal";
 import { PortalRequestError, clientPortal, shortDate } from "@/lib/clientPortalApi";
 import type { LoginRequest, LoginsView, SharedLogin } from "@/lib/clientPortalWire";
+import { groupLoginsByProject } from "@/lib/portalLoginGroups";
 
 export default function ClientLogins() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -82,15 +83,24 @@ export default function ClientLogins() {
                     </tr>
                   </thead>
                   <tbody>
-                    {view.logins.map((login) => (
-                      <LoginRow
-                        key={login.id}
-                        login={login}
-                        clientId={clientId ?? ""}
-                        adminPreview={adminPreview}
-                        onEdit={() => setEditing(login)}
-                        onChanged={load.reload}
-                      />
+                    {groupLoginsByProject(view.logins).map((group) => (
+                      <Fragment key={group.projectId ?? "none"}>
+                        {group.projectName && (
+                          <tr className="cp-logins__group">
+                            <td colSpan={5}>{group.projectName}</td>
+                          </tr>
+                        )}
+                        {group.logins.map((login) => (
+                          <LoginRow
+                            key={login.id}
+                            login={login}
+                            clientId={clientId ?? ""}
+                            adminPreview={adminPreview}
+                            onEdit={() => setEditing(login)}
+                            onChanged={load.reload}
+                          />
+                        ))}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

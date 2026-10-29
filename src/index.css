@@ -5499,6 +5499,16 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
    grows the table to the longest username, which pushes Copy past the
    share panel. */
 .cp-logins__list { position: relative; min-width: 0; overflow-x: auto; }
+.cp-table tr.cp-logins__group td {
+  display: block;
+  padding: 10px 18px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cp-faint);
+  font-weight: 600;
+  background: var(--cp-surface-2);
+}
 /* Column widths only while this is a real table. Below 769px the rows are
    cards, and a percentage width on the cell would squash the card. */
 @media (min-width: 769px) {

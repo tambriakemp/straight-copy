@@ -56,6 +56,9 @@
  * than this copy" and draws what it would draw for an unset value -- never as
  * an error, and never by substituting a guess of its own.
  *
+ *   1.4.0  `SharedLogin.projectId` and `.projectName`. Optional. Absent, or
+ *          null, is a login that is not tied to one project -- the same
+ *          drawing as a server older than this copy.
  *   1.3.0  Field coverage from the plugin's migration 009 (CRE-822):
  *          `HomeView.buildStartDate`, `.deliveryDate`, `.deliveryVideoUrl`;
  *          `SharedLogin.note` and `.sortOrder`; `AgreementView.versionGroupId`,
@@ -75,7 +78,7 @@
  *          existed, which put our mark on a licensee's client's screen.
  *   1.0.0  The four screens, mockups 13-16 (CRE-776).
  */
-export const PORTAL_WIRE_VERSION = "1.3.0";
+export const PORTAL_WIRE_VERSION = "1.4.0";
 
 /** The agency, as the client sees it. Never hardcoded: licensees are not us. */
 export interface PortalBranding {
@@ -502,6 +505,15 @@ export interface SharedLogin {
    * would silently reorder every login nobody has touched.
    */
   sortOrder?: number | null;
+  /**
+   * The project this login is filed against, when it has one.
+   *
+   * Absent on a login that is not tied to a project, and absent on a server
+   * older than 1.4.0. Both are drawn as a row with no project label.
+   */
+  projectId?: string | null;
+  /** The project's name, for that label. Null when there is no project. */
+  projectName?: string | null;
 }
 
 /** An outstanding ask: the right-hand panel of mockup 16. */

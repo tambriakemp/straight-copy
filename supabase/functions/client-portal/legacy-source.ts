@@ -510,25 +510,54 @@ export class LegacySource implements PortalSource {
       this.#me(ctx),
       this.#db
         .from("client_logins")
-        .select("id, label, url, username, note, sort_order, created_at")
+        .select("id, label, url, username, note, sort_order, created_at, client_project_id")
         .eq("client_id", ctx.clientId)
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true }),
     ]);
 
+    const loginRows = rows(logins);
+    const projectIds = [
+      ...new Set(
+        loginRows
+          .map((row) => text(row, "client_project_id"))
+          .filter((id): id is string => id !== null),
+      ),
+    ];
+    const projectNames = new Map<string, string>();
+    if (projectIds.length > 0) {
+      // Scoped to this client as well as the ids. A login row that named
+      // another client's project would otherwise lend us that project's name.
+      const projects = await this.#db
+        .from("client_projects")
+        .select("id, name")
+        .in("id", projectIds)
+        .eq("client_id", ctx.clientId);
+      for (const row of rows(projects)) {
+        const id = text(row, "id");
+        const name = text(row, "name");
+        if (id && name) projectNames.set(id, name);
+      }
+    }
+
     return {
       branding: ctx.branding,
       me,
-      logins: rows(logins).map((row): SharedLogin => ({
-        id: required(row, "id"),
-        label: required(row, "label"),
-        username: text(row, "username"),
-        url: text(row, "url"),
-        sharedAt: required(row, "created_at"),
-        masked: MASK,
-        note: text(row, "note"),
-        sortOrder: numberOrNull(row, "sort_order"),
-      })),
+      logins: loginRows.map((row): SharedLogin => {
+        const projectId = text(row, "client_project_id");
+        return {
+          id: required(row, "id"),
+          label: required(row, "label"),
+          username: text(row, "username"),
+          url: text(row, "url"),
+          sharedAt: required(row, "created_at"),
+          masked: MASK,
+          note: text(row, "note"),
+          sortOrder: numberOrNull(row, "sort_order"),
+          projectId,
+          projectName: projectId ? (projectNames.get(projectId) ?? null) : null,
+        };
+      }),
       // See the header: these tables have no record of an ask. The panel
       // renders as a plain share form rather than as an answer to one.
       requests: [],
