@@ -252,7 +252,7 @@ Deno.serve(async (req) => {
       }
       const { data: row } = await supabase
         .from("clients")
-        .select("brand_kit_conversation, brand_kit_intake_submitted_at, contact_email, client_account_access, surecart_subscription_id, subscription_status, subscription_canceled_at, subscription_current_period_end, subscription_cancel_at_period_end, onboarding_submission_id")
+        .select("brand_kit_conversation, brand_kit_intake_submitted_at, contact_email, surecart_subscription_id, subscription_status, subscription_canceled_at, subscription_current_period_end, subscription_cancel_at_period_end, onboarding_submission_id")
         .eq("id", clientId)
         .maybeSingle();
 
@@ -312,7 +312,6 @@ Deno.serve(async (req) => {
           contactEmail: row?.contact_email ?? null,
           conversation: row?.brand_kit_conversation ?? [],
           submittedAt: row?.brand_kit_intake_submitted_at ?? null,
-          accountAccess: row?.client_account_access ?? {},
           onboardingInvite,
           projectTypes,
           projects,
@@ -656,104 +655,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ---------- ACCOUNT ACCESS: RESOLVE ----------
-    if (action === "account-access-resolve") {
-      const { data: row } = await supabase
-        .from("clients")
-        .select("client_account_access")
-        .eq("id", clientId)
-        .maybeSingle();
-      return new Response(
-        JSON.stringify({ accountAccess: row?.client_account_access ?? {} }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    // ---------- ACCOUNT ACCESS: SAVE ----------
-    if (action === "account-access-save") {
-      const payload = (body.accountAccess && typeof body.accountAccess === "object")
-        ? body.accountAccess as Record<string, unknown>
-        : {};
-
-      // Whitelist + sanitize fields
-      const KNOWN_KEYS = new Set([
-        "surecontact", "copost", "social_media",
-        "social_instagram", "social_tiktok", "social_linkedin", "social_facebook", "social_youtube", "social_pinterest",
-        "website", "claude",
-      ]);
-      const sanitizedChecks: Record<string, boolean> = {};
-      for (const [k, v] of Object.entries(payload.checks ?? {})) {
-        if (KNOWN_KEYS.has(k)) sanitizedChecks[k] = Boolean(v);
-      }
-      const notes = typeof payload.notes === "string" ? payload.notes.slice(0, 4000) : "";
-      const files: Array<{ path: string; name: string; size: number }> = Array.isArray(payload.files)
-        ? (payload.files as any[]).slice(0, 10).map((f) => ({
-            path: typeof f?.path === "string" ? f.path.slice(0, 500) : "",
-            name: typeof f?.name === "string" ? f.name.slice(0, 200) : "",
-            size: typeof f?.size === "number" ? f.size : 0,
-          })).filter((f) => f.path)
-        : [];
-
-      // Whitelisted free-text fields
-      const FIELD_KEYS = new Set<string>([]);
-      const sanitizedFields: Record<string, string> = {};
-      for (const [k, v] of Object.entries(payload.fields ?? {})) {
-        if (FIELD_KEYS.has(k) && typeof v === "string") {
-          sanitizedFields[k] = v.slice(0, 500);
-        }
-      }
-
-      // Tier-aware "all required" check
-      const tier = (portalData as any).tier as string;
-      const requiredKeys = ["surecontact", "copost", "website"];
-      if (tier === "growth") requiredKeys.push("claude");
-      const allDone = requiredKeys.every((k) => sanitizedChecks[k] === true);
-      const submittedAt = allDone ? new Date().toISOString() : null;
-
-
-      const nextState = {
-        checks: sanitizedChecks,
-        notes,
-        files,
-        fields: sanitizedFields,
-        updated_at: new Date().toISOString(),
-        submitted_at: submittedAt,
-      };
-
-      const { error: updErr } = await supabase
-        .from("clients")
-        .update({ client_account_access: nextState })
-        .eq("id", clientId);
-      if (updErr) throw new Error(`Save account access failed: ${updErr.message}`);
-
-      // If complete, flip the intake node's accounts_submitted item to done.
-      // Match by stable `key` first, with `auto_key` as legacy fallback.
-      if (allDone) {
-        const { data: intakeNode } = await supabase
-          .from("journey_nodes")
-          .select("id, checklist")
-          .eq("client_id", clientId)
-          .eq("key", "intake")
-          .maybeSingle();
-        if (intakeNode) {
-          const current = Array.isArray(intakeNode.checklist) ? intakeNode.checklist as any[] : [];
-          const next = current.map((it: any) =>
-            it && (it.key === "intake.accounts_submitted" || it.auto_key === "accounts_submitted")
-              ? { ...it, done: true }
-              : it,
-          );
-          await supabase
-            .from("journey_nodes")
-            .update({ checklist: next })
-            .eq("id", intakeNode.id);
-        }
-      }
-
-      return new Response(
-        JSON.stringify({ success: true, accountAccess: nextState }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    // ---------- ACCOUNT ACCESS: RESOLVE / SAVE ----------
+    // Moved to `client-portal`'s `account-access` / `save-account-access`
+    // actions (CRE-822, G4) -- the plugin's version of this form, with the
+    // secure note sealed as a saved login rather than read back in clear
+    // from this jsonb column. See `AccountAccessSection.tsx`.
 
     // ---------- SAVE LOGO PROGRESS ----------
     // Incrementally persists the uploaded logo + extracted palette to the client's

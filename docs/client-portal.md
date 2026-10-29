@@ -367,6 +367,7 @@ guess of its own.
 
 | | |
 |---|---|
+| `1.5.0` | `AccountAccessView` and `AccountAccessItem` (CRE-822, G4): "Set Up Your Accounts", moved off the `/admin` jsonb column it used to read and write in clear. No optional default -- the whole shape is new. |
 | `1.4.0` | `SharedLogin.projectId` and `.projectName`. Optional; absent or null draws no project label. |
 | `1.3.0` | `HomeView.buildStartDate`/`.deliveryDate`/`.deliveryVideoUrl`, `SharedLogin.note`/`.sortOrder`, `AgreementView.versionGroupId`/`.paymentDueDays`/`.paymentTerms`/`.firstViewedAt`/`.declinedAt`/`.declineReason` (CRE-822). All optional; absent draws null. |
 | `1.2.0` | `HomeView.projects` (CRE-776). Optional; absent draws no card. |

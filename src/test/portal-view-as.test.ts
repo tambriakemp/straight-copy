@@ -191,20 +191,13 @@ describe("the read allowlist", () => {
   });
 
   it("refuses the writes that sit beside the two CRE-818 reads", () => {
-    // `brand-kit-intake` answers to seven actions, and five of the six that
-    // are not `resolve` write -- `complete` advances the client's journey
-    // node and emails the team, and `fast-complete` does it without even a
-    // conversation. `account-access-resolve` is a read and still not here,
-    // because no screen in the dark nav asks for it. The day one of these is
-    // added next to `resolve` is the day this test has to be what notices.
-    for (const action of [
-      "chat",
-      "complete",
-      "fast-complete",
-      "account-access-resolve",
-      "account-access-save",
-      "save-logo-progress",
-    ]) {
+    // `brand-kit-intake` writes `complete` (advances the client's journey
+    // node and emails the team), `fast-complete` (the same, without a
+    // conversation), `chat` and `save-logo-progress`. Its `account-access-*`
+    // actions moved to `client-portal` (CRE-822, G4) and are gone from here
+    // entirely -- not refused by this allowlist but by the function no
+    // longer answering to them at all.
+    for (const action of ["chat", "complete", "fast-complete", "save-logo-progress"]) {
       expect(viewAsMayRead("brand-kit-intake", action), action).toBe(false);
     }
     // `remove` deletes the object out of storage as well as the row, so it is

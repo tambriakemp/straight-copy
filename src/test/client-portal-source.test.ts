@@ -44,13 +44,17 @@ import { money } from "../lib/clientPortalApi";
 import {
   adminProjects,
   adminStatus,
+  applicableAccountAccessItems,
+  accountAccessComplete,
   loginRevealAudit,
   headlineFor,
   invoiceRowsFromAdmin,
   isNodeDone,
   lineItemsFrom,
   recentUpdates,
+  sanitiseAccountAccessChecks,
 } from "../../supabase/functions/client-portal/legacy-source";
+import type { AccountAccessItem } from "../../supabase/functions/_shared/client-portal-wire";
 
 const NOW = new Date("2026-10-28T12:00:00.000Z");
 
@@ -502,6 +506,89 @@ describe("whether a journey node is finished", () => {
   it("does not count work that is merely under way", () => {
     expect(isNodeDone({ status: "in_progress" })).toBe(false);
     expect(isNodeDone({})).toBe(false);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* The account-access form (CRE-822, G4)                                       */
+/* -------------------------------------------------------------------------- */
+
+function item(over: Partial<AccountAccessItem> = {}): AccountAccessItem {
+  return {
+    key: "surecontact",
+    label: "SureContact",
+    description: null,
+    helpUrl: null,
+    required: true,
+    tier: null,
+    parentKey: null,
+    collectsSecret: false,
+    sortOrder: 0,
+    ...over,
+  };
+}
+
+describe("which account-access items apply to a client", () => {
+  it("includes every untiered item regardless of the client's tier", () => {
+    const items = [item({ key: "a", tier: null })];
+    expect(applicableAccountAccessItems(items, "growth")).toHaveLength(1);
+    expect(applicableAccountAccessItems(items, null)).toHaveLength(1);
+  });
+
+  it("excludes an item naming a tier the client is not on", () => {
+    const items = [item({ key: "claude", tier: "growth" })];
+    expect(applicableAccountAccessItems(items, "launch")).toHaveLength(0);
+    expect(applicableAccountAccessItems(items, null)).toHaveLength(0);
+  });
+
+  it("includes a tiered item for a client actually on that tier", () => {
+    const items = [item({ key: "claude", tier: "growth" })];
+    expect(applicableAccountAccessItems(items, "growth")).toHaveLength(1);
+  });
+});
+
+describe("whether the account-access form is complete", () => {
+  it("is false on an install with no items configured", () => {
+    // "Every one of zero required items is done" would mark every client on
+    // a fresh install as having finished a form nobody has written yet.
+    expect(accountAccessComplete([], {})).toBe(false);
+  });
+
+  it("is false while any required item is unticked", () => {
+    const items = [item({ key: "a" }), item({ key: "b" })];
+    expect(accountAccessComplete(items, { a: true })).toBe(false);
+  });
+
+  it("ignores an optional item that was never ticked", () => {
+    const items = [item({ key: "a", required: true }), item({ key: "b", required: false })];
+    expect(accountAccessComplete(items, { a: true })).toBe(true);
+  });
+
+  it("is true once every required item is ticked", () => {
+    const items = [item({ key: "a" }), item({ key: "b" })];
+    expect(accountAccessComplete(items, { a: true, b: true })).toBe(true);
+  });
+});
+
+describe("sanitising the account-access checks a client sent", () => {
+  const items = [item({ key: "surecontact" }), item({ key: "copost" })];
+
+  it("drops a key that names no item this client was asked for", () => {
+    expect(sanitiseAccountAccessChecks({ surecontact: true, made_up: true }, items)).toEqual({
+      surecontact: true,
+    });
+  });
+
+  it("drops a false tick rather than storing it", () => {
+    // An absent key and a `false` one mean the same thing; storing both
+    // would leave two shapes that have to agree on paper.
+    expect(sanitiseAccountAccessChecks({ surecontact: false }, items)).toEqual({});
+  });
+
+  it("answers an empty object for anything that is not a plain object", () => {
+    expect(sanitiseAccountAccessChecks(null, items)).toEqual({});
+    expect(sanitiseAccountAccessChecks("nope", items)).toEqual({});
+    expect(sanitiseAccountAccessChecks(undefined, items)).toEqual({});
   });
 });
 
