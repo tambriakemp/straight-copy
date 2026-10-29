@@ -93,6 +93,8 @@ interface PluginClientRow {
   buildStartDate?: string | null;
   deliveryDate?: string | null;
   deliveryVideoUrl?: string | null;
+  /** Where the client keeps their files now (CRE-827). */
+  sharedDriveUrl?: string | null;
 }
 
 interface PluginContact {
@@ -268,6 +270,10 @@ export class PluginSource implements PortalSource {
     return this.#api.call<T>(path, { method: "POST", clientScope: ctx.clientId, body });
   }
 
+  #patch<T>(ctx: PortalCallerContext, path: string, body: Record<string, unknown>): Promise<T> {
+    return this.#api.call<T>(path, { method: "PATCH", clientScope: ctx.clientId, body });
+  }
+
   /** The person, if we know one, for "Good afternoon, Maya". The business
    * name is the fallback rather than the other way round: a greeting
    * addressed to a company reads like an invoice. */
@@ -371,6 +377,7 @@ export class PluginSource implements PortalSource {
       buildStartDate: client.buildStartDate ?? null,
       deliveryDate: client.deliveryDate ?? null,
       deliveryVideoUrl: client.deliveryVideoUrl ?? null,
+      sharedDriveUrl: client.sharedDriveUrl ?? null,
       headline: visibility?.headline ?? null,
       stepNumber: position?.stepNumber ?? null,
       stepCount: position?.stepCount ?? null,
@@ -816,6 +823,23 @@ export class PluginSource implements PortalSource {
       body,
     });
     return { ...data.accountAccess, items: data.items };
+  }
+
+  /**
+   * CRE-827. The plugin owns the format check too -- see `src/api/clients.ts`
+   * there -- so a request that reaches here with a bad link still gets
+   * refused server-side rather than trusting the browser's own check.
+   */
+  async saveSharedDriveUrl(
+    ctx: PortalCallerContext,
+    url: string | null,
+  ): Promise<{ sharedDriveUrl: string | null }> {
+    const data = await this.#patch<{ client: PluginClientRow }>(
+      ctx,
+      `/clients/${encodeURIComponent(ctx.clientId)}`,
+      { sharedDriveUrl: url },
+    );
+    return { sharedDriveUrl: data.client.sharedDriveUrl ?? null };
   }
 
   async revealLogin(

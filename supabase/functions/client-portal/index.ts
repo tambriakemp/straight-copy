@@ -299,6 +299,16 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
 
+      case "save-shared-drive-url": {
+        refusePreviewWrites(ctx, "change the shared-drive link");
+        const raw = payload.sharedDriveUrl;
+        if (raw !== null && typeof raw !== "string") {
+          return json({ error: "sharedDriveUrl must be a string or null" }, 400);
+        }
+        const url = typeof raw === "string" ? optionalText(raw) : null;
+        return json({ ok: true, ...(await source.saveSharedDriveUrl(ctx, url)) });
+      }
+
       case "account-access":
         return json({ ok: true, view: await source.accountAccess(ctx) });
 

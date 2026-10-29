@@ -1,18 +1,21 @@
 // The Files tab on a client's project, in the portal.
 //
-// Two lists from one table: what Cre8 Visions shared, and what the
-// client sent. Same kind of thing from opposite ends, so one table with
-// a direction rather than two that drift apart.
+// CRE-827: the client no longer uploads here. They keep a shared drive
+// folder of their own and paste the link below; what Cre8 Visions shares
+// back still lists and downloads exactly as before. Files already sent
+// before this card shipped stay visible, read-only -- the owner's choice
+// between that and hiding them outright, explained in `ClientFiles.tsx`'s
+// header, which carries the fuller version of this screen.
 //
-// Neither list carries a download link (CRE-822): `open()` mints one, for
-// one file, on the click that needs it, so a link minted when the page
-// loaded is never still live -- or dead -- by the time somebody clicks.
+// `open()` mints a download link for one file, on the click that needs it,
+// so a link minted when the page loaded is never still live -- or dead --
+// by the time somebody clicks.
 import { useState } from "react";
-import { Upload, FileText, Download, Trash2 } from "lucide-react";
-import EmptyState from "@/components/admin/cv/EmptyState";
+import { ExternalLink, FileText, Download } from "lucide-react";
 import { fileSize, previewKind } from "@/lib/projectFiles";
 import FilePreview from "@/components/FilePreview";
 import { useClientFiles, type OpenedFile, type ProjectFile } from "@/components/portal/useClientFiles";
+import { useSharedDriveLink } from "@/components/portal/useSharedDriveLink";
 
 export type { ProjectFile };
 
@@ -24,17 +27,19 @@ function when(iso: string): string {
 }
 
 export default function FilesSection({
-  clientId, clientProjectId, clientName, adminPreview,
+  clientId, clientProjectId, adminPreview,
 }: {
   clientId: string;
   clientProjectId: string;
-  clientName: string | null;
   adminPreview: boolean;
 }) {
   const [previewing, setPreviewing] = useState<OpenedFile | null>(null);
-  const {
-    files, shared, sent, busy, unavailable, dragging, inputRef, onDragOver, onDragLeave, onDrop, upload, remove, open,
-  } = useClientFiles({ clientId, clientProjectId, clientName, adminPreview });
+  const { files, shared, sent, unavailable, open } = useClientFiles({
+    clientId,
+    clientProjectId,
+    adminPreview,
+  });
+  const drive = useSharedDriveLink({ clientId, adminPreview });
 
   const row = (f: ProjectFile, mine: boolean) => {
     const canOpen = f.downloadable && previewKind(f.mime, f.name);
@@ -72,11 +77,6 @@ export default function FilesSection({
             <Download size={14} style={{ marginRight: 6 }} /> Download
           </button>
         )}
-        {mine && (
-          <button type="button" className="cv-mini cv-mini--danger" onClick={() => void remove(f)}>
-            <Trash2 size={14} />
-          </button>
-        )}
       </div>
     );
   };
@@ -86,11 +86,48 @@ export default function FilesSection({
       <div>
         <h2 className="cv-card-title" style={{ fontSize: 22 }}>Files</h2>
         <p className="cv-page-sub">
-          Send files to Cre8 Visions and download what they've shared with you.
+          Keep your files in your own shared drive, and download what Cre8 Visions has shared with you.
         </p>
       </div>
 
-      {unavailable && (
+      <section className="cv-card cv-card-pad">
+        <div className="cv-card-head">
+          <h2 className="cv-card-title">Your shared drive</h2>
+        </div>
+        <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--cv-muted)" }}>
+          Create a shared folder in Google Drive (or similar), set sharing to "anyone with the link" or add
+          the Cre8 Visions team, then paste the link here. Upload everything into that folder — not here.
+        </p>
+        {drive.editing ? (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <input
+              className="cv-input"
+              style={{ flex: "1 1 260px" }}
+              placeholder="https://drive.google.com/…"
+              value={drive.draft}
+              onChange={(e) => drive.setDraft(e.target.value)}
+              autoFocus
+            />
+            <button type="button" className="cv-open cv-open--dark" disabled={drive.saving} onClick={() => void drive.save()}>
+              {drive.saving ? "Saving…" : "Save"}
+            </button>
+            <button type="button" className="cv-open" onClick={() => drive.setEditing(false)}>Cancel</button>
+          </div>
+        ) : drive.saved ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <a href={drive.saved} target="_blank" rel="noreferrer" className="cv-filename">
+              {drive.saved} <ExternalLink size={12} style={{ display: "inline" }} />
+            </a>
+            <button type="button" className="cv-open" onClick={() => drive.setEditing(true)}>Change link</button>
+          </div>
+        ) : (
+          <button type="button" className="cv-open cv-open--dark" onClick={() => drive.setEditing(true)}>
+            Add your shared drive link
+          </button>
+        )}
+      </section>
+
+      {unavailable ? (
         <section className="cv-card cv-card-pad">
           <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>
             File sharing isn't switched on yet. Cre8 Visions will let you know
@@ -98,58 +135,34 @@ export default function FilesSection({
             you need to send.
           </p>
         </section>
-      )}
-
-      {!unavailable && (
-        <section
-          className="cv-card cv-card-pad cv-drop"
-          data-dragging={dragging ? "yes" : undefined}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-        >
-          <span className="cv-ic" style={{ background: "#E7EEFF", color: "#2447C0" }}>
-            <Upload size={22} />
-          </span>
-          <div style={{ flex: "1 1 240px" }}>
-            <div style={{ fontWeight: 500 }}>Drop files here to send them</div>
-            <div style={{ fontSize: 13, color: "var(--cv-muted)" }}>
-              Logos, photos, documents, anything the team asked for. Up to 15MB each.
+      ) : (
+        <>
+          <section className="cv-card cv-card-pad">
+            <div className="cv-card-head">
+              <h2 className="cv-card-title">Shared with you</h2>
+              <span className="cv-chip cv-chip--gray">{shared.length}</span>
             </div>
-          </div>
-          <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 20px" }}
-            disabled={busy} onClick={() => inputRef.current?.click()}>
-            {busy ? "Sending…" : "Choose files"}
-          </button>
-          <input ref={inputRef} type="file" multiple hidden onChange={(e) => upload(e.target.files)} />
-        </section>
+            {files === null ? (
+              <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>Loading…</p>
+            ) : !shared.length ? (
+              <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>
+                Nothing yet. Contracts, designs and deliverables Cre8 Visions sends
+                you show up here.
+              </p>
+            ) : shared.map((f) => row(f, false))}
+          </section>
+
+          {sent.length > 0 && (
+            <section className="cv-card cv-card-pad">
+              <div className="cv-card-head">
+                <h2 className="cv-card-title">Sent by you</h2>
+                <span className="cv-chip cv-chip--gray">{sent.length}</span>
+              </div>
+              {sent.map((f) => row(f, true))}
+            </section>
+          )}
+        </>
       )}
-
-      <section className="cv-card cv-card-pad">
-        <div className="cv-card-head">
-          <h2 className="cv-card-title">Shared with you</h2>
-          <span className="cv-chip cv-chip--gray">{shared.length}</span>
-        </div>
-        {files === null ? (
-          <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>Loading…</p>
-        ) : !shared.length ? (
-          <p style={{ margin: 0, fontSize: 14, color: "var(--cv-muted)" }}>
-            Nothing yet. Contracts, designs and deliverables Cre8 Visions sends
-            you show up here.
-          </p>
-        ) : shared.map((f) => row(f, false))}
-      </section>
-
-      <section className="cv-card cv-card-pad">
-        <div className="cv-card-head">
-          <h2 className="cv-card-title">Sent by you</h2>
-          <span className="cv-chip cv-chip--gray">{sent.length}</span>
-        </div>
-        {!sent.length ? (
-          <EmptyState icon={Upload} title="Nothing sent yet"
-            subtitle="Anything you upload above appears here, and goes straight to the team." />
-        ) : sent.map((f) => row(f, true))}
-      </section>
 
       {previewing && (
         <FilePreview

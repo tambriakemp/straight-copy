@@ -792,6 +792,24 @@ export class LegacySource implements PortalSource {
     };
   }
 
+  /**
+   * CRE-827. This install has not cut over to the Client Portal plugin, and
+   * the `/admin` tables this bridge reads have no column for it -- there was
+   * no shared-drive concept before this card. Refused rather than faked: a
+   * save that silently did nothing would tell the client their link is on
+   * file when it is not.
+   */
+  async saveSharedDriveUrl(
+    _ctx: PortalCallerContext,
+    _url: string | null,
+  ): Promise<{ sharedDriveUrl: string | null }> {
+    throw new PortalError(
+      501,
+      "shared_drive_unavailable",
+      "Saving a shared-drive link is not available on this portal yet.",
+    );
+  }
+
   async #clientTier(ctx: PortalCallerContext): Promise<string | null> {
     const { data } = await this.#db
       .from("clients")

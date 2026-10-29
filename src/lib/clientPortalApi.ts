@@ -236,6 +236,15 @@ export const clientPortal = {
     preview: boolean,
   ) => view<AccountAccessView>(clientId, "save-account-access", preview, { ...input }),
 
+  /** CRE-827. `null` clears the link; the server validates the format either way. */
+  saveSharedDriveUrl: (clientId: string, url: string | null, preview: boolean) =>
+    call<{ sharedDriveUrl: string | null }>(
+      clientId,
+      "save-shared-drive-url",
+      { sharedDriveUrl: url },
+      preview,
+    ),
+
   /**
    * One password, fetched at the moment Copy is pressed.
    *

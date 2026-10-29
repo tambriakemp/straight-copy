@@ -28,9 +28,13 @@ import { fileToBase64, blobUrlFromBase64 } from "@/lib/fileBytes";
 import FilePreview from "@/components/FilePreview";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const MAX_BYTES = 50 * 1024 * 1024;
-/** Mirrors the Client Portal plugin's own inline-store ceiling. */
-const INLINE_MAX_BYTES = 6 * 1024 * 1024;
+/**
+ * Mirrors the Client Portal plugin's own inline-store ceiling (CRE-827: this
+ * was 50MB before the plugin had any file storage of its own to be bound
+ * by). One constant now that the gate and the inline choice are the same
+ * number -- there is no path above it to choose a ticket over.
+ */
+const MAX_BYTES = 6 * 1024 * 1024;
 
 interface Row {
   id: string;
@@ -95,7 +99,7 @@ export default function ProjectFilesPanel({
   useEffect(() => { void load(); }, [load]);
 
   const uploadViaPlugin = async (file: File) => {
-    const inline = file.size <= INLINE_MAX_BYTES;
+    const inline = file.size <= MAX_BYTES;
     const created = await call("create", {
       client_id: clientId, client_project_id: clientProjectId,
       name: file.name, mime: file.type || null, byte_size: file.size,
@@ -133,7 +137,7 @@ export default function ProjectFilesPanel({
     setBusy(true);
     let done = 0;
     for (const file of Array.from(list)) {
-      if (file.size > MAX_BYTES) { toast.error(`${file.name} is over 50MB`); continue; }
+      if (file.size > MAX_BYTES) { toast.error(`${file.name} is over 6 MiB`); continue; }
       try {
         if (source === "plugin") await uploadViaPlugin(file);
         else await uploadViaLegacy(file);

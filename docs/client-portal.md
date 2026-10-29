@@ -367,6 +367,7 @@ guess of its own.
 
 | | |
 |---|---|
+| `1.6.0` | `HomeView.sharedDriveUrl` (CRE-827): the client's own shared-drive link, replacing the Files tab's upload button. Optional; absent or null draws the Files tab's "no link yet" prompt. |
 | `1.5.0` | `AccountAccessView` and `AccountAccessItem` (CRE-822, G4): "Set Up Your Accounts", moved off the `/admin` jsonb column it used to read and write in clear. No optional default -- the whole shape is new. |
 | `1.4.0` | `SharedLogin.projectId` and `.projectName`. Optional; absent or null draws no project label. |
 | `1.3.0` | `HomeView.buildStartDate`/`.deliveryDate`/`.deliveryVideoUrl`, `SharedLogin.note`/`.sortOrder`, `AgreementView.versionGroupId`/`.paymentDueDays`/`.paymentTerms`/`.firstViewedAt`/`.declinedAt`/`.declineReason` (CRE-822). All optional; absent draws null. |
