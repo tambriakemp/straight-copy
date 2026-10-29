@@ -57,16 +57,22 @@ const BLANK: Draft = {
   id: null, label: "", url: "", username: "", password: "", note: "", projectId: "",
 };
 
+export interface LoginProjectOption {
+  id: string;
+  name: string;
+  status?: string;
+}
+
 export default function LoginsTab({
-  clientId, clientName, clientEmail, logins, projectNames = new Map(), onChanged,
+  clientId, clientName, clientEmail, logins, projects = [], onChanged,
 }: {
   clientId: string;
   clientName: string;
   clientEmail: string | null;
   logins: ClientLoginRow[];
-  /** Project id → name, for the chip on a login the client shared from
-   *  the portal. Nothing else about this tab changes. */
-  projectNames?: Map<string, string>;
+  /** This client's projects, for the optional field on the form and the
+   *  chip on a row that has one. */
+  projects?: LoginProjectOption[];
   onChanged: () => void;
 }) {
   const [revealed, setRevealed] = useState<Record<string, string>>({});
@@ -77,6 +83,7 @@ export default function LoginsTab({
   const [ordered, setOrdered] = useState<ClientLoginRow[] | null>(null);
   const dragId = useRef<string | null>(null);
   const rows = ordered ?? logins;
+  const projectNames = new Map(projects.map((project) => [project.id, project.name]));
   const projectLabel = (l: ClientLoginRow) => loginProjectLabel(l, projectNames);
 
   const reveal = async (id: string) => {
@@ -127,9 +134,8 @@ export default function LoginsTab({
         username: draft.username.trim() || null,
         password: passwordToSend(draft.password, draft.id !== null),
         note: draft.note.trim() || null,
-        // Blank means client-wide: a login the agency holds for the
-        // client as a whole rather than for one piece of work. It is
-        // also what keeps that login out of reach of the portal.
+        // Blank is a login with no project. The portal still lists it;
+        // it just has no project heading.
         client_project_id: draft.projectId || null,
       });
       toast.success(draft.id ? "Login updated" : "Login added");
@@ -296,6 +302,23 @@ export default function LoginsTab({
               />
             </label>
             <label className="cv-field">
+              Project
+              <select
+                className="cv-select" value={draft.projectId}
+                onChange={(e) => setDraft({ ...draft, projectId: e.target.value })}
+              >
+                <option value="">No project</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.status === "archived" ? `${project.name} (archived)` : project.name}
+                  </option>
+                ))}
+              </select>
+              <span style={{ fontSize: 12 }}>
+                Optional. Leave this blank for a login that is not for one project.
+              </span>
+            </label>
+            <label className="cv-field">
               Sign-in link
               <input
                 className="cv-input" value={draft.url}
@@ -318,22 +341,6 @@ export default function LoginsTab({
                 onChange={(e) => setDraft({ ...draft, password: e.target.value })}
                 placeholder={draft.id ? "Leave blank to keep the current one" : ""}
               />
-            </label>
-            <label className="cv-field">
-              Project
-              {/* Which piece of work this login is for. Left blank it is
-                  the client's as a whole — which is also the line the
-                  portal cannot cross: a client only ever sees the
-                  logins filed against their own project. */}
-              <select
-                className="cv-select" value={draft.projectId}
-                onChange={(e) => setDraft({ ...draft, projectId: e.target.value })}
-              >
-                <option value="">No project — client-wide</option>
-                {[...projectNames].map(([id, name]) => (
-                  <option key={id} value={id}>{name}</option>
-                ))}
-              </select>
             </label>
             <label className="cv-field">
               Note

@@ -98,6 +98,12 @@ Deno.serve(async (req) => {
 
     if (!clientId) return json({ error: "client_id required" }, 400);
     if (!label) return json({ error: "label required" }, 400);
+    const projectId = payload.client_project_id ? String(payload.client_project_id).trim() : null;
+    if (projectId) {
+      const { data: project } = await admin.from("client_projects")
+        .select("id").eq("id", projectId).eq("client_id", clientId).maybeSingle();
+      if (!project) return json({ error: "That project is not one of this client's." }, 400);
+    }
     if (password.length > 4096) return json({ error: "password too long (max 4096)" }, 400);
     if (url) {
       try {
@@ -116,7 +122,7 @@ Deno.serve(async (req) => {
       _note: note,
       _created_by: userRes.user.id,
       _enc_key: ENC_KEY,
-      _client_project_id: payload.client_project_id ? String(payload.client_project_id) : null,
+      _client_project_id: projectId,
     });
     if (error) return json({ error: error.message }, 500);
     if (!data) return json({ error: "login not found for this client" }, 404);

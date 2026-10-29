@@ -328,6 +328,8 @@ const state: DemoState = {
       url: "https://account.sitehost.example",
       sharedAt: daysOut(-18),
       masked: "••••••••••",
+      projectId: "demo-site",
+      projectName: "Glowskin Studio website",
     },
     {
       // Long label, long username, long URL. The 375px column is where this
