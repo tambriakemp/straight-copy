@@ -54,6 +54,11 @@
  * than this copy" and draws what it would draw for an unset value -- never as
  * an error, and never by substituting a guess of its own.
  *
+ *   1.5.0  `AccountAccessView` and `AccountAccessItem` (CRE-822, G4): the
+ *          "Set Up Your Accounts" form, moved off the `/admin` jsonb column
+ *          it used to read and write in clear. A server older than this
+ *          copy has no such view; there is nothing optional to default,
+ *          because the whole shape is new.
  *   1.4.0  `SharedLogin.projectId` and `.projectName`. Optional. Absent, or
  *          null, is a login that is not tied to one project -- the same
  *          drawing as a server older than this copy.
@@ -76,7 +81,7 @@
  *          existed, which put our mark on a licensee's client's screen.
  *   1.0.0  The four screens, mockups 13-16 (CRE-776).
  */
-export const PORTAL_WIRE_VERSION = "1.4.0";
+export const PORTAL_WIRE_VERSION = "1.5.0";
 
 /** The agency, as the client sees it. Never hardcoded: licensees are not us. */
 export interface PortalBranding {
@@ -533,6 +538,62 @@ export interface LoginsView {
   me: PortalMe;
   logins: SharedLogin[];
   requests: LoginRequest[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* The account-access form (CRE-822, G4)                                       */
+/* -------------------------------------------------------------------------- */
+
+/** One account the agency asks a client to set up. A row, not code -- the
+ * previous version of this form hardcoded four product names in two files
+ * that had to agree with each other. */
+export interface AccountAccessItem {
+  key: string;
+  label: string;
+  description: string | null;
+  helpUrl: string | null;
+  required: boolean;
+  /** Which `clients.tier` this applies to. Null means every tier. */
+  tier: string | null;
+  /** The parent item a sub-item (a social platform) belongs under. */
+  parentKey: string | null;
+  /**
+   * True for an item answered with a saved login rather than a text field --
+   * "Website access" is collected through `credentials`, never through
+   * `fields`, so a password never lands in a plain column.
+   */
+  collectsSecret: boolean;
+  sortOrder: number;
+}
+
+/**
+ * The form as one client has answered it.
+ *
+ * `notes` never carries the text, on purpose: the field this form's own copy
+ * tells a client to put a password in used to be read straight back out to
+ * the browser, which meant a stolen portal session could read a password out
+ * of the portal rather than only send one in. `present` says whether a note
+ * exists; `credentialId` is where it lives, in the same vault -- and the
+ * same reveal, with its reason and its re-authentication -- as every other
+ * saved login. The textarea now draws "Sent 14 Oct -- replace it", the way
+ * the Logins screen draws a row of dots.
+ *
+ * `complete` is computed fresh on every read from `items` and `checks`; it
+ * is never stored. `submittedAt` is the stored event -- the first time the
+ * form was ever complete -- and an untick afterwards does not clear it: the
+ * submission really happened, and erasing the date of it because somebody
+ * unchecked a box later is the bug this shape exists to not have.
+ */
+export interface AccountAccessView {
+  checks: Record<string, boolean>;
+  fields: Record<string, string>;
+  notes: { present: boolean; credentialId: string | null };
+  submittedAt: string | null;
+  complete: boolean;
+  updatedAt: string | null;
+  /** Already filtered to this client's tier. Empty on an install with
+   * nothing configured -- drawn as nothing to do, not as an error. */
+  items: AccountAccessItem[];
 }
 
 /* -------------------------------------------------------------------------- */

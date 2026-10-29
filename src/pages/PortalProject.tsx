@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { supabasePortal } from "@/integrations/supabase/portalClient";
 import { portalFetch } from "@/lib/portalFetch";
-import AccountAccessSection, { type AccountAccessState } from "@/components/portal/AccountAccessSection";
+import AccountAccessSection from "@/components/portal/AccountAccessSection";
 import AuditsSection from "@/components/portal/AuditsSection";
 import ContractSection from "@/components/portal/ContractSection";
 import FilesSection from "@/components/portal/FilesSection";
@@ -15,6 +15,8 @@ import SubscriptionSection, { type SubscriptionState } from "@/components/portal
 import WebDevDiscoveryChat from "@/components/portal/WebDevDiscoveryChat";
 import { projectTypeStyle } from "@/lib/projectType";
 import { phaseLadder, phaseSummary, PHASE_WORD, type PhaseNode } from "@/lib/journeyPhases";
+import { clientPortal } from "@/lib/clientPortalApi";
+import type { AccountAccessView } from "@/lib/clientPortalWire";
 
 /** The tabs on one project, as board 16 lays them out. */
 type ProjectTab = "overview" | "audits" | "files" | "logins" | "brand";
@@ -91,7 +93,10 @@ export default function PortalProject() {
   const [client, setClient] = useState<PortalClient | null>(null);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState<string | null>(null);
-  const [accountAccess, setAccountAccess] = useState<AccountAccessState>({});
+  // CRE-822, G4: no longer part of `brand-kit-intake`'s `resolve` -- its own
+  // fetch below, against the plugin-backed `client-portal` function. Null
+  // until that call answers, same as `client` above.
+  const [accountAccess, setAccountAccess] = useState<AccountAccessView | null>(null);
   const [onboardingInvite, setOnboardingInvite] = useState<{ token: string; completed: boolean } | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionState>({
     id: null,
@@ -180,7 +185,6 @@ export default function PortalProject() {
       setClient(data.client);
       setSubmittedAt(data.submittedAt);
       setContactEmail(data.contactEmail);
-      setAccountAccess(data.accountAccess ?? {});
       setOnboardingInvite(data.onboardingInvite ?? null);
       if (data.subscription) {
         setSubscription({
@@ -208,6 +212,23 @@ export default function PortalProject() {
   }, [clientId, lsKey, adminPreview]);
 
   useEffect(() => { resolve(); }, [resolve]);
+
+  // CRE-822, G4: a separate round trip to `client-portal`, which answers
+  // from the plugin or the `/admin` tables depending on this install --
+  // `brand-kit-intake`'s `resolve` no longer carries this field.
+  useEffect(() => {
+    if (!clientId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const view = await clientPortal.accountAccess(clientId, adminPreview);
+        if (!cancelled) setAccountAccess(view);
+      } catch (e) {
+        console.error("[account-access] load failed", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [clientId, adminPreview]);
 
   // The phase ladder and the page-review count, both per project.
   useEffect(() => {
@@ -705,9 +726,14 @@ export default function PortalProject() {
           list that points at it rather than on a tab of its own. The
           Logins tab is the other half: named accounts the client hands
           over, one row each. */}
-      {isAutomation && (
+      {isAutomation && accountAccess && (
         <div id="portal-account-access" style={{ scrollMarginTop: 24 }}>
-          <AccountAccessSection clientId={clientId!} tier={client.tier} initial={accountAccess} adminPreview={adminPreview} />
+          <AccountAccessSection
+            clientId={clientId!}
+            clientName={client.contact_name || client.business_name}
+            initial={accountAccess}
+            adminPreview={adminPreview}
+          />
         </div>
       )}
 

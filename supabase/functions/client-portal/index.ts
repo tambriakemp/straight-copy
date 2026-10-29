@@ -299,6 +299,22 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
 
+      case "account-access":
+        return json({ ok: true, view: await source.accountAccess(ctx) });
+
+      case "save-account-access": {
+        refusePreviewWrites(ctx, "change account access");
+        const input: { checks?: Record<string, boolean>; fields?: Record<string, string>; notes?: string } = {};
+        if (payload.checks !== undefined) input.checks = payload.checks as Record<string, boolean>;
+        if (payload.fields !== undefined) input.fields = payload.fields as Record<string, string>;
+        // Checked for presence, not truthiness: an admin preview must not be
+        // able to reach this at all (refused above), and a genuine caller
+        // who omitted `notes` entirely must leave the note untouched rather
+        // than have `undefined` read as `""` and withdraw it.
+        if (typeof payload.notes === "string") input.notes = payload.notes;
+        return json({ ok: true, view: await source.saveAccountAccess(ctx, input) });
+      }
+
       case "reveal-login": {
         // A read of one password, not a write: view-as may do it, and an
         // admin preview may do it. The list action above never includes the

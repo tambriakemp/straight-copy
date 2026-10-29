@@ -40,6 +40,8 @@ import {
   paymentTotals,
   payWaitingItem,
   stepPosition,
+  type AccountAccessItem,
+  type AccountAccessView,
   type AgreementLineItem,
   type AgreementView,
   type AgreementsView,
@@ -47,6 +49,7 @@ import {
   type LoginsView,
   type PaymentRow,
   type PaymentsView,
+  type PortalBranding,
   type PortalMe,
   type PortalProject,
   type SharedLogin,
@@ -71,6 +74,7 @@ import {
   type PortalCallerContext,
   type PortalDocument,
   type PortalSource,
+  type SaveAccountAccessInput,
   type ShareLoginInput,
   type UpdateLoginInput,
 } from "./source.ts";
@@ -100,6 +104,14 @@ export interface Query extends PromiseLike<{ data: Row[] | null; error: unknown 
   insert(
     values: Record<string, unknown>,
   ): PromiseLike<{ error: { code?: string; message?: string } | null }>;
+  /**
+   * Added for the account-access form (CRE-822, G4): the one write in this
+   * file that is a plain jsonb column rather than a sealed RPC. `.eq()`
+   * narrows the row afterward, the same order the real client takes it in.
+   */
+  update(
+    values: Record<string, unknown>,
+  ): Query;
   maybeSingle(): PromiseLike<{ data: Row | null; error: unknown }>;
 }
 
@@ -172,6 +184,92 @@ const MASK = "••••••••";
 
 /** `status` on `project_invoices`: scheduled | sent | paid | void | failed. */
 const BILLED = new Set(["sent", "paid", "failed"]);
+
+/**
+ * "Set Up Your Accounts" (CRE-822, G4), as the form hardcoded it until this
+ * file's `account-access-*` actions moved here from `brand-kit-intake`.
+ *
+ * There is no `account_access_items` table on this side of the bridge, so
+ * the four rows the plugin's version of this form reads from a table are
+ * a function of `ctx.branding` here instead -- data now, same as there,
+ * just not yet a row either side has to agree with. It disappears the day
+ * this file does.
+ *
+ * A function of the branding and not a constant: this file is on the
+ * licensing test's `SERVER` list (`portal-branding.test.tsx`), same as
+ * every other module that composes a client screen, and a licensee's own
+ * contact address belongs in this copy, not this agency's.
+ */
+function legacyAccountAccessItems(branding: PortalBranding): AccountAccessItem[] {
+  const contact = branding.contactEmail;
+  const addContact = contact ? `add [${contact}](mailto:${contact})` : "add your account manager";
+  return [
+    {
+      key: "surecontact",
+      label: "SureContact",
+      description:
+        "This is where all your email sequences and client communications will live. " +
+        "Sign up [here](https://surecontact.com/?aff=63f97d32) -- they're currently offering a " +
+        `limited-time lifetime deal, no monthly platform fee, just a one-time payment. Once ` +
+        `you've signed up, click **Members** and ${addContact} as a member, then check this off.`,
+      helpUrl: "https://surecontact.com/?aff=63f97d32",
+      required: true,
+      tier: null,
+      parentKey: null,
+      collectsSecret: false,
+      sortOrder: 0,
+    },
+    {
+      key: "copost",
+      label: "CoPost",
+      description:
+        "Your social media content scheduler -- where your linked social accounts live so " +
+        "content can be published through your automations. Sign up [here](https://copost.com). " +
+        "We recommend the **Teams** plan. Accept our team invite, connect Facebook, Instagram, " +
+        "Pinterest and TikTok, then check this off.",
+      helpUrl: "https://copost.com",
+      required: true,
+      tier: null,
+      parentKey: null,
+      collectsSecret: false,
+      sortOrder: 1,
+    },
+    {
+      key: "website",
+      label: "Website Access",
+      description:
+        "We'll need access to your website so we can connect your lead capture system and any " +
+        `on-site automations. Either ${addContact} as an Editor/Admin on your site, or drop the ` +
+        "login details in the secure note below. Once submitted, check this off.",
+      helpUrl: null,
+      required: true,
+      tier: null,
+      parentKey: null,
+      collectsSecret: false,
+      sortOrder: 2,
+    },
+    {
+      key: "claude",
+      label: "Claude Pro Account",
+      description: "This is where your Business Brain will live. A Pro account is required.",
+      helpUrl: null,
+      required: true,
+      tier: "growth",
+      parentKey: null,
+      collectsSecret: false,
+      sortOrder: 3,
+    },
+  ];
+}
+
+/**
+ * The note's home in `client_logins`: the owner's instruction (29 October)
+ * was to store it with the client's other logins, encrypted, revealed only
+ * on demand -- so it is one, found by this label rather than by a pointer
+ * column this table does not have. It therefore appears in the client's own
+ * Logins list, which is the plugin's documented behaviour too.
+ */
+const ACCOUNT_ACCESS_NOTE_LABEL = "Account access note";
 
 export class LegacySource implements PortalSource {
   readonly kind = "admin-tables" as const;
@@ -617,6 +715,160 @@ export class LegacySource implements PortalSource {
     }
   }
 
+  async accountAccess(ctx: PortalCallerContext): Promise<AccountAccessView> {
+    const [tier, state, noteLogin] = await Promise.all([
+      this.#clientTier(ctx),
+      this.#accountAccessState(ctx),
+      this.#accountAccessNoteLogin(ctx),
+    ]);
+    const applicable = applicableAccountAccessItems(legacyAccountAccessItems(ctx.branding), tier);
+    const checks = sanitiseAccountAccessChecks(state.checks, applicable);
+    return {
+      checks,
+      // No legacy item collects a free-text answer -- the source this
+      // replaces whitelisted an empty set for the same reason.
+      fields: {},
+      notes: { present: noteLogin !== null, credentialId: noteLogin?.id ?? null },
+      submittedAt: text(state, "submitted_at"),
+      complete: accountAccessComplete(applicable, checks),
+      updatedAt: text(state, "updated_at"),
+      items: applicable,
+    };
+  }
+
+  /**
+   * Checks and fields land in the same `clients.client_account_access` jsonb
+   * column the form has always used. The note does not -- seeing it there in
+   * clear next to the admin dashboard is the exact defect CRE-822 raised, so
+   * it goes to `client_logins` instead, sealed the same way every other
+   * saved login is.
+   */
+  async saveAccountAccess(
+    ctx: PortalCallerContext,
+    input: SaveAccountAccessInput,
+  ): Promise<AccountAccessView> {
+    const tier = await this.#clientTier(ctx);
+    const applicable = applicableAccountAccessItems(legacyAccountAccessItems(ctx.branding), tier);
+    const checks = sanitiseAccountAccessChecks(input.checks, applicable);
+
+    // Checked for presence, not truthiness: `notes: ""` withdraws the note,
+    // and an absent key leaves it alone. The auto-save on this form sends
+    // the whole shape on every debounce, so folding those two together would
+    // delete a client's note the first time they ticked an unrelated box.
+    if ("notes" in input) {
+      await this.#writeAccountAccessNote(ctx, input.notes ?? "");
+    }
+
+    const existing = await this.#accountAccessState(ctx);
+    const wasComplete = text(existing, "submitted_at") !== null;
+    const complete = accountAccessComplete(applicable, checks);
+    const now = ctx.now.toISOString();
+    // Only set forward. The source this replaces recomputed `submitted_at`
+    // on every save, so an accidental untick erased the date of a
+    // submission that genuinely happened -- the bug CRE-822's own doc names.
+    const submittedAt = complete ? (text(existing, "submitted_at") ?? now) : text(existing, "submitted_at");
+
+    const { error } = await this.#db
+      .from("clients")
+      .update({
+        client_account_access: { checks, fields: {}, updated_at: now, submitted_at: submittedAt },
+      })
+      .eq("id", ctx.clientId);
+    if (error) {
+      throw new PortalError(500, "save_failed", "That could not be saved.");
+    }
+
+    if (complete && !wasComplete) await this.#advanceAccountAccessCompletion(ctx);
+
+    const noteLogin = await this.#accountAccessNoteLogin(ctx);
+    return {
+      checks,
+      fields: {},
+      notes: { present: noteLogin !== null, credentialId: noteLogin?.id ?? null },
+      submittedAt,
+      complete,
+      updatedAt: now,
+      items: applicable,
+    };
+  }
+
+  async #clientTier(ctx: PortalCallerContext): Promise<string | null> {
+    const { data } = await this.#db
+      .from("clients")
+      .select("tier")
+      .eq("id", ctx.clientId)
+      .maybeSingle();
+    return text(data, "tier");
+  }
+
+  async #accountAccessState(ctx: PortalCallerContext): Promise<Row> {
+    const { data } = await this.#db
+      .from("clients")
+      .select("client_account_access")
+      .eq("id", ctx.clientId)
+      .maybeSingle();
+    const state = data?.client_account_access;
+    return state && typeof state === "object" ? (state as Row) : {};
+  }
+
+  /** Found by its label, since this table has no pointer column to it. */
+  async #accountAccessNoteLogin(ctx: PortalCallerContext): Promise<{ id: string } | null> {
+    const { data } = await this.#db
+      .from("client_logins")
+      .select("id")
+      .eq("client_id", ctx.clientId)
+      .eq("label", ACCOUNT_ACCESS_NOTE_LABEL)
+      .maybeSingle();
+    return data ? { id: required(data, "id") } : null;
+  }
+
+  async #writeAccountAccessNote(ctx: PortalCallerContext, note: string): Promise<void> {
+    const existing = await this.#accountAccessNoteLogin(ctx);
+    if (note.length === 0) {
+      // `#writeLogin` with an empty secret means "leave the stored one
+      // alone", not "clear it" -- withdrawing the note is a delete, the
+      // same one `removeLogin` already does for any other saved login.
+      if (!existing) return;
+      const { error } = await this.#db.from("client_logins").delete().eq("id", existing.id);
+      if (error) {
+        throw new PortalError(500, "save_failed", "That note could not be withdrawn.");
+      }
+      return;
+    }
+    await this.#writeLogin(ctx, {
+      id: existing?.id,
+      label: ACCOUNT_ACCESS_NOTE_LABEL,
+      url: null,
+      username: null,
+      secret: note,
+    });
+  }
+
+  /**
+   * The one flip this form has always done: marking the intake node's
+   * `accounts_submitted` checklist item done. Agency configuration for this
+   * moves to the plugin's `settings/account-access` (`completionPhaseKey`,
+   * `completionChecklistKey`); this bridge keeps the one hardcoded flip it
+   * already had rather than inventing a second configuration surface for a
+   * file scheduled for deletion.
+   */
+  async #advanceAccountAccessCompletion(ctx: PortalCallerContext): Promise<void> {
+    const { data: intakeNode } = await this.#db
+      .from("journey_nodes")
+      .select("id, checklist")
+      .eq("client_id", ctx.clientId)
+      .eq("key", "intake")
+      .maybeSingle();
+    if (!intakeNode) return;
+    const current = Array.isArray(intakeNode.checklist) ? (intakeNode.checklist as Row[]) : [];
+    const next = current.map((item) =>
+      item && (item.key === "intake.accounts_submitted" || item.auto_key === "accounts_submitted")
+        ? { ...item, done: true }
+        : item,
+    );
+    await this.#db.from("journey_nodes").update({ checklist: next }).eq("id", required(intakeNode, "id"));
+  }
+
   /**
    * One password, decrypted only after the row is confirmed to be this
    * client's, and only returned after the audit insert succeeds.
@@ -767,6 +1019,53 @@ export function loginRevealAudit(input: {
       user_id: input.userId,
     },
   };
+}
+
+/**
+ * The items that apply to one client: every untiered item, plus the ones
+ * naming this client's tier. Mirrors the plugin's own rule (CRE-822, G4) so
+ * "complete" means the same thing on both sources.
+ */
+export function applicableAccountAccessItems(
+  items: AccountAccessItem[],
+  tier: string | null,
+): AccountAccessItem[] {
+  return items.filter((item) => item.tier === null || item.tier === tier);
+}
+
+/**
+ * Whether everything required of this client is ticked.
+ *
+ * An install with no items configured is not complete, the same rule the
+ * plugin states explicitly: "every one of zero required items is done"
+ * would mark every client as having finished a form nobody wrote.
+ */
+export function accountAccessComplete(
+  applicable: AccountAccessItem[],
+  checks: Record<string, boolean>,
+): boolean {
+  const required = applicable.filter((item) => item.required);
+  if (required.length === 0) return false;
+  return required.every((item) => checks[item.key] === true);
+}
+
+/**
+ * Keeps only ticks that name an item this client was actually asked for.
+ *
+ * Without it the jsonb column is a free write from a browser, and a client
+ * could put a tick under any key of their choosing.
+ */
+export function sanitiseAccountAccessChecks(
+  raw: unknown,
+  applicable: AccountAccessItem[],
+): Record<string, boolean> {
+  if (raw === null || typeof raw !== "object") return {};
+  const keys = new Set(applicable.map((item) => item.key));
+  const out: Record<string, boolean> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (keys.has(key) && value === true) out[key] = true;
+  }
+  return out;
 }
 
 /**

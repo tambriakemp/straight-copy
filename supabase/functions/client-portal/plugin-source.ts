@@ -30,6 +30,8 @@ import {
   paymentTotals,
   payWaitingItem,
   stepPosition,
+  type AccountAccessItem,
+  type AccountAccessView,
   type AgreementLineItem,
   type AgreementView,
   type AgreementsView,
@@ -66,6 +68,7 @@ import {
   type PortalCallerContext,
   type PortalDocument,
   type PortalSource,
+  type SaveAccountAccessInput,
   type ShareLoginInput,
   type UpdateLoginInput,
 } from "./source.ts";
@@ -232,6 +235,19 @@ interface PluginSigning {
   consentText: string;
   providers: Array<{ kind: string; adapterKey: string; displayName?: string; enabled: boolean }>;
 }
+
+/** CRE-822, G4. Already shaped like `AccountAccessView` minus `items`. */
+interface PluginAccountAccess {
+  checks: Record<string, boolean>;
+  fields: Record<string, string>;
+  notes: { present: boolean; credentialId: string | null };
+  submittedAt: string | null;
+  complete: boolean;
+  updatedAt: string | null;
+}
+
+/** Already shaped like `AccountAccessItem`. */
+type PluginAccountAccessItem = AccountAccessItem;
 
 /* -------------------------------------------------------------------------- */
 
@@ -768,6 +784,38 @@ export class PluginSource implements PortalSource {
       method: "DELETE",
       clientScope: ctx.clientId,
     });
+  }
+
+  async accountAccess(ctx: PortalCallerContext): Promise<AccountAccessView> {
+    const data = await this.#get<{
+      accountAccess: PluginAccountAccess;
+      items: PluginAccountAccessItem[];
+    }>(ctx, `/clients/${encodeURIComponent(ctx.clientId)}/account-access`);
+    return { ...data.accountAccess, items: data.items };
+  }
+
+  /**
+   * `notes` is sent only when the key is present on `input` -- absent means
+   * "leave the note alone", and the plugin draws that distinction from
+   * whether the body has the key at all, the same way this call does.
+   */
+  async saveAccountAccess(
+    ctx: PortalCallerContext,
+    input: SaveAccountAccessInput,
+  ): Promise<AccountAccessView> {
+    const body: Record<string, unknown> = {};
+    if (input.checks !== undefined) body.checks = input.checks;
+    if (input.fields !== undefined) body.fields = input.fields;
+    if ("notes" in input) body.notes = input.notes;
+    const data = await this.#api.call<{
+      accountAccess: PluginAccountAccess;
+      items: PluginAccountAccessItem[];
+    }>(`/clients/${encodeURIComponent(ctx.clientId)}/account-access`, {
+      method: "PATCH",
+      clientScope: ctx.clientId,
+      body,
+    });
+    return { ...data.accountAccess, items: data.items };
   }
 
   async revealLogin(

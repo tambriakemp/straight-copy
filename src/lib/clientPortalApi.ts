@@ -15,6 +15,7 @@
 import { portalFetch } from "@/lib/portalFetch";
 import { isDemoClient } from "@/lib/portalDemo";
 import type {
+  AccountAccessView,
   AgreementsView,
   HomeView,
   LoginsView,
@@ -95,8 +96,13 @@ async function call<T>(
   return payload as T;
 }
 
-async function view<T>(clientId: string, action: string, adminPreview: boolean): Promise<T> {
-  const payload = await call<{ view: T }>(clientId, action, {}, adminPreview);
+async function view<T>(
+  clientId: string,
+  action: string,
+  adminPreview: boolean,
+  body: Record<string, unknown> = {},
+): Promise<T> {
+  const payload = await call<{ view: T }>(clientId, action, body, adminPreview);
   return payload.view;
 }
 
@@ -214,6 +220,21 @@ export const clientPortal = {
 
   removeLogin: (clientId: string, id: string, preview: boolean) =>
     call<unknown>(clientId, "remove-login", { id }, preview),
+
+  accountAccess: (clientId: string, preview: boolean) =>
+    view<AccountAccessView>(clientId, "account-access", preview),
+
+  /**
+   * `notes` is a key on `input` only when the caller means to touch it --
+   * omit it entirely to leave the note alone, and send `""` to withdraw it.
+   * Never send `notes: undefined`: that is still a key, and the server
+   * cannot tell it apart from `""`.
+   */
+  saveAccountAccess: (
+    clientId: string,
+    input: { checks?: Record<string, boolean>; fields?: Record<string, string>; notes?: string },
+    preview: boolean,
+  ) => view<AccountAccessView>(clientId, "save-account-access", preview, { ...input }),
 
   /**
    * One password, fetched at the moment Copy is pressed.

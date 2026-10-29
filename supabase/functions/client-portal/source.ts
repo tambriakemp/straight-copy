@@ -32,6 +32,7 @@
 // endpoint that would hand a secret back with no audit.
 
 import type {
+  AccountAccessView,
   AgreementsView,
   HomeView,
   LoginsView,
@@ -81,6 +82,21 @@ export interface UpdateLoginInput {
   username?: string | null;
   /** Omitted means "leave the password alone"; present means rotate it. */
   secret?: string;
+}
+
+/**
+ * CRE-822, G4.
+ *
+ * `notes` is checked for presence, not for truthiness: absent means "leave
+ * the note alone", and `""` means "withdraw it". A caller that cannot
+ * distinguish those two would delete a client's note on the first save of
+ * any OTHER field on this form, because the auto-save sends the whole form
+ * on every debounce and the textarea the note used to pre-fill is gone.
+ */
+export interface SaveAccountAccessInput {
+  checks?: Record<string, boolean>;
+  fields?: Record<string, string>;
+  notes?: string;
 }
 
 /**
@@ -144,6 +160,15 @@ export interface PortalSource {
   shareLogin(ctx: PortalCallerContext, input: ShareLoginInput): Promise<void>;
   updateLogin(ctx: PortalCallerContext, input: UpdateLoginInput): Promise<void>;
   removeLogin(ctx: PortalCallerContext, id: string): Promise<void>;
+
+  /** "Set Up Your Accounts" (CRE-822, G4): the checklist, the note's
+   * presence (never its text) and the attachments' category live here --
+   * the attachments themselves are plain Files, not this. */
+  accountAccess(ctx: PortalCallerContext): Promise<AccountAccessView>;
+  saveAccountAccess(
+    ctx: PortalCallerContext,
+    input: SaveAccountAccessInput,
+  ): Promise<AccountAccessView>;
 
   /**
    * One decrypted password, for one login shared with this client.

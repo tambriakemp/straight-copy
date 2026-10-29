@@ -88,11 +88,18 @@ export function useClientFiles({
   clientProjectId,
   clientName,
   adminPreview,
+  category,
 }: {
   clientId: string;
-  clientProjectId: string;
+  /** Null for a file filed against no project -- the account-access form's
+   * attachments (CRE-822, G4), which belong to the client, not a build. */
+  clientProjectId: string | null;
   clientName: string | null;
   adminPreview: boolean;
+  /** Scopes both the list and every upload to one category, so a screen
+   * that is not the Files tab never draws, counts or re-files a row it did
+   * not create. Undefined keeps today's unscoped Files tab behaviour. */
+  category?: string;
 }): UseClientFiles {
   const [files, setFiles] = useState<ProjectFile[] | null>(null);
   const [source, setSource] = useState<"plugin" | "admin-tables">("admin-tables");
@@ -115,14 +122,18 @@ export function useClientFiles({
     }
     try {
       const out = await call("list", { client_id: clientId, client_project_id: clientProjectId }, adminPreview);
-      setFiles((out.files ?? []) as ProjectFile[]);
+      const all = (out.files ?? []) as ProjectFile[];
+      // The server has no category filter on `list` -- a category this
+      // narrow is not worth a query parameter the other callers never use --
+      // so a scoped hook filters the one response itself.
+      setFiles(category ? all.filter((file) => file.category === category) : all);
       if (out.source === "plugin" || out.source === "admin-tables") setSource(out.source);
       setUnavailable(false);
     } catch {
       setFiles([]);
       setUnavailable(true);
     }
-  }, [demo, clientId, clientProjectId, adminPreview]);
+  }, [demo, clientId, clientProjectId, adminPreview, category]);
 
   useEffect(() => {
     void load();
@@ -143,6 +154,7 @@ export function useClientFiles({
           byte_size: file.size,
           ...(inline ? { content_base64: await fileToBase64(file) } : {}),
           uploaded_by_name: clientName || null,
+          ...(category ? { category } : {}),
         },
         adminPreview,
       );
@@ -162,14 +174,14 @@ export function useClientFiles({
         await call("complete", { client_id: clientId, client_project_id: clientProjectId, id: fileId }, adminPreview);
       }
     },
-    [clientId, clientProjectId, clientName, adminPreview],
+    [clientId, clientProjectId, clientName, category, adminPreview],
   );
 
   /** The pre-CRE-822 path, kept exactly as it worked until CP-6's import
    *  runs and this install's three plugin variables are set. */
   const uploadViaLegacy = useCallback(
     async (file: File) => {
-      const path = `project-files/${clientId}/${clientProjectId}/${Date.now()}-${safeFileName(file.name)}`;
+      const path = `project-files/${clientId}/${clientProjectId ?? "general"}/${Date.now()}-${safeFileName(file.name)}`;
       const { error } = await sb.storage.from("client-assets").upload(path, file, {
         cacheControl: "3600",
         upsert: false,
@@ -189,11 +201,12 @@ export function useClientFiles({
           size_bytes: file.size,
           mime: file.type || null,
           uploaded_by_name: clientName || null,
+          ...(category ? { category } : {}),
         },
         adminPreview,
       );
     },
-    [clientId, clientProjectId, clientName, sb, adminPreview],
+    [clientId, clientProjectId, clientName, category, sb, adminPreview],
   );
 
   const upload = useCallback(
