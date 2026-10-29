@@ -41,11 +41,8 @@ import {
   describeConfig,
   readPluginConfig,
 } from "../_shared/client-portal-plugin.ts";
-import {
-  PORTAL_WIRE_VERSION,
-  type PortalBranding,
-} from "../_shared/client-portal-wire.ts";
-import { resolveBranding, settingsFrom } from "../_shared/client-portal-branding.ts";
+import { PORTAL_WIRE_VERSION } from "../_shared/client-portal-wire.ts";
+import { settingsFrom } from "../_shared/client-portal-branding.ts";
 import { VIEW_AS_HEADER } from "../_shared/portal-view-as.ts";
 import { LegacySource, type Db } from "./legacy-source.ts";
 import { PluginSource } from "./plugin-source.ts";
@@ -78,21 +75,6 @@ function json(
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json", ...extraHeaders },
   });
-}
-
-/**
- * The agency, as the client sees it.
- *
- * Resolved by `_shared/client-portal-branding.ts`, which is the only module
- * in this feature that knows whose install this is -- including the monogram
- * in the top bar, which was two characters written into the component until
- * CRE-797. The resolution lives there rather than here because it is pure and
- * this file is not: a module that reads `Deno.env` cannot be imported by the
- * frontend test suite, and the branch that matters most is the one that only
- * a licensee's install ever takes.
- */
-function branding(): PortalBranding {
-  return resolveBranding(settingsFrom(Deno.env));
 }
 
 /**
@@ -140,6 +122,7 @@ function sourceFor(req: Request, admin: Db): PortalSource {
       return { status: response.status, body: parsed };
     },
     ENC_KEY,
+    settingsFrom(Deno.env),
   );
 }
 
@@ -157,11 +140,27 @@ Deno.serve(async (req) => {
   const action = String(payload.action ?? "").trim();
   const clientId = String(payload.clientId ?? "").trim();
 
+  // Narrowed to the `Db` slice rather than kept as the full client: this
+  // function holds the service role, and a narrower handle is a smaller set
+  // of things a mistake downstream could reach with it.
+  //
+  // The cast is the one place the two type systems meet. Supabase's builder
+  // is generated from a schema and `Db` is written by hand against the half
+  // dozen calls `legacy-source.ts` makes; they are structurally the same and
+  // nominally different, and asserting that once here beats loosening the
+  // hand-written half to `any` and losing the checking everywhere it is used.
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY) as unknown as Db;
+  const source = sourceFor(req, admin);
+
   // A configuration report, for a deploy check. Booleans and a source name;
   // no values, because a diagnostic that prints the first characters of a key
   // is a diagnostic somebody pastes into a ticket.
   if (action === "health") {
     const config = describeConfig();
+    // No client is involved in a health check, so there is no scope to send
+    // -- `branding()` still answers, because CRE-822 G14 made it a property
+    // of the install rather than of a caller.
+    const resolvedBranding = await source.branding("");
     return json({
       ok: true,
       source: config.configured ? "plugin" : "admin-tables",
@@ -177,7 +176,7 @@ Deno.serve(async (req) => {
       // it back. False here with a name set is the CRE-797 failure mode
       // inverted: an install that has not chosen a mark and whose name
       // yields no initials.
-      monogram: typeof branding().monogram === "string",
+      monogram: typeof resolvedBranding.monogram === "string",
     });
   }
 
@@ -189,21 +188,10 @@ Deno.serve(async (req) => {
   const caller = await resolvePortalCaller(req, clientId, action);
   if (caller.kind === "unauthorized") return json({ error: "Unauthorized" }, 401);
 
-  // Narrowed to the `Db` slice rather than kept as the full client: this
-  // function holds the service role, and a narrower handle is a smaller set
-  // of things a mistake downstream could reach with it.
-  //
-  // The cast is the one place the two type systems meet. Supabase's builder
-  // is generated from a schema and `Db` is written by hand against the half
-  // dozen calls `legacy-source.ts` makes; they are structurally the same and
-  // nominally different, and asserting that once here beats loosening the
-  // hand-written half to `any` and losing the checking everywhere it is used.
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY) as unknown as Db;
-  const source = sourceFor(req, admin);
   const ctx: PortalCallerContext = {
     clientId,
     preview: caller.kind === "admin",
-    branding: branding(),
+    branding: await source.branding(clientId),
     now: new Date(),
   };
 

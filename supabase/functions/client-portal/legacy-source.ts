@@ -69,6 +69,7 @@ import {
   projectStatusLabel,
   providerLabel,
 } from "../_shared/client-portal-shape.ts";
+import { resolveBranding, type ReadSetting } from "../_shared/client-portal-branding.ts";
 import {
   badRequest,
   notFound,
@@ -279,11 +280,27 @@ export class LegacySource implements PortalSource {
   readonly #db: Db;
   readonly #delegate: Delegate;
   readonly #encryptionKey: string;
+  readonly #readSetting: ReadSetting;
 
-  constructor(db: Db, delegate: Delegate, encryptionKey: string) {
+  // `readSetting` is injected rather than read from `Deno.env` in here: this
+  // file is imported by `src/test/client-portal-source.test.ts` under the
+  // app's own tsconfig, which does not know what `Deno` is. `index.ts` is the
+  // only place allowed to read the real environment, same as `encryptionKey`.
+  constructor(db: Db, delegate: Delegate, encryptionKey: string, readSetting: ReadSetting) {
     this.#db = db;
     this.#delegate = delegate;
     this.#encryptionKey = encryptionKey;
+    this.#readSetting = readSetting;
+  }
+
+  /**
+   * `resolveBranding` is already pure and already the one place an install
+   * configures who it is -- this install's own identity does not move with
+   * CRE-822, so this is a wrapper, not a reimplementation. `clientId` is
+   * unused: the admin tables answer the same identity for every client.
+   */
+  branding(_clientId: string): Promise<PortalBranding> {
+    return Promise.resolve(resolveBranding(this.#readSetting));
   }
 
   async #me(ctx: PortalCallerContext): Promise<PortalMe> {
