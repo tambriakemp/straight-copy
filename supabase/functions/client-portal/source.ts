@@ -127,6 +127,19 @@ export interface PortalSource {
   /** Which implementation answered. Reported by the health action, not to clients. */
   readonly kind: "plugin" | "admin-tables";
 
+  /**
+   * Who this install says it is (CRE-822, G14).
+   *
+   * Takes `clientId` rather than `ctx`, because `ctx.branding` is built from
+   * this call's result -- there is no `ctx` yet to pass. It is still the
+   * scope every plugin call carries: the plugin answers the same branding
+   * for every client (there is nothing per-client in it, and it is served
+   * to a client-scoped caller on purpose), but the implementation still
+   * sends whichever client id it has rather than gaining a second, unscoped
+   * way to call the plugin. Empty for the health check, which has no client.
+   */
+  branding(clientId: string): Promise<PortalBranding>;
+
   home(ctx: PortalCallerContext): Promise<HomeView>;
   agreements(ctx: PortalCallerContext): Promise<AgreementsView>;
   payments(ctx: PortalCallerContext): Promise<PaymentsView>;

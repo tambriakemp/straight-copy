@@ -41,6 +41,7 @@ import {
   type PaymentRow,
   type PaymentsView,
   type PortalAudit,
+  type PortalBranding,
   type PortalMilestone,
   type SharedDriveLink,
   type SharedLogin,
@@ -292,6 +293,20 @@ interface PluginAccountAccess {
 /** Already shaped like `AccountAccessItem`. */
 type PluginAccountAccessItem = AccountAccessItem;
 
+/**
+ * CRE-822, G14. `usingDefaults` is omitted -- it tells a settings screen
+ * whether a licensee has configured anything yet, and no portal screen
+ * draws differently because of it; `/branding` has already filled in the
+ * name and the derived monogram either way.
+ */
+interface PluginBranding {
+  agencyName: string;
+  monogram: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  replyWindow: string | null;
+}
+
 /* -------------------------------------------------------------------------- */
 
 export class PluginSource implements PortalSource {
@@ -313,6 +328,25 @@ export class PluginSource implements PortalSource {
 
   #patch<T>(ctx: PortalCallerContext, path: string, body: Record<string, unknown>): Promise<T> {
     return this.#api.call<T>(path, { method: "PATCH", clientScope: ctx.clientId, body });
+  }
+
+  /**
+   * CRE-822, G14. `/branding` rather than `/settings/branding`: the settings
+   * route shows what a licensee has configured, with nulls meaning "not
+   * set", and a screen reading it on a fresh install would draw an empty
+   * header. This one fills in the company name and derives the monogram.
+   */
+  async branding(clientId: string): Promise<PortalBranding> {
+    const data = await this.#api.call<{ branding: PluginBranding }>("/branding", {
+      clientScope: clientId,
+    });
+    return {
+      agencyName: data.branding.agencyName,
+      monogram: data.branding.monogram,
+      contactName: data.branding.contactName,
+      replyWindow: data.branding.replyWindow,
+      contactEmail: data.branding.contactEmail,
+    };
   }
 
   /** The person, if we know one, for "Good afternoon, Maya". The business
