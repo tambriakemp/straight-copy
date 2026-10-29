@@ -152,12 +152,26 @@ export type ViewAsResult =
  * `ClientProject.tsx`. Adding an entry is one line here plus that function's
  * own redeploy; doing it blind, for a function whose write actions nobody has
  * read, is how a preview learns to sign things.
+ *
+ * `project-phases` (CRE-822, G2) closed a third hole on that same screen:
+ * before it, `ClientProject.tsx` skipped its phase-ladder fetch outright for
+ * a view-as caller (`if (viewAs) return;`), so "Where things stand" rendered
+ * empty rather than drawing it as a gap. It is a read for the reason
+ * `home`'s milestones are: the client cannot write their own ladder either.
  */
 export const VIEW_AS_READS: Record<string, readonly string[]> = {
   // `reveal-login` copies one password. It is a read: it does not change the
   // row. View-as may do it because an admin looking at the portal can copy
   // what the client can copy, and the action writes an audit row either way.
-  "client-portal": ["home", "agreements", "payments", "logins", "document", "reveal-login"],
+  "client-portal": [
+    "home",
+    "agreements",
+    "payments",
+    "logins",
+    "document",
+    "reveal-login",
+    "project-phases",
+  ],
   "proposal-sign": ["download"],
   "brand-kit-intake": ["resolve"],
   "client-files": ["list", "download"],

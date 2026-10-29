@@ -174,6 +174,13 @@ describe("the read allowlist", () => {
     expect(viewAsMayRead("client-files", "download")).toBe(true);
   });
 
+  it("lets the project's phase ladder through (CRE-822, G2)", () => {
+    // Closed the third hole on the Project screen: before this, a view-as
+    // caller never even asked `client-portal` for `project-phases`, so
+    // "Where things stand" rendered empty rather than as a known gap.
+    expect(viewAsMayRead("client-portal", "project-phases")).toBe(true);
+  });
+
   it("refuses every write on the portal, which is the point of it", () => {
     for (const action of [
       "sign",

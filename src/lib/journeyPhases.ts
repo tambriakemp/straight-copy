@@ -77,8 +77,13 @@ export const PHASE_WORD: Record<PhaseState, string> = {
  *
  * Null when there is nothing in flight, because "Now: nothing" is worse
  * than no sentence — a finished project should read as finished.
+ *
+ * Typed to the two fields it reads, not to `Phase[]`: `PortalMilestone[]` --
+ * the shape `clientPortal.projectPhases()` answers with now that the ladder
+ * is computed server-side -- has the same `label` and the same `state`
+ * union and no `id`, and this has never needed one.
  */
-export function phaseSummary(phases: Phase[]): string | null {
+export function phaseSummary(phases: Array<{ label: string; state: PhaseState }>): string | null {
   const now = phases.find((p) => p.state === "now");
   if (!now) {
     return phases.length ? "Every step is done. Thank you for your part in it." : null;

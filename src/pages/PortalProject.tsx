@@ -14,9 +14,9 @@ import PortalShell, { type PortalView } from "@/components/portal/PortalShell";
 import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
 import WebDevDiscoveryChat from "@/components/portal/WebDevDiscoveryChat";
 import { projectTypeStyle } from "@/lib/projectType";
-import { phaseLadder, phaseSummary, PHASE_WORD, type PhaseNode } from "@/lib/journeyPhases";
+import { phaseSummary, PHASE_WORD } from "@/lib/journeyPhases";
 import { clientPortal } from "@/lib/clientPortalApi";
-import type { AccountAccessView } from "@/lib/clientPortalWire";
+import type { AccountAccessView, PortalMilestone } from "@/lib/clientPortalWire";
 
 /** The tabs on one project, as board 16 lays them out. */
 type ProjectTab = "overview" | "audits" | "files" | "logins" | "brand";
@@ -108,7 +108,7 @@ export default function PortalProject() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [contractSigned, setContractSigned] = useState(false);
   const [tab, setTab] = useState<ProjectTab>("overview");
-  const [phases, setPhases] = useState<PhaseNode[]>([]);
+  const [ladder, setLadder] = useState<PortalMilestone[]>([]);
   const navigate = useNavigate();
 
   /** The portal home, on a given view, keeping whatever is in the URL. */
@@ -232,11 +232,11 @@ export default function PortalProject() {
 
   // The phase ladder and the page-review count, both per project.
   useEffect(() => {
-    if (!projectId) { setPhases([]); setPreviewProgress({ approved: 0, total: 0 }); return; }
+    if (!projectId || !clientId) { setLadder([]); setPreviewProgress({ approved: 0, total: 0 }); return; }
     let cancelled = false;
     (async () => {
-      const { data } = await sb.rpc("portal_project_phases", { _client_project_id: projectId });
-      if (!cancelled) setPhases((data ?? []) as PhaseNode[]);
+      const milestones = await clientPortal.projectPhases(clientId, projectId, adminPreview);
+      if (!cancelled) setLadder(milestones);
 
       try {
         const r = await portalFetch(
@@ -259,7 +259,7 @@ export default function PortalProject() {
       }
     })();
     return () => { cancelled = true; };
-  }, [projectId, sb, adminPreview]);
+  }, [projectId, clientId, adminPreview]);
 
   // Check whether the contract for the current web-dev project has been signed.
   // This gates the discovery questionnaire chat.
@@ -553,7 +553,6 @@ export default function PortalProject() {
   }
   const openTodo = todo.filter((x) => x.state !== "done").length;
 
-  const ladder = phaseLadder(phases);
   const ladderLine = phaseSummary(ladder);
 
   const tabs: Array<{ key: ProjectTab; label: string }> = [
@@ -612,7 +611,7 @@ export default function PortalProject() {
           {ladder.length > 0 ? (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {ladder.map((p) => (
-                <div key={p.id}
+                <div key={p.key}
                   className={`cv-ph ${p.state === "done" ? "cv-ph--done" : p.state === "now" ? "cv-ph--now" : ""}`}>
                   <small>{PHASE_WORD[p.state]}</small>{p.label}
                 </div>

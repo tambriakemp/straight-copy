@@ -38,6 +38,7 @@ import type {
   LoginsView,
   PaymentsView,
   PortalBranding,
+  PortalMilestone,
   SharedDriveLink,
   SignRequest,
   SignResult,
@@ -129,6 +130,15 @@ export interface PortalSource {
   agreements(ctx: PortalCallerContext): Promise<AgreementsView>;
   payments(ctx: PortalCallerContext): Promise<PaymentsView>;
   logins(ctx: PortalCallerContext): Promise<LoginsView>;
+
+  /**
+   * One project's own phase ladder (CRE-822, G2) -- "Where things stand" on
+   * the project page. Not `home()`'s `milestones`: those are the client-wide
+   * launch/growth journey: one project's ladder is a different set of rows,
+   * scoped to `clientProjectId`, and a client with two projects has two of
+   * these, not one shared between them.
+   */
+  projectPhases(ctx: PortalCallerContext, clientProjectId: string): Promise<PortalMilestone[]>;
 
   sign(ctx: PortalCallerContext, input: SignRequest): Promise<SignResult>;
   decline(ctx: PortalCallerContext, proposalId: string, reason: string | null): Promise<void>;

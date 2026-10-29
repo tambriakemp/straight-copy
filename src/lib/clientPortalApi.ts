@@ -20,6 +20,7 @@ import type {
   HomeView,
   LoginsView,
   PaymentsView,
+  PortalMilestone,
   SharedDriveLink,
   SignRequest,
   SignResult,
@@ -114,6 +115,25 @@ export const clientPortal = {
   payments: (clientId: string, preview: boolean) =>
     view<PaymentsView>(clientId, "payments", preview),
   logins: (clientId: string, preview: boolean) => view<LoginsView>(clientId, "logins", preview),
+
+  /**
+   * One project's phase ladder (CRE-822, G2) -- "Where things stand" on the
+   * project page. Not `home()`'s `milestones`: a client with two projects
+   * has two of these, each scoped to its own `clientProjectId`.
+   */
+  async projectPhases(
+    clientId: string,
+    clientProjectId: string,
+    preview: boolean,
+  ): Promise<PortalMilestone[]> {
+    const payload = await call<{ milestones: PortalMilestone[] }>(
+      clientId,
+      "project-phases",
+      { clientProjectId },
+      preview,
+    );
+    return payload.milestones;
+  },
 
   async sign(clientId: string, input: SignRequest, preview: boolean): Promise<SignResult> {
     const payload = await call<{ result: SignResult }>(

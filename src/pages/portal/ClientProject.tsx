@@ -27,13 +27,13 @@ import {
 } from "@/components/portal/useClientPortal";
 import { clientPortal } from "@/lib/clientPortalApi";
 import ClientDiscoveryChat from "@/components/portal/ClientDiscoveryChat";
-import { phaseLadder, phaseSummary, PHASE_WORD, type PhaseNode } from "@/lib/journeyPhases";
+import { phaseSummary, PHASE_WORD } from "@/lib/journeyPhases";
 import { supabase } from "@/integrations/supabase/client";
 import { supabasePortal } from "@/integrations/supabase/portalClient";
 import { portalFetch } from "@/lib/portalFetch";
 import { isDemoClient } from "@/lib/portalDemo";
 import { useEffect, useState } from "react";
-import type { HomeView } from "@/lib/clientPortalWire";
+import type { HomeView, PortalMilestone } from "@/lib/clientPortalWire";
 // Pure string maps, free of `Deno` and of anything the edge function needs a
 // credential for -- `AgentProposalPanel.tsx` already imports runtime code
 // from `_shared/` the same way. The chip on this screen and the one on the
@@ -171,11 +171,26 @@ function ProjectBody({
   const deliveryDate = header.deliveryDate ?? client.delivery_date;
   const deliveryVideoUrl = header.deliveryVideoUrl ?? client.delivery_video_url;
   const sb = adminPreview ? supabase : supabasePortal;
-  const [phases, setPhases] = useState<PhaseNode[]>([]);
+  const [ladder, setLadder] = useState<PortalMilestone[]>([]);
   const [previewProgress, setPreviewProgress] = useState({ approved: 0, total: 0 });
   const [contractSigned, setContractSigned] = useState(false);
 
-  // The phase ladder and the page-review count.
+  // The phase ladder (CRE-822, G2). Loads for a view-as grant too, now that
+  // `project-phases` is on the read allowlist -- it used to be skipped
+  // outright for one, so "Where things stand" rendered empty rather than as
+  // a known gap. `clientPortal.projectPhases` already resolves to the QA
+  // harness for a demo client, so there is no separate branch here for it.
+  useEffect(() => {
+    let cancelled = false;
+    void clientPortal.projectPhases(clientId, project.id, adminPreview).then((milestones) => {
+      if (!cancelled) setLadder(milestones);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id, clientId, adminPreview]);
+
+  // The page-review count. Not a view-as read yet -- see `ViewAsGaps`.
   useEffect(() => {
     if (viewAs) return;
     let cancelled = false;
@@ -184,20 +199,11 @@ function ProjectBody({
     // reads as a project with nothing to review yet -- the honest state a
     // real project with no preview pages is in, not a gap (CRE-819).
     if (import.meta.env.VITE_PORTAL_DEMO === "1" && isDemoClient(clientId)) {
-      void import("@/lib/portalDemoData").then(({ demoProjectPhases }) => {
-        if (cancelled) return;
-        setPhases(demoProjectPhases());
-        setPreviewProgress({ approved: 0, total: 0 });
-      });
-      return () => {
-        cancelled = true;
-      };
+      setPreviewProgress({ approved: 0, total: 0 });
+      return;
     }
 
     (async () => {
-      const { data } = await sb.rpc("portal_project_phases", { _client_project_id: project.id });
-      if (!cancelled) setPhases((data ?? []) as PhaseNode[]);
-
       try {
         const r = await portalFetch(
           "preview-approvals",
@@ -221,7 +227,7 @@ function ProjectBody({
     return () => {
       cancelled = true;
     };
-  }, [project.id, sb, adminPreview, clientId, viewAs]);
+  }, [project.id, adminPreview, clientId, viewAs]);
 
   // Whether the contract for this project has been signed -- gates the
   // discovery chat exactly as it does on the old project page.
@@ -306,7 +312,6 @@ function ProjectBody({
   }
   const openTodo = todo.filter((item) => item.state !== "done").length;
 
-  const ladder = phaseLadder(phases);
   const ladderLine = phaseSummary(ladder);
   const kindLabel = projectKindLabel(project.type);
   const businessName = client.business_name || "Your brand";
@@ -384,7 +389,7 @@ function ProjectBody({
           {ladder.length > 0 && (
             <ol className="cp-steps" aria-label={`${ladder.filter((p) => p.state === "done").length} of ${ladder.length} phases complete`}>
               {ladder.map((phase) => (
-                <li key={phase.id} className={`cp-step cp-step--${phase.state}`}>
+                <li key={phase.key} className={`cp-step cp-step--${phase.state}`}>
                   <span className="cp-step__bar" aria-hidden="true" />
                   <span className="cp-step__label">{phase.label}</span>
                   <span className="cp-step__when">{PHASE_WORD[phase.state]}</span>

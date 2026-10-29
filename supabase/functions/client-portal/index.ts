@@ -218,6 +218,12 @@ Deno.serve(async (req) => {
       case "logins":
         return json({ ok: true, view: await source.logins(ctx) });
 
+      case "project-phases":
+        return json({
+          ok: true,
+          milestones: await source.projectPhases(ctx, requireId(payload, "clientProjectId")),
+        });
+
       case "sign": {
         // An admin previewing a client's portal must not be able to sign
         // their contract. The preview exists so Bree can see what the client

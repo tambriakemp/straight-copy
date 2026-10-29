@@ -244,6 +244,20 @@ interface PluginSigning {
   providers: Array<{ kind: string; adapterKey: string; displayName?: string; enabled: boolean }>;
 }
 
+/**
+ * CRE-822, G2. `sourceStatus` is on the real row -- the word the previous
+ * system used, kept for an audit trail -- and deliberately not read here:
+ * a caller that could would start branching on it, which is the drift that
+ * put a six-way status set in a browser in the first place.
+ */
+interface PluginPhase {
+  key: string;
+  label: string;
+  status: string;
+  position: "done" | "now" | "next" | "later";
+  finished: boolean;
+}
+
 /** CRE-822, G4. Already shaped like `AccountAccessView` minus `items`. */
 interface PluginAccountAccess {
   checks: Record<string, boolean>;
@@ -862,6 +876,31 @@ export class PluginSource implements PortalSource {
       method: "DELETE",
       clientScope: ctx.clientId,
     });
+  }
+
+  /**
+   * The plugin already derives `position` as `done | now | next | later`
+   * the same way `ladder()` does -- "the first rung not finished", trailing
+   * done rungs stay done -- so this is a field reduction, not a second
+   * derivation. `status`, `finished`, `active` and `progress` are for a
+   * caller that wants the raw row or the step count; this screen draws the
+   * ladder the same way the admin table's milestones do, from `label` and
+   * `position` alone.
+   */
+  async projectPhases(
+    ctx: PortalCallerContext,
+    clientProjectId: string,
+  ): Promise<PortalMilestone[]> {
+    const data = await this.#get<{ phases: PluginPhase[] }>(
+      ctx,
+      `/clients/${encodeURIComponent(ctx.clientId)}/phases`,
+      { clientProjectId },
+    );
+    return data.phases.map((phase) => ({
+      key: phase.key,
+      label: phase.label,
+      state: phase.position,
+    }));
   }
 
   async revealLogin(
