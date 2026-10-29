@@ -67,7 +67,8 @@ function json(body: unknown, status = 200) {
 }
 
 /** True only for a signed-in admin. An anonymous caller is not an error. */
-async function callerIsAdmin(req: Request, admin: ReturnType<typeof createClient>): Promise<boolean> {
+// deno-lint-ignore no-explicit-any
+async function callerIsAdmin(req: Request, admin: any): Promise<boolean> {
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth.startsWith("Bearer ")) return false;
   const token = auth.slice(7);
@@ -276,7 +277,8 @@ async function handlePlugin(
 // ---------------------------------------------------------------------------
 
 async function handleLegacy(
-  admin: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  admin: any,
   action: string,
   clientId: string,
   projectId: string | null,
