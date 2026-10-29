@@ -6,13 +6,24 @@
 // rows nobody has billed yet say "Later" and have no button, which is the
 // honest version of the same information.
 //
+// EVERY ROW SAYS WHICH PROJECT IT IS FOR, the table is grouped by project,
+// and a client with more than one can narrow it to one (CRE-831, from Bree's
+// portal test of 29 October). A client with two engagements was reading one
+// undifferentiated list of amounts and dates, which is unanswerable: "is this
+// the website or the automation" is the first question anybody asks of a
+// payment, and the page could not answer it.
+//
+// The filter and the headings appear ONLY when there is more than one group.
+// A filter with one option is a control that does nothing, and a heading over
+// the whole table is a label rather than a grouping.
+//
 // NOTHING HERE TAKES MONEY. "Pay now" asks the server for a checkout URL and
 // sends the browser to the provider. The fact of a payment arriving comes
 // back through the provider's webhook, to the plugin, and is read on the next
 // load -- which is why this page cannot mark anything paid and neither can
 // anyone using it.
 
-import { useCallback, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import ClientPortalShell, {
   PortalLoading,
@@ -20,7 +31,7 @@ import ClientPortalShell, {
 } from "@/components/portal/ClientPortalShell";
 import { useAdminPreview, usePortalView } from "@/components/portal/useClientPortal";
 import { PortalRequestError, clientPortal, money, shortDate } from "@/lib/clientPortalApi";
-import type { PaymentRow, PaymentsView } from "@/lib/clientPortalWire";
+import { groupPaymentsByProject, type PaymentRow, type PaymentsView } from "@/lib/clientPortalWire";
 
 export default function ClientPayments() {
   const { clientId } = useParams<{ clientId: string }>();
@@ -33,6 +44,18 @@ export default function ClientPayments() {
 
   const [paying, setPaying] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The project filter, as a project id or "" for all of them. Held here and
+  // not in the URL: it is a way of reading one table, not a place to link to.
+  const [onlyProject, setOnlyProject] = useState<string>("");
+
+  const groups = useMemo(() => groupPaymentsByProject(view?.rows ?? []), [view?.rows]);
+  // A filter for a project that is no longer in the list -- the page reloaded
+  // and a payment moved -- falls back to showing everything rather than an
+  // empty table with a control nobody can see is the cause.
+  const chosen = groups.some((group) => group.projectId === onlyProject) ? onlyProject : "";
+  const shown = chosen === "" ? groups : groups.filter((group) => group.projectId === chosen);
+  // One group is a table, not a grouping: no headings and no filter.
+  const grouped = groups.length > 1;
 
   const pay = useCallback(
     async (invoiceId: string) => {
@@ -99,30 +122,60 @@ export default function ClientPayments() {
               is signed.
             </div>
           ) : (
-            <table className="cp-table">
-              <thead>
-                <tr>
-                  <th>Payment</th>
-                  <th>Due</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>
-                    <span className="cp-sr">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {view.rows.map((row) => (
-                  <Row
-                    key={row.id}
-                    row={row}
-                    currency={view.currency}
-                    busy={paying === row.id}
-                    onPay={() => void pay(row.id)}
-                  />
-                ))}
-              </tbody>
-            </table>
+            <>
+              {grouped && (
+                <label className="cp-pay__filter">
+                  <span className="cp-pay__filter-label">Project</span>
+                  <select
+                    className="cp-input cp-pay__select"
+                    value={chosen}
+                    onChange={(event) => setOnlyProject(event.target.value)}
+                  >
+                    <option value="">All projects</option>
+                    {groups.map((group) => (
+                      <option key={group.projectId ?? "none"} value={group.projectId ?? ""}>
+                        {group.projectName ?? "Other payments"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <table className="cp-table cp-pay__table">
+                <thead>
+                  <tr>
+                    <th>Payment</th>
+                    <th>Project</th>
+                    <th>Due</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>
+                      <span className="cp-sr">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((group) => (
+                    <Fragment key={group.projectId ?? "none"}>
+                      {grouped && (
+                        <tr className="cp-pay__group">
+                          <td colSpan={6}>{group.projectName ?? "Other payments"}</td>
+                        </tr>
+                      )}
+                      {group.rows.map((row) => (
+                        <Row
+                          key={row.id}
+                          row={row}
+                          currency={view.currency}
+                          busy={paying === row.id}
+                          onPay={() => void pay(row.id)}
+                        />
+                      ))}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )}
 
           <p className="cp-foot">{view.footnote}</p>
@@ -173,6 +226,13 @@ function Row({
   return (
     <tr>
       <td className="cp-table__name">{row.label}</td>
+      <td data-label="Project">
+        {/* Drawn on every row, including inside a group heading, because the
+            rows become cards on a phone and a heading two cards up is not
+            visible from the one being read. An em dash for a payment that is
+            not filed under a project: honest, and not a guess. */}
+        {row.projectName ?? "—"}
+      </td>
       <td data-label="Due">
         {/* A date when there is one, and the rule in the licensee's own
             words when there is not -- "Before launch" is information, and

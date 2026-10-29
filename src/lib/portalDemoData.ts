@@ -250,9 +250,16 @@ const state: DemoState = {
   // One row per `PaymentState`, which is the whole point: "Ready to pay"
   // and "Later" are the two a client confuses, and they can only be
   // compared side by side.
+  // CRE-831: every payment but one names the project it is for, and the odd
+  // one out is filed under none -- so the harness shows both the grouping and
+  // the "Other payments" group, and the project filter appears at all. One
+  // project across every row would draw neither, which is the state a
+  // reviewer would wrongly read as the feature being absent.
   payments: [
     {
       id: "pay-1",
+      projectId: "proj-main",
+      projectName: "Glowskin Studio website",
       label: "Deposit",
       dueOn: daysOut(-24),
       dueNote: null,
@@ -269,6 +276,8 @@ const state: DemoState = {
       // pair with the row above is what shows the absent button is a
       // decision rather than a bug.
       id: "pay-2",
+      projectId: "proj-main",
+      projectName: "Glowskin Studio website",
       label: "Design approved",
       dueOn: daysOut(-9),
       dueNote: null,
@@ -282,6 +291,8 @@ const state: DemoState = {
     },
     {
       id: "pay-3",
+      projectId: "proj-main",
+      projectName: "Glowskin Studio website",
       label: "Content milestone",
       dueOn: daysOut(-2),
       dueNote: null,
@@ -295,6 +306,8 @@ const state: DemoState = {
     },
     {
       id: "pay-4",
+      projectId: "proj-main",
+      projectName: "Glowskin Studio website",
       label: "Before launch",
       dueOn: daysOut(12),
       dueNote: null,
@@ -310,6 +323,10 @@ const state: DemoState = {
       // A milestone rule with no date -- `dueNote` instead of `dueOn`, the
       // branch a date-only fixture never reaches.
       id: "pay-5",
+      // Filed under no project: a real shape, and the one that puts a second
+      // group on the table.
+      projectId: null,
+      projectName: null,
       label: "Final handover",
       dueOn: null,
       dueNote: "When the site goes live",

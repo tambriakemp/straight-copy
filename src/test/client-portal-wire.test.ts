@@ -27,6 +27,7 @@ import {
   monogramFor,
   paymentState,
   paymentTotals,
+  groupPaymentsByProject,
   stepPosition,
   type PaymentRow,
 } from "../lib/clientPortalWire";
@@ -260,6 +261,72 @@ describe("the money tiles", () => {
   it("has no next when everything is paid", () => {
     const rows = [row({ amountCents: 100, state: "paid" })];
     expect(paymentTotals(rows)).toEqual({ totalCents: 100, paidCents: 100, next: null });
+  });
+});
+
+describe("the payments table, grouped by project", () => {
+  function row(over: Partial<PaymentRow>): PaymentRow {
+    return {
+      id: "i1",
+      label: "Deposit",
+      dueOn: null,
+      dueNote: null,
+      amountCents: 0,
+      currency: "USD",
+      state: "later",
+      paidWith: null,
+      paidAt: null,
+      receiptUrl: null,
+      payable: false,
+      ...over,
+    };
+  }
+
+  it("keeps the rows' own order, so the next payment due is read first", () => {
+    // Not alphabetical: sorting the groups by name would put a finished
+    // engagement above a bill due on Friday.
+    const groups = groupPaymentsByProject([
+      row({ id: "a", projectId: "p-site", projectName: "Website" }),
+      row({ id: "b", projectId: "p-auto", projectName: "Automation" }),
+      row({ id: "c", projectId: "p-site", projectName: "Website" }),
+    ]);
+    expect(groups.map((group) => [group.projectName, group.rows.length])).toEqual([
+      ["Website", 2],
+      ["Automation", 1],
+    ]);
+  });
+
+  it("puts the payments filed under no project last, in one group", () => {
+    const groups = groupPaymentsByProject([
+      row({ id: "a" }),
+      row({ id: "b", projectId: "p-site", projectName: "Website" }),
+      row({ id: "c", projectId: null, projectName: null }),
+    ]);
+    expect(groups.map((group) => [group.projectId, group.rows.map((r) => r.id)])).toEqual([
+      ["p-site", ["b"]],
+      [null, ["a", "c"]],
+    ]);
+  });
+
+  it("treats a project with an id and no name as filed under none", () => {
+    // A group headed by a uuid is worse than one headed "Other payments", and
+    // a nameless id is what a payment on another client's project resolves to.
+    const groups = groupPaymentsByProject([row({ id: "a", projectId: "p-x", projectName: null })]);
+    expect(groups).toEqual([{ projectId: null, projectName: null, rows: [expect.anything()] }]);
+  });
+
+  it("returns one group for a client whose payments are all one project", () => {
+    // The page draws no heading and no filter for this, which is why one
+    // group has to be a real answer rather than a special case.
+    const groups = groupPaymentsByProject([
+      row({ id: "a", projectId: "p-site", projectName: "Website" }),
+      row({ id: "b", projectId: "p-site", projectName: "Website" }),
+    ]);
+    expect(groups).toHaveLength(1);
+  });
+
+  it("returns nothing for no rows", () => {
+    expect(groupPaymentsByProject([])).toEqual([]);
   });
 });
 

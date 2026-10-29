@@ -5400,6 +5400,29 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
 .cp-table__name { color: var(--cp-text); font-weight: 500; white-space: nowrap; }
 .cp-table__act { text-align: right; white-space: nowrap; }
 .cp-table__act > * + * { margin-left: 8px; }
+/* The project filter and the project groups on the payments table (CRE-831).
+   The heading row reuses the logins pattern -- a full-width cell inside the
+   table -- so one table stays one table and nothing is laid out twice. */
+.cp-pay__filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+.cp-pay__filter-label { color: var(--cp-dim); font-size: 13px; flex: 0 0 auto; }
+/* Narrow, because a project name is short and a full-width select reads as
+   the page's primary control rather than a way of narrowing a table. */
+.cp-pay__select { width: auto; min-width: 12rem; max-width: 100%; }
+.cp-table tr.cp-pay__group td {
+  padding: 10px 18px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cp-faint);
+  font-weight: 600;
+  background: var(--cp-surface-2);
+}
+
 .cp-foot { color: var(--cp-faint); font-size: 13px; margin: 18px 0 0; }
 
 .cp-pill {
@@ -5552,6 +5575,12 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
     overflow-wrap: anywhere;
   }
   .cp-table td:last-child { border-bottom: 0; }
+
+  /* Each row is a card and every card names its own project, so the group
+     heading would be a card containing one word. The filter stays. */
+  .cp-table tr.cp-pay__group { display: none; }
+  .cp-pay__filter { display: grid; gap: 6px; }
+  .cp-pay__select { width: 100%; }
 
   /* Both of these must out-specify `.cp-table td` above, which is (0,1,1) to
      a bare class's (0,1,0) -- so a bare `.cp-table__name` loses every property

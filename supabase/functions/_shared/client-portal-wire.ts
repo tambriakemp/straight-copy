@@ -54,6 +54,15 @@
  * than this copy" and draws what it would draw for an unset value -- never as
  * an error, and never by substituting a guess of its own.
  *
+ *   1.7.0  `PaymentRow.projectId` and `.projectName` (CRE-831). Which project
+ *          a payment is for, so the Payments tab can say it on the row,
+ *          group the table by project and offer a project filter. Optional:
+ *          absent is a server older than this copy, and null is a payment
+ *          that is genuinely not filed under a project -- both draw in one
+ *          "Other payments" group with no project named, which is the honest
+ *          drawing of "we do not know" and of "there is nothing to know".
+ *          A client with one project sees no grouping and no filter either
+ *          way, because one group is a table.
  *   1.6.0  `HomeView.sharedDriveLinks` (CRE-827): the client's own shared-
  *          drive links, replacing the Files tab's upload button. A client may
  *          have more than one, each tagged to one of their projects --
@@ -89,7 +98,7 @@
  *          existed, which put our mark on a licensee's client's screen.
  *   1.0.0  The four screens, mockups 13-16 (CRE-776).
  */
-export const PORTAL_WIRE_VERSION = "1.6.0";
+export const PORTAL_WIRE_VERSION = "1.7.0";
 
 /** The agency, as the client sees it. Never hardcoded: licensees are not us. */
 export interface PortalBranding {
@@ -516,6 +525,18 @@ export interface PaymentRow {
   receiptUrl: string | null;
   /** `true` when this row can be paid right now. */
   payable: boolean;
+  /**
+   * The project this payment is for, and its name (CRE-831).
+   *
+   * Both optional, and null is as real an answer as a value: a one-off
+   * charge, or a plan filed under no project, belongs to no project and is
+   * drawn in its own group rather than attached to a guess. `projectName`
+   * is resolved on the server from the client's own project list, so a row
+   * naming a project that is not this client's resolves to null and the row
+   * says nothing instead of lending it a name.
+   */
+  projectId?: string | null;
+  projectName?: string | null;
 }
 
 export interface PaymentsView {
@@ -816,6 +837,65 @@ export function paymentTotals(rows: PaymentRow[]): {
     paidCents,
     next: next ? { amountCents: next.amountCents, dueOn: next.dueOn } : null,
   };
+}
+
+/**
+ * The payment rows, in the groups the Payments tab draws (CRE-831).
+ *
+ * Bree asked for three things on 29 October and they are one shape: say which
+ * project each payment is for, group the table by project, and let a client
+ * filter to one project. The grouping is the data structure; the column and
+ * the filter read off it.
+ *
+ * ORDER IS THE ROWS' OWN ORDER, NOT THE PROJECTS' NAMES. A group appears
+ * where its earliest row appears, so the project with the next payment due is
+ * the first thing a client reads. Sorting the groups alphabetically would put
+ * a finished engagement above a bill due on Friday.
+ *
+ * The unfiled rows -- no project, or a project this client does not own --
+ * come last, in one group with a null `projectId`. Last rather than first
+ * because they are the ones a client has least context for.
+ *
+ * A single group is still a group: the caller decides whether to draw a
+ * heading, and `ClientPayments` does not when there is only one, because a
+ * heading over the whole table is a label and not a grouping.
+ */
+export function groupPaymentsByProject(
+  rows: PaymentRow[],
+): Array<{ projectId: string | null; projectName: string | null; rows: PaymentRow[] }> {
+  const groups: Array<{ projectId: string | null; projectName: string | null; rows: PaymentRow[] }> =
+    [];
+  const byId = new Map<string, number>();
+  let unfiled: number | null = null;
+
+  for (const row of rows) {
+    // A row with an id and no name is unfiled, deliberately: the name is the
+    // only part of the group a client can read, so a group headed by a uuid
+    // is worse than one headed "Other payments".
+    const id = row.projectName ? (row.projectId ?? null) : null;
+    if (id === null) {
+      if (unfiled === null) {
+        unfiled = groups.length;
+        groups.push({ projectId: null, projectName: null, rows: [] });
+      }
+      groups[unfiled]!.rows.push(row);
+      continue;
+    }
+    let at = byId.get(id);
+    if (at === undefined) {
+      at = groups.length;
+      byId.set(id, at);
+      groups.push({ projectId: id, projectName: row.projectName ?? null, rows: [] });
+    }
+    groups[at]!.rows.push(row);
+  }
+
+  // The unfiled group to the end, wherever it was met.
+  if (unfiled !== null && unfiled !== groups.length - 1) {
+    const [group] = groups.splice(unfiled, 1);
+    groups.push(group!);
+  }
+  return groups;
 }
 
 /**

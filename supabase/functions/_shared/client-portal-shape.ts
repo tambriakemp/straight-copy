@@ -127,10 +127,36 @@ export function pluginProjects(
   });
 }
 
+/**
+ * The client's project links as "which name does this id have" (CRE-831).
+ *
+ * Built from the same rows `pluginProjects` draws the home card from, and it
+ * drops a nameless project for the same reason that one does: the name is the
+ * only part a client can read, so an id with no name is better treated as not
+ * filed under a project than drawn as a group nobody can identify.
+ *
+ * The map is also the scope check. It holds this client's projects and no
+ * others, so an invoice naming a project id that is not theirs finds nothing
+ * and the row says nothing -- rather than this function fetching that project
+ * to see what it is called.
+ */
+export function pluginProjectNames(
+  projects: Array<{ id: string; project?: { name?: string | null } | null }>,
+): Map<string, string> {
+  const names = new Map<string, string>();
+  for (const row of projects) {
+    const name = (row.project?.name ?? "").trim();
+    if (name.length > 0) names.set(row.id, name);
+  }
+  return names;
+}
+
 /** The slice of a plugin invoice these functions read. */
 export interface ShapeInvoice {
   id: string;
   paymentScheduleId: string | null;
+  /** Which project the bill is for, since the plugin's migration 015. */
+  clientProjectId?: string | null;
   number?: string | null;
   amountCents: number;
   currency: string;
@@ -146,6 +172,8 @@ export interface ShapeInvoice {
 /** The slice of a plugin payment-schedule item these functions read. */
 export interface ShapeScheduleItem {
   id: string;
+  /** Which project the plan is filed under, since migration 015. */
+  clientProjectId?: string | null;
   sequence: number;
   label: string;
   amountCents: number;
@@ -168,6 +196,18 @@ export function invoiceRows(
   invoices: ShapeInvoice[],
   schedule: ShapeScheduleItem[],
   now: Date,
+  /**
+   * Project id to the name the client sees, for the project column and the
+   * grouping Bree asked for on 29 October (CRE-831).
+   *
+   * A lookup rather than a name on each row, and the caller builds it from
+   * the client's *own* project list: an id that is not in it resolves to
+   * null, so a payment that names a project this client does not own says
+   * nothing rather than lending them its name. Defaulted, so every existing
+   * caller -- the home screen among them, which draws no project column --
+   * keeps working and simply gets nulls.
+   */
+  projectNames: ReadonlyMap<string, string> = new Map(),
 ): PaymentRow[] {
   const billed = new Set(
     invoices.map((invoice) => invoice.paymentScheduleId).filter(Boolean) as string[],
@@ -175,6 +215,19 @@ export function invoiceRows(
   // The words a client reads on each row come from the schedule the licensee
   // wrote -- "Deposit", "Design approved" -- and not from an invoice number.
   const scheduleLabels = new Map(schedule.map((item) => [item.id, item.label]));
+  // An invoice's project, falling back to the project of the instalment it
+  // bills: a one-off invoice carries its own, and an instalment's invoice
+  // inherits the plan's rather than needing the column filled in twice.
+  const scheduleProjects = new Map(
+    schedule.map((item) => [item.id, item.clientProjectId ?? null]),
+  );
+  const filed = (projectId: string | null | undefined) => {
+    const id = projectId ?? null;
+    const name = id === null ? null : (projectNames.get(id) ?? null);
+    // An id with no name is as unfiled as no id at all -- see
+    // `groupPaymentsByProject`, which groups on the name for the same reason.
+    return { projectId: name === null ? null : id, projectName: name };
+  };
 
   const fromInvoices = invoices.map((invoice): PaymentRow => {
     const state = paymentState({
@@ -200,6 +253,11 @@ export function invoiceRows(
       paidAt: invoice.paidAt,
       receiptUrl: invoice.paidAt ? invoice.receiptUrl : null,
       payable: state === "ready" || state === "overdue",
+      ...filed(
+        invoice.clientProjectId ??
+          scheduleProjects.get(invoice.paymentScheduleId ?? "") ??
+          null,
+      ),
     };
   });
 
@@ -218,6 +276,7 @@ export function invoiceRows(
       paidAt: null,
       receiptUrl: null,
       payable: false,
+      ...filed(item.clientProjectId ?? null),
     }));
 
   return [...fromInvoices, ...fromSchedule].sort(compareRows);
