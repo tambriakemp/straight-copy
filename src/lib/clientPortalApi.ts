@@ -164,6 +164,36 @@ export const clientPortal = {
     setTimeout(() => URL.revokeObjectURL(href), 10_000);
   },
 
+  /**
+   * Fetch a proposal PDF as something an `<iframe>` can point at, rather than
+   * a save-to-disk action.
+   *
+   * Same two server shapes as `download`, held open instead of triggered: a
+   * signed URL is handed back as-is (it already expires on its own), and
+   * bytes become a blob URL the caller must `revoke()` once the preview is
+   * no longer on screen -- an un-revoked one leaks for the life of the tab.
+   */
+  async openForPreview(
+    clientId: string,
+    proposalId: string,
+    kind: "signed" | "source",
+    preview: boolean,
+  ): Promise<{ url: string; filename: string; revoke: () => void }> {
+    const payload = await call<{ document: PortalDocument }>(
+      clientId,
+      "document",
+      { proposalId, kind },
+      preview,
+    );
+    const doc = payload.document;
+    if (doc.form === "url") {
+      return { url: doc.url, filename: doc.filename, revoke: () => {} };
+    }
+    const bytes = Uint8Array.from(atob(doc.contentBase64), (char) => char.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: doc.contentType }));
+    return { url, filename: doc.filename, revoke: () => URL.revokeObjectURL(url) };
+  },
+
   shareLogin: (
     clientId: string,
     input: {
