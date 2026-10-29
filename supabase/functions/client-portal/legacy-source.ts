@@ -133,6 +133,14 @@ function cents(row: Row, key: string): number {
   return Number.isFinite(number) ? number : 0;
 }
 
+/** Unlike `cents`, a genuinely absent number stays null rather than folding to 0 -- `sort_order` null and `0` are different positions. */
+function numberOrNull(row: Row, key: string): number | null {
+  const value = row[key];
+  if (value === null || value === undefined) return null;
+  const number = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function rows(result: { data: Row[] | null; error?: unknown }): Row[] {
   return result.data ?? [];
 }
@@ -216,7 +224,7 @@ export class LegacySource implements PortalSource {
 
     const { data: client } = await this.#db
       .from("clients")
-      .select("delivery_date")
+      .select("delivery_date, build_start_date, delivery_video_url")
       .eq("id", ctx.clientId)
       .maybeSingle();
 
@@ -255,6 +263,9 @@ export class LegacySource implements PortalSource {
       branding: ctx.branding,
       me,
       projects: adminProjects(rows(projects), ctx.clientId),
+      buildStartDate: text(client, "build_start_date"),
+      deliveryDate: text(client, "delivery_date"),
+      deliveryVideoUrl: text(client, "delivery_video_url"),
       headline: headlineFor(project),
       stepNumber: position?.stepNumber ?? null,
       stepCount: position?.stepCount ?? null,
@@ -495,7 +506,7 @@ export class LegacySource implements PortalSource {
       this.#me(ctx),
       this.#db
         .from("client_logins")
-        .select("id, label, url, username, created_at")
+        .select("id, label, url, username, note, sort_order, created_at")
         .eq("client_id", ctx.clientId)
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true }),
@@ -511,6 +522,8 @@ export class LegacySource implements PortalSource {
         url: text(row, "url"),
         sharedAt: required(row, "created_at"),
         masked: MASK,
+        note: text(row, "note"),
+        sortOrder: numberOrNull(row, "sort_order"),
       })),
       // See the header: these tables have no record of an ask. The panel
       // renders as a plain share form rather than as an answer to one.

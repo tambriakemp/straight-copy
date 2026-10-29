@@ -16,6 +16,7 @@ import {
   type AgreementView,
   type PaymentRow,
   type PortalProject,
+  type SharedLogin,
   type WaitingItem,
 } from "./client-portal-wire.ts";
 
@@ -99,6 +100,8 @@ export function pluginProjects(
   projects: Array<{
     id: string;
     legacyAdminProjectId?: string | null;
+    /** The link row's own kind (CRE-822) -- see `projectKindLabel` below. */
+    kind?: string | null;
     project?: { name?: string | null; status?: string | null } | null;
   }>,
   clientId: string,
@@ -111,9 +114,7 @@ export function pluginProjects(
       {
         id: row.id,
         name,
-        // A Paperclip project has no "kind": the plugin links to a project,
-        // not to a product line. Null rather than a word nobody chose.
-        kind: null,
+        kind: projectKindLabel(row.kind ?? null),
         statusLabel: projectStatusLabel(row.project?.status ?? null),
         href: adminId
           ? `/portal/${encodeURIComponent(clientId)}/projects/${encodeURIComponent(adminId)}`
@@ -299,5 +300,27 @@ export function widenStatus(status: string): AgreementView["status"] {
 }
 
 
+
+/**
+ * Placed logins first, by their own order; everything unplaced after, oldest
+ * first (CRE-822).
+ *
+ * `sortOrder` is null for a row nobody has placed, and null never folds into
+ * `0` -- `0` is a real position. A placed row is a deliberate choice about
+ * where it sits, so it outranks every row nobody has touched rather than
+ * interleaving with them by date.
+ */
+export function sortLogins<T extends Pick<SharedLogin, "sortOrder" | "sharedAt">>(
+  logins: T[],
+): T[] {
+  return [...logins].sort((a, b) => {
+    const aOrder = a.sortOrder ?? null;
+    const bOrder = b.sortOrder ?? null;
+    if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+    if (aOrder !== null) return -1;
+    if (bOrder !== null) return 1;
+    return a.sharedAt.localeCompare(b.sharedAt);
+  });
+}
 
 export const __testing = { compareRows };

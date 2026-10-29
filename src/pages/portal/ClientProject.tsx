@@ -96,6 +96,15 @@ export default function ClientProject() {
           me={shell.data.me}
           contactEmail={resolved.data.contactEmail}
           client={resolved.data.client}
+          // The plugin's own answer, since CRE-822 gave it one (migration
+          // 009). `resolved.data.client` still carries the three admin-table
+          // columns as a fallback for a server that predates them -- the
+          // usual rule for an optional field this contract's version bumped.
+          header={{
+            buildStartDate: shell.data.buildStartDate ?? null,
+            deliveryDate: shell.data.deliveryDate ?? null,
+            deliveryVideoUrl: shell.data.deliveryVideoUrl ?? null,
+          }}
           project={resolved.project!}
           adminPreview={adminPreview}
           viewAs={viewAsGrant}
@@ -144,6 +153,7 @@ function ProjectBody({
   me,
   contactEmail,
   client,
+  header,
   project,
   adminPreview,
   viewAs,
@@ -152,11 +162,15 @@ function ProjectBody({
   me: HomeView["me"];
   contactEmail: string | null;
   client: { business_name: string | null; contact_name: string | null; build_start_date: string | null; delivery_date: string | null; delivery_video_url: string | null };
+  header: { buildStartDate: string | null; deliveryDate: string | null; deliveryVideoUrl: string | null };
   project: ResolvedProjectRow;
   adminPreview: boolean;
   /** A CRE-811 view-as grant, which is read-only AND sessionless. See `ViewAsGaps`. */
   viewAs: boolean;
 }) {
+  const buildStartDate = header.buildStartDate ?? client.build_start_date;
+  const deliveryDate = header.deliveryDate ?? client.delivery_date;
+  const deliveryVideoUrl = header.deliveryVideoUrl ?? client.delivery_video_url;
   const sb = adminPreview ? supabase : supabasePortal;
   const [phases, setPhases] = useState<PhaseNode[]>([]);
   const [previewProgress, setPreviewProgress] = useState({ approved: 0, total: 0 });
@@ -351,16 +365,16 @@ function ProjectBody({
         </section>
       )}
 
-      {(ladder.length > 0 || client.build_start_date || client.delivery_date) && (
+      {(ladder.length > 0 || buildStartDate || deliveryDate) && (
         <section className="cp-card">
           <div className="cp-card-head">
             <h2 className="cp-card__title" style={{ margin: 0 }}>
               Where things stand
             </h2>
-            {client.delivery_date && (
+            {deliveryDate && (
               <span style={{ color: "var(--cp-dim)", fontSize: 13 }}>
                 Estimated delivery{" "}
-                {new Date(`${client.delivery_date}T12:00:00`).toLocaleDateString(undefined, {
+                {new Date(`${deliveryDate}T12:00:00`).toLocaleDateString(undefined, {
                   month: "short",
                   day: "numeric",
                   year: "numeric",
@@ -379,10 +393,10 @@ function ProjectBody({
               ))}
             </ol>
           )}
-          {(ladderLine || client.build_start_date) && (
+          {(ladderLine || buildStartDate) && (
             <p className="cp-steps__foot">
-              {client.build_start_date &&
-                `Build started ${new Date(`${client.build_start_date}T12:00:00`).toLocaleDateString(undefined, {
+              {buildStartDate &&
+                `Build started ${new Date(`${buildStartDate}T12:00:00`).toLocaleDateString(undefined, {
                   month: "short",
                   day: "numeric",
                   year: "numeric",
@@ -448,13 +462,13 @@ function ProjectBody({
               Delivery walkthrough
             </h2>
             <p className="cp-sub" style={{ margin: 0 }}>
-              {client.delivery_video_url
+              {deliveryVideoUrl
                 ? "Your walkthrough is ready."
                 : "When your project launches, a video walking you through it shows up here."}
             </p>
           </div>
-          {client.delivery_video_url ? (
-            <a className="cp__btn cp__btn--primary" href={client.delivery_video_url} target="_blank" rel="noreferrer">
+          {deliveryVideoUrl ? (
+            <a className="cp__btn cp__btn--primary" href={deliveryVideoUrl} target="_blank" rel="noreferrer">
               Watch the walkthrough
             </a>
           ) : (
