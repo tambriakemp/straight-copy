@@ -192,6 +192,20 @@ export interface ShapeScheduleItem {
  * screen showing only invoices would show a client two payments on a
  * three-payment contract, which reads as a cheaper contract.
  */
+/**
+ * Invoice statuses that are a plan rather than a bill.
+ *
+ * Two vocabularies, deliberately in one set: `draft` is the plugin's own, and
+ * `scheduled` is `/admin`'s, which CP-6 carries across verbatim. `void` is
+ * here because a cancelled bill is not one a client may pay either -- it was
+ * already the only member of this test.
+ *
+ * Anything else counts as billed, which is the right way round for a status
+ * this build has not heard of: a real bill drawn as "Later" is a payment the
+ * client is never offered, and the client cannot tell that from a plan.
+ */
+const UNBILLED = new Set(["draft", "scheduled", "void"]);
+
 export function invoiceRows(
   invoices: ShapeInvoice[],
   schedule: ShapeScheduleItem[],
@@ -232,9 +246,15 @@ export function invoiceRows(
   const fromInvoices = invoices.map((invoice): PaymentRow => {
     const state = paymentState({
       paidAt: invoice.paidAt,
-      // An invoice row exists because somebody billed it. `issuedAt` is when
-      // it was sent; a row with neither is still a bill that has been raised.
-      issued: invoice.status !== "void",
+      // An invoice row usually exists because somebody billed it, and
+      // `issuedAt` is only when it was *sent* -- so a row with neither is
+      // still a bill that has been raised. The exception is a row the source
+      // itself calls a plan: `draft` in the plugin's own vocabulary and
+      // `scheduled` in the one the `/admin` import carries across verbatim.
+      // Treating those as billed put "Ready to pay" and a button on a row
+      // nobody had invoiced, which sends a client to pay an amount the
+      // agency has no record of asking for.
+      issued: !UNBILLED.has(invoice.status),
       dueOn: invoice.dueOn,
       now,
     });

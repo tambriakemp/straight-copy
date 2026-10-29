@@ -146,6 +146,28 @@ describe("grouping and the filter", () => {
     ).toEqual(["All projects", "Glowskin Studio website", "Booking automation"]);
   });
 
+  it("narrows the table to the unfiled payments, which are not every payment", () => {
+    // The regression this is here for: the unfiled group and "All projects"
+    // both had the empty string as their value, so choosing "Other payments"
+    // showed the whole table and the two options were indistinguishable.
+    draw([
+      row({ id: "a", label: "Deposit" }),
+      row({ id: "b", label: "Retainer", projectId: null, projectName: null }),
+    ]);
+    const select = screen.getByRole("combobox");
+    const unfiled = [...select.querySelectorAll("option")].find(
+      (option) => option.textContent === "Other payments",
+    );
+    expect(unfiled!.getAttribute("value")).not.toBe(
+      [...select.querySelectorAll("option")]
+        .find((option) => option.textContent === "All projects")!
+        .getAttribute("value"),
+    );
+    fireEvent.change(select, { target: { value: unfiled!.getAttribute("value") } });
+    expect(screen.getByText("Retainer")).toBeInTheDocument();
+    expect(screen.queryByText("Deposit")).not.toBeInTheDocument();
+  });
+
   it("narrows the table to one project, and back", () => {
     draw(TWO_PROJECTS);
     const select = screen.getByRole("combobox");
@@ -153,7 +175,7 @@ describe("grouping and the filter", () => {
     expect(screen.queryByText("Deposit")).not.toBeInTheDocument();
     expect(screen.getByText("Retainer")).toBeInTheDocument();
 
-    fireEvent.change(select, { target: { value: "" } });
+    fireEvent.change(select, { target: { value: "all" } });
     expect(screen.getByText("Deposit")).toBeInTheDocument();
     expect(screen.getByText("Retainer")).toBeInTheDocument();
   });

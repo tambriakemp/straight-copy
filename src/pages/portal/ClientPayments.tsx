@@ -33,6 +33,25 @@ import { useAdminPreview, usePortalView } from "@/components/portal/useClientPor
 import { PortalRequestError, clientPortal, money, shortDate } from "@/lib/clientPortalApi";
 import { groupPaymentsByProject, type PaymentRow, type PaymentsView } from "@/lib/clientPortalWire";
 
+/**
+ * The filter's "everything" value, and the key one group is identified by.
+ *
+ * `ALL` is a sentinel rather than the empty string because the group of
+ * payments filed under no project needs a value of its own: with both using
+ * `""` the two options were indistinguishable, and choosing "Other payments"
+ * silently showed the whole table. A `<select>` value is a string, so the
+ * unfiled group needs a string that is not a project id and not `ALL`.
+ */
+const ALL = "all";
+const UNFILED_KEY = "unfiled";
+
+/** The heading and the option label for payments filed under no project. */
+const UNFILED = "Other payments";
+
+function groupKey(group: { projectId: string | null }): string {
+  return group.projectId ?? UNFILED_KEY;
+}
+
 export default function ClientPayments() {
   const { clientId } = useParams<{ clientId: string }>();
   const { adminPreview, viewAsGrant, actor, exitPreview } = useAdminPreview(clientId);
@@ -44,16 +63,16 @@ export default function ClientPayments() {
 
   const [paying, setPaying] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // The project filter, as a project id or "" for all of them. Held here and
-  // not in the URL: it is a way of reading one table, not a place to link to.
-  const [onlyProject, setOnlyProject] = useState<string>("");
+  // The project filter, as a group key or `ALL`. Held here and not in the URL:
+  // it is a way of reading one table, not a place to link to.
+  const [onlyProject, setOnlyProject] = useState<string>(ALL);
 
   const groups = useMemo(() => groupPaymentsByProject(view?.rows ?? []), [view?.rows]);
   // A filter for a project that is no longer in the list -- the page reloaded
   // and a payment moved -- falls back to showing everything rather than an
   // empty table with a control nobody can see is the cause.
-  const chosen = groups.some((group) => group.projectId === onlyProject) ? onlyProject : "";
-  const shown = chosen === "" ? groups : groups.filter((group) => group.projectId === chosen);
+  const chosen = groups.some((group) => groupKey(group) === onlyProject) ? onlyProject : ALL;
+  const shown = chosen === ALL ? groups : groups.filter((group) => groupKey(group) === chosen);
   // One group is a table, not a grouping: no headings and no filter.
   const grouped = groups.length > 1;
 
@@ -131,10 +150,10 @@ export default function ClientPayments() {
                     value={chosen}
                     onChange={(event) => setOnlyProject(event.target.value)}
                   >
-                    <option value="">All projects</option>
+                    <option value={ALL}>All projects</option>
                     {groups.map((group) => (
-                      <option key={group.projectId ?? "none"} value={group.projectId ?? ""}>
-                        {group.projectName ?? "Other payments"}
+                      <option key={groupKey(group)} value={groupKey(group)}>
+                        {group.projectName ?? UNFILED}
                       </option>
                     ))}
                   </select>
@@ -159,7 +178,7 @@ export default function ClientPayments() {
                     <Fragment key={group.projectId ?? "none"}>
                       {grouped && (
                         <tr className="cp-pay__group">
-                          <td colSpan={6}>{group.projectName ?? "Other payments"}</td>
+                          <td colSpan={6}>{group.projectName ?? UNFILED}</td>
                         </tr>
                       )}
                       {group.rows.map((row) => (

@@ -135,6 +135,24 @@ describe("the payments table, from the plugin", () => {
     expect(rows[2].dueOn).toBeNull();
   });
 
+  it("does not offer to take money for an invoice the source calls a plan", () => {
+    // Two vocabularies: `draft` is the plugin's and `scheduled` is the one
+    // CP-6 carries across from /admin verbatim. Either drawn as "Ready to
+    // pay" sends a client to pay an amount nobody has invoiced.
+    for (const status of ["draft", "scheduled"]) {
+      const [row] = invoiceRows([pluginInvoice({ status, paidAt: null })], [], NOW);
+      expect([status, row.state, row.payable]).toEqual([status, "later", false]);
+    }
+    // And a status this build has never heard of is a bill, because a real
+    // bill drawn as "Later" is a payment the client is never offered.
+    const [unknown] = invoiceRows(
+      [pluginInvoice({ status: "part_paid", paidAt: null })],
+      [],
+      NOW,
+    );
+    expect(unknown.payable).toBe(true);
+  });
+
   it("says which project each payment is for, invoice or instalment (CRE-831)", () => {
     const rows = invoiceRows(
       [pluginInvoice({ id: "a", paymentScheduleId: "s1", clientProjectId: "p-site" })],
