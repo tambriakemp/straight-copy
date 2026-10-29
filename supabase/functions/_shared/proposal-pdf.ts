@@ -9,8 +9,18 @@
 // The Cre8 Visions palette and typographic hierarchy are reproduced with
 // pdf-lib's standard fonts: Times for the Georgia display faces, Helvetica for
 // the Arial body. Not identical to the docx template, deliberately close.
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
+import { logProposalEvent } from "./proposal-events.ts";
 import { liftThesis, stripSectionNumber, writtenSections, type ProposalContent } from "./agents/proposal-spine.ts";
+
+/** Same bucket proposal-sign reads from, so uploads and signing agree. */
+const PROPOSAL_BUCKET = "client-assets";
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 const PAGE_W = 612;   // US Letter, 72dpi
 const PAGE_H = 792;
@@ -294,4 +304,52 @@ export async function renderProposalPdf(
   });
 
   return await doc.save();
+}
+
+/**
+ * Render a proposal to PDF, store it, and hash it — the one path that gives a
+ * content-only proposal the same artifact an upload has, so draft, send, sign
+ * and countersign all work the same way whichever kind it is.
+ *
+ * Called lazily at send time rather than on every section write: a twelve
+ * section document would otherwise render twelve times, eleven of them
+ * thrown away. Every caller that can mark a proposal "sent" must run this
+ * first when `needsPdfRender` says the stored document is missing or stale —
+ * skipping it is how a client ends up asked to read or sign nothing.
+ */
+export async function renderAndStoreProposalPdf(
+  sb: SupabaseClient,
+  proposalId: string,
+  clientId: string,
+  title: string,
+  content: ProposalContent,
+  actor: string,
+): Promise<{ ok: true; path: string; sha256: string } | { ok: false; error: string }> {
+  try {
+    const pdf = await renderProposalPdf(title, content);
+    const sha256 = await sha256Hex(pdf);
+    const path = `proposals/${clientId}/${proposalId}/source.pdf`;
+    const { error: upErr } = await sb.storage.from(PROPOSAL_BUCKET)
+      .upload(path, pdf, { contentType: "application/pdf", upsert: true, cacheControl: "3600" });
+    if (upErr) throw upErr;
+
+    await sb.from("client_proposals")
+      .update({
+        source_pdf_path: path,
+        source_pdf_sha256: sha256,
+        pdf_generated_at: new Date().toISOString(),
+      })
+      .eq("id", proposalId);
+
+    await logProposalEvent(sb, {
+      proposal_id: proposalId,
+      client_id: clientId,
+      event_type: "pdf_uploaded",
+      actor,
+      detail: { path, generated: true },
+    });
+    return { ok: true, path, sha256 };
+  } catch (e) {
+    return { ok: false, error: String((e as Error).message || e) };
+  }
 }

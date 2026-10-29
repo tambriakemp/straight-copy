@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  needsPdfRender,
   NON_NEGOTIABLES,
   PALETTE,
   renderProposalHtml,
@@ -148,6 +149,38 @@ describe("renderProposalHtml", () => {
     const html = renderProposalHtml("X", complete());
     expect(html).toContain(PALETTE.bronze);
     expect(html).toContain(PALETTE.ink);
+  });
+});
+
+describe("needsPdfRender", () => {
+  // CRE-832: the admin "Send" / "Resend" path and the agent's own
+  // send_proposal action both have to agree on this, or one of them can mark
+  // a content-only proposal "sent" with nothing behind it to read or sign.
+  it("never renders for an uploaded PDF, which has no content", () => {
+    expect(needsPdfRender({ content: null, source_pdf_path: "proposals/x/source.pdf", pdf_generated_at: null })).toBe(false);
+    expect(needsPdfRender({ content: null, source_pdf_path: null, pdf_generated_at: null })).toBe(false);
+  });
+
+  it("renders a builder proposal that has never been rendered", () => {
+    expect(needsPdfRender({ content: complete(), source_pdf_path: null, pdf_generated_at: null })).toBe(true);
+  });
+
+  it("does not re-render a builder proposal that is already current", () => {
+    expect(needsPdfRender({
+      content: complete(),
+      source_pdf_path: "proposals/x/source.pdf",
+      pdf_generated_at: "2026-10-29T00:00:00Z",
+    })).toBe(false);
+  });
+
+  it("re-renders a builder proposal edited since its last render", () => {
+    // write_proposal_section/restore_proposal_version clear pdf_generated_at
+    // on every edit — a stored path with no generated_at means it is stale.
+    expect(needsPdfRender({
+      content: complete(),
+      source_pdf_path: "proposals/x/source.pdf",
+      pdf_generated_at: null,
+    })).toBe(true);
   });
 });
 
