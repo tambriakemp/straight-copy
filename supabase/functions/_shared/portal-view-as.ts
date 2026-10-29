@@ -158,6 +158,11 @@ export type ViewAsResult =
  * a view-as caller (`if (viewAs) return;`), so "Where things stand" rendered
  * empty rather than drawing it as a gap. It is a read for the reason
  * `home`'s milestones are: the client cannot write their own ladder either.
+ *
+ * `project-audits` (CRE-822, G8) is the Audits tab, migrated the same way.
+ * It never carries a password -- sealed or otherwise -- so there is nothing
+ * here a stolen view-as token could do with it beyond what the client it is
+ * previewing could already see.
  */
 export const VIEW_AS_READS: Record<string, readonly string[]> = {
   // `reveal-login` copies one password. It is a read: it does not change the
@@ -171,6 +176,7 @@ export const VIEW_AS_READS: Record<string, readonly string[]> = {
     "document",
     "reveal-login",
     "project-phases",
+    "project-audits",
   ],
   "proposal-sign": ["download"],
   "brand-kit-intake": ["resolve"],

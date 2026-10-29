@@ -11,26 +11,11 @@
 // read it, shared means it went out. An audit that is written but not
 // checked is not a thing to show anybody.
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
 import { FileSearch, ExternalLink } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { supabasePortal } from "@/integrations/supabase/portalClient";
+import { clientPortal } from "@/lib/clientPortalApi";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import { auditKind } from "@/lib/auditKinds";
-
-export interface PortalAudit {
-  id: string;
-  slug: string;
-  kind: string | null;
-  client_name: string;
-  cover_note: string | null;
-  report_url: string | null;
-  reviewed_at: string | null;
-  shared_at: string | null;
-  created_at: string;
-  versionCount: number;
-  latestVersion: number;
-}
+import type { PortalAudit } from "@/lib/clientPortalWire";
 
 /** Shared within the last fortnight — worth a nudge, not forever. */
 const NEW_DAYS = 14;
@@ -50,37 +35,25 @@ function fmt(iso: string | null): string {
 }
 
 export default function AuditsSection({
-  clientProjectId, adminPreview,
-}: { clientProjectId: string; adminPreview: boolean }) {
+  clientId, clientProjectId, adminPreview,
+}: { clientId: string; clientProjectId: string; adminPreview: boolean }) {
   const [audits, setAudits] = useState<PortalAudit[] | null>(null);
 
   const load = useCallback(async () => {
-    // Through the RPC, not the table.
-    //
-    // client_audits carries the report's PASSWORD, which is exactly the
-    // column an open SELECT policy would hand out. portal_project_audits
-    // is SECURITY DEFINER, checks the caller is a signed-in portal member
-    // of THIS project's client (or an admin), and returns the client-safe
-    // columns only, for a report that is both reviewed and shared.
-    const sb = adminPreview ? supabase : supabasePortal;
-    const { data, error } = await sb
-      .rpc("portal_project_audits", { _client_project_id: clientProjectId });
-    if (error) {
-      // Until the migration runs the function does not exist. The tab
-      // reads empty rather than throwing a toast on every portal load.
-      if (!/does not exist|not find the function|schema cache/i.test(error.message)) {
-        toast.error(error.message);
-      }
+    // Through `client-portal`, not the table or the RPC it used to call
+    // directly: `client_audits` carries the report's password, which is
+    // exactly the column an open SELECT policy would hand out, and the RPC
+    // checked only that the project existed, not that it was this caller's.
+    try {
+      const data = await clientPortal.projectAudits(clientId, clientProjectId, adminPreview);
+      setAudits(data);
+    } catch {
+      // A tab that fails to load reads as empty, not as a toast on every
+      // portal visit -- the same tolerance the RPC it replaces had for an
+      // install where the migration had not run yet.
       setAudits([]);
-      return;
     }
-    setAudits((data ?? []).map((r) => ({
-      id: r.id, slug: r.slug, kind: r.kind, client_name: r.client_name,
-      cover_note: r.cover_note, report_url: r.report_url,
-      reviewed_at: r.reviewed_at, shared_at: r.shared_at, created_at: r.created_at,
-      versionCount: r.version_count ?? 1, latestVersion: r.version_count ?? 1,
-    })));
-  }, [clientProjectId, adminPreview]);
+  }, [clientId, clientProjectId, adminPreview]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -123,16 +96,18 @@ export default function AuditsSection({
                 <span className="cv-it__what">
                   <b>{k.label}</b>
                   <small>
-                    Version {a.latestVersion}
-                    {a.shared_at ? ` · shared ${fmt(a.shared_at)}` : ""}
+                    {/* Null, not 0, for a legacy-imported report nobody
+                        numbered -- see `PortalAudit.latestVersion`. */}
+                    {a.latestVersion !== null && `Version ${a.latestVersion}`}
+                    {a.sharedAt ? ` · shared ${fmt(a.sharedAt)}` : ""}
                     {earlier ? ` · ${earlier} earlier version${earlier === 1 ? "" : "s"}` : ""}
                   </small>
                 </span>
-                {isNew(a.shared_at) && <span className="cv-chip cv-chip--blue">New</span>}
+                {isNew(a.sharedAt) && <span className="cv-chip cv-chip--blue">New</span>}
                 <a
                   className="cv-open cv-open--dark"
                   style={{ padding: "0 16px" }}
-                  href={a.report_url || `/audit/${a.slug}`}
+                  href={a.reportUrl || `/audit/${a.slug}`}
                   target="_blank"
                   rel="noreferrer"
                 >

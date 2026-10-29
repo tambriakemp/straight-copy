@@ -40,6 +40,7 @@ import {
   type LoginsView,
   type PaymentRow,
   type PaymentsView,
+  type PortalAudit,
   type PortalMilestone,
   type SharedDriveLink,
   type SharedLogin,
@@ -256,6 +257,25 @@ interface PluginPhase {
   status: string;
   position: "done" | "now" | "next" | "later";
   finished: boolean;
+}
+
+/**
+ * CRE-822, G8. Never carries `passwordProtected`'s underlying secret -- the
+ * plugin's own serialiser already withholds that, this just doesn't ask for
+ * anything it would have to throw away.
+ */
+interface PluginSiteAudit {
+  id: string;
+  slug: string;
+  kind: string | null;
+  subjectName: string;
+  coverNote: string | null;
+  reportUrl: string | null;
+  reviewedAt: string | null;
+  sharedAt: string | null;
+  createdAt: string;
+  versionCount: number;
+  latestVersion: number | null;
 }
 
 /** CRE-822, G4. Already shaped like `AccountAccessView` minus `items`. */
@@ -900,6 +920,36 @@ export class PluginSource implements PortalSource {
       key: phase.key,
       label: phase.label,
       state: phase.position,
+    }));
+  }
+
+  /**
+   * `sharedOnly` is applied by the plugin itself from the client scope on
+   * every call this class makes -- there is no second argument here to get
+   * wrong, unlike the legacy RPC where "reviewed and shared" has to be
+   * trusted rather than requested.
+   */
+  async projectAudits(
+    ctx: PortalCallerContext,
+    clientProjectId: string,
+  ): Promise<PortalAudit[]> {
+    const data = await this.#get<{ audits: PluginSiteAudit[] }>(
+      ctx,
+      `/clients/${encodeURIComponent(ctx.clientId)}/site-audits`,
+      { clientProjectId },
+    );
+    return data.audits.map((audit) => ({
+      id: audit.id,
+      slug: audit.slug,
+      kind: audit.kind,
+      subjectName: audit.subjectName,
+      coverNote: audit.coverNote,
+      reportUrl: audit.reportUrl,
+      reviewedAt: audit.reviewedAt,
+      sharedAt: audit.sharedAt,
+      createdAt: audit.createdAt,
+      versionCount: audit.versionCount,
+      latestVersion: audit.latestVersion,
     }));
   }
 
