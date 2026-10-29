@@ -9,6 +9,8 @@ import { logProposalEvent } from "../_shared/proposal-events.ts";
 import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
 import { markDealLostForProposal, markDealSignedForProposal, syncProposalToSureContactDeal } from "../_shared/proposal-deal-sync.ts";
 import { sendProjectInvoice } from "../_shared/surecart-invoices.ts";
+import { renderAndStoreProposalPdf } from "../_shared/proposal-pdf.ts";
+import { needsPdfRender, type ProposalContent } from "../_shared/agents/proposal-spine.ts";
 import { PDFDocument, PDFFont, PDFPage, rgb, type PDFImage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 
@@ -855,7 +857,7 @@ Deno.serve(async (req) => {
 
     if (input.action === "notify") {
       const { data: row } = await supabase.from("client_proposals")
-        .select("id, title, status, client_project_id, sent_at, source_pdf_path, content, total_cents, version")
+        .select("id, title, status, client_project_id, sent_at, source_pdf_path, pdf_generated_at, content, total_cents, version")
         .eq("id", input.proposalId).eq("client_id", input.clientId).maybeSingle();
       if (!row) return respond({ error: "Proposal not found" }, 404);
       if (row.status === "signed") return respond({ error: "That proposal is already signed" }, 409);
@@ -869,6 +871,22 @@ Deno.serve(async (req) => {
       if (!row.source_pdf_path && !row.content) {
         // Sending someone to an empty document is worse than not sending.
         return respond({ error: "There is nothing to read yet — no PDF and no written content" }, 409);
+      }
+
+      // A builder-written proposal has content but, until now, no PDF — this
+      // is the only thing that makes it a document the portal can show and
+      // the signing flow can hash, same as `send_proposal` already does for
+      // an agent-initiated send. Without this, admin's own "send"/"resend"
+      // path (this action) could mark a content-only proposal "sent" with
+      // nothing behind it, which is CRE-832.
+      if (needsPdfRender(row)) {
+        const rendered = await renderAndStoreProposalPdf(
+          supabase, row.id, input.clientId, row.title, row.content as ProposalContent, "admin",
+        );
+        if (!rendered.ok) {
+          return respond({ error: `Could not prepare the document to send: ${rendered.error}` }, 502);
+        }
+        row.source_pdf_path = rendered.path;
       }
 
       const to = input.to || client.contact_email;

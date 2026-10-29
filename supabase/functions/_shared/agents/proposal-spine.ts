@@ -59,6 +59,28 @@ export function writtenSections(content: ProposalContent): ProposalSectionConten
 }
 
 /**
+ * Whether a proposal needs a PDF rendered from `content` before it can be
+ * sent or signed.
+ *
+ * An uploaded PDF has no `content` — nothing to render and nothing to ever
+ * regenerate, so this is always false for that kind. A proposal written in
+ * the builder has `content` and no `source_pdf_path` until something renders
+ * it; `pdf_generated_at` is cleared on every section edit (see
+ * `write_proposal_section`/`restore_proposal_version`), so a stale render
+ * also needs redoing. This is the one check that must run before ANY path
+ * marks a content-only proposal "sent" — skipping it is how a client ends up
+ * asked to read or sign a document that was never built.
+ */
+export function needsPdfRender(row: {
+  content: unknown;
+  source_pdf_path: string | null | undefined;
+  pdf_generated_at?: string | null | undefined;
+}): boolean {
+  if (!row.content) return false;
+  return !row.source_pdf_path || !row.pdf_generated_at;
+}
+
+/**
  * What any document going to a client for signature needs, whatever it sells.
  *
  * These are commercial and legal necessities, not structure imposed on the

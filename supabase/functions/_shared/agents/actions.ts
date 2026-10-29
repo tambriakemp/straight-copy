@@ -5,10 +5,10 @@
 // change the world on an agent's behalf.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 import { logProposalEvent } from "../proposal-events.ts";
-import { renderProposalPdf } from "../proposal-pdf.ts";
+import { renderAndStoreProposalPdf } from "../proposal-pdf.ts";
 import { logSureContactActivity, sendSureContactEmail } from "../surecontact-send.ts";
 import {
-  PROJECT_TYPES, reviewProposal, type ProposalContent,
+  needsPdfRender, PROJECT_TYPES, reviewProposal, type ProposalContent,
 } from "./proposal-spine.ts";
 import {
   assigneeKind, taskPlatform, taskPriority, taskSize, taskStatus,
@@ -21,52 +21,6 @@ import { CLIENT_TIERS, PROJECT_STATUSES } from "./client-fields.ts";
 const FROM_NAME = "straight-copy";
 const FROM_DOMAIN = "cre8visions.com";
 const SENDER_DOMAIN = "notify.cre8visions.com";
-
-/** Same bucket proposal-sign reads from, so uploads and signing agree. */
-const PROPOSAL_BUCKET = "client-assets";
-
-/**
- * Render a proposal to PDF and store it.
- *
- * The signing flow stamps a signature page onto a source PDF, so a proposal
- * with no PDF cannot be signed — this is what makes an agent-written proposal
- * a real one rather than a record only staff can read.
- *
- * Called lazily at send time rather than on every section write: a twelve
- * section document would otherwise render twelve times, eleven of them thrown
- * away.
- */
-async function renderAndStoreProposalPdf(
-  sb: SupabaseClient,
-  proposalId: string,
-  clientId: string,
-  title: string,
-  content: ProposalContent,
-  agentName: string,
-): Promise<{ ok: true; path: string } | { ok: false; error: string }> {
-  try {
-    const pdf = await renderProposalPdf(title, content);
-    const path = `proposals/${clientId}/${proposalId}/source.pdf`;
-    const { error: upErr } = await sb.storage.from(PROPOSAL_BUCKET)
-      .upload(path, pdf, { contentType: "application/pdf", upsert: true, cacheControl: "3600" });
-    if (upErr) throw upErr;
-
-    await sb.from("client_proposals")
-      .update({ source_pdf_path: path, pdf_generated_at: new Date().toISOString() })
-      .eq("id", proposalId);
-
-    await logProposalEvent(sb, {
-      proposal_id: proposalId,
-      client_id: clientId,
-      event_type: "pdf_uploaded",
-      actor: agentName,
-      detail: { path, generated: true },
-    });
-    return { ok: true, path };
-  } catch (e) {
-    return { ok: false, error: String((e as Error).message || e) };
-  }
-}
 
 /**
  * How many days after a send the first chase is due.
@@ -1090,7 +1044,7 @@ export async function executeAction(
         // pdf_generated_at. So the PDF is rendered HERE, once, from whatever
         // the document finally says — rather than twelve times on the way in,
         // or worse, sending the client a PDF that predates the last revision.
-        if (!proposal.source_pdf_path || !proposal.pdf_generated_at) {
+        if (needsPdfRender(proposal)) {
           const rendered = await renderAndStoreProposalPdf(
             sb, proposal.id, proposal.client_id, proposal.title,
             (proposal.content as ProposalContent) ?? {}, agentName,
