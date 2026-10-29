@@ -4800,7 +4800,13 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
   --cp-surface-2: #1c1c20;
   --cp-line: #26262b;
   --cp-text: #f2f2f4;
-  --cp-dim: #9a9aa4;
+  /* Bree, 29 Oct (live-site review of the Files tab): body and helper text
+     read as too dim against #0b0b0c. Raised from #9a9aa4 to near-white --
+     still a shade under --cp-text so a label and a value stay tellable
+     apart, but no longer a contrast complaint. --cp-faint (timestamps,
+     counts, placeholders) is deliberately untouched -- that one is supposed
+     to recede. */
+  --cp-dim: #e4e4e8;
   --cp-faint: #6f6f7a;
   --cp-accent: #7c5cff;
   --cp-accent-ink: #ffffff;
