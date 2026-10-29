@@ -51,6 +51,7 @@ import {
   type PaymentsView,
   type PortalBranding,
   type PortalMe,
+  type PortalMilestone,
   type PortalProject,
   type SharedDriveLink,
   type SharedLogin,
@@ -816,6 +817,33 @@ export class LegacySource implements PortalSource {
       501,
       "shared_drive_unavailable",
       "Removing a shared-drive link is not available on this portal yet.",
+    );
+  }
+
+  /**
+   * The RPC this used to be read through, `portal_project_phases`, is
+   * `security definer` and granted to `anon` -- it checks that the project
+   * belongs to *some* client, not that it belongs to the caller's. Scoping
+   * by `ctx.clientId` here, on top of the `client_project_id` filter, is the
+   * same defence in depth the plugin path gets for free from
+   * `x-client-portal-client-scope`.
+   */
+  async projectPhases(
+    ctx: PortalCallerContext,
+    clientProjectId: string,
+  ): Promise<PortalMilestone[]> {
+    const nodes = await this.#db
+      .from("journey_nodes")
+      .select("key, label, order_index, status, completed_at")
+      .eq("client_id", ctx.clientId)
+      .eq("client_project_id", clientProjectId)
+      .order("order_index", { ascending: true });
+    return ladder(
+      rows(nodes).map((node) => ({
+        key: required(node, "key"),
+        label: required(node, "label"),
+        done: isNodeDone(node),
+      })),
     );
   }
 

@@ -53,7 +53,7 @@ import { money, PortalRequestError } from "@/lib/clientPortalApi";
 // neither hook is ever called from here.
 import type { ResolvedClient, ResolvedProjectRow } from "@/components/portal/useClientPortal";
 import type { ProjectFile } from "@/components/portal/useClientFiles";
-import type { PhaseNode } from "@/lib/journeyPhases";
+import { isDone, type PhaseNode } from "@/lib/journeyPhases";
 
 /* -------------------------------------------------------------------------- */
 /* Dates                                                                       */
@@ -916,6 +916,20 @@ export function demoCall<T>(action: string, body: Record<string, unknown>): T {
     case "remove-shared-drive-link":
       state.sharedDriveLinks = state.sharedDriveLinks.filter((link) => link.id !== String(body.id));
       return {} as T;
+
+    case "project-phases":
+      // Same fixture `demoProjectPhases()` always was, through the same
+      // `ladder()` the real sources now answer with -- one path, so the
+      // harness and production agree on what "Build is in progress" means.
+      return {
+        milestones: ladder(
+          demoProjectPhases().map((node) => ({
+            key: node.key,
+            label: node.label,
+            done: isDone(node),
+          })),
+        ),
+      } as T;
 
     default:
       // A new action that nobody taught the harness is a harness that
