@@ -1,10 +1,28 @@
 // Public endpoint for CRE-225's password-gated /audit/<slug> report viewer.
-// POST checks the password (plaintext, by design -- client_audits.password
-// must stay human-readable so Bree can always see it, not just reset it --
-// see the briefs_core migration's own rationale) and rate limit, then issues
-// a short-lived session row. GET with a valid token serves the most recent
-// report version for that client.
+// POST checks the rate limit, then the password, then issues a short-lived
+// session row. GET with a valid token serves the most recent report version
+// for that client.
+//
+// CRE-859: the password compare used to `select("id, password")` and compare
+// the visitor's input in JS, so the plaintext left the database -- and was
+// compared non-constant-time -- on every attempt. It now calls the Client
+// Portal plugin's `POST /site-audits/password/verify`, which answers only
+// `{ ok }`: the password is sealed in the plugin and never reaches this
+// function, and the comparison there is constant-time. See
+// `_shared/client-portal-plugin.ts` and the plugin's own `site-audits.ts` for
+// why that route exists. There is deliberately no local fallback that
+// re-reads and compares the plaintext column -- a misconfigured plugin fails
+// the request (503/502), not the password check.
+//
+// The report-bytes path (GET) still reads `client_audits` /
+// `audit_report_versions` and the `audit-reports` bucket directly. Moving it
+// behind the plugin's file/download path (the same dual-storage-shape fix
+// the Files work did for `client-files`) needs a version-download route the
+// plugin does not have yet -- `site-audits.ts` only exposes list/create for
+// versions, not a byte fetch -- so there is nothing live to call today. Left
+// as-is rather than half-wired to a route that would 404 in production.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { PluginApiError, PluginClient, readPluginConfig } from "../_shared/client-portal-plugin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,9 +70,30 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: clientAudit } = await admin
-        .from("client_audits").select("id, password").eq("slug", slug).maybeSingle();
-      if (!clientAudit || clientAudit.password !== password) {
+      const config = readPluginConfig();
+      if (!config) {
+        console.error("audit-serve: CLIENT_PORTAL_* is not configured, refusing to verify a report password");
+        return new Response(JSON.stringify({ error: "report viewing is temporarily unavailable" }), {
+          status: 503,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      let verified: { ok: boolean };
+      try {
+        verified = await new PluginClient(config).call<{ ok: boolean }>(
+          "/site-audits/password/verify",
+          { method: "POST", body: { slug, password } },
+        );
+      } catch (e) {
+        console.error("audit-serve: password verify call failed", e instanceof PluginApiError ? e.code : e);
+        return new Response(JSON.stringify({ error: "could not verify the password right now" }), {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!verified.ok) {
         await admin.from("audit_login_attempts").insert({ slug, ip });
         return new Response(JSON.stringify({ error: "invalid password" }), {
           status: 401,
