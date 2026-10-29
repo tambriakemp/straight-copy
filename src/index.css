@@ -5220,6 +5220,22 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
   cursor: pointer;
 }
 .cp-doc__warn { display: block; color: #9a3a3f; font-size: 13px; margin-top: 6px; }
+.cp-doc__pdf-state { color: #6a6a6a; font-size: 14px; margin: 0 0 16px; }
+.cp-doc__pdf-wrap { margin: 0 0 16px; }
+.cp-doc__pdf {
+  display: block;
+  width: 100%;
+  height: min(78vh, 900px);
+  border: 1px solid #e0ded8;
+  border-radius: 10px;
+  background: #fff;
+}
+.cp-doc__pdf-fallback {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #5b46c9;
+}
 
 .cp-panel {
   padding: 22px;
@@ -5351,6 +5367,21 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
   cursor: pointer;
 }
 .cp-picker__item--on { border-color: var(--cp-accent); }
+
+.cp-picker__toggle {
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 10px 0 0;
+  margin-top: 4px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--cp-faint);
+  text-decoration: underline;
+  text-align: left;
+  cursor: pointer;
+}
+.cp-picker__toggle:hover { color: var(--cp-text); }
 
 .cp-decline { width: 100%; display: grid; gap: 10px; }
 

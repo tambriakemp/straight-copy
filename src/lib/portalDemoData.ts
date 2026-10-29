@@ -193,6 +193,50 @@ const state: DemoState = {
       signedAt: null,
       signerName: null,
     },
+    {
+      // Superseded by a later version. The server collapses "voided" and
+      // "superseded" into this one status (see `legacy-source.ts`), and it
+      // is the row CRE-825's "closed-out versions" toggle hides by default.
+      id: "ag-superseded",
+      number: "NH-2025-098",
+      title: "Logo refresh (v1)",
+      preparedFor: "Glowskin Studio",
+      preparedBy: "Northhill Studio",
+      sentAt: daysOut(-210),
+      status: "void",
+      scopeHeading: "What we'll build",
+      scopeBody: "A new logo mark and a one-page style sheet.",
+      lineItems: [{ description: "Logo design", amountCents: 45_000 }],
+      totalCents: 45_000,
+      currency: "USD",
+      instalmentSummary: null,
+      hasSourcePdf: false,
+      hasSignedDocument: false,
+      signedAt: null,
+      signerName: null,
+    },
+    {
+      // Never answered in time. The other closed-out status the same
+      // toggle hides, so the fixture set has both of the statuses that
+      // line's "default" filter has to catch.
+      id: "ag-expired",
+      number: "NH-2025-071",
+      title: "Holiday landing page",
+      preparedFor: "Glowskin Studio",
+      preparedBy: "Northhill Studio",
+      sentAt: daysOut(-400),
+      status: "expired",
+      scopeHeading: "What we'll build",
+      scopeBody: "A seasonal landing page with a countdown timer.",
+      lineItems: [],
+      totalCents: 35_000,
+      currency: "USD",
+      instalmentSummary: null,
+      hasSourcePdf: false,
+      hasSignedDocument: false,
+      signedAt: null,
+      signerName: null,
+    },
   ],
 
   // One row per `PaymentState`, which is the whole point: "Ready to pay"

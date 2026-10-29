@@ -62,6 +62,19 @@ export default function ClientAgreements() {
     );
   }, [view, wanted]);
 
+  // Closed-out versions (superseded or voided -- both arrive here as
+  // "void" -- and ones that expired unanswered) start collapsed. Everything
+  // still worth a client's attention -- signed, awaiting a signature, or
+  // declined -- stays in view with no click required.
+  const [showAllVersions, setShowAllVersions] = useState(false);
+  const currentIsClosedOut = current !== null && CLOSED_OUT_STATUSES.has(current.status);
+  // A link straight to an old version (from an email, from support) has to
+  // land on it rather than silently swap to the newest open one because the
+  // row is collapsed underneath a toggle it did not ask for.
+  useEffect(() => {
+    if (currentIsClosedOut) setShowAllVersions(true);
+  }, [currentIsClosedOut, current?.id]);
+
   return (
     <ClientPortalShell
       clientId={clientId ?? ""}
@@ -93,6 +106,8 @@ export default function ClientAgreements() {
               <Picker
                 agreements={view.agreements}
                 currentId={current.id}
+                showAll={showAllVersions}
+                onToggleShowAll={() => setShowAllVersions((was) => !was)}
                 onPick={(id) => {
                   const next = new URLSearchParams(params);
                   next.set("id", id);
@@ -202,19 +217,17 @@ function Document({
       )}
 
       {/* An uploaded proposal has no blocks to lay out, so the document
-          itself is the thing to read. Fetched on click rather than linked:
-          the server answers with bytes or with a URL that expires, and
-          neither is something that could sit in an `href`. */}
+          itself is the thing to read -- in the page, next to the panel that
+          signs it, rather than behind a click that takes the client
+          somewhere else to read it and back here to sign it. */}
       {agreement.hasSourcePdf && (
-        <p className="cp-doc__p">
-          <DocumentButton
-            clientId={clientId}
-            proposalId={agreement.id}
-            kind="source"
-            adminPreview={adminPreview}
-            label="Read the full proposal (PDF)"
-          />
-        </p>
+        <SourceDocumentPreview
+          key={agreement.id}
+          clientId={clientId}
+          proposalId={agreement.id}
+          adminPreview={adminPreview}
+          title={agreement.title}
+        />
       )}
 
       {agreement.hasSignedDocument && (
@@ -284,20 +297,117 @@ function DocumentButton({
   );
 }
 
+/**
+ * The proposal PDF, open on the page rather than behind a click.
+ *
+ * Fetched on mount, not on click: the document is the left half of the
+ * screen now, so there is nothing to click to see it. The server answers
+ * with bytes or with a URL that expires, matching `download` above, except
+ * this one holds the result open in an `<iframe>` instead of handing it to
+ * the browser's save dialog, and revokes the blob URL once the agreement
+ * changes or the screen is left -- an un-revoked one leaks for the tab's
+ * whole life.
+ */
+function SourceDocumentPreview({
+  clientId,
+  proposalId,
+  adminPreview,
+  title,
+}: {
+  clientId: string;
+  proposalId: string;
+  adminPreview: boolean;
+  title: string;
+}) {
+  const [state, setState] = useState<
+    | { phase: "loading" }
+    | { phase: "ready"; url: string; filename: string }
+    | { phase: "error"; message: string }
+  >({ phase: "loading" });
+
+  useEffect(() => {
+    setState({ phase: "loading" });
+    let revoke: (() => void) | null = null;
+    let cancelled = false;
+    clientPortal
+      .openForPreview(clientId, proposalId, "source", adminPreview)
+      .then((opened) => {
+        if (cancelled) {
+          opened.revoke();
+          return;
+        }
+        revoke = opened.revoke;
+        setState({ phase: "ready", url: opened.url, filename: opened.filename });
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setState({
+          phase: "error",
+          message:
+            caught instanceof PortalRequestError
+              ? caught.message
+              : "That document could not be opened.",
+        });
+      });
+    return () => {
+      cancelled = true;
+      revoke?.();
+    };
+  }, [clientId, proposalId, adminPreview]);
+
+  if (state.phase === "loading") {
+    return <p className="cp-doc__pdf-state">Loading the document…</p>;
+  }
+
+  if (state.phase === "error") {
+    return <p className="cp-doc__warn">{state.message}</p>;
+  }
+
+  return (
+    <div className="cp-doc__pdf-wrap">
+      <iframe
+        className="cp-doc__pdf"
+        src={state.url}
+        title={`${title} — proposal document`}
+      />
+      {/* A browser that cannot show a PDF inline (some mobile browsers
+          still cannot) needs a way out of a blank frame, so the same file
+          is also a plain link underneath it rather than only inside it. */}
+      <a className="cp-doc__pdf-fallback" href={state.url} target="_blank" rel="noopener noreferrer">
+        Open in a new tab
+      </a>
+    </div>
+  );
+}
+
+/** Which closed-out statuses stay collapsed behind "Show previous versions". */
+const CLOSED_OUT_STATUSES: ReadonlySet<AgreementView["status"]> = new Set(["void", "expired"]);
+
 function Picker({
   agreements,
   currentId,
+  showAll,
+  onToggleShowAll,
   onPick,
 }: {
   agreements: AgreementView[];
   currentId: string;
+  showAll: boolean;
+  onToggleShowAll: () => void;
   onPick: (id: string) => void;
 }) {
+  const closedOutCount = agreements.filter((agreement) =>
+    CLOSED_OUT_STATUSES.has(agreement.status),
+  ).length;
+  const visible = showAll
+    ? agreements
+    : agreements.filter((agreement) => !CLOSED_OUT_STATUSES.has(agreement.status));
+
   return (
     <section className="cp-panel">
       <h2 className="cp-panel__title">Your agreements</h2>
       <ul className="cp-picker">
-        {agreements.map((agreement) => (
+        {visible.map((agreement) => (
           <li key={agreement.id}>
             <button
               type="button"
@@ -310,6 +420,13 @@ function Picker({
           </li>
         ))}
       </ul>
+      {closedOutCount > 0 && (
+        <button type="button" className="cp-picker__toggle" onClick={onToggleShowAll}>
+          {showAll
+            ? "Hide previous versions"
+            : `Show previous versions (${closedOutCount})`}
+        </button>
+      )}
     </section>
   );
 }
