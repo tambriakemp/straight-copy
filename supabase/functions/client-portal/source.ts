@@ -38,6 +38,7 @@ import type {
   LoginsView,
   PaymentsView,
   PortalBranding,
+  SharedDriveLink,
   SignRequest,
   SignResult,
 } from "../_shared/client-portal-wire.ts";
@@ -171,15 +172,16 @@ export interface PortalSource {
   ): Promise<AccountAccessView>;
 
   /**
-   * The client's own shared-drive link (CRE-827), replacing the Files tab's
-   * upload button. `url` is validated by the implementation; `null` clears
-   * it. The reader already gets the current value from `home()` -- this is
-   * the one write `HomeView` has no field for.
+   * Add one of the client's shared-drive links (CRE-827), replacing the
+   * Files tab's upload button. `url` is validated by the implementation.
+   * The reader already gets the current list from `home()` -- these are the
+   * two writes `HomeView` has no field for.
    */
-  saveSharedDriveUrl(
+  createSharedDriveLink(
     ctx: PortalCallerContext,
-    url: string | null,
-  ): Promise<{ sharedDriveUrl: string | null }>;
+    input: { clientProjectId: string; url: string },
+  ): Promise<SharedDriveLink>;
+  removeSharedDriveLink(ctx: PortalCallerContext, id: string): Promise<void>;
 
   /**
    * One decrypted password, for one login shared with this client.

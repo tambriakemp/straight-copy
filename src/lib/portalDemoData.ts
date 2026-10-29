@@ -41,6 +41,7 @@ import {
   type PortalBranding,
   type PortalMe,
   type PortalProject,
+  type SharedDriveLink,
   type SharedLogin,
   type SignRequest,
   type SignResult,
@@ -119,13 +120,16 @@ interface DemoState {
   payments: PaymentRow[];
   logins: SharedLogin[];
   requests: LoginRequest[];
-  /** CRE-827. Seeded with a sample link so the Files tab reviews in its
-   *  "already set" state, same as the sent agreements and shared logins. */
-  sharedDriveUrl: string | null;
+  /** CRE-827. Seeded with a sample link, tagged to `DEMO_PROJECT`, so the
+   *  Files tab reviews in its "already set" state, same as the sent
+   *  agreements and shared logins. */
+  sharedDriveLinks: SharedDriveLink[];
 }
 
 const state: DemoState = {
-  sharedDriveUrl: "https://drive.example.invalid/folders/demo-glowskin-studio",
+  sharedDriveLinks: [
+    { id: "sdl-demo-1", clientProjectId: "proj-main", url: "https://drive.example.invalid/folders/demo-glowskin-studio" },
+  ],
   agreements: [
     {
       // The one the screen opens on: awaiting a signature, built here, so
@@ -456,7 +460,7 @@ function homeView(): HomeView {
     branding: BRANDING,
     me: ME,
     projects: PROJECTS,
-    sharedDriveUrl: state.sharedDriveUrl,
+    sharedDriveLinks: state.sharedDriveLinks,
     headline: "Your new site is being built",
     stepNumber: step?.stepNumber ?? null,
     stepCount: step?.stepCount ?? null,
@@ -900,9 +904,18 @@ export function demoCall<T>(action: string, body: Record<string, unknown>): T {
     case "reveal-login":
       return revealLogin(String(body.id)) as T;
 
-    case "save-shared-drive-url":
-      state.sharedDriveUrl = typeof body.sharedDriveUrl === "string" ? body.sharedDriveUrl : null;
-      return { sharedDriveUrl: state.sharedDriveUrl } as T;
+    case "create-shared-drive-link": {
+      const link: SharedDriveLink = {
+        id: `sdl-demo-${state.sharedDriveLinks.length + 1}`,
+        clientProjectId: String(body.clientProjectId ?? ""),
+        url: String(body.url ?? ""),
+      };
+      state.sharedDriveLinks.push(link);
+      return { sharedDriveLink: link } as T;
+    }
+    case "remove-shared-drive-link":
+      state.sharedDriveLinks = state.sharedDriveLinks.filter((link) => link.id !== String(body.id));
+      return {} as T;
 
     default:
       // A new action that nobody taught the harness is a harness that
