@@ -130,12 +130,19 @@ export type ViewAsResult =
  * `brand-kit-intake` and `client-files` are the two CRE-808 added (CRE-818).
  * The dark nav is seven items now, and Project and Files are two of
  * them: `resolve` is how both screens learn which live project a client has,
- * and `list` is the file table itself. ONE ACTION EACH. `brand-kit-intake`
+ * and `list` is the file table itself. `brand-kit-intake`
  * answers to six more, and five of those write -- `complete` advances the
  * client's journey node and emails the team, `fast-complete` does it with no
- * conversation at all; `client-files` has `register`, `remove` and
- * `set_visible`. None of them is here, so a preview reads the file list and
+ * conversation at all; `client-files` has `create`, `complete`, `remove` and
+ * `set_visible`. None of those is here, so a preview reads the file list and
  * cannot add to it, take from it or hide a row.
+ *
+ * `client-files` gained `download` in CRE-822: the plugin-backed list no
+ * longer carries a link (one expires, so one on a list would be dead by the
+ * time anyone clicked it), so opening or previewing a file is a second call.
+ * It is a read in the same sense `reveal-login` below is -- it does not
+ * change the row, and it writes its own audit entry either way -- so a
+ * preview that could list files but never open one would read as broken.
  *
  * WHAT IS DELIBERATELY ABSENT. `client-logins`, `preview-approvals`,
  * `web-dev-discovery-chat`, `project-invoices` and the rest have no entry, so
@@ -153,7 +160,7 @@ export const VIEW_AS_READS: Record<string, readonly string[]> = {
   "client-portal": ["home", "agreements", "payments", "logins", "document", "reveal-login"],
   "proposal-sign": ["download"],
   "brand-kit-intake": ["resolve"],
-  "client-files": ["list"],
+  "client-files": ["list", "download"],
 };
 
 /** Whether `action` on `fn` is a read a view-as token may make. */

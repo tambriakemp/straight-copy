@@ -4,16 +4,15 @@
 // client sent. Same kind of thing from opposite ends, so one table with
 // a direction rather than two that drift apart.
 //
-// Downloads are signed URLs minted per load and good for half an hour.
-// The bucket is private on purpose — the portal is a link, and a link
-// that also hands out permanent file URLs turns one forwarded address
-// into a document archive that never expires.
+// Neither list carries a download link (CRE-822): `open()` mints one, for
+// one file, on the click that needs it, so a link minted when the page
+// loaded is never still live -- or dead -- by the time somebody clicks.
 import { useState } from "react";
 import { Upload, FileText, Download, Trash2 } from "lucide-react";
 import EmptyState from "@/components/admin/cv/EmptyState";
 import { fileSize, previewKind } from "@/lib/projectFiles";
 import FilePreview from "@/components/FilePreview";
-import { useClientFiles, type ProjectFile } from "@/components/portal/useClientFiles";
+import { useClientFiles, type OpenedFile, type ProjectFile } from "@/components/portal/useClientFiles";
 
 export type { ProjectFile };
 
@@ -32,41 +31,55 @@ export default function FilesSection({
   clientName: string | null;
   adminPreview: boolean;
 }) {
-  const [previewing, setPreviewing] = useState<ProjectFile | null>(null);
+  const [previewing, setPreviewing] = useState<OpenedFile | null>(null);
   const {
-    files, shared, sent, busy, unavailable, dragging, inputRef, onDragOver, onDragLeave, onDrop, upload, remove,
+    files, shared, sent, busy, unavailable, dragging, inputRef, onDragOver, onDragLeave, onDrop, upload, remove, open,
   } = useClientFiles({ clientId, clientProjectId, clientName, adminPreview });
 
-  const row = (f: ProjectFile, mine: boolean) => (
-    <div key={f.id} className="cv-it">
-      <span className="cv-ic" style={{ background: "#EEF0F5", color: "#3D4556" }}>
-        <FileText size={22} />
-      </span>
-      <span className="cv-it__what">
-        {f.url && previewKind(f.mime, f.name) ? (
-          <button type="button" className="cv-filename" onClick={() => setPreviewing(f)}>
-            {f.name}
+  const row = (f: ProjectFile, mine: boolean) => {
+    const canOpen = f.downloadable && previewKind(f.mime, f.name);
+    const canDownload = f.downloadable;
+    return (
+      <div key={f.id} className="cv-it">
+        <span className="cv-ic" style={{ background: "#EEF0F5", color: "#3D4556" }}>
+          <FileText size={22} />
+        </span>
+        <span className="cv-it__what">
+          {canOpen ? (
+            <button type="button" className="cv-filename" onClick={() => void open(f).then(setPreviewing)}>
+              {f.name}
+            </button>
+          ) : <b>{f.name}</b>}
+          <small>
+            {[
+              f.category,
+              when(f.created_at),
+              fileSize(f.size_bytes),
+              f.status === "external" ? "not available yet" : null,
+            ].filter(Boolean).join(" · ")}
+          </small>
+        </span>
+        <span className={`cv-chip ${mine ? "cv-chip--violet" : "cv-chip--gray"}`}>
+          {mine ? "From you" : "From Cre8 Visions"}
+        </span>
+        {canDownload && (
+          <button
+            type="button"
+            className="cv-open"
+            style={{ padding: "0 16px" }}
+            onClick={() => void open(f).then((opened) => opened && window.open(opened.url, "_blank"))}
+          >
+            <Download size={14} style={{ marginRight: 6 }} /> Download
           </button>
-        ) : <b>{f.name}</b>}
-        <small>
-          {[f.category, when(f.created_at), fileSize(f.size_bytes)].filter(Boolean).join(" · ")}
-        </small>
-      </span>
-      <span className={`cv-chip ${mine ? "cv-chip--violet" : "cv-chip--gray"}`}>
-        {mine ? "From you" : "From Cre8 Visions"}
-      </span>
-      {f.url && (
-        <a className="cv-open" style={{ padding: "0 16px" }} href={f.url} target="_blank" rel="noreferrer">
-          <Download size={14} style={{ marginRight: 6 }} /> Download
-        </a>
-      )}
-      {mine && (
-        <button type="button" className="cv-mini cv-mini--danger" onClick={() => void remove(f)}>
-          <Trash2 size={14} />
-        </button>
-      )}
-    </div>
-  );
+        )}
+        {mine && (
+          <button type="button" className="cv-mini cv-mini--danger" onClick={() => void remove(f)}>
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="cv-pg">
@@ -138,10 +151,13 @@ export default function FilesSection({
         ) : sent.map((f) => row(f, true))}
       </section>
 
-      {previewing?.url && (
+      {previewing && (
         <FilePreview
-          name={previewing.name} url={previewing.url} mime={previewing.mime}
-          onClose={() => setPreviewing(null)}
+          name={previewing.filename} url={previewing.url} mime={previewing.mime}
+          onClose={() => {
+            if (previewing.url.startsWith("blob:")) URL.revokeObjectURL(previewing.url);
+            setPreviewing(null);
+          }}
         />
       )}
     </div>
