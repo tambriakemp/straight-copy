@@ -245,6 +245,29 @@ export interface SharedDriveLink {
   url: string;
 }
 
+/**
+ * One row on the Audits tab (CRE-822, G8).
+ *
+ * Never carries a password, sealed or otherwise -- the gate at `/audit/:slug`
+ * answers a boolean (`verify`) rather than a value this view could leak.
+ * `subjectName` is free text on the row itself, not the client's name read
+ * through a join: a report is sometimes about a site that is not the one the
+ * client is named for.
+ */
+export interface PortalAudit {
+  id: string;
+  slug: string;
+  kind: string | null;
+  subjectName: string;
+  coverNote: string | null;
+  reportUrl: string | null;
+  reviewedAt: string | null;
+  sharedAt: string | null;
+  createdAt: string;
+  versionCount: number;
+  latestVersion: number | null;
+}
+
 /** A thing the client has to do. The whole point of the home screen. */
 export interface WaitingItem {
   id: string;

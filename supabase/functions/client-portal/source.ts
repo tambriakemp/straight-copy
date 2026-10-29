@@ -37,6 +37,7 @@ import type {
   HomeView,
   LoginsView,
   PaymentsView,
+  PortalAudit,
   PortalBranding,
   PortalMilestone,
   SharedDriveLink,
@@ -139,6 +140,14 @@ export interface PortalSource {
    * these, not one shared between them.
    */
   projectPhases(ctx: PortalCallerContext, clientProjectId: string): Promise<PortalMilestone[]>;
+
+  /**
+   * The Audits tab (CRE-822, G8): reviewed-and-shared reports for one
+   * project. Never the password, sealed or otherwise -- the gate at
+   * `/audit/:slug` is a separate, public, slug-addressed surface with its
+   * own `verify` call, not a reason for this one to carry a secret.
+   */
+  projectAudits(ctx: PortalCallerContext, clientProjectId: string): Promise<PortalAudit[]>;
 
   sign(ctx: PortalCallerContext, input: SignRequest): Promise<SignResult>;
   decline(ctx: PortalCallerContext, proposalId: string, reason: string | null): Promise<void>;

@@ -49,6 +49,7 @@ import {
   type LoginsView,
   type PaymentRow,
   type PaymentsView,
+  type PortalAudit,
   type PortalBranding,
   type PortalMe,
   type PortalMilestone,
@@ -845,6 +846,44 @@ export class LegacySource implements PortalSource {
         done: isNodeDone(node),
       })),
     );
+  }
+
+  /**
+   * `portal_project_audits` is the same shape of RPC `portal_project_phases`
+   * was -- `security definer`, granted to `anon`, and checking only that the
+   * project exists, not that it is this caller's. The ownership check this
+   * method does first is the same defence in depth; the RPC still does the
+   * reviewed-and-shared filtering, which the hand-rolled `Query` type this
+   * file uses has no `is not null` to express directly.
+   */
+  async projectAudits(
+    ctx: PortalCallerContext,
+    clientProjectId: string,
+  ): Promise<PortalAudit[]> {
+    const project = await this.#db
+      .from("client_projects")
+      .select("id")
+      .eq("id", clientProjectId)
+      .eq("client_id", ctx.clientId)
+      .maybeSingle();
+    if (!project.data) return [];
+
+    const result = await this.#db.rpc("portal_project_audits", {
+      _client_project_id: clientProjectId,
+    });
+    return rows(result as { data: Row[] | null; error?: unknown }).map((audit) => ({
+      id: required(audit, "id"),
+      slug: required(audit, "slug"),
+      kind: text(audit, "kind"),
+      subjectName: text(audit, "client_name") ?? "",
+      coverNote: text(audit, "cover_note"),
+      reportUrl: text(audit, "report_url"),
+      reviewedAt: text(audit, "reviewed_at"),
+      sharedAt: text(audit, "shared_at"),
+      createdAt: required(audit, "created_at"),
+      versionCount: numberOrNull(audit, "version_count") ?? 1,
+      latestVersion: numberOrNull(audit, "version_count"),
+    }));
   }
 
   async #clientTier(ctx: PortalCallerContext): Promise<string | null> {

@@ -181,6 +181,10 @@ describe("the read allowlist", () => {
     expect(viewAsMayRead("client-portal", "project-phases")).toBe(true);
   });
 
+  it("lets the Audits tab through (CRE-822, G8)", () => {
+    expect(viewAsMayRead("client-portal", "project-audits")).toBe(true);
+  });
+
   it("refuses every write on the portal, which is the point of it", () => {
     for (const action of [
       "sign",

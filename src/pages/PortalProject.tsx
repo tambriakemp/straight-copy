@@ -842,7 +842,7 @@ export default function PortalProject() {
             </p>
           </section>
         ) : tab === "audits" ? (
-          <AuditsSection clientProjectId={currentProject.id} adminPreview={adminPreview} />
+          <AuditsSection clientId={clientId!} clientProjectId={currentProject.id} adminPreview={adminPreview} />
         ) : tab === "files" ? (
           <FilesSection
             clientId={clientId!}

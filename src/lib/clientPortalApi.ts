@@ -20,6 +20,7 @@ import type {
   HomeView,
   LoginsView,
   PaymentsView,
+  PortalAudit,
   PortalMilestone,
   SharedDriveLink,
   SignRequest,
@@ -133,6 +134,21 @@ export const clientPortal = {
       preview,
     );
     return payload.milestones;
+  },
+
+  /** The Audits tab (CRE-822, G8): reviewed-and-shared reports for one project. */
+  async projectAudits(
+    clientId: string,
+    clientProjectId: string,
+    preview: boolean,
+  ): Promise<PortalAudit[]> {
+    const payload = await call<{ audits: PortalAudit[] }>(
+      clientId,
+      "project-audits",
+      { clientProjectId },
+      preview,
+    );
+    return payload.audits;
   },
 
   async sign(clientId: string, input: SignRequest, preview: boolean): Promise<SignResult> {
