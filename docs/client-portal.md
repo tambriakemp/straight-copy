@@ -184,7 +184,7 @@ curl -s -X POST "$SUPABASE_URL/functions/v1/client-portal" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"action":"health"}'
 # → {"ok":true,"source":"admin-tables","plugin":{"baseUrl":false,...},
-#    "wire":"1.2.0","monogram":true}
+#    "wire":"1.3.0","monogram":true}
 ```
 
 Booleans, a source name and a version. A diagnostic that printed the first
@@ -364,6 +364,7 @@ guess of its own.
 
 | | |
 |---|---|
+| `1.3.0` | `HomeView.buildStartDate`/`.deliveryDate`/`.deliveryVideoUrl`, `SharedLogin.note`/`.sortOrder`, `AgreementView.versionGroupId`/`.paymentDueDays`/`.paymentTerms`/`.firstViewedAt`/`.declinedAt`/`.declineReason` (CRE-822). All optional; absent draws null. |
 | `1.2.0` | `HomeView.projects` (CRE-776). Optional; absent draws no card. |
 | `1.1.0` | `PortalBranding.monogram` (CRE-797). Optional; null draws no tile. |
 | `1.0.0` | The four screens, mockups 13-16 (CRE-776). |

@@ -153,7 +153,17 @@ function LoginRow({
         <span className="cp-chip" aria-hidden="true">
           {login.label.slice(0, 1).toUpperCase()}
         </span>
-        {login.label}
+        <span>
+          {login.label}
+          {/* The line under the label (CRE-822), written by whoever shared
+              it -- frequently the only thing telling two rows with the same
+              label apart. */}
+          {login.note && (
+            <span style={{ display: "block", color: "var(--cp-dim)", fontSize: 13 }}>
+              {login.note}
+            </span>
+          )}
+        </span>
       </td>
       <td className="cp-mono" data-label="Username">{login.username ?? "—"}</td>
       <td className="cp-mono cp-mask" data-label="Password">{login.masked}</td>

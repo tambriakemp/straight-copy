@@ -53,6 +53,7 @@ import {
   formatMoney,
   pluginProjects,
   providerLabel,
+  sortLogins,
   widenStatus,
   type ShapeInvoice,
   type ShapeScheduleItem,
@@ -84,6 +85,10 @@ interface PluginClientRow {
   id: string;
   name: string;
   status: string;
+  /** The project header's three additions (CRE-822) -- see `docs/API.md`. */
+  buildStartDate?: string | null;
+  deliveryDate?: string | null;
+  deliveryVideoUrl?: string | null;
 }
 
 interface PluginContact {
@@ -109,6 +114,13 @@ interface PluginClientProject {
    * can resolve, which is why it decides whether a project row gets a link.
    */
   legacyAdminProjectId?: string | null;
+  /**
+   * What sort of work this is, as the licensee's own key (CRE-822). Lives on
+   * the link row -- a Paperclip project has a name and a status and no kind
+   * -- and is mapped to a client-facing word by `projectKindLabel`, never
+   * shown raw.
+   */
+  kind?: string | null;
   /**
    * The linked Paperclip project, which is where its name lives.
    *
@@ -143,6 +155,18 @@ interface PluginProposal {
   status: string;
   createdAt: string;
   updatedAt: string;
+  /** The proposal family and the stated terms (CRE-822) -- see `docs/API.md`. */
+  versionGroupId?: string | null;
+  paymentDueDays?: number | null;
+  paymentTerms?: string | null;
+}
+
+/** Derived from the event trail, not stored -- see `docs/API.md` (CRE-822). */
+interface PluginProposalTimeline {
+  sentAt: string | null;
+  firstViewedAt: string | null;
+  declinedAt: string | null;
+  declineReason: string | null;
 }
 
 /**
@@ -183,6 +207,9 @@ interface PluginCredential {
   username: string | null;
   secret: string;
   createdAt: string;
+  /** Unsealed, like `username` since `001` (CRE-822) -- see `docs/API.md`. */
+  note?: string | null;
+  sortOrder?: number | null;
 }
 
 interface PluginCredentialRequest {
@@ -221,14 +248,10 @@ export class PluginSource implements PortalSource {
     return this.#api.call<T>(path, { method: "POST", clientScope: ctx.clientId, body });
   }
 
-  async #me(ctx: PortalCallerContext) {
-    const { client, contacts } = await this.#get<{
-      client: PluginClientRow;
-      contacts: PluginContact[];
-    }>(ctx, `/clients/${encodeURIComponent(ctx.clientId)}`);
-    // The person, if we know one, for "Good afternoon, Maya". The business
-    // name is the fallback rather than the other way round: a greeting
-    // addressed to a company reads like an invoice.
+  /** The person, if we know one, for "Good afternoon, Maya". The business
+   * name is the fallback rather than the other way round: a greeting
+   * addressed to a company reads like an invoice. */
+  #meFrom(client: PluginClientRow, contacts: PluginContact[]) {
     const primary = contacts.find((contact) => contact.isPrimary) ?? contacts[0];
     const displayName = primary?.name ?? client.name;
     return {
@@ -239,15 +262,28 @@ export class PluginSource implements PortalSource {
     };
   }
 
+  async #me(ctx: PortalCallerContext) {
+    const { client, contacts } = await this.#clientRow(ctx);
+    return this.#meFrom(client, contacts);
+  }
+
+  #clientRow(ctx: PortalCallerContext) {
+    return this.#get<{
+      client: PluginClientRow;
+      contacts: PluginContact[];
+    }>(ctx, `/clients/${encodeURIComponent(ctx.clientId)}`);
+  }
+
   async home(ctx: PortalCallerContext): Promise<HomeView> {
-    const [me, projects, proposals, invoices] = await Promise.all([
-      this.#me(ctx),
+    const [{ client, contacts }, projects, proposals, invoices] = await Promise.all([
+      this.#clientRow(ctx),
       this.#get<{ clientProjects: PluginClientProject[] }>(ctx, "/client-projects", {
         clientId: ctx.clientId,
       }),
       this.#get<{ proposals: PluginProposal[] }>(ctx, "/proposals", { clientId: ctx.clientId }),
       this.#get<{ invoices: PluginInvoice[] }>(ctx, "/invoices", { clientId: ctx.clientId }),
     ]);
+    const me = this.#meFrom(client, contacts);
 
     // The first linked project is the one the home screen is about. A client
     // with several still gets one progress bar, because the alternative is a
@@ -312,6 +348,9 @@ export class PluginSource implements PortalSource {
       branding: ctx.branding,
       me,
       projects: pluginProjects(projects.clientProjects, ctx.clientId),
+      buildStartDate: client.buildStartDate ?? null,
+      deliveryDate: client.deliveryDate ?? null,
+      deliveryVideoUrl: client.deliveryVideoUrl ?? null,
       headline: visibility?.headline ?? null,
       stepNumber: position?.stepNumber ?? null,
       stepCount: position?.stepCount ?? null,
@@ -393,6 +432,8 @@ export class PluginSource implements PortalSource {
       signatures: PluginSignature[];
       schedule: PluginScheduleItem[];
       sourceDocument?: PluginSourceDocument | null;
+      /** CRE-822, optional for the same reason `sourceDocument` is. */
+      timeline?: PluginProposalTimeline | null;
     }>(ctx, `/proposals/${encodeURIComponent(proposal.id)}`);
 
     const blocks = Array.isArray(detail.proposal.blocks)
@@ -417,7 +458,16 @@ export class PluginSource implements PortalSource {
       title: detail.proposal.title,
       preparedFor,
       preparedBy: ctx.branding.agencyName,
-      sentAt: sentAtOf(detail.proposal),
+      // The real `timeline` wins the moment the plugin sends one; the local
+      // derivation stays as what an older server, with no such route field,
+      // falls back to.
+      sentAt: detail.timeline?.sentAt ?? sentAtOf(detail.proposal),
+      firstViewedAt: detail.timeline?.firstViewedAt ?? null,
+      declinedAt: detail.timeline?.declinedAt ?? null,
+      declineReason: detail.timeline?.declineReason ?? null,
+      versionGroupId: detail.proposal.versionGroupId ?? null,
+      paymentDueDays: detail.proposal.paymentDueDays ?? null,
+      paymentTerms: detail.proposal.paymentTerms ?? null,
       status: widenStatus(detail.proposal.status),
       scopeHeading: scope ? String(scope.title ?? "What we’ll build") : null,
       scopeBody: scope ? String(scope.body ?? "") || null : null,
@@ -636,16 +686,20 @@ export class PluginSource implements PortalSource {
     return {
       branding: ctx.branding,
       me,
-      logins: credentials.credentials.map((credential): SharedLogin => ({
-        id: credential.id,
-        label: credential.label,
-        username: credential.username,
-        url: credential.url,
-        sharedAt: credential.createdAt,
-        // Whatever the plugin considers the mask, rather than a local
-        // constant: two spellings of "hidden" on one screen reads as a bug.
-        masked: credential.secret,
-      })),
+      logins: sortLogins(
+        credentials.credentials.map((credential): SharedLogin => ({
+          id: credential.id,
+          label: credential.label,
+          username: credential.username,
+          url: credential.url,
+          sharedAt: credential.createdAt,
+          // Whatever the plugin considers the mask, rather than a local
+          // constant: two spellings of "hidden" on one screen reads as a bug.
+          masked: credential.secret,
+          note: credential.note ?? null,
+          sortOrder: credential.sortOrder ?? null,
+        })),
+      ),
       requests: requests.requests.map((request): LoginRequest => ({
         id: request.id,
         label: request.label,

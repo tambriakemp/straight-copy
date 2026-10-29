@@ -54,6 +54,14 @@
  * than this copy" and draws what it would draw for an unset value -- never as
  * an error, and never by substituting a guess of its own.
  *
+ *   1.3.0  Field coverage from the plugin's migration 009 (CRE-822):
+ *          `HomeView.buildStartDate`, `.deliveryDate`, `.deliveryVideoUrl`;
+ *          `SharedLogin.note` and `.sortOrder`; `AgreementView.versionGroupId`,
+ *          `.paymentDueDays`, `.paymentTerms`, `.firstViewedAt`, `.declinedAt`
+ *          and `.declineReason`. Every one of these existed on `/admin` with
+ *          nowhere on the plugin to read it from, so a server older than this
+ *          copy answers none of them -- drawn as null, same as an install
+ *          that genuinely has nothing to say.
  *   1.2.0  `HomeView.projects` (CRE-776, Bree's decision of 28 Oct). The home
  *          screen lists the client's own projects rather than deriving one
  *          hero line from the first of them. Optional, so a frontend built
@@ -65,7 +73,7 @@
  *          existed, which put our mark on a licensee's client's screen.
  *   1.0.0  The four screens, mockups 13-16 (CRE-776).
  */
-export const PORTAL_WIRE_VERSION = "1.2.0";
+export const PORTAL_WIRE_VERSION = "1.3.0";
 
 /** The agency, as the client sees it. Never hardcoded: licensees are not us. */
 export interface PortalBranding {
@@ -262,6 +270,23 @@ export interface HomeView {
    * copy", and a reader draws no card at all rather than an empty one.
    */
   projects?: PortalProject[];
+  /**
+   * The client's own build-start and delivery dates, and the walkthrough
+   * video once there is one -- CRE-822's three additions to the client row.
+   *
+   * `deliveryDate` is **not** `targetDate` below, and the two exist side by
+   * side on purpose: `targetDate` is the date the project is currently being
+   * told to expect and moves as the work does, while `deliveryDate` is what
+   * was agreed. Collapsing them would let a slipped target rewrite the
+   * promise with nothing recording that it had.
+   *
+   * Optional for the reason every field in this changelog entry is: a server
+   * older than 1.3.0 answers none of the three, and absent draws what null
+   * already draws here -- nothing extra, not an error.
+   */
+  buildStartDate?: string | null;
+  deliveryDate?: string | null;
+  deliveryVideoUrl?: string | null;
   /** "Your new site is being built". Null when there is no live project. */
   headline: string | null;
   /** 1-based, for "Step 5 of 7". Null when no milestones are shared. */
@@ -323,6 +348,24 @@ export interface AgreementView {
   hasSignedDocument: boolean;
   signedAt: string | null;
   signerName: string | null;
+  /**
+   * Groups this proposal with its earlier and later versions (CRE-822).
+   * Null means a proposal that is its own family, which is never the same as
+   * an id nobody has grouped -- it is never back-filled to this row's own id.
+   */
+  versionGroupId?: string | null;
+  /** What the document itself states, not the materialised schedule. */
+  paymentDueDays?: number | null;
+  paymentTerms?: string | null;
+  /**
+   * The rest of `timeline` (CRE-822); `sentAt` above already carries the
+   * send. `firstViewedAt` is the earliest view and `declinedAt` the latest
+   * decline, both derived from the event trail rather than stored -- see
+   * `docs/API.md`. All null on a draft, or on a server that predates them.
+   */
+  firstViewedAt?: string | null;
+  declinedAt?: string | null;
+  declineReason?: string | null;
 }
 
 /** What the sign panel needs, which only the server can answer. */
@@ -444,6 +487,19 @@ export interface SharedLogin {
   sharedAt: string;
   /** Always the mask. Present so the row has something to draw. */
   masked: string;
+  /**
+   * The line under the label, written by whoever shared the login (CRE-822).
+   * Not secret and not sealed -- the same decision `username` has had since
+   * `001`, for the same reason: a field every list has to draw should not
+   * need unsealing on every read.
+   */
+  note?: string | null;
+  /**
+   * Where this row sits when somebody has placed it. Null, not `0`, for an
+   * unplaced row -- `0` is a real position, and folding the two together
+   * would silently reorder every login nobody has touched.
+   */
+  sortOrder?: number | null;
 }
 
 /** An outstanding ask: the right-hand panel of mockup 16. */

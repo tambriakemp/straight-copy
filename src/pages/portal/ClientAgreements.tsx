@@ -194,6 +194,13 @@ function Document({
         <p className="cp-doc__terms">{agreement.instalmentSummary}</p>
       )}
 
+      {/* What the document itself states (CRE-822), not the materialised
+          schedule above -- re-reading a signed proposal should show the
+          terms that were agreed, not the terms today's settings produce. */}
+      {paymentTermsLine(agreement) && (
+        <p className="cp-doc__terms">{paymentTermsLine(agreement)}</p>
+      )}
+
       {/* An uploaded proposal has no blocks to lay out, so the document
           itself is the thing to read. Fetched on click rather than linked:
           the server answers with bytes or with a URL that expires, and
@@ -307,6 +314,15 @@ function Picker({
   );
 }
 
+/** `paymentTerms` wins outright: it is the exact words the document states. */
+function paymentTermsLine(agreement: AgreementView): string | null {
+  if (agreement.paymentTerms) return agreement.paymentTerms;
+  if (agreement.paymentDueDays != null) {
+    return `Payment due within ${agreement.paymentDueDays} day${agreement.paymentDueDays === 1 ? "" : "s"}`;
+  }
+  return null;
+}
+
 const STATUS_WORD: Record<AgreementView["status"], string> = {
   draft: "Draft",
   sent: "To sign",
@@ -382,7 +398,9 @@ function SignPanel({
       <section className="cp-panel">
         <h2 className="cp-panel__title">{STATUS_WORD[agreement.status]}</h2>
         <p className="cp-panel__body">
-          This agreement is closed. Ask us for a new one and we will re-quote it.
+          {agreement.status === "declined" && agreement.declineReason
+            ? `Declined: “${agreement.declineReason}”`
+            : "This agreement is closed. Ask us for a new one and we will re-quote it."}
         </p>
       </section>
     );
