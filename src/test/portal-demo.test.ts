@@ -122,11 +122,12 @@ describe("the harness cannot be switched on by the production build", () => {
     }
   });
 
-  it("keeps the auth bypass to the six screens it has fixtures for", () => {
+  it("keeps the auth bypass to the screens the harness can draw", () => {
     // `demoable` is opt-in per route. The rest of /portal/:clientId/* reads
     // Supabase through the browser client, so a blanket bypass would be a
-    // real gate removed. This pins the list to the CP-5 four plus Project
-    // and Files (CRE-819).
+    // real gate removed. The list is the CP-5 four, Project and Files, the
+    // named-project variants of those two, and the project chooser. Feedback
+    // is not here: that board reads Supabase in the browser.
     const app = readFileSync(path.join(ROOT, "src/App.tsx"), "utf8");
     const demoable = [...app.matchAll(/path="([^"]+)"[^>]*element=\{<RequirePortalAuth demoable>/g)]
       .map((match) => match[1]);
@@ -135,9 +136,12 @@ describe("the harness cannot be switched on by the production build", () => {
         "/portal/:clientId",
         "/portal/:clientId/agreements",
         "/portal/:clientId/files",
+        "/portal/:clientId/files/:projectId",
         "/portal/:clientId/logins",
         "/portal/:clientId/payments",
         "/portal/:clientId/project",
+        "/portal/:clientId/project/:projectId",
+        "/portal/:clientId/projects",
       ].sort(),
     );
   });
@@ -365,10 +369,18 @@ describe("the write actions behave like the server", () => {
     const after = call<{ view: LoginsView }>("logins", {}).view;
     expect(after.requests.some((one) => one.id === request.id)).toBe(false);
     expect(after.logins[0]!.label).toBe(request.label);
-    // Write-only is the whole reason a vault can sit behind a portal
-    // session. No shape returned by the harness may carry the secret.
+    // The list stays a mask. Copy is the only action that returns the secret,
+    // and only for the login that was just shared.
     expect(JSON.stringify(after)).not.toContain(secret);
     expect(after.logins[0]).not.toHaveProperty("secret");
+
+    // Copy is a separate action. The list stays masked; the password comes
+    // back once, for that id, and a different id does not return it.
+    const copied = call<{ password: string }>("reveal-login", { id: after.logins[0]!.id });
+    expect(copied.password).toBe(secret);
+    const other = call<{ password: string }>("reveal-login", { id: "login-1" });
+    expect(other.password).not.toBe(secret);
+    expect(JSON.stringify(call("logins", {}))).not.toContain(secret);
   });
 
   it("removes a login", async () => {

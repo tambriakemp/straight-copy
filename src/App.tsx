@@ -18,7 +18,6 @@ const HowItWorks = lazy(() => import("./pages/HowItWorks.tsx"));
 const Privacy = lazy(() => import("./pages/Privacy.tsx"));
 const Unsubscribe = lazy(() => import("./pages/Unsubscribe.tsx"));
 const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
-const Portal = lazy(() => import("./pages/Portal.tsx"));
 // CRE-776: the client portal, mockups 13-16. These replace the old Portal
 // page as the client's home; Portal itself stays, at /projects, as the list
 // the new nav's Project item resolves against.
@@ -125,13 +124,9 @@ const App = () => (
             {/* CRE-776: mockups 13-16. Real routes rather than a `?v=`
                 view switcher, so a client can send "here is the payment
                 page" to their bookkeeper and the back button works. */}
-            {/* `demoable` on these six and nowhere else: they are the only
-                screens the QA harness has fixtures for, and the only ones
-                that read nothing through the browser's Supabase client.
-                CRE-789 could not review any of them. CRE-819 added Project
-                and Files, which needed three more call sites fixtured
-                before `demoable` here would render anything. See
-                portalDemo.ts and portalDemoData.ts. */}
+            {/* `demoable` only on screens the QA harness can draw without
+                the browser's Supabase client. Feedback is not one of them.
+                See portalDemo.ts and portalDemoData.ts. */}
             <Route path="/portal/:clientId" element={<RequirePortalAuth demoable><ClientHome /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/agreements" element={<RequirePortalAuth demoable><ClientAgreements /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/payments" element={<RequirePortalAuth demoable><ClientPayments /></RequirePortalAuth>} />
@@ -142,10 +137,16 @@ const App = () => (
                 ClientProjectJump used to. */}
             <Route path="/portal/:clientId/project" element={<RequirePortalAuth demoable><ClientProject /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/files" element={<RequirePortalAuth demoable><ClientFiles /></RequirePortalAuth>} />
+            {/* One named project on the redesigned screens, for a client with
+                several (the chooser in ProjectChooser links here). */}
+            <Route path="/portal/:clientId/project/:projectId" element={<RequirePortalAuth demoable><ClientProject /></RequirePortalAuth>} />
+            <Route path="/portal/:clientId/files/:projectId" element={<RequirePortalAuth demoable><ClientFiles /></RequirePortalAuth>} />
             {/* The old portal home, kept as the project LIST. A client with
                 several projects reaches it from Project above; one with a
                 single project is sent straight into it and never sees this. */}
-            <Route path="/portal/:clientId/projects" element={<RequirePortalAuth><Portal /></RequirePortalAuth>} />
+            {/* The project list now renders in the redesigned shell: ClientProject
+                shows its chooser when the client has several projects. */}
+            <Route path="/portal/:clientId/projects" element={<RequirePortalAuth demoable><ClientProject /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/projects/:projectId" element={<RequirePortalAuth><PortalProject /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/proposals/:proposalId" element={<RequirePortalAuth><PortalProposal /></RequirePortalAuth>} />
             <Route path="/portal/:clientId/brand-kit" element={<RequirePortalAuth><BrandKit /></RequirePortalAuth>} />

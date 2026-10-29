@@ -187,6 +187,12 @@ export interface ResolvedProject {
   project: ResolvedProjectRow | null;
   /** The raw resolve payload, for the fields above the project list. Set on `"ready"`. */
   data: ResolvedProjectData | null;
+  /**
+   * The live projects, newest first. Set on `"choose"` so the redesigned
+   * screens can draw their own chooser instead of sending the client to the
+   * old light `/projects` page.
+   */
+  choices?: ResolvedProjectRow[];
 }
 
 /**
@@ -206,6 +212,8 @@ export interface ResolvedProject {
 export function useResolvedProject(
   clientId: string | undefined,
   adminPreview: boolean,
+  /** A project the URL names (`/project/:projectId`), picked when it is live. */
+  preferredId?: string,
 ): ResolvedProject {
   const [state, setState] = useState<ResolvedProject>({
     status: "loading",
@@ -226,8 +234,11 @@ export function useResolvedProject(
         .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
       if (live.length === 0) {
         setState({ status: "missing", projectId: null, project: null, data: null });
+      } else if (preferredId && live.some((project) => project.id === preferredId)) {
+        const picked = live.find((project) => project.id === preferredId)!;
+        setState({ status: "ready", projectId: picked.id, project: picked, data: payload });
       } else if (live.length > 1) {
-        setState({ status: "choose", projectId: null, project: null, data: null });
+        setState({ status: "choose", projectId: null, project: null, data: null, choices: live });
       } else {
         setState({ status: "ready", projectId: live[0]!.id, project: live[0]!, data: payload });
       }
@@ -262,7 +273,7 @@ export function useResolvedProject(
     return () => {
       cancelled = true;
     };
-  }, [clientId, adminPreview]);
+  }, [clientId, adminPreview, preferredId]);
 
   return state;
 }

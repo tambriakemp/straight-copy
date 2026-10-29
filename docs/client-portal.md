@@ -298,28 +298,31 @@ than a button that says it is not configured.
 | `/portal/:clientId/agreements` | Read and sign (14) |
 | `/portal/:clientId/payments` | Payments (15) |
 | `/portal/:clientId/logins` | Saved logins (16) |
-| `/portal/:clientId/project` | Resolves a project, hands over to the existing page |
-| `/portal/:clientId/files` | Same, landing on its Files tab |
-| `/portal/:clientId/projects` | The old portal page, kept as the project list |
+| `/portal/:clientId/project` | Project. One live project opens; several show a chooser |
+| `/portal/:clientId/project/:projectId` | That project, on the redesigned screen |
+| `/portal/:clientId/files` | Files. Same chooser when there are several projects |
+| `/portal/:clientId/files/:projectId` | That project's files |
+| `/portal/:clientId/projects` | The chooser, same screen as Project |
+| `/portal/:clientId/feedback` | The existing feedback board |
 
 Real routes rather than the old `?v=` view switcher, so a client can send
 "here is the payment page" to their bookkeeper and the back button works.
 
-**Project and Files have no new screens.** Both already exist on the project
-page, the brief was mockups 13-16, and the brief says to ask before adding or
-renaming UI. The consequence is visible: those two lead to pages in the older
-light frame. Flagged on the card rather than fixed by redesigning two screens
-nobody drew.
+Home's Open link is `/portal/:clientId/project/:projectId`. The older
+`/projects/:projectId` page is still there for bookmarks. Feedback is the
+existing board, linked from the nav, and that screen is unchanged.
 
 ## Two things the screens will not do
 
-* **Read a password back.** A client may share a login and may not read one
-  back. The plugin refuses it at the API, the legacy source never
-  implemented it, and `PortalSource` has no method to call — three
-  independent reasons, because the failure this prevents is one forwarded
-  portal link turning into a credential dump. The eye toggle on the share
-  form reveals what the client is typing, before it is sent, which is a
-  different thing.
+* **List a password.** The logins view carries a mask. Copy asks
+  `reveal-login` for that one row, and only for a login shared with the
+  signed-in client (or an admin previewing that client). The value is
+  written to the clipboard and is not kept in React state. The admin-tables
+  source decrypts through `reveal_client_login`, which checks `client_id` in
+  the same statement, and writes an `activity_events` row (`kind =
+  portal_login_revealed`) before returning it. The plugin source has no
+  decrypt and refuses. The eye toggle on the share form reveals what the
+  client is typing, before it is sent, which is a different thing.
 * **Mark anything paid.** `checkout` returns a URL and nothing else. Money is
   only ever banked by a verified provider webhook, which goes to the plugin.
   A portal that could mark its own invoices paid would be a portal in which a

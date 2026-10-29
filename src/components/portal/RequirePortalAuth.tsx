@@ -31,11 +31,10 @@ export default function RequirePortalAuth({
   /**
    * Whether this route may be served by the QA harness.
    *
-   * Opt-in per route, and set on exactly the six client screens the harness
-   * has fixtures for (CP-5's four, plus Project and Files on CRE-819). The
-   * rest of `/portal/:clientId/*` reads Supabase through the browser client
-   * and would be a real gate to remove, so it keeps its gate even in a demo
-   * build. An auditable list beats a blanket bypass: the routes that can
+   * Opt-in per route, and set on the client screens the harness has fixtures
+   * for. The rest of `/portal/:clientId/*` reads Supabase through the browser
+   * client and would be a real gate to remove, so it keeps its gate even in a
+   * demo build. An auditable list beats a blanket bypass: the routes that can
    * skip auth are the ones that say so, in `App.tsx`.
    */
   demoable?: boolean;

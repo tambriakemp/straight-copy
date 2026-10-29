@@ -62,6 +62,7 @@ import {
   badRequest,
   notFound,
   PortalError,
+  type LoginRevealActor,
   type PortalCallerContext,
   type PortalDocument,
   type PortalSource,
@@ -762,6 +763,22 @@ export class PluginSource implements PortalSource {
       method: "DELETE",
       clientScope: ctx.clientId,
     });
+  }
+
+  async revealLogin(
+    _ctx: PortalCallerContext,
+    _loginId: string,
+    _actor: LoginRevealActor,
+  ): Promise<string | null> {
+    // The list puts a mask in `secret`. There is no documented decrypt on
+    // this API, and inventing one would return a password this process
+    // could not write to `activity_events` the way the admin-tables path
+    // does. Refuse. This install answers from those tables until the import.
+    throw new PortalError(
+      501,
+      "reveal_unavailable",
+      "Copying a saved password is not available on this portal yet.",
+    );
   }
 }
 

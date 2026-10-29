@@ -160,7 +160,9 @@ describe("the view-as token", () => {
 
 describe("the read allowlist", () => {
   it("lets the four client screens and the contract through", () => {
-    for (const action of ["home", "agreements", "payments", "logins", "document"]) {
+    // `reveal-login` copies one password. It is a read the preview may make:
+    // it does not change the row, and the server records the copy.
+    for (const action of ["home", "agreements", "payments", "logins", "document", "reveal-login"]) {
       expect(viewAsMayRead("client-portal", action), action).toBe(true);
     }
     expect(viewAsMayRead("proposal-sign", "download")).toBe(true);

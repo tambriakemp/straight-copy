@@ -13,7 +13,8 @@
 // that is dropped; it is simply not this card's to redraw. `AuditsSection`,
 // `PortalLoginsSection` and the Brand tab keep working at the old address
 // for a client with more than one project, or for `/admin`.
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import ProjectChooser from "@/components/portal/ProjectChooser";
 import ClientPortalShell, {
   PortalLoading,
   PortalProblem,
@@ -58,18 +59,14 @@ interface TodoItem {
 }
 
 export default function ClientProject() {
-  const { clientId } = useParams<{ clientId: string }>();
+  const { clientId, projectId } = useParams<{ clientId: string; projectId?: string }>();
   const { adminPreview, viewAsGrant, actor, exitPreview } = useAdminPreview(clientId);
 
   const shell = usePortalView<HomeView>(
     clientId ? () => clientPortal.home(clientId, adminPreview) : null,
     [clientId, adminPreview],
   );
-  const resolved = useResolvedProject(clientId, adminPreview);
-
-  if (resolved.status === "choose") {
-    return <Navigate replace to={`/portal/${clientId}/projects`} />;
-  }
+  const resolved = useResolvedProject(clientId, adminPreview, projectId);
 
   return (
     <ClientPortalShell
@@ -84,6 +81,8 @@ export default function ClientProject() {
     >
       {shell.error && !shell.data ? (
         <PortalProblem message={shell.error} onRetry={shell.reload} />
+      ) : resolved.status === "choose" ? (
+        <ProjectChooser clientId={clientId ?? ""} projects={resolved.choices ?? []} target="project" />
       ) : resolved.status === "error" ? (
         <PortalProblem message="Something went wrong. Please try again." />
       ) : resolved.status === "missing" ? (

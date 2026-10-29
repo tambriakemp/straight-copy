@@ -214,6 +214,19 @@ export const clientPortal = {
 
   removeLogin: (clientId: string, id: string, preview: boolean) =>
     call<unknown>(clientId, "remove-login", { id }, preview),
+
+  /**
+   * One password, fetched at the moment Copy is pressed.
+   *
+   * The caller writes it to the clipboard and does not store it. Null when
+   * the login exists and has no password. A login that is not this client's
+   * rejects, the same as a missing one.
+   */
+  async revealLogin(clientId: string, id: string, preview: boolean): Promise<string | null> {
+    const payload = await call<{ password?: unknown }>(clientId, "reveal-login", { id }, preview);
+    const password = payload.password;
+    return typeof password === "string" && password.length > 0 ? password : null;
+  },
 };
 
 /* -------------------------------------------------------------------------- */

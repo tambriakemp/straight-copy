@@ -1,19 +1,18 @@
 // Mockup 16: the logins a client has shared, and the one being asked for.
 //
-// WRITE-ONLY, AND THAT IS THE FEATURE. There is no Show button on this page
-// and no action behind one: the server has no route a client-scoped caller
-// can use to read a password back. A portal URL is a link, and a link that
-// reads back the client's own third-party passwords turns one forwarded
-// email into a credential dump. The client can replace a password they got
-// wrong; they cannot ask us to read one out to them.
+// THE LIST NEVER CARRIES A PASSWORD. Each row shows a mask. Copy on the
+// password cell asks the server for that one login, writes the answer
+// straight to the clipboard, and does not keep it in React state. The server
+// only answers for a login shared with the signed-in client (or an admin
+// previewing that client) and records the copy before it returns the value.
 //
 // The eye toggle on the share form is a different thing entirely -- it
 // reveals what THEY are typing, before it is sent, which is how a person
 // checks they did not fat-finger their own password.
 //
-// THE PASSWORD NEVER SITS IN STATE LONGER THAN THE FORM DOES. It is dropped
-// the moment the request returns, so a page left open on a shared machine is
-// not a page holding a credential in a React tree.
+// A PASSWORD TYPED INTO THE FORM is dropped the moment the request returns.
+// A password fetched for Copy never enters state at all: it is a local in
+// the click handler until the clipboard write settles.
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -22,7 +21,7 @@ import { useParams } from "react-router-dom";
 // `Emoji_Presentation=No`, so a browser hunts for it in the element's text
 // fonts and never reaches the colour-emoji font that has it, putting a tofu
 // box on the face of a control the client presses to check their own typing.
-import { Eye, EyeOff } from "lucide-react";
+import { Check, Copy, Eye, EyeOff } from "lucide-react";
 import ClientPortalShell, {
   PortalLoading,
   PortalProblem,
@@ -165,8 +164,26 @@ function LoginRow({
           )}
         </span>
       </td>
-      <td className="cp-mono" data-label="Username">{login.username ?? "—"}</td>
-      <td className="cp-mono cp-mask" data-label="Password">{login.masked}</td>
+      <td className="cp-mono" data-label="Username">
+        {login.username ? (
+          <span className="cp-copyable">
+            <span className="cp-copyable__text">{login.username}</span>
+            <CopyButton value={login.username} what="username" />
+          </span>
+        ) : (
+          "—"
+        )}
+      </td>
+      <td className="cp-mono cp-mask" data-label="Password">
+        <span className="cp-copyable">
+          <span className="cp-copyable__text">{login.masked}</span>
+          <CopyPasswordButton
+            clientId={clientId}
+            loginId={login.id}
+            adminPreview={adminPreview}
+          />
+        </span>
+      </td>
       <td data-label="Shared">{shortDate(login.sharedAt)}</td>
       <td className="cp-table__act">
         {confirming ? (
@@ -371,7 +388,7 @@ function SharePanel({
             `Emoji_Presentation=Yes`, so a browser goes straight to the
             colour-emoji font for it. The eye above is the opposite case. */}
         <span className="cp-locked__icon" aria-hidden="true">🔒️</span>
-        Encrypted the moment you press Share. Not even shown back to you.
+        Encrypted the moment you press Share. Copy places it on your clipboard and does not show it here.
       </p>
 
       {error && (
@@ -395,5 +412,112 @@ function SharePanel({
         </button>
       )}
     </section>
+  );
+}
+
+/**
+ * Copy-to-clipboard with a short "Copied" confirmation.
+ *
+ * Username only. The password has its own button, which fetches the value
+ * at click time and never receives it as a prop -- a prop would be state
+ * in the parent.
+ */
+function CopyButton({ value, what }: { value: string; what: string }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 1800);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+  return (
+    <button
+      type="button"
+      className="cp__btn cp-copy"
+      aria-label={copied ? "Copied" : `Copy ${what}`}
+      onClick={() => {
+        void navigator.clipboard?.writeText(value).then(() => setCopied(true), () => undefined);
+      }}
+    >
+      {copied ? <Check size={14} strokeWidth={1.75} /> : <Copy size={14} strokeWidth={1.75} />}
+      <span>{copied ? "Copied" : "Copy"}</span>
+    </button>
+  );
+}
+
+/**
+ * Copy one password. The value is requested when the button is pressed,
+ * written to the clipboard, and dropped. It is not a prop and not state.
+ */
+function CopyPasswordButton({
+  clientId,
+  loginId,
+  adminPreview,
+}: {
+  clientId: string;
+  loginId: string;
+  adminPreview: boolean;
+}) {
+  const [phase, setPhase] = useState<"idle" | "busy" | "copied" | "failed" | "empty">("idle");
+  useEffect(() => {
+    if (phase !== "copied" && phase !== "failed" && phase !== "empty") return;
+    const timer = window.setTimeout(() => setPhase("idle"), 1800);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
+
+  const label =
+    phase === "copied"
+      ? "Copied"
+      : phase === "empty"
+        ? "No password"
+        : phase === "failed"
+          ? "Try again"
+          : phase === "busy"
+            ? "Copying…"
+            : "Copy";
+
+  return (
+    <button
+      type="button"
+      className="cp__btn cp-copy"
+      aria-label={
+        phase === "copied"
+          ? "Copied"
+          : phase === "empty"
+            ? "No password is stored"
+            : phase === "failed"
+              ? "Couldn't copy the password"
+              : "Copy password"
+      }
+      disabled={phase === "busy"}
+      onClick={() => {
+        if (phase === "busy") return;
+        setPhase("busy");
+        void (async () => {
+          let password: string | null = null;
+          try {
+            password = await clientPortal.revealLogin(clientId, loginId, adminPreview);
+            if (!password) {
+              setPhase("empty");
+              return;
+            }
+            if (!navigator.clipboard?.writeText) {
+              setPhase("failed");
+              return;
+            }
+            await navigator.clipboard.writeText(password);
+            setPhase("copied");
+          } catch {
+            // The message is not shown. A refusal can be specific; an
+            // unexpected error must not be, in case it quotes the request.
+            setPhase("failed");
+          } finally {
+            password = null;
+          }
+        })();
+      }}
+    >
+      {phase === "copied" ? <Check size={14} strokeWidth={1.75} /> : <Copy size={14} strokeWidth={1.75} />}
+      <span>{label}</span>
+    </button>
   );
 }

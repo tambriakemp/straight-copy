@@ -89,12 +89,11 @@ export function projectStatusLabel(status: string | null | undefined): string | 
  * we have lost. Leaving it out is visible in a way that is honest: the card
  * shows the projects we can name, or no card at all.
  *
- * The link is drawn only for a project CP-6 imported, because
- * `/portal/:clientId/projects/:projectId` is an `/admin` page addressed by an
- * `/admin` id. `paperclipProjectId` is not that id and would 404. When the
- * project page itself moves -- CRE-784 -- this is the line that changes, and
- * `legacyAdminProjectId` stops being load-bearing at the same moment the
- * bridge does.
+ * The link is drawn only for a project CP-6 imported. The redesigned screen
+ * is `/portal/:clientId/project/:projectId`, and it is addressed by the
+ * `/admin` project id (`legacyAdminProjectId`). `paperclipProjectId` is not
+ * that id and would 404, so a project created in the plugin still has no
+ * Open link until the import has given it an admin id.
  */
 export function pluginProjects(
   projects: Array<{
@@ -117,7 +116,7 @@ export function pluginProjects(
         kind: projectKindLabel(row.kind ?? null),
         statusLabel: projectStatusLabel(row.project?.status ?? null),
         href: adminId
-          ? `/portal/${encodeURIComponent(clientId)}/projects/${encodeURIComponent(adminId)}`
+          ? `/portal/${encodeURIComponent(clientId)}/project/${encodeURIComponent(adminId)}`
           : null,
         // The link row's own `updatedAt` is when somebody edited what the
         // client is shown, which is not when the project moved. Saying

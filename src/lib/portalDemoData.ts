@@ -389,13 +389,9 @@ const state: DemoState = {
  * `.cp-projects__text`, which is the shape of CRE-796 on two other screens.
  *
  * The first row carries an `href` and the other two do not, which is the
- * difference the screen draws: one Open button and two rows without one. The
- * link leaves the harness -- `/portal/:clientId/projects/:id` is not one of
- * the four screens auth is bypassed for -- and that is the same bargain the
- * waiting rows above already strike with `/portal/demo/files` and
- * `/portal/demo/project`. Drawing it is worth more than following it would
- * be: a button that appears in no screenshot is a button nobody reviews, and
- * the design gate is the reason these fixtures exist.
+ * difference the screen draws: one Open button and two rows without one.
+ * Open goes to the redesigned project screen, the same path the server
+ * builds.
  */
 const PROJECTS: PortalProject[] = [
   {
@@ -403,7 +399,7 @@ const PROJECTS: PortalProject[] = [
     name: "Glowskin Studio website",
     kind: "Website",
     statusLabel: "In progress",
-    href: "/portal/demo/projects/demo-site",
+    href: "/portal/demo/project/demo-site",
     updatedAt: daysOut(-1),
   },
   {
@@ -732,6 +728,19 @@ function decline(proposalId: string): void {
   agreement.status = "declined";
 }
 
+/**
+ * Passwords for the harness, kept off the view.
+ *
+ * The list fixture carries a mask. Copy asks `reveal-login`, which is the
+ * only action that reads this map. A reviewer who stringifies a view will
+ * not find a password in it.
+ */
+const demoPasswords = new Map<string, string>([
+  ["login-1", "not-a-real-host-password"],
+  ["login-2", "not-a-real-mail-password"],
+  ["login-3", "not-a-real-ipad-password"],
+]);
+
 function shareLogin(input: {
   requestId?: string | null;
   label?: string | null;
@@ -739,10 +748,6 @@ function shareLogin(input: {
   username?: string | null;
   secret: string;
 }): void {
-  // The secret is read, checked for presence, and dropped. It is never
-  // stored, never echoed and never rendered -- the harness holds the same
-  // line the product does, because a demo that showed a password back
-  // would teach QA that reading one back is normal.
   if (!input.secret) {
     throw new PortalRequestError(400, "secret_required", "Enter the password to share it.");
   }
@@ -753,9 +758,11 @@ function shareLogin(input: {
   const label = (input.label ?? request?.label ?? "").trim();
   if (!label) throw new PortalRequestError(400, "label_required", "Give this login a name.");
 
+  const id = `login-${state.logins.length + 1}-${Date.now()}`;
+  demoPasswords.set(id, input.secret);
   state.logins = [
     {
-      id: `login-${state.logins.length + 1}-${Date.now()}`,
+      id,
       label,
       username: input.username ?? null,
       url: input.url ?? null,
@@ -782,6 +789,15 @@ function updateLogin(input: {
 
 function removeLogin(id: string): void {
   state.logins = state.logins.filter((one) => one.id !== id);
+  demoPasswords.delete(id);
+}
+
+function revealLogin(id: string): { ok: true; password: string | null } {
+  const login = state.logins.find((one) => one.id === id);
+  if (!login) {
+    throw new PortalRequestError(404, "not_found", "That login could not be found.");
+  }
+  return { ok: true, password: demoPasswords.get(id) ?? null };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -855,6 +871,8 @@ export function demoCall<T>(action: string, body: Record<string, unknown>): T {
     case "remove-login":
       removeLogin(String(body.id));
       return {} as T;
+    case "reveal-login":
+      return revealLogin(String(body.id)) as T;
 
     default:
       // A new action that nobody taught the harness is a harness that

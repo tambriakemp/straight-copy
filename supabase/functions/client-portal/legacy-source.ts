@@ -67,6 +67,7 @@ import {
   badRequest,
   notFound,
   PortalError,
+  type LoginRevealActor,
   type PortalCallerContext,
   type PortalDocument,
   type PortalSource,
@@ -96,6 +97,9 @@ export interface Query extends PromiseLike<{ data: Row[] | null; error: unknown 
   in(column: string, values: readonly unknown[]): Query;
   order(column: string, options?: { ascending?: boolean; nullsFirst?: boolean }): Query;
   delete(): Query;
+  insert(
+    values: Record<string, unknown>,
+  ): PromiseLike<{ error: { code?: string; message?: string } | null }>;
   maybeSingle(): PromiseLike<{ data: Row | null; error: unknown }>;
 }
 
@@ -585,6 +589,70 @@ export class LegacySource implements PortalSource {
   }
 
   /**
+   * One password, decrypted only after the row is confirmed to be this
+   * client's, and only returned after the audit insert succeeds.
+   *
+   * `get_client_login` decrypts by id alone. This does not call it. The
+   * scoped function refuses a row whose `client_id` is someone else's, in
+   * the same statement as the decrypt.
+   */
+  async revealLogin(
+    ctx: PortalCallerContext,
+    loginId: string,
+    actor: LoginRevealActor,
+  ): Promise<string | null> {
+    const { data: existing } = await this.#db
+      .from("client_logins")
+      .select("id, label, client_project_id")
+      .eq("id", loginId)
+      .eq("client_id", ctx.clientId)
+      .maybeSingle();
+    if (!existing) throw notFound("That login");
+
+    if (!this.#encryptionKey) {
+      throw new PortalError(
+        503,
+        "not_configured",
+        "Saved logins are unavailable right now. Please try again later.",
+      );
+    }
+
+    const { data, error } = await this.#db.rpc("reveal_client_login", {
+      _id: loginId,
+      _client_id: ctx.clientId,
+      _enc_key: this.#encryptionKey,
+    });
+    if (error) {
+      // The code only. A database error on this path can quote the
+      // statement, and the statement has the key bound into it.
+      console.error("[client-portal] reveal_client_login failed", error.code ?? "error");
+      throw new PortalError(500, "reveal_failed", "That password could not be copied.");
+    }
+
+    const password = typeof data === "string" && data.length > 0 ? data : null;
+    if (!password) return null;
+
+    const { error: logError } = await this.#db.from("activity_events").insert(
+      loginRevealAudit({
+        clientId: ctx.clientId,
+        loginId,
+        label: required(existing, "label"),
+        projectId: text(existing, "client_project_id"),
+        userId: actor.userId,
+        via: actor.via,
+        actorLabel: actor.actorLabel,
+      }),
+    );
+    if (logError) {
+      // Fail closed: a copy nobody can audit is not a copy this function
+      // hands out. The password stays in this frame and is not returned.
+      console.error("[client-portal] password copy was not logged", logError.code ?? "error");
+      throw new PortalError(500, "reveal_not_logged", "That password could not be copied.");
+    }
+    return password;
+  }
+
+  /**
    * Write through `set_client_login`, never with a plain `insert`.
    *
    * The RPC is `SECURITY DEFINER` and granted to the service role alone, and
@@ -643,6 +711,36 @@ export class LegacySource implements PortalSource {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * The `activity_events` row for one password copy.
+ *
+ * The password is not an argument. A row that cannot be given the secret
+ * cannot record it, which is the property the test pins.
+ */
+export function loginRevealAudit(input: {
+  clientId: string;
+  loginId: string;
+  label: string;
+  projectId: string | null;
+  userId: string;
+  via: LoginRevealActor["via"];
+  actorLabel: string | null;
+}): Record<string, unknown> {
+  return {
+    kind: "portal_login_revealed",
+    title: "Shared login password copied",
+    description: input.label,
+    client_id: input.clientId,
+    client_project_id: input.projectId,
+    actor: input.actorLabel ?? input.userId,
+    metadata: {
+      login_id: input.loginId,
+      via: input.via,
+      user_id: input.userId,
+    },
+  };
+}
+
+/**
  * Has this journey node been finished, however that was recorded?
  *
  * `status` has been written by several things over two years, so a node is
@@ -697,10 +795,10 @@ export function invoiceRowsFromAdmin(invoices: Row[], now: Date): PaymentRow[] {
  *
  * Every row gets a link here, unlike the plugin path: on this source the
  * project id IS the `/admin` project id, which is what
- * `/portal/:clientId/projects/:projectId` resolves. A client with three
- * projects can therefore reach a named one directly, which is the thing the
- * `Project` nav item cannot do -- it has no project id, so it guesses when
- * there is one and gives up when there are several.
+ * `/portal/:clientId/project/:projectId` resolves -- the redesigned project
+ * screen, not the older `/projects/:projectId` page. A client with three
+ * projects can therefore reach a named one directly. The Project nav item
+ * has no project id, so it shows a chooser when there are several.
  */
 export function adminProjects(projects: Row[], clientId: string): PortalProject[] {
   return projects.flatMap((row): PortalProject[] => {
@@ -718,7 +816,7 @@ export function adminProjects(projects: Row[], clientId: string): PortalProject[
         name,
         kind: projectKindLabel(text(row, "type")),
         statusLabel: projectStatusLabel(text(row, "status")),
-        href: `/portal/${encodeURIComponent(clientId)}/projects/${encodeURIComponent(id)}`,
+        href: `/portal/${encodeURIComponent(clientId)}/project/${encodeURIComponent(id)}`,
         updatedAt: text(row, "updated_at"),
       },
     ];

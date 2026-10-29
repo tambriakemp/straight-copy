@@ -21,13 +21,15 @@
 // change is three environment variables and the deletion of one file. No
 // screen changes, because no screen knows which source answered it.
 //
-// WHAT THIS INTERFACE DELIBERATELY DOES NOT HAVE
+// WHAT A REVEAL IS, AND IS NOT
 //
-// A `reveal`. A client may share a login and may not read one back. The
-// plugin refuses it at the API, the legacy source never implemented it, and
-// there is no method here to call -- three independent reasons, because the
-// failure this prevents is one forwarded portal link turning into a
-// credential dump.
+// `revealLogin` returns one decrypted password, for one login, at the moment
+// Copy is tapped. The list view still carries a mask and nothing else. The
+// caller has already been resolved to this client (or to an admin previewing
+// this client). The legacy source decrypts only a row whose `client_id`
+// matches, and it writes an audit row before the password is returned. The
+// plugin source has no such door and refuses, rather than guessing an
+// endpoint that would hand a secret back with no audit.
 
 import type {
   AgreementsView,
@@ -82,6 +84,19 @@ export interface UpdateLoginInput {
 }
 
 /**
+ * Who asked to copy one password, for the audit row.
+ *
+ * `userId` is the auth user (or the view-as token's subject). `actorLabel`
+ * is set for a view-as grant, where the subject is not a portal user and the
+ * token already carries the admin's name. Neither is the password.
+ */
+export interface LoginRevealActor {
+  userId: string;
+  via: "portal" | "admin" | "view_as";
+  actorLabel: string | null;
+}
+
+/**
  * Every read and write the four client screens make.
  *
  * Narrow on purpose. A source that exposed a general query would be a source
@@ -129,6 +144,20 @@ export interface PortalSource {
   shareLogin(ctx: PortalCallerContext, input: ShareLoginInput): Promise<void>;
   updateLogin(ctx: PortalCallerContext, input: UpdateLoginInput): Promise<void>;
   removeLogin(ctx: PortalCallerContext, id: string): Promise<void>;
+
+  /**
+   * One decrypted password, for one login shared with this client.
+   *
+   * Null when the row exists and has no password stored. A login that is
+   * not this client's is a not-found, the same answer as a missing id.
+   * Implementations must not log the password, and must not return it
+   * unless the reveal itself was recorded.
+   */
+  revealLogin(
+    ctx: PortalCallerContext,
+    loginId: string,
+    actor: LoginRevealActor,
+  ): Promise<string | null>;
 }
 
 /** A refusal with a status the portal can pass through to the browser. */
