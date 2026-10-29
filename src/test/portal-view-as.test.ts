@@ -168,9 +168,10 @@ describe("the read allowlist", () => {
     expect(viewAsMayRead("proposal-sign", "download")).toBe(true);
   });
 
-  it("lets Project and Files through, one action each (CRE-818)", () => {
+  it("lets Project and Files through (CRE-818, plus download in CRE-822)", () => {
     expect(viewAsMayRead("brand-kit-intake", "resolve")).toBe(true);
     expect(viewAsMayRead("client-files", "list")).toBe(true);
+    expect(viewAsMayRead("client-files", "download")).toBe(true);
   });
 
   it("refuses every write on the portal, which is the point of it", () => {
@@ -207,8 +208,9 @@ describe("the read allowlist", () => {
       expect(viewAsMayRead("brand-kit-intake", action), action).toBe(false);
     }
     // `remove` deletes the object out of storage as well as the row, so it is
-    // the one here with no undo at all.
-    for (const action of ["register", "remove", "set_visible"]) {
+    // the one here with no undo at all. `create`/`complete` replaced
+    // `register` in CRE-822, when the plugin is the source.
+    for (const action of ["register", "create", "complete", "remove", "set_visible"]) {
       expect(viewAsMayRead("client-files", action), action).toBe(false);
     }
   });

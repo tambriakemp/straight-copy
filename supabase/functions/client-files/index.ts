@@ -1,24 +1,39 @@
 // Files on a project, for the portal and for the admin.
 //
-// The bucket is PRIVATE, which is the whole point: the portal is reached
-// by a link, and a link that also hands out permanent file URLs turns
-// one leaked address into a permanent document archive. So reads come
-// through here as short-lived signed URLs, minted per request.
+// Two sources, exactly like `client-portal/index.ts`: the Client Portal
+// plugin when the three `CLIENT_PORTAL_*` variables are set, the `/admin`
+// tables otherwise. Decided once per request from the presence of
+// configuration, never a fallback or a retry — see that file's own header
+// for why.
 //
-// Two callers, one endpoint:
-//   - the portal, scoped to one client and one project, now requiring a
-//     real portal session for that client (CRE-536 — it used to be
-//     anonymous, trusting client_id alone). It may list what is
-//     visible, record a file it just uploaded, and delete one it sent
-//     itself.
-//   - the admin, with a bearer token that is checked against is_admin.
-//     It may do all of that plus share a file TO the client and hide one.
+// WHAT CHANGES WHEN THE PLUGIN IS THE SOURCE (CRE-822)
 //
-// The client may never delete a file we shared with them, and may never
-// see one marked not visible. Both are decided here rather than in the
-// browser, because the browser is the thing we do not control.
+// The browser no longer writes bytes to storage itself, and no longer picks
+// a storage path. It asks this function to create a file; the plugin mints
+// the object key, either takes the bytes inline (anything up to the 6 MiB
+// its built-in store holds) or hands back an upload ticket for whatever
+// `storage/v1` adapter the company has wired, and `complete` confirms the
+// object actually landed before the row is `stored`. A list never carries a
+// download link — `download` mints one, for one file, so nothing minted at
+// nine o'clock is still live at half past, and so a tab left open does not
+// quietly hand out working links to everything on it.
+//
+// The `/admin`-tables source keeps the pre-CRE-822 shape: the browser writes
+// to the private `client-assets` bucket with its own session (RLS already
+// scopes that correctly), and `register` files the row afterwards. That path
+// is temporary scaffolding — it is deleted the day CP-6's import runs and the
+// three plugin variables are set — so it is left exactly as it worked before
+// rather than re-architected for a lifetime it does not have. The `list`
+// response's `source` field is how the browser knows which upload path to
+// take; `download` works the same way from both.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
+import {
+  PluginApiError,
+  PluginClient,
+  readPluginConfig,
+  type PluginConfig,
+} from "../_shared/client-portal-plugin.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,6 +51,14 @@ const BUCKET = "client-assets";
 const PREFIX = "project-files";
 /** Long enough to click, short enough that a copied URL stops working. */
 const SIGNED_SECONDS = 60 * 30;
+/**
+ * Mirrors the plugin's own inline-store ceiling (`MAX_INLINE_FILE_BYTES` in
+ * `plugin-client-portal/src/files/inline.ts`). A file this size, base64
+ * encoded, is about 8 MiB on the wire — under the 10 MB JSON body limit a
+ * standard Paperclip enforces before any plugin route runs. Anything larger
+ * is sent as a ticket request instead of base64, never both.
+ */
+const INLINE_MAX_BYTES = 6 * 1024 * 1024;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -44,8 +67,7 @@ function json(body: unknown, status = 200) {
 }
 
 /** True only for a signed-in admin. An anonymous caller is not an error. */
-// deno-lint-ignore no-explicit-any
-async function callerIsAdmin(req: Request, admin: any): Promise<boolean> {
+async function callerIsAdmin(req: Request, admin: ReturnType<typeof createClient>): Promise<boolean> {
   const auth = req.headers.get("Authorization") ?? "";
   if (!auth.startsWith("Bearer ")) return false;
   const token = auth.slice(7);
@@ -62,6 +84,44 @@ async function callerIsAdmin(req: Request, admin: any): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** The one shape both sources answer in. */
+interface FileRow {
+  id: string;
+  name: string;
+  size_bytes: number | null;
+  mime: string | null;
+  direction: string;
+  category: string | null;
+  uploaded_by_name: string | null;
+  visible_to_client: boolean;
+  created_at: string;
+  status: "pending" | "stored" | "external" | "removed";
+  downloadable: boolean;
+}
+
+interface UploadTicket {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  expiresAt: string;
+}
+
+function mapPluginFile(f: Record<string, unknown>): FileRow {
+  return {
+    id: f.id as string,
+    name: f.name as string,
+    size_bytes: (f.byteSize as number | null) ?? null,
+    mime: (f.contentType as string | null) ?? null,
+    direction: f.direction as string,
+    category: (f.category as string | null) ?? null,
+    uploaded_by_name: (f.uploadedByName as string | null) ?? null,
+    visible_to_client: f.visibleToClient as boolean,
+    created_at: f.createdAt as string,
+    status: f.status as FileRow["status"],
+    downloadable: f.downloadable as boolean,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -81,114 +141,255 @@ Deno.serve(async (req) => {
   const isAdmin = await callerIsAdmin(req, admin);
   if (!isAdmin) {
     // `action` is passed so that a CRE-811 view-as token can be checked
-    // against the read allowlist in `_shared/portal-view-as.ts`, which since
-    // CRE-818 lets `list` through and nothing else. Omitting it refused every
-    // view-as caller, which is why the Files screen errored in a preview.
-    //
-    // A view-as caller lands here rather than above it on purpose:
-    // `callerIsAdmin` refuses the anon key, which is the bearer a view-as
-    // request carries, so `isAdmin` stays FALSE and the list below is
-    // filtered to `visible_to_client` exactly as the client's own would be.
-    // An admin preview that showed the hidden rows would be showing something
-    // the client cannot see, which is the opposite of the point.
+    // against the read allowlist in `_shared/portal-view-as.ts` -- `list`
+    // and `download` are on it, nothing that writes is.
     const caller = await resolvePortalCaller(req, clientId, action);
     if (caller.kind === "unauthorized") return json({ error: "Unauthorized" }, 401);
   }
 
+  const config = readPluginConfig();
+
   try {
-    if (action === "list") {
-      let q = admin.from("client_project_files")
-        .select("id, name, storage_path, size_bytes, mime, direction, category, uploaded_by_name, visible_to_client, created_at")
-        .eq("client_id", clientId)
-        .order("created_at", { ascending: false });
-      if (projectId) q = q.eq("client_project_id", projectId);
-      // Hidden files are ours, not theirs. Filtered server-side, because
-      // "the browser will not render it" is not a access control.
-      if (!isAdmin) q = q.eq("visible_to_client", true);
-      const { data, error } = await q;
-      if (error) throw error;
-
-      const rows = data ?? [];
-      // One signed URL per file, minted now and good for half an hour.
-      const paths = rows.map((r) => r.storage_path as string);
-      const signed = new Map<string, string>();
-      if (paths.length) {
-        const { data: urls } = await admin.storage.from(BUCKET)
-          .createSignedUrls(paths, SIGNED_SECONDS);
-        for (const u of urls ?? []) {
-          if (u.path && u.signedUrl) signed.set(u.path, u.signedUrl);
-        }
-      }
-      return json({
-        files: rows.map((r) => ({ ...r, url: signed.get(r.storage_path as string) ?? null })),
-        isAdmin,
-      });
-    }
-
-    if (action === "register") {
-      const name = String(payload.name ?? "").trim();
-      const storagePath = String(payload.storage_path ?? "").trim();
-      if (!name || !storagePath) return json({ error: "name and storage_path required" }, 400);
-
-      // The path has to be the one this caller was allowed to write.
-      // Without this check a caller could register any object in the
-      // bucket as their own file and have us sign it for them.
-      const expected = `${PREFIX}/${clientId}/${projectId ?? "general"}/`;
-      if (!storagePath.startsWith(expected)) {
-        return json({ error: "storage_path is not under this project" }, 400);
-      }
-
-      // Only an admin may say a file came FROM us, or hide one.
-      const direction = isAdmin && payload.direction === "to_client" ? "to_client" : "from_client";
-      const visible = isAdmin && payload.visible_to_client === false ? false : true;
-
-      const { data, error } = await admin.from("client_project_files").insert({
-        client_id: clientId,
-        client_project_id: projectId,
-        name: name.slice(0, 300),
-        storage_path: storagePath,
-        size_bytes: payload.size_bytes != null ? Number(payload.size_bytes) : null,
-        mime: payload.mime ? String(payload.mime).slice(0, 200) : null,
-        direction,
-        category: payload.category ? String(payload.category).slice(0, 120) : null,
-        uploaded_by_name: payload.uploaded_by_name ? String(payload.uploaded_by_name).slice(0, 160) : null,
-        visible_to_client: visible,
-      }).select("id").single();
-      if (error) throw error;
-      return json({ ok: true, id: data.id });
-    }
-
-    if (action === "remove") {
-      const id = String(payload.id ?? "").trim();
-      if (!id) return json({ error: "id required" }, 400);
-      const { data: row } = await admin.from("client_project_files")
-        .select("id, client_id, direction, storage_path")
-        .eq("id", id).eq("client_id", clientId).maybeSingle();
-      if (!row) return json({ error: "not found" }, 404);
-      // A client may take back what they sent. What we shared with them
-      // is ours to withdraw, not theirs.
-      if (!isAdmin && row.direction !== "from_client") {
-        return json({ error: "that file was shared by Cre8 Visions" }, 403);
-      }
-      await admin.storage.from(BUCKET).remove([row.storage_path as string]);
-      const { error } = await admin.from("client_project_files").delete().eq("id", id);
-      if (error) throw error;
-      return json({ ok: true });
-    }
-
-    if (action === "set_visible") {
-      if (!isAdmin) return json({ error: "forbidden" }, 403);
-      const id = String(payload.id ?? "").trim();
-      if (!id) return json({ error: "id required" }, 400);
-      const { error } = await admin.from("client_project_files")
-        .update({ visible_to_client: payload.visible_to_client !== false })
-        .eq("id", id).eq("client_id", clientId);
-      if (error) throw error;
-      return json({ ok: true });
-    }
-
-    return json({ error: "action must be list, register, remove or set_visible" }, 400);
+    if (config) return await handlePlugin(config, action, clientId, projectId, isAdmin, payload);
+    return await handleLegacy(admin, action, clientId, projectId, isAdmin, payload);
   } catch (e) {
+    if (e instanceof PluginApiError) {
+      // A refusal from the plugin keeps its status, so "that is not yours"
+      // stays a 404 instead of reading as an outage.
+      const status = e.status >= 400 && e.status < 500 ? e.status : 502;
+      return json({ error: e.message, code: e.code }, status);
+    }
     return json({ error: e instanceof Error ? e.message : "server error" }, 500);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Plugin source
+// ---------------------------------------------------------------------------
+
+async function handlePlugin(
+  config: PluginConfig,
+  action: string,
+  clientId: string,
+  projectId: string | null,
+  isAdmin: boolean,
+  payload: Record<string, unknown>,
+): Promise<Response> {
+  const plugin = new PluginClient(config);
+  const clientScope = isAdmin ? undefined : clientId;
+
+  if (action === "list") {
+    const data = await plugin.call<{ files: Record<string, unknown>[] }>(`/clients/${clientId}/files`, {
+      method: "GET",
+      query: { clientProjectId: projectId ?? "general" },
+      clientScope,
+    });
+    return json({ files: (data.files ?? []).map(mapPluginFile), isAdmin, source: "plugin" });
+  }
+
+  if (action === "create") {
+    const name = String(payload.name ?? "").trim();
+    if (!name) return json({ error: "name required" }, 400);
+    const byteSize = payload.byte_size != null ? Number(payload.byte_size) : null;
+    const contentBase64 = typeof payload.content_base64 === "string" && payload.content_base64.length > 0
+      ? payload.content_base64
+      : null;
+
+    const body: Record<string, unknown> = {
+      name,
+      ...(projectId ? { clientProjectId: projectId } : {}),
+      ...(payload.mime ? { contentType: String(payload.mime) } : {}),
+      ...(payload.category ? { category: String(payload.category).trim() } : {}),
+      ...(payload.uploaded_by_name ? { uploadedByName: String(payload.uploaded_by_name) } : {}),
+      // Only an admin may stage a file hidden; a client's own upload is
+      // always visible to them, which the plugin enforces either way.
+      ...(isAdmin && payload.visible_to_client === false ? { visibleToClient: false } : {}),
+    };
+    // Send contentBase64 only when it fits the built-in store's ceiling --
+    // a request carrying both is read as inline by an inline-store install
+    // and as a ticket by anything else, so sending both when the file is
+    // small is harmless, but a large file must never try to ride as base64.
+    if (contentBase64 && (byteSize == null || byteSize <= INLINE_MAX_BYTES)) {
+      body.contentBase64 = contentBase64;
+    }
+    if (byteSize != null) body.byteSize = byteSize;
+
+    const data = await plugin.call<{ file: Record<string, unknown> | null; upload: UploadTicket | null }>(
+      `/clients/${clientId}/files`,
+      { method: "POST", body, clientScope },
+    );
+    return json({
+      file: data.file ? mapPluginFile(data.file) : null,
+      upload: data.upload ?? null,
+    }, 201);
+  }
+
+  if (action === "complete") {
+    const id = String(payload.id ?? "").trim();
+    if (!id) return json({ error: "id required" }, 400);
+    const data = await plugin.call<{ file: Record<string, unknown> | null }>(`/files/${id}/complete`, {
+      method: "POST", body: {}, clientScope,
+    });
+    return json({ file: data.file ? mapPluginFile(data.file) : null });
+  }
+
+  if (action === "download") {
+    const id = String(payload.id ?? "").trim();
+    if (!id) return json({ error: "id required" }, 400);
+    const data = await plugin.call<{
+      filename: string;
+      contentType: string | null;
+      url: string | null;
+      contentBase64: string | null;
+    }>(`/files/${id}/download`, { method: "GET", clientScope });
+    return json({
+      filename: data.filename,
+      mime: data.contentType ?? null,
+      url: data.url ?? null,
+      content_base64: data.contentBase64 ?? null,
+    });
+  }
+
+  if (action === "remove") {
+    const id = String(payload.id ?? "").trim();
+    if (!id) return json({ error: "id required" }, 400);
+    await plugin.call(`/files/${id}`, { method: "DELETE", clientScope });
+    return json({ ok: true });
+  }
+
+  if (action === "set_visible") {
+    if (!isAdmin) return json({ error: "forbidden" }, 403);
+    const id = String(payload.id ?? "").trim();
+    if (!id) return json({ error: "id required" }, 400);
+    await plugin.call(`/files/${id}`, {
+      method: "PATCH",
+      body: { visibleToClient: payload.visible_to_client !== false },
+    });
+    return json({ ok: true });
+  }
+
+  return json({ error: "action must be list, create, complete, download, remove or set_visible" }, 400);
+}
+
+// ---------------------------------------------------------------------------
+// Admin-tables source (unchanged from before CRE-822; see header)
+// ---------------------------------------------------------------------------
+
+async function handleLegacy(
+  admin: ReturnType<typeof createClient>,
+  action: string,
+  clientId: string,
+  projectId: string | null,
+  isAdmin: boolean,
+  payload: Record<string, unknown>,
+): Promise<Response> {
+  if (action === "list") {
+    let q = admin.from("client_project_files")
+      .select("id, name, storage_path, size_bytes, mime, direction, category, uploaded_by_name, visible_to_client, created_at")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false });
+    if (projectId) q = q.eq("client_project_id", projectId);
+    // Hidden files are ours, not theirs. Filtered server-side, because "the
+    // browser will not render it" is not a access control.
+    if (!isAdmin) q = q.eq("visible_to_client", true);
+    const { data, error } = await q;
+    if (error) throw error;
+
+    const rows = data ?? [];
+    return json({
+      files: rows.map((r: Record<string, unknown>): FileRow => ({
+        id: r.id as string,
+        name: r.name as string,
+        size_bytes: r.size_bytes as number | null,
+        mime: r.mime as string | null,
+        direction: r.direction as string,
+        category: r.category as string | null,
+        uploaded_by_name: r.uploaded_by_name as string | null,
+        visible_to_client: r.visible_to_client as boolean,
+        created_at: r.created_at as string,
+        status: "stored",
+        downloadable: true,
+      })),
+      isAdmin,
+      source: "admin-tables",
+    });
+  }
+
+  if (action === "register") {
+    const name = String(payload.name ?? "").trim();
+    const storagePath = String(payload.storage_path ?? "").trim();
+    if (!name || !storagePath) return json({ error: "name and storage_path required" }, 400);
+
+    // The path has to be the one this caller was allowed to write. Without
+    // this check a caller could register any object in the bucket as their
+    // own file and have us sign it for them.
+    const expected = `${PREFIX}/${clientId}/${projectId ?? "general"}/`;
+    if (!storagePath.startsWith(expected)) {
+      return json({ error: "storage_path is not under this project" }, 400);
+    }
+
+    // Only an admin may say a file came FROM us, or hide one.
+    const direction = isAdmin && payload.direction === "to_client" ? "to_client" : "from_client";
+    const visible = isAdmin && payload.visible_to_client === false ? false : true;
+
+    const { data, error } = await admin.from("client_project_files").insert({
+      client_id: clientId,
+      client_project_id: projectId,
+      name: name.slice(0, 300),
+      storage_path: storagePath,
+      size_bytes: payload.size_bytes != null ? Number(payload.size_bytes) : null,
+      mime: payload.mime ? String(payload.mime).slice(0, 200) : null,
+      direction,
+      category: payload.category ? String(payload.category).slice(0, 120) : null,
+      uploaded_by_name: payload.uploaded_by_name ? String(payload.uploaded_by_name).slice(0, 160) : null,
+      visible_to_client: visible,
+    }).select("id").single();
+    if (error) throw error;
+    return json({ ok: true, id: data.id });
+  }
+
+  if (action === "download") {
+    const id = String(payload.id ?? "").trim();
+    if (!id) return json({ error: "id required" }, 400);
+    const { data: row } = await admin.from("client_project_files")
+      .select("id, client_id, name, mime, storage_path, visible_to_client")
+      .eq("id", id).eq("client_id", clientId).maybeSingle();
+    if (!row) return json({ error: "not found" }, 404);
+    if (!isAdmin && !row.visible_to_client) return json({ error: "not found" }, 404);
+    const { data: signed, error } = await admin.storage.from(BUCKET)
+      .createSignedUrl(row.storage_path as string, SIGNED_SECONDS);
+    if (error) throw error;
+    return json({ filename: row.name, mime: row.mime, url: signed.signedUrl, content_base64: null });
+  }
+
+  if (action === "remove") {
+    const id = String(payload.id ?? "").trim();
+    if (!id) return json({ error: "id required" }, 400);
+    const { data: row } = await admin.from("client_project_files")
+      .select("id, client_id, direction, storage_path")
+      .eq("id", id).eq("client_id", clientId).maybeSingle();
+    if (!row) return json({ error: "not found" }, 404);
+    // A client may take back what they sent. What we shared with them is
+    // ours to withdraw, not theirs.
+    if (!isAdmin && row.direction !== "from_client") {
+      return json({ error: "that file was shared by Cre8 Visions" }, 403);
+    }
+    await admin.storage.from(BUCKET).remove([row.storage_path as string]);
+    const { error } = await admin.from("client_project_files").delete().eq("id", id);
+    if (error) throw error;
+    return json({ ok: true });
+  }
+
+  if (action === "set_visible") {
+    if (!isAdmin) return json({ error: "forbidden" }, 403);
+    const id = String(payload.id ?? "").trim();
+    if (!id) return json({ error: "id required" }, 400);
+    const { error } = await admin.from("client_project_files")
+      .update({ visible_to_client: payload.visible_to_client !== false })
+      .eq("id", id).eq("client_id", clientId);
+    if (error) throw error;
+    return json({ ok: true });
+  }
+
+  return json({ error: "action must be list, register, download, remove or set_visible" }, 400);
+}

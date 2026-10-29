@@ -1,11 +1,11 @@
 // Mockup 18: send files to Cre8 Visions, download what they've shared.
 //
-// SAME DATA PATH AS THE OLD FILES TAB -- `client-files` list/register/remove,
-// the two-step upload (bytes to `client-assets` via the caller's own
-// session, then a row) and the 15MB cap -- just drawn in the row idiom
-// Camille added for this card (`cp-file`/`cp-files`/`cp-drop`) instead of
-// `FilesSection`'s light-admin rows. See `useClientFiles.ts` for the one copy
-// of what the screen does.
+// SAME DATA PATH AS THE OLD FILES TAB -- `client-files` list/remove and the
+// 15MB cap -- just drawn in the row idiom Camille added for this card
+// (`cp-file`/`cp-files`/`cp-drop`) instead of `FilesSection`'s light-admin
+// rows. See `useClientFiles.ts` for the one copy of what the screen does,
+// including the CRE-822 split between the plugin's create/complete flow and
+// the pre-CRE-822 direct-to-bucket one.
 //
 // A client with several live projects sees the chooser in this shell. A
 // named project opens from `/files/:projectId`. See `useResolvedProject`.
@@ -24,7 +24,11 @@ import {
   useResolvedProject,
 } from "@/components/portal/useClientPortal";
 import { clientPortal } from "@/lib/clientPortalApi";
-import { useClientFiles, type ProjectFile } from "@/components/portal/useClientFiles";
+import {
+  useClientFiles,
+  type OpenedFile,
+  type ProjectFile,
+} from "@/components/portal/useClientFiles";
 import FilePreview from "@/components/FilePreview";
 import { fileSize, previewKind } from "@/lib/projectFiles";
 import type { HomeView } from "@/lib/clientPortalWire";
@@ -112,9 +116,9 @@ function FilesBody({
   viewAs: boolean;
 }) {
   const {
-    files, shared, sent, busy, unavailable, dragging, inputRef, onDragOver, onDragLeave, onDrop, upload, remove,
+    files, shared, sent, busy, unavailable, dragging, inputRef, onDragOver, onDragLeave, onDrop, upload, remove, open,
   } = useClientFiles({ clientId, clientProjectId, clientName, adminPreview });
-  const [previewing, setPreviewing] = useState<ProjectFile | null>(null);
+  const [previewing, setPreviewing] = useState<OpenedFile | null>(null);
 
   return (
     <>
@@ -186,7 +190,7 @@ function FilesBody({
         ) : (
           <ul className="cp-files">
             {shared.map((file) => (
-              <FileRow key={file.id} file={file} mine={false} agencyName={agencyName} onPreview={setPreviewing} />
+              <FileRow key={file.id} file={file} mine={false} agencyName={agencyName} onOpen={open} onPreview={setPreviewing} />
             ))}
           </ul>
         )}
@@ -207,6 +211,7 @@ function FilesBody({
                 file={file}
                 mine
                 agencyName={agencyName}
+                onOpen={open}
                 onPreview={setPreviewing}
                 onRemove={viewAs ? undefined : remove}
               />
@@ -215,12 +220,15 @@ function FilesBody({
         )}
       </section>
 
-      {previewing?.url && (
+      {previewing && (
         <FilePreview
-          name={previewing.name}
+          name={previewing.filename}
           url={previewing.url}
           mime={previewing.mime}
-          onClose={() => setPreviewing(null)}
+          onClose={() => {
+            if (previewing.url.startsWith("blob:")) URL.revokeObjectURL(previewing.url);
+            setPreviewing(null);
+          }}
         />
       )}
     </>
@@ -231,15 +239,18 @@ function FileRow({
   file,
   mine,
   agencyName,
+  onOpen,
   onPreview,
   onRemove,
 }: {
   file: ProjectFile;
   mine: boolean;
   agencyName: string;
-  onPreview: (file: ProjectFile) => void;
+  onOpen: (file: ProjectFile) => Promise<OpenedFile | null>;
+  onPreview: (file: OpenedFile) => void;
   onRemove?: (file: ProjectFile) => Promise<void>;
 }) {
+  const canOpen = file.downloadable && previewKind(file.mime, file.name);
   return (
     <li>
       <div className="cp-file">
@@ -247,11 +258,11 @@ function FileRow({
           <FileText size={16} strokeWidth={1.75} />
         </span>
         <span className="cp-file__what">
-          {file.url && previewKind(file.mime, file.name) ? (
+          {canOpen ? (
             <button
               type="button"
               className="cp-file__name cp-file__name--link"
-              onClick={() => onPreview(file)}
+              onClick={() => void onOpen(file).then((opened) => opened && onPreview(opened))}
             >
               {file.name}
             </button>
@@ -259,17 +270,26 @@ function FileRow({
             <span className="cp-file__name">{file.name}</span>
           )}
           <span className="cp-file__meta">
-            {[file.category, when(file.created_at), fileSize(file.size_bytes)].filter(Boolean).join(" · ")}
+            {[
+              file.category,
+              when(file.created_at),
+              fileSize(file.size_bytes),
+              file.status === "external" ? "not available yet" : null,
+            ].filter(Boolean).join(" · ")}
           </span>
         </span>
         <span className={`cp-pill${mine ? " cp-pill--sent" : ""}`}>
           {mine ? "From you" : `From ${agencyName}`}
         </span>
         <span className="cp-file__actions">
-          {file.url && (
-            <a className="cp__btn" href={file.url} target="_blank" rel="noreferrer">
+          {file.downloadable && (
+            <button
+              type="button"
+              className="cp__btn"
+              onClick={() => void onOpen(file).then((opened) => opened && window.open(opened.url, "_blank"))}
+            >
               <Download size={14} strokeWidth={1.75} /> Download
-            </a>
+            </button>
           )}
           {mine && onRemove && (
             <button

@@ -646,7 +646,6 @@ export function demoProjectFiles(): ProjectFile[] {
     {
       id: "file-brand-kit",
       name: "Glowskin_Studio_Brand_Guidelines_FINAL_v3_approved_2026.pdf",
-      storage_path: "project-files/demo/proj-main/brand-guidelines.pdf",
       size_bytes: 2_458_112,
       mime: "application/pdf",
       direction: "to_client",
@@ -654,14 +653,14 @@ export function demoProjectFiles(): ProjectFile[] {
       uploaded_by_name: AGENCY_NAME,
       visible_to_client: true,
       created_at: daysOut(-5),
-      url: "https://example.invalid/files/brand-guidelines.pdf",
+      status: "stored",
+      downloadable: true,
     },
     {
       // A previewable image, so the row's name renders as the clickable
       // button variant and not just the plain one above.
       id: "file-homepage-mock",
       name: "Homepage mockup.png",
-      storage_path: "project-files/demo/proj-main/homepage-mockup.png",
       size_bytes: 812_000,
       mime: "image/png",
       direction: "to_client",
@@ -669,13 +668,13 @@ export function demoProjectFiles(): ProjectFile[] {
       uploaded_by_name: AGENCY_NAME,
       visible_to_client: true,
       created_at: daysOut(-1),
-      url: "https://example.invalid/files/homepage-mockup.png",
+      status: "stored",
+      downloadable: true,
     },
     {
       // The one row in "Sent by you", so that list is not empty either.
       id: "file-treatment-room-1",
       name: "treatment-room-1.jpg",
-      storage_path: "project-files/demo/proj-main/treatment-room-1.jpg",
       size_bytes: 1_240_000,
       mime: "image/jpeg",
       direction: "from_client",
@@ -683,9 +682,26 @@ export function demoProjectFiles(): ProjectFile[] {
       uploaded_by_name: ME.displayName,
       visible_to_client: true,
       created_at: daysOut(-2),
-      url: "https://example.invalid/files/treatment-room-1.jpg",
+      status: "stored",
+      downloadable: true,
     },
   ];
+}
+
+/**
+ * Where `open()` sends the demo harness for one file, since CRE-822 stopped
+ * `demoProjectFiles` carrying a link of its own -- a list never does, in the
+ * harness or out of it. Kept beside the fixture rather than on it, because
+ * `ProjectFile` is the real wire shape and a link is not part of it.
+ */
+const DEMO_FILE_URLS: Record<string, string> = {
+  "file-brand-kit": "https://example.invalid/files/brand-guidelines.pdf",
+  "file-homepage-mock": "https://example.invalid/files/homepage-mockup.png",
+  "file-treatment-room-1": "https://example.invalid/files/treatment-room-1.jpg",
+};
+
+export function demoFileUrl(id: string): string | null {
+  return DEMO_FILE_URLS[id] ?? null;
 }
 
 /* -------------------------------------------------------------------------- */
