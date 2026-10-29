@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Download, ExternalLink } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import EmptyState from "@/components/admin/cv/EmptyState";
+import PdfFrame from "@/components/PdfFrame";
 import { supabase } from "@/integrations/supabase/client";
 import { usd } from "@/lib/clientBalance";
 import { proposalGroup, clientStatusLabel, type ProposalLike } from "@/lib/proposalStatus";
@@ -216,13 +217,11 @@ export default function ProposalDetail() {
             </div>
             <div className="cv-paper">
               <div className="cv-paper__sheet">
+                {/* Same renderer as the client's side of this document, and
+                    for the same reason — a signed storage URL in a frame's
+                    src comes up blank in Chromium. CRE-829. */}
                 {pdfUrl ? (
-                  <iframe // page-width, not 100: a US Letter page is 816px and this
-                      // frame is narrower than that on most screens, so 100%
-                      // clipped the right edge and gave the viewer its own
-                      // horizontal scrollbar. Verified in Chromium against a
-                      // ruled test PDF — 100 clips, page-width fits.
-                      src={`${pdfUrl}#navpanes=0&toolbar=1&zoom=page-width`} title={p.title} />
+                  <PdfFrame url={pdfUrl} title={p.title} />
                 ) : (
                   <div className="cv-paper__none">
                     No PDF on this proposal yet. Upload one and it reads here.

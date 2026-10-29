@@ -1,10 +1,27 @@
 // A stored PDF, rendered inline.
 //
 // Fetched into a blob rather than pointed at directly. A Supabase Storage
-// signed URL is another origin and arrives with headers that make it a
-// download, so a frame pointed straight at it comes up blank and looks
-// blocked. Reading the bytes and handing the browser a same-origin blob: URL
-// sidesteps content-disposition and framing headers entirely.
+// signed URL is another origin, and Chromium refuses to render a cross-origin
+// PDF in a frame unless the response is both `content-type: application/pdf`
+// and `content-disposition: inline`. Miss either and it does not fail loudly —
+// it hands the response to the download manager and leaves the frame blank, so
+// the page looks like it is still loading forever. Reading the bytes and
+// handing the browser a same-origin blob: URL sidesteps both headers.
+//
+// CRE-829, measured rather than assumed. A two-origin harness in Chromium,
+// one page per header set:
+//
+//   | response from "storage"            | frame src = the URL | frame src = blob |
+//   |------------------------------------|---------------------|------------------|
+//   | application/pdf + inline           | renders             | renders          |
+//   | application/pdf + attachment       | BLANK + download    | renders          |
+//   | application/octet-stream + inline  | BLANK + download    | renders          |
+//
+// Both failing rows are reachable in production: `?download` and an object
+// stored without an explicit content type — which is every proposal PDF that
+// did not come through the admin upload form, including anything carried over
+// by the /admin import. WebKit sniffs the bytes and renders them anyway, which
+// is why this only showed up once a proposal was opened in a Chromium browser.
 //
 // Shared between the admin proposal preview and the client portal on purpose:
 // the portal had the same blank frame, which is the worse half of the bug —
@@ -16,25 +33,33 @@ import { useEffect, useState } from "react";
  *
  * `navpanes=0` shuts the page-thumbnail rail — a 53-page proposal opened with
  * half the frame given to thumbnails of pages nobody is reading yet.
- * `zoom=100` overrides the fit-to-width default, which shrank a portrait page
- * to 58% inside a panel and made the body text unreadable. `toolbar=1` keeps
- * the page counter, zoom and download, which are the controls someone
- * genuinely reaching page 40 needs.
+ * `toolbar=1` keeps the page counter, zoom and download, which are the
+ * controls someone genuinely reaching page 40 needs. `zoom=page-width` rather
+ * than `zoom=100`: a US Letter page is 816px and this frame is narrower than
+ * that on most screens, so 100 clipped the right edge and gave the viewer its
+ * own horizontal scrollbar.
  *
- * Verified in Chromium against the same blob: URL this component builds.
- * Without them the viewer opens the thumbnail rail and fits to width at 83%;
- * with them, no rail and 100%. Other engines honour different subsets and
- * ignore the rest harmlessly, so all three are sent rather than guessing at
- * the reader's browser.
+ * Other engines honour different subsets and ignore the rest harmlessly, so
+ * all three are sent rather than guessing at the reader's browser.
  */
-const VIEWER_PARAMS = "#navpanes=0&toolbar=1&zoom=100";
+const VIEWER_PARAMS = "#navpanes=0&toolbar=1&zoom=page-width";
 
 export default function PdfFrame({
-  url, title, height = "82vh",
+  url,
+  title,
+  viewerParams = VIEWER_PARAMS,
+  stateClassName = "cv-paper__none",
 }: {
   url: string;
   title: string;
-  height?: number | string;
+  viewerParams?: string;
+  /**
+   * The class the loading and failure messages wear. Both call sites sit
+   * inside `.cv-paper__sheet`, which already styles a message filling the
+   * sheet; the frame itself is sized by that same stylesheet, so nothing
+   * here carries inline geometry.
+   */
+  stateClassName?: string;
 }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -74,27 +99,19 @@ export default function PdfFrame({
 
   if (failed) {
     return (
-      <p style={{ color: "var(--crm-taupe)", fontSize: 16 }}>
-        Could not load the PDF here.{" "}
-        <a href={url} target="_blank" rel="noreferrer" style={{ color: "var(--crm-accent)" }}>
-          Open it in a new tab
-        </a>.
-      </p>
+      <div className={stateClassName}>
+        <p style={{ margin: 0 }}>Could not load the document here.</p>
+        {/* The signed URL still works in a tab of its own even when the
+            headers stop it rendering in a frame, so this is a real way out
+            rather than a shrug. */}
+        <a href={url} target="_blank" rel="noreferrer">Open it in a new tab</a>
+      </div>
     );
   }
 
   if (!blobUrl) {
-    return <p style={{ color: "var(--crm-taupe)", fontSize: 16 }}>Loading the PDF…</p>;
+    return <div className={stateClassName}>Loading the document…</div>;
   }
 
-  return (
-    <iframe
-      src={`${blobUrl}${VIEWER_PARAMS}`}
-      title={title}
-      style={{
-        width: "100%", height, border: "1px solid var(--crm-border-dark)",
-        borderRadius: 8, background: "#fff",
-      }}
-    />
-  );
+  return <iframe src={`${blobUrl}${viewerParams}`} title={title} />;
 }

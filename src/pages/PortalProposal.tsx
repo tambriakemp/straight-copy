@@ -23,6 +23,7 @@ import { describeTerm, termRows } from "@/lib/proposalTerms";
 import { collectSigningAudit } from "@/lib/signingAudit";
 import { portalFetch } from "@/lib/portalFetch";
 import { useAdminPreview } from "@/hooks/useAdminPreview";
+import PdfFrame from "@/components/PdfFrame";
 
 interface PortalProposal {
   id: string;
@@ -187,13 +188,12 @@ export default function PortalProposal() {
           </div>
           <div className="cv-paper">
             <div className="cv-paper__sheet">
+              {/* Through PdfFrame, not straight at `pdfUrl`: Chromium will not
+                  render a cross-origin PDF whose response says
+                  octet-stream or attachment, and the client saw an empty
+                  sheet rather than their proposal. CRE-829. */}
               {pdfUrl
-                ? <iframe // page-width, not 100: a US Letter page is 816px and this
-                      // frame is narrower than that on most screens, so 100%
-                      // clipped the right edge and gave the viewer its own
-                      // horizontal scrollbar. Verified in Chromium against a
-                      // ruled test PDF — 100 clips, page-width fits.
-                      src={`${pdfUrl}#navpanes=0&toolbar=1&zoom=page-width`} title={p.title} />
+                ? <PdfFrame url={pdfUrl} title={p.title} />
                 : <div className="cv-paper__none">The document is being prepared. Please check back shortly.</div>}
             </div>
           </div>
