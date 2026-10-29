@@ -5259,6 +5259,10 @@ export type Database = {
         Args: { _task_id: string; _worker: string }
         Returns: undefined
       }
+      reveal_client_login: {
+        Args: { _client_id: string; _enc_key: string; _id: string }
+        Returns: string
+      }
       set_client_login:
         | {
             Args: {
