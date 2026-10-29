@@ -171,6 +171,17 @@ export interface PortalSource {
   ): Promise<AccountAccessView>;
 
   /**
+   * The client's own shared-drive link (CRE-827), replacing the Files tab's
+   * upload button. `url` is validated by the implementation; `null` clears
+   * it. The reader already gets the current value from `home()` -- this is
+   * the one write `HomeView` has no field for.
+   */
+  saveSharedDriveUrl(
+    ctx: PortalCallerContext,
+    url: string | null,
+  ): Promise<{ sharedDriveUrl: string | null }>;
+
+  /**
    * One decrypted password, for one login shared with this client.
    *
    * Null when the row exists and has no password stored. A login that is

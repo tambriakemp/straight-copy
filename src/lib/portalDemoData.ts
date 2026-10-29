@@ -119,9 +119,13 @@ interface DemoState {
   payments: PaymentRow[];
   logins: SharedLogin[];
   requests: LoginRequest[];
+  /** CRE-827. Seeded with a sample link so the Files tab reviews in its
+   *  "already set" state, same as the sent agreements and shared logins. */
+  sharedDriveUrl: string | null;
 }
 
 const state: DemoState = {
+  sharedDriveUrl: "https://drive.example.invalid/folders/demo-glowskin-studio",
   agreements: [
     {
       // The one the screen opens on: awaiting a signature, built here, so
@@ -452,6 +456,7 @@ function homeView(): HomeView {
     branding: BRANDING,
     me: ME,
     projects: PROJECTS,
+    sharedDriveUrl: state.sharedDriveUrl,
     headline: "Your new site is being built",
     stepNumber: step?.stepNumber ?? null,
     stepCount: step?.stepCount ?? null,
@@ -472,10 +477,13 @@ function homeView(): HomeView {
           ]
         : []),
       {
+        // CRE-827: a client shares files from their own drive now, not an
+        // upload button on this screen -- the waiting item sends them to
+        // that link instead of a control that no longer exists.
         id: "todo-upload",
-        title: "Upload 6 treatment-room photos",
+        title: "Share 6 treatment-room photos from your drive",
         icon: "upload" as const,
-        action: "Upload",
+        action: "Open",
         href: "/portal/demo/files",
         primary: false,
       },
@@ -891,6 +899,10 @@ export function demoCall<T>(action: string, body: Record<string, unknown>): T {
       return {} as T;
     case "reveal-login":
       return revealLogin(String(body.id)) as T;
+
+    case "save-shared-drive-url":
+      state.sharedDriveUrl = typeof body.sharedDriveUrl === "string" ? body.sharedDriveUrl : null;
+      return { sharedDriveUrl: state.sharedDriveUrl } as T;
 
     default:
       // A new action that nobody taught the harness is a harness that

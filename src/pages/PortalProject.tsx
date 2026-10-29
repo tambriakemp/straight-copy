@@ -730,7 +730,6 @@ export default function PortalProject() {
         <div id="portal-account-access" style={{ scrollMarginTop: 24 }}>
           <AccountAccessSection
             clientId={clientId!}
-            clientName={client.contact_name || client.business_name}
             initial={accountAccess}
             adminPreview={adminPreview}
           />
@@ -849,7 +848,6 @@ export default function PortalProject() {
           <FilesSection
             clientId={clientId!}
             clientProjectId={currentProject.id}
-            clientName={client.contact_name}
             adminPreview={adminPreview}
           />
         ) : tab === "logins" ? (

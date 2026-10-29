@@ -16,18 +16,16 @@
 //     replace it" the way the Logins screen draws a row of dots, and only
 //     sends `notes` on a save where the client actually touched the field.
 //
-// Attachments are plain Files (CRE-822, G7) filed with no project and the
-// category "account-access", through the same `useClientFiles` hook the
-// Files tab uses -- not a second upload mechanism that picks its own bucket
-// path.
+// Attachments (plain Files, CRE-822, G7, filed with no project and the
+// category "account-access") were removed in CRE-827: a client cannot
+// upload anywhere in the portal any more, which took this form's upload
+// control with it. Share anything that was an attachment through the
+// secure note below, or through the shared drive link on the Files tab.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { clientPortal, PortalRequestError } from "@/lib/clientPortalApi";
 import type { AccountAccessItem, AccountAccessView } from "@/lib/clientPortalWire";
-import { useClientFiles } from "@/components/portal/useClientFiles";
-
-const ATTACHMENTS_CATEGORY = "account-access";
 
 function ItemCopy({ text }: { text: string | null }) {
   if (!text) return null;
@@ -47,13 +45,10 @@ function ItemCopy({ text }: { text: string | null }) {
 
 export default function AccountAccessSection({
   clientId,
-  clientName,
   initial,
   adminPreview,
 }: {
   clientId: string;
-  /** For `uploaded_by_name` on an attachment, same as the Files tab. */
-  clientName: string | null;
   initial: AccountAccessView;
   adminPreview: boolean;
 }) {
@@ -73,14 +68,6 @@ export default function AccountAccessSection({
   // the debounce. `submittedAt` -- the one fact that must never be guessed
   // locally -- still comes only from the server's response, below.
   const allDone = requiredKeys.length > 0 && requiredKeys.every((key) => !!checks[key]);
-
-  const files = useClientFiles({
-    clientId,
-    clientProjectId: null,
-    clientName,
-    adminPreview,
-    category: ATTACHMENTS_CATEGORY,
-  });
 
   const persist = useCallback(async () => {
     setSaving(true);
@@ -231,39 +218,6 @@ export default function AccountAccessSection({
             />
             {notePresent && !noteEdited.current && (
               <p style={{ opacity: 0.6, fontSize: 13, margin: "4px 0 0" }}>A note is on file. Typing above replaces it.</p>
-            )}
-
-            <label className="portal-access__field-label">Attachments</label>
-            <div className="portal-access__upload">
-              <input
-                ref={files.inputRef}
-                type="file"
-                multiple
-                onChange={(e) => void files.upload(e.target.files)}
-                disabled={files.busy}
-                className="portal-access__file"
-              />
-              <span className="portal-access__upload-hint">
-                {files.busy ? "Uploading…" : files.unavailable ? "Attachments are unavailable right now." : "Up to 15MB each"}
-              </span>
-            </div>
-
-            {files.sent.length > 0 && (
-              <ul className="portal-access__files">
-                {files.sent.map((f) => (
-                  <li key={f.id} className="portal-access__file-row">
-                    <span className="portal-access__file-name">{f.name}</span>
-                    <button
-                      type="button"
-                      className="portal-access__file-remove"
-                      onClick={() => void files.remove(f)}
-                      aria-label={`Remove ${f.name}`}
-                    >
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
             )}
           </div>
 

@@ -2955,66 +2955,6 @@ a.ref:hover { color: var(--cv-accent); border-color: var(--cv-accent); }
   font-family: var(--crm-font-serif);
 }
 
-.crm-shell .portal-access__upload {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.crm-shell .portal-access__file {
-  color: var(--crm-warm-white);
-  font-size: 19px;
-  font-family: var(--crm-font-sans);
-}
-.crm-shell .portal-access__file::file-selector-button {
-  background: transparent;
-  color: var(--crm-warm-white);
-  border: 1px solid hsl(40 20% 97% / 0.25);
-  padding: 8px 14px;
-  border-radius: 3px;
-  font-family: var(--crm-font-sans);
-  font-size: 17px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  cursor: pointer;
-  margin-right: 12px;
-}
-.crm-shell .portal-access__file::file-selector-button:hover { border-color: var(--crm-accent); }
-.crm-shell .portal-access__upload-hint { font-size: 18px; color: var(--crm-stone); font-style: italic; font-family: var(--crm-font-serif); }
-
-.crm-shell .portal-access__files {
-  list-style: none;
-  padding: 0;
-  margin: 12px 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.crm-shell .portal-access__file-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
-  background: hsl(40 20% 97% / 0.04);
-  border: 1px solid hsl(40 20% 97% / 0.1);
-  border-radius: 3px;
-  font-size: 19px;
-  color: var(--crm-warm-white);
-}
-.crm-shell .portal-access__file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.crm-shell .portal-access__file-remove {
-  background: transparent;
-  border: 0;
-  color: var(--crm-stone);
-  font-size: 17px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  cursor: pointer;
-  font-family: var(--crm-font-sans);
-}
-.crm-shell .portal-access__file-remove:hover { color: var(--crm-accent); }
-
 .crm-shell .portal-access__footer {
   display: flex;
   align-items: center;
