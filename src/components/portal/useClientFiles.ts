@@ -13,7 +13,7 @@
 //
 // CRE-827 removed upload and remove from this hook. A client cannot upload
 // anywhere in the portal any more -- they keep their own shared drive
-// folder instead, see `useSharedDriveLink.ts` -- and the "Sent by you" list
+// folder instead, see `useSharedDriveLinks.ts` -- and the "Sent by you" list
 // is read-only history now that nothing can add to it.
 
 import { useCallback, useEffect, useState } from "react";

@@ -52,6 +52,7 @@ import {
   type PortalBranding,
   type PortalMe,
   type PortalProject,
+  type SharedDriveLink,
   type SharedLogin,
   type SignRequest,
   type SignResult,
@@ -794,19 +795,27 @@ export class LegacySource implements PortalSource {
 
   /**
    * CRE-827. This install has not cut over to the Client Portal plugin, and
-   * the `/admin` tables this bridge reads have no column for it -- there was
+   * the `/admin` tables this bridge reads have no table for it -- there was
    * no shared-drive concept before this card. Refused rather than faked: a
    * save that silently did nothing would tell the client their link is on
    * file when it is not.
    */
-  async saveSharedDriveUrl(
+  async createSharedDriveLink(
     _ctx: PortalCallerContext,
-    _url: string | null,
-  ): Promise<{ sharedDriveUrl: string | null }> {
+    _input: { clientProjectId: string; url: string },
+  ): Promise<SharedDriveLink> {
     throw new PortalError(
       501,
       "shared_drive_unavailable",
-      "Saving a shared-drive link is not available on this portal yet.",
+      "Adding a shared-drive link is not available on this portal yet.",
+    );
+  }
+
+  async removeSharedDriveLink(_ctx: PortalCallerContext, _id: string): Promise<void> {
+    throw new PortalError(
+      501,
+      "shared_drive_unavailable",
+      "Removing a shared-drive link is not available on this portal yet.",
     );
   }
 

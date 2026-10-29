@@ -41,6 +41,7 @@ import {
   type PaymentRow,
   type PaymentsView,
   type PortalMilestone,
+  type SharedDriveLink,
   type SharedLogin,
   type SignRequest,
   type SignResult,
@@ -93,8 +94,13 @@ interface PluginClientRow {
   buildStartDate?: string | null;
   deliveryDate?: string | null;
   deliveryVideoUrl?: string | null;
-  /** Where the client keeps their files now (CRE-827). */
-  sharedDriveUrl?: string | null;
+}
+
+/** Where the client keeps their files now (CRE-827), one row per link. */
+interface PluginSharedDriveLink {
+  id: string;
+  clientProjectId: string;
+  url: string;
 }
 
 interface PluginContact {
@@ -301,13 +307,14 @@ export class PluginSource implements PortalSource {
   }
 
   async home(ctx: PortalCallerContext): Promise<HomeView> {
-    const [{ client, contacts }, projects, proposals, invoices] = await Promise.all([
+    const [{ client, contacts }, projects, proposals, invoices, sharedDriveLinks] = await Promise.all([
       this.#clientRow(ctx),
       this.#get<{ clientProjects: PluginClientProject[] }>(ctx, "/client-projects", {
         clientId: ctx.clientId,
       }),
       this.#get<{ proposals: PluginProposal[] }>(ctx, "/proposals", { clientId: ctx.clientId }),
       this.#get<{ invoices: PluginInvoice[] }>(ctx, "/invoices", { clientId: ctx.clientId }),
+      this.#get<{ sharedDriveLinks: PluginSharedDriveLink[] }>(ctx, "/shared-drive-links"),
     ]);
     const me = this.#meFrom(client, contacts);
 
@@ -377,7 +384,11 @@ export class PluginSource implements PortalSource {
       buildStartDate: client.buildStartDate ?? null,
       deliveryDate: client.deliveryDate ?? null,
       deliveryVideoUrl: client.deliveryVideoUrl ?? null,
-      sharedDriveUrl: client.sharedDriveUrl ?? null,
+      sharedDriveLinks: sharedDriveLinks.sharedDriveLinks.map((link) => ({
+        id: link.id,
+        clientProjectId: link.clientProjectId,
+        url: link.url,
+      })),
       headline: visibility?.headline ?? null,
       stepNumber: position?.stepNumber ?? null,
       stepCount: position?.stepCount ?? null,
@@ -826,20 +837,31 @@ export class PluginSource implements PortalSource {
   }
 
   /**
-   * CRE-827. The plugin owns the format check too -- see `src/api/clients.ts`
-   * there -- so a request that reaches here with a bad link still gets
-   * refused server-side rather than trusting the browser's own check.
+   * CRE-827. The plugin owns the format check too -- see
+   * `src/api/shared-drive-links.ts` there -- so a request that reaches here
+   * with a bad link, or a project that is not this client's, still gets
+   * refused server-side rather than trusting the browser's own check. The
+   * client scope header already says which client this is; `clientId` is
+   * not sent in the body, the same way a client-scoped `createCredential`
+   * call does not send one either.
    */
-  async saveSharedDriveUrl(
+  async createSharedDriveLink(
     ctx: PortalCallerContext,
-    url: string | null,
-  ): Promise<{ sharedDriveUrl: string | null }> {
-    const data = await this.#patch<{ client: PluginClientRow }>(
+    input: { clientProjectId: string; url: string },
+  ): Promise<SharedDriveLink> {
+    const data = await this.#post<{ sharedDriveLink: PluginSharedDriveLink }>(
       ctx,
-      `/clients/${encodeURIComponent(ctx.clientId)}`,
-      { sharedDriveUrl: url },
+      "/shared-drive-links",
+      { clientProjectId: input.clientProjectId, url: input.url },
     );
-    return { sharedDriveUrl: data.client.sharedDriveUrl ?? null };
+    return data.sharedDriveLink;
+  }
+
+  async removeSharedDriveLink(ctx: PortalCallerContext, id: string): Promise<void> {
+    await this.#api.call(`/shared-drive-links/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      clientScope: ctx.clientId,
+    });
   }
 
   async revealLogin(

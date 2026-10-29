@@ -1,17 +1,18 @@
-// Mockup 18: a shared-drive link, and what Cre8 Visions has shared back.
+// Mockup 18: shared-drive links, and what Cre8 Visions has shared back.
 //
-// CRE-827. The owner's decision, by voice: a client no longer uploads into
-// the portal. They keep a shared drive folder of their own -- Google Drive
-// or similar -- and paste the link here; the agency's own file CRUD moved
-// to the Client Portal plugin (Bree only), and this screen only shows the
-// client their own link and their "Shared with you" list.
+// CRE-827. The owner's decision, by voice, then revised the same day: a
+// client no longer uploads into the portal. They keep one or more shared
+// drive folders of their own -- Google Drive or similar -- and paste the
+// links here, each for the project this screen is showing; the agency's own
+// file CRUD moved to the Client Portal plugin (Bree only), and this screen
+// only shows the client their own links and their "Shared with you" list.
 //
 // Files sent before this card shipped ("Sent by you") stay visible,
 // read-only: no remove control, because removing one is the one action this
 // card does not ask a client to be able to take any more, and no "nothing
 // sent yet" filler for a list that can no longer grow. See `useClientFiles.ts`
-// for the one copy of what the list does, and `useSharedDriveLink.ts` for the
-// link field both Files screens share.
+// for the one copy of what the list does, and `useSharedDriveLinks.ts` for
+// the links both Files screens share.
 //
 // A client with several live projects sees the chooser in this shell. A
 // named project opens from `/files/:projectId`. See `useResolvedProject`.
@@ -35,7 +36,7 @@ import {
   type OpenedFile,
   type ProjectFile,
 } from "@/components/portal/useClientFiles";
-import { useSharedDriveLink } from "@/components/portal/useSharedDriveLink";
+import { useSharedDriveLinks } from "@/components/portal/useSharedDriveLinks";
 import FilePreview from "@/components/FilePreview";
 import { fileSize, previewKind } from "@/lib/projectFiles";
 import type { HomeView } from "@/lib/clientPortalWire";
@@ -122,7 +123,7 @@ function FilesBody({
     clientProjectId,
     adminPreview,
   });
-  const drive = useSharedDriveLink({ clientId, adminPreview });
+  const drive = useSharedDriveLinks({ clientId, clientProjectId, adminPreview });
   const [previewing, setPreviewing] = useState<OpenedFile | null>(null);
 
   return (
@@ -139,39 +140,60 @@ function FilesBody({
         <p className="cp-card__calm">
           Create a shared folder in Google Drive (or similar), set sharing to "anyone with the link" or
           add the {agencyName} team, then paste the link here. Upload everything into that folder — not here.
+          You can add more than one link for this project.
         </p>
-        {viewAs ? (
-          <p className="cp-card__calm">{drive.saved ?? "No link on file yet."}</p>
-        ) : drive.editing ? (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-            <input
-              className="cp-input"
-              style={{ flex: "1 1 260px" }}
-              placeholder="https://drive.google.com/…"
-              value={drive.draft}
-              onChange={(event) => drive.setDraft(event.target.value)}
-              autoFocus
-            />
-            <button type="button" className="cp__btn cp__btn--primary" disabled={drive.saving} onClick={() => void drive.save()}>
-              {drive.saving ? "Saving…" : "Save"}
+
+        {drive.links.length > 0 ? (
+          <ul className="cp-files" style={{ marginTop: 8 }}>
+            {drive.links.map((link) => (
+              <li key={link.id}>
+                <div className="cp-file">
+                  <a href={link.url} target="_blank" rel="noreferrer" className="cp-file__name cp-file__name--link">
+                    {link.url} <ExternalLink size={12} style={{ display: "inline" }} />
+                  </a>
+                  {!viewAs && (
+                    <span className="cp-file__actions">
+                      <button
+                        type="button"
+                        className="cp__btn"
+                        disabled={drive.busyId === link.id}
+                        onClick={() => void drive.remove(link.id)}
+                      >
+                        Remove
+                      </button>
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : viewAs ? (
+          <p className="cp-card__calm">No link on file yet.</p>
+        ) : null}
+
+        {!viewAs && (
+          drive.adding ? (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+              <input
+                className="cp-input"
+                style={{ flex: "1 1 260px" }}
+                placeholder="https://drive.google.com/…"
+                value={drive.draft}
+                onChange={(event) => drive.setDraft(event.target.value)}
+                autoFocus
+              />
+              <button type="button" className="cp__btn cp__btn--primary" disabled={drive.saving} onClick={() => void drive.add()}>
+                {drive.saving ? "Saving…" : "Save"}
+              </button>
+              <button type="button" className="cp__btn" onClick={() => drive.setAdding(false)}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="cp__btn cp__btn--primary" style={{ marginTop: 8 }} onClick={() => drive.setAdding(true)}>
+              {drive.links.length === 0 ? "Add your shared drive link" : "Add another link"}
             </button>
-            <button type="button" className="cp__btn" onClick={() => drive.setEditing(false)}>
-              Cancel
-            </button>
-          </div>
-        ) : drive.saved ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
-            <a href={drive.saved} target="_blank" rel="noreferrer" className="cp-file__name cp-file__name--link">
-              {drive.saved} <ExternalLink size={12} style={{ display: "inline" }} />
-            </a>
-            <button type="button" className="cp__btn" onClick={() => drive.setEditing(true)}>
-              Change link
-            </button>
-          </div>
-        ) : (
-          <button type="button" className="cp__btn cp__btn--primary" style={{ marginTop: 8 }} onClick={() => drive.setEditing(true)}>
-            Add your shared drive link
-          </button>
+          )
         )}
       </section>
 

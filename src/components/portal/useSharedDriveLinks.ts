@@ -1,16 +1,24 @@
-// The Files tab's one field: a link to the client's own shared drive
-// (CRE-827). Lifted out of the two Files screens the same way
-// `useClientFiles.ts` was, so the validation and the save call exist once.
+// The Files tab's shared-drive links, for one project (CRE-827). Lifted out
+// of the two Files screens the same way `useClientFiles.ts` was, so the
+// validation and the save/remove calls exist once.
+//
+// Revised the same day it shipped: the owner tried the single-link version
+// and asked for more than one, each tagged to a project. Both Files screens
+// already know which project they are showing -- `ClientFiles.tsx` and
+// `FilesSection.tsx` both resolve a `clientProjectId` before they render --
+// so this hook reads the whole list from `home()` and narrows it to the one
+// project its caller is on, rather than asking the caller to do that.
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { clientPortal, PortalRequestError } from "@/lib/clientPortalApi";
+import type { SharedDriveLink } from "@/lib/clientPortalWire";
 
 /**
  * A link worth clicking, and nothing cleverer than that.
  *
  * Mirrors the check the plugin makes server-side (`requireHttpUrl` in
- * `src/api/clients.ts` there) so a client sees the same refusal before the
+ * `src/api/context.ts` there) so a client sees the same refusal before the
  * request even goes out, not after.
  */
 function isHttpUrl(value: string): boolean {
@@ -28,18 +36,21 @@ function isHttpUrl(value: string): boolean {
  * than thread the value through two different shapes, this asks for its own
  * copy with the one call every screen already has a credential for.
  */
-export function useSharedDriveLink({
+export function useSharedDriveLinks({
   clientId,
+  clientProjectId,
   adminPreview,
 }: {
   clientId: string;
+  clientProjectId: string;
   adminPreview: boolean;
 }) {
-  const [saved, setSaved] = useState<string | null>(null);
+  const [links, setLinks] = useState<SharedDriveLink[]>([]);
+  const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
-  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -48,9 +59,7 @@ export function useSharedDriveLink({
       .home(clientId, adminPreview)
       .then((home) => {
         if (!live) return;
-        const value = home.sharedDriveUrl ?? null;
-        setSaved(value);
-        setDraft(value ?? "");
+        setLinks((home.sharedDriveLinks ?? []).filter((link) => link.clientProjectId === clientProjectId));
       })
       .catch(() => {
         // The Files screen already shows its own "unavailable" state from
@@ -63,24 +72,24 @@ export function useSharedDriveLink({
     return () => {
       live = false;
     };
-  }, [clientId, adminPreview]);
+  }, [clientId, clientProjectId, adminPreview]);
 
-  const save = async () => {
+  const add = async () => {
     const trimmed = draft.trim();
-    if (trimmed.length > 0 && !isHttpUrl(trimmed)) {
+    if (!isHttpUrl(trimmed)) {
       toast.error("That doesn't look like a link. Paste the full URL, starting with https://.");
       return;
     }
     setSaving(true);
     try {
-      const result = await clientPortal.saveSharedDriveUrl(
+      const created = await clientPortal.createSharedDriveLink(
         clientId,
-        trimmed.length > 0 ? trimmed : null,
+        { clientProjectId, url: trimmed },
         adminPreview,
       );
-      setSaved(result.sharedDriveUrl);
-      setDraft(result.sharedDriveUrl ?? "");
-      setEditing(false);
+      setLinks((prev) => [...prev, created]);
+      setDraft("");
+      setAdding(false);
       toast.success("Saved");
     } catch (e) {
       toast.error(e instanceof PortalRequestError ? e.message : "That could not be saved.");
@@ -89,17 +98,31 @@ export function useSharedDriveLink({
     }
   };
 
+  const remove = async (id: string) => {
+    setBusyId(id);
+    try {
+      await clientPortal.removeSharedDriveLink(clientId, id, adminPreview);
+      setLinks((prev) => prev.filter((link) => link.id !== id));
+    } catch (e) {
+      toast.error(e instanceof PortalRequestError ? e.message : "That could not be removed.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return {
     loading,
-    saved,
+    links,
+    adding,
+    setAdding: (next: boolean) => {
+      setDraft("");
+      setAdding(next);
+    },
     draft,
     setDraft,
-    editing,
-    setEditing: (next: boolean) => {
-      setDraft(saved ?? "");
-      setEditing(next);
-    },
     saving,
-    save,
+    add,
+    busyId,
+    remove,
   };
 }

@@ -54,11 +54,14 @@
  * than this copy" and draws what it would draw for an unset value -- never as
  * an error, and never by substituting a guess of its own.
  *
- *   1.6.0  `HomeView.sharedDriveUrl` (CRE-827): the client's own shared-drive
- *          link, replacing the Files tab's upload button. Optional; absent
- *          or null draws the same empty "no link yet" prompt a server older
- *          than this copy would, which is also what a licensee who has not
- *          adopted the Files plugin surface sees forever.
+ *   1.6.0  `HomeView.sharedDriveLinks` (CRE-827): the client's own shared-
+ *          drive links, replacing the Files tab's upload button. A client may
+ *          have more than one, each tagged to one of their projects --
+ *          revised the same day it shipped, from a single link, once a
+ *          client with two live projects needed two folders. Optional;
+ *          absent or empty draws the same "no link yet" prompt a server
+ *          older than this copy would, which is also what a licensee who has
+ *          not adopted the Files plugin surface sees forever.
  *   1.5.0  `AccountAccessView` and `AccountAccessItem` (CRE-822, G4): the
  *          "Set Up Your Accounts" form, moved off the `/admin` jsonb column
  *          it used to read and write in clear. A server older than this
@@ -225,6 +228,21 @@ export interface PortalProject {
   updatedAt: string | null;
 }
 
+/**
+ * A link to a shared drive folder the client keeps their files in (CRE-827).
+ *
+ * `clientProjectId` is required, not optional: this is never a general link
+ * for the whole client the way the first version of this card shipped --
+ * every link belongs to exactly one project, which is what lets the Files
+ * tab on a project page show only the links that are actually for it, and
+ * lets the board group them by project.
+ */
+export interface SharedDriveLink {
+  id: string;
+  clientProjectId: string;
+  url: string;
+}
+
 /** A thing the client has to do. The whole point of the home screen. */
 export interface WaitingItem {
   id: string;
@@ -301,13 +319,15 @@ export interface HomeView {
   deliveryDate?: string | null;
   deliveryVideoUrl?: string | null;
   /**
-   * Where the client keeps their files now (CRE-827).
+   * Where the client keeps their files now (CRE-827), one or more links,
+   * each tagged to a project.
    *
-   * Set by the client on the Files tab, read here and there alike. Null
-   * means nothing has been pasted yet -- the Files tab's empty state, not an
-   * error. Optional for a server older than 1.6.0, same drawing.
+   * Set by the client on the Files tab, read here and there alike. An empty
+   * array means nothing has been pasted yet for any project -- the Files
+   * tab's empty state, not an error. Optional for a server older than
+   * 1.6.0, same drawing.
    */
-  sharedDriveUrl?: string | null;
+  sharedDriveLinks?: SharedDriveLink[];
   /** "Your new site is being built". Null when there is no live project. */
   headline: string | null;
   /** 1-based, for "Step 5 of 7". Null when no milestones are shared. */

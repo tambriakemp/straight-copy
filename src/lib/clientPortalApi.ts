@@ -20,6 +20,7 @@ import type {
   HomeView,
   LoginsView,
   PaymentsView,
+  SharedDriveLink,
   SignRequest,
   SignResult,
 } from "@/lib/clientPortalWire";
@@ -236,14 +237,26 @@ export const clientPortal = {
     preview: boolean,
   ) => view<AccountAccessView>(clientId, "save-account-access", preview, { ...input }),
 
-  /** CRE-827. `null` clears the link; the server validates the format either way. */
-  saveSharedDriveUrl: (clientId: string, url: string | null, preview: boolean) =>
-    call<{ sharedDriveUrl: string | null }>(
+  /**
+   * CRE-827. Adds one link, tagged to a project. The server validates the
+   * format and that the project is this client's either way.
+   */
+  async createSharedDriveLink(
+    clientId: string,
+    input: { clientProjectId: string; url: string },
+    preview: boolean,
+  ): Promise<SharedDriveLink> {
+    const payload = await call<{ sharedDriveLink: SharedDriveLink }>(
       clientId,
-      "save-shared-drive-url",
-      { sharedDriveUrl: url },
+      "create-shared-drive-link",
+      { ...input },
       preview,
-    ),
+    );
+    return payload.sharedDriveLink;
+  },
+
+  removeSharedDriveLink: (clientId: string, id: string, preview: boolean) =>
+    call<unknown>(clientId, "remove-shared-drive-link", { id }, preview),
 
   /**
    * One password, fetched at the moment Copy is pressed.
