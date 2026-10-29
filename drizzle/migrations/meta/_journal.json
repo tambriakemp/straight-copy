@@ -134,6 +134,20 @@
       "when": 1793161594860,
       "tag": "0018_grant_client_portal_users",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793245969773,
+      "tag": "0019_reveal_client_login",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793245976962,
+      "tag": "0020_client_login_project",
+      "breakpoints": true
     }
   ]
 }
