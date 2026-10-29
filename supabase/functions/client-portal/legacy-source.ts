@@ -554,17 +554,30 @@ export class LegacySource implements PortalSource {
   }
 
   async payments(ctx: PortalCallerContext): Promise<PaymentsView> {
-    const [me, invoices] = await Promise.all([
+    const [me, invoices, projects] = await Promise.all([
       this.#me(ctx),
       this.#db
         .from("project_invoices")
-        .select("id, label, amount_cents, currency, status, due_date, paid_at, checkout_url, sequence")
+        .select(
+          "id, label, amount_cents, currency, status, due_date, paid_at, checkout_url, sequence, client_project_id",
+        )
         .eq("client_id", ctx.clientId)
         .neq("status", "void")
         .order("sequence", { ascending: true }),
+      // Scoped to this client as well, exactly as `logins()` scopes its own
+      // project-name read: a row naming another client's project would
+      // otherwise lend us that project's name (CRE-831).
+      this.#db.from("client_projects").select("id, name").eq("client_id", ctx.clientId),
     ]);
 
-    const payments = invoiceRowsFromAdmin(rows(invoices), ctx.now);
+    const projectNames = new Map<string, string>();
+    for (const row of rows(projects)) {
+      const id = text(row, "id");
+      const name = text(row, "name")?.trim();
+      if (id && name) projectNames.set(id, name);
+    }
+
+    const payments = invoiceRowsFromAdmin(rows(invoices), ctx.now, projectNames);
     const totals = paymentTotals(payments);
     return {
       branding: ctx.branding,
@@ -1177,7 +1190,19 @@ export function isNodeDone(node: { status?: string | null; completed_at?: string
 }
 
 /** `project_invoices` rows as payment rows. */
-export function invoiceRowsFromAdmin(invoices: Row[], now: Date): PaymentRow[] {
+export function invoiceRowsFromAdmin(
+  invoices: Row[],
+  now: Date,
+  /**
+   * Project id to name, for the project column and the grouping (CRE-831).
+   *
+   * Built by the caller from this client's own projects, so an id that is not
+   * theirs resolves to null -- the same rule `invoiceRows` follows on the
+   * plugin side. Defaulted for the tests that call this with two arguments
+   * and assert only on the money.
+   */
+  projectNames: ReadonlyMap<string, string> = new Map(),
+): PaymentRow[] {
   return invoices.map((row): PaymentRow => {
     const state = paymentState({
       paidAt: text(row, "paid_at"),
@@ -1203,8 +1228,26 @@ export function invoiceRowsFromAdmin(invoices: Row[], now: Date): PaymentRow[] {
       // a column for it as of CP-5.
       receiptUrl: null,
       payable: (state === "ready" || state === "overdue") && Boolean(row.checkout_url),
+      ...projectOf(text(row, "client_project_id"), projectNames),
     };
   });
+}
+
+/**
+ * One payment's project, as a client can read it.
+ *
+ * An id with no name is reported as no project at all, which is the same
+ * answer `invoiceRows` gives on the plugin side and the same answer
+ * `groupPaymentsByProject` acts on: a group headed by a uuid is worse than
+ * one headed "Other payments", and an id this client does not own must not
+ * borrow a name from a project that is not theirs.
+ */
+function projectOf(
+  id: string | null,
+  projectNames: ReadonlyMap<string, string>,
+): { projectId: string | null; projectName: string | null } {
+  const name = id === null ? null : (projectNames.get(id) ?? null);
+  return { projectId: name === null ? null : id, projectName: name };
 }
 
 /**

@@ -135,6 +135,75 @@ describe("the payments table, from the plugin", () => {
     expect(rows[2].dueOn).toBeNull();
   });
 
+  it("does not offer to take money for an invoice the source calls a plan", () => {
+    // Two vocabularies: `draft` is the plugin's and `scheduled` is the one
+    // CP-6 carries across from /admin verbatim. Either drawn as "Ready to
+    // pay" sends a client to pay an amount nobody has invoiced.
+    for (const status of ["draft", "scheduled"]) {
+      const [row] = invoiceRows([pluginInvoice({ status, paidAt: null })], [], NOW);
+      expect([status, row.state, row.payable]).toEqual([status, "later", false]);
+    }
+    // And a status this build has never heard of is a bill, because a real
+    // bill drawn as "Later" is a payment the client is never offered.
+    const [unknown] = invoiceRows(
+      [pluginInvoice({ status: "part_paid", paidAt: null })],
+      [],
+      NOW,
+    );
+    expect(unknown.payable).toBe(true);
+  });
+
+  it("says which project each payment is for, invoice or instalment (CRE-831)", () => {
+    const rows = invoiceRows(
+      [pluginInvoice({ id: "a", paymentScheduleId: "s1", clientProjectId: "p-site" })],
+      [
+        scheduleItem({ id: "s1", label: "Deposit", clientProjectId: "p-site" }),
+        scheduleItem({
+          id: "s2",
+          label: "Launch",
+          dueOn: "2026-11-14",
+          clientProjectId: "p-auto",
+        }),
+      ],
+      NOW,
+      new Map([
+        ["p-site", "Glowskin website"],
+        ["p-auto", "Booking automation"],
+      ]),
+    );
+    expect(rows.map((row) => [row.label, row.projectName])).toEqual([
+      ["Deposit", "Glowskin website"],
+      ["Launch", "Booking automation"],
+    ]);
+  });
+
+  it("takes an invoice's project from the instalment it bills when it has none of its own", () => {
+    // The plugin fills the invoice column from migration 015 onwards; a row
+    // written before it has the project on the plan and not on the bill.
+    const [row] = invoiceRows(
+      [pluginInvoice({ paymentScheduleId: "s1" })],
+      [scheduleItem({ id: "s1", clientProjectId: "p-site" })],
+      NOW,
+      new Map([["p-site", "Glowskin website"]]),
+    );
+    expect(row.projectId).toBe("p-site");
+    expect(row.projectName).toBe("Glowskin website");
+  });
+
+  it("says nothing rather than borrowing a name for a project this client does not own", () => {
+    // The lookup is built from this client's own projects, so an id that is
+    // not in it is unfiled -- not an id drawn with somebody else's name, and
+    // not a group headed by a uuid.
+    const [row] = invoiceRows(
+      [pluginInvoice({ clientProjectId: "p-somebody-else" })],
+      [],
+      NOW,
+      new Map([["p-site", "Glowskin website"]]),
+    );
+    expect(row.projectId).toBeNull();
+    expect(row.projectName).toBeNull();
+  });
+
   it("labels a row from the schedule, not from the invoice number", () => {
     // The words a client reads are the licensee's. "INV-1" is ours.
     const [row] = invoiceRows([pluginInvoice()], [scheduleItem({ label: "Deposit" })], NOW);
@@ -259,6 +328,43 @@ describe("the payments table, from the /admin tables", () => {
       ["Deposit", "paid", false],
       ["Design approved", "ready", true],
       ["Launch", "later", false],
+    ]);
+  });
+
+  it("names the project each payment is for, and only this client's (CRE-831)", () => {
+    const rows = invoiceRowsFromAdmin(
+      [
+        {
+          id: "a",
+          label: "Deposit",
+          amount_cents: 120_000,
+          currency: "usd",
+          status: "sent",
+          due_date: "2026-10-03",
+          paid_at: null,
+          checkout_url: "https://sc.test/1",
+          client_project_id: "p-site",
+        },
+        {
+          id: "b",
+          label: "Retainer",
+          amount_cents: 60_000,
+          currency: "usd",
+          status: "sent",
+          due_date: "2026-11-03",
+          paid_at: null,
+          checkout_url: "https://sc.test/2",
+          client_project_id: "p-not-theirs",
+        },
+      ],
+      NOW,
+      new Map([["p-site", "Glowskin website"]]),
+    );
+    expect(rows.map((row) => [row.label, row.projectId, row.projectName])).toEqual([
+      ["Deposit", "p-site", "Glowskin website"],
+      // The query that builds the lookup is scoped to this client, so an id
+      // outside it is unfiled rather than drawn with a borrowed name.
+      ["Retainer", null, null],
     ]);
   });
 

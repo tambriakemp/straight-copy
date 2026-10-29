@@ -55,6 +55,7 @@ import {
   invoiceRows,
   markFirstPrimary,
   formatMoney,
+  pluginProjectNames,
   pluginProjects,
   providerLabel,
   sortLogins,
@@ -626,21 +627,37 @@ export class PluginSource implements PortalSource {
   /**
    * Mockup 15, which draws the whole schedule and not only the bills.
    *
-   * The invoices come from one route; the instalments nobody has billed yet
-   * come from the payment schedule of each signed proposal, which is a route
-   * per proposal. That is a fan-out, and it is the reason this is on the
-   * server: a client on a train doing it from a phone would make five
-   * sequential round trips to render one table.
+   * The invoices come from one route and the instalments nobody has billed
+   * yet from another, and the projects are read so each row can say which one
+   * it is for -- the project column, the grouping and the project filter Bree
+   * asked for on 29 October (CRE-831) are all that one lookup.
+   *
+   * THE SCHEDULE USED TO BE A FAN-OUT, one call per signed proposal, and two
+   * things were wrong with it. It asked for the response under the wrong key
+   * -- the plugin answers `paymentSchedule` and this read `schedule`, so
+   * every instalment was dropped -- and even correct it could only ever
+   * return the instalments that hang off a *document*. Every plan imported
+   * from `/admin` belongs to a project and has no proposal, so the whole
+   * agreed schedule was invisible and a client on a three-payment contract
+   * saw the two that had been invoiced. `GET /payment-schedule?clientId=`
+   * answers both kinds in one read.
    */
   async payments(ctx: PortalCallerContext): Promise<PaymentsView> {
-    const [me, invoices, proposals] = await Promise.all([
+    const [me, invoices, projects, schedule] = await Promise.all([
       this.#me(ctx),
       this.#get<{ invoices: PluginInvoice[] }>(ctx, "/invoices", { clientId: ctx.clientId }),
-      this.#get<{ proposals: PluginProposal[] }>(ctx, "/proposals", { clientId: ctx.clientId }),
+      this.#get<{ clientProjects: PluginClientProject[] }>(ctx, "/client-projects", {
+        clientId: ctx.clientId,
+      }),
+      this.#scheduleFor(ctx),
     ]);
 
-    const schedule = await this.#scheduleFor(ctx, proposals.proposals);
-    const rows = invoiceRows(invoices.invoices, schedule, ctx.now);
+    const rows = invoiceRows(
+      invoices.invoices,
+      schedule,
+      ctx.now,
+      pluginProjectNames(projects.clientProjects),
+    );
     const totals = paymentTotals(rows);
     const providers = invoices.invoices
       .map((invoice) => providerLabel(invoice.provider))
@@ -659,25 +676,54 @@ export class PluginSource implements PortalSource {
   }
 
   /**
-   * Every instalment on every signed proposal.
+   * Every instalment of every plan this client has.
+   *
+   * One call, and it returns the plans that belong to a project as well as
+   * the ones that are a term of a signed document -- which the per-proposal
+   * route cannot, because such a plan has no proposal to be asked under.
+   *
+   * A 404 is an older plugin: the route is an addition, and a licensee
+   * running a build from before it is entitled to a Payments tab that draws
+   * the bills rather than an error. The fallback is the per-signed-proposal
+   * fan-out this used to be, which is the most that server can answer.
+   */
+  async #scheduleFor(ctx: PortalCallerContext): Promise<PluginScheduleItem[]> {
+    try {
+      const { paymentSchedule } = await this.#get<{ paymentSchedule: PluginScheduleItem[] }>(
+        ctx,
+        "/payment-schedule",
+        { clientId: ctx.clientId },
+      );
+      return paymentSchedule ?? [];
+    } catch (caught) {
+      if (caught instanceof PluginApiError && caught.status === 404) {
+        return this.#scheduleFromProposals(ctx);
+      }
+      throw caught;
+    }
+  }
+
+  /**
+   * The same rows from a plugin that has no client-wide route, read one
+   * signed proposal at a time.
    *
    * Only signed ones: an unsent proposal has no schedule, and a sent one that
    * has not been signed has terms the client has not agreed to. Showing those
    * on a payments page would read as money owed.
    */
-  async #scheduleFor(
-    ctx: PortalCallerContext,
-    proposals: PluginProposal[],
-  ): Promise<PluginScheduleItem[]> {
+  async #scheduleFromProposals(ctx: PortalCallerContext): Promise<PluginScheduleItem[]> {
+    const { proposals } = await this.#get<{ proposals: PluginProposal[] }>(ctx, "/proposals", {
+      clientId: ctx.clientId,
+    });
     const signed = proposals.filter((proposal) => proposal.status === "signed");
     const lists = await Promise.all(
       signed.map(async (proposal) => {
         try {
-          const { schedule } = await this.#get<{ schedule: PluginScheduleItem[] }>(
+          const { paymentSchedule } = await this.#get<{ paymentSchedule: PluginScheduleItem[] }>(
             ctx,
             `/proposals/${encodeURIComponent(proposal.id)}/payment-schedule`,
           );
-          return schedule;
+          return paymentSchedule ?? [];
         } catch (caught) {
           // A signed proposal with no schedule is possible -- a contract
           // whose terms were settled outside the builder. The page is still
