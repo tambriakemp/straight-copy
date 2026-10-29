@@ -44,7 +44,7 @@ const PROJECT: PortalProject = {
   name: "Glowskin Studio website",
   kind: "Website",
   statusLabel: "In progress",
-  href: "/portal/client-7/projects/admin-99",
+  href: "/portal/client-7/project/admin-99",
   updatedAt: null,
 };
 
@@ -102,7 +102,9 @@ describe("the projects card", () => {
     );
     // One Open button, for the one project this portal has a page for. A
     // button on the other would 404: see `pluginProjects`.
-    expect(screen.getAllByRole("link", { name: "Open" })).toHaveLength(1);
+    const open = screen.getAllByRole("link", { name: "Open" });
+    expect(open).toHaveLength(1);
+    expect(open[0]).toHaveAttribute("href", "/portal/client-7/project/admin-99");
   });
 
   it("draws no meta line at all when a source could answer none of it", () => {

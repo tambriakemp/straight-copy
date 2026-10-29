@@ -250,6 +250,7 @@ describe("the portal shell, drawn for a licensee", () => {
  */
 const CLIENT_FACING = [
   "src/components/portal/ClientPortalShell.tsx",
+  "src/components/portal/ProjectChooser.tsx",
   "src/components/portal/useClientPortal.ts",
   "src/pages/portal/ClientHome.tsx",
   "src/pages/portal/ClientAgreements.tsx",

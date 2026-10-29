@@ -4987,6 +4987,29 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
 }
 .cp__mename { font-size: 14px; }
 
+/* Seven items (Home through Feedback) in one pill. On a phone the pill
+   takes the full row under the brand so every item wraps inside the
+   viewport instead of widening the page. */
+@media (max-width: 720px) {
+  .cp__bar { padding: 10px 12px; gap: 10px; }
+  .cp__brand { min-width: 0; }
+  .cp__brandnote { display: none; }
+  .cp__mename {
+    max-width: 30vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cp__nav {
+    flex: 1 0 100%;
+    order: 5;
+    margin: 0;
+    max-width: 100%;
+    justify-content: flex-start;
+  }
+  .cp__navitem { padding: 8px 10px; font-size: 13px; }
+}
+
 .cp__main { max-width: 1140px; margin: 0 auto; padding: 32px 24px 64px; }
 
 /* -- states --------------------------------------------------------------- */
@@ -5427,13 +5450,56 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
 .cp-logins {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  /* The page sits beside the portal sidebar, so 860px of viewport is far
+     less than 860px of column. Stack well before the table can be squeezed
+     into the share panel. */
   gap: 24px;
   align-items: start;
 }
-@media (max-width: 860px) {
+@media (max-width: 1180px) {
   .cp-logins { grid-template-columns: 1fr; }
 }
-.cp-logins__list { min-width: 0; }
+/* The table's name/action cells are nowrap, so without this it overflowed
+   its grid column and painted over the share panel beside it. */
+/* position: relative keeps the visually-hidden Actions label, which is
+   absolute, inside this scroller. Without it that 1px box sits at the end
+   of a wide table and widens the page.
+   table-layout: fixed keeps the table at the column width. auto layout
+   grows the table to the longest username, which pushes Copy past the
+   share panel. */
+.cp-logins__list { position: relative; min-width: 0; overflow-x: auto; }
+/* Column widths only while this is a real table. Below 769px the rows are
+   cards, and a percentage width on the cell would squash the card. */
+@media (min-width: 769px) {
+  .cp-logins__list .cp-table { table-layout: fixed; }
+  .cp-logins__list .cp-table__name { width: 20%; white-space: normal; overflow-wrap: anywhere; }
+  .cp-logins__list .cp-table th:nth-child(2),
+  .cp-logins__list .cp-table td:nth-child(2) { width: 30%; }
+  .cp-logins__list .cp-table th:nth-child(3),
+  .cp-logins__list .cp-table td:nth-child(3) { width: 26%; }
+  .cp-logins__list .cp-table th:nth-child(4),
+  .cp-logins__list .cp-table td:nth-child(4) { width: 12%; }
+  /* Two action buttons will not fit beside a username and a password in the
+     space left of the share panel. Stack them. */
+  .cp-logins__list .cp-table__act { width: 6.75rem; white-space: normal; }
+  .cp-logins__list .cp-table__act > * { display: flex; width: 100%; }
+  .cp-logins__list .cp-table__act > * + * { margin: 6px 0 0; }
+  .cp-logins__list .cp-copyable { max-width: 100%; flex-wrap: wrap; }
+  .cp-logins__list .cp-copyable__text {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .cp-logins__list .cp-mask .cp-copyable { flex-wrap: wrap; }
+  .cp-logins__list .cp-mask .cp-copyable__text { flex: 0 0 auto; white-space: nowrap; }
+}
+.cp-logins > .cp-share { min-width: 0; }
+.cp-copyable { display: inline-flex; align-items: center; gap: 8px; vertical-align: middle; }
+.cp-copyable__text { flex: 0 0 auto; white-space: nowrap; }
+.cp-copy { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; }
+/* The mask's letter-spacing is for the dots. It must not track the button. */
+.cp-mask .cp-copy { letter-spacing: normal; }
 .cp-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
 .cp-mask { letter-spacing: 0.14em; }
 .cp-chip {
@@ -5543,6 +5609,15 @@ body:has(.ws__aside-grip.is-dragging) { user-select: none; cursor: col-resize; }
   }
   .cp-table__act > * + * { margin-left: 0; }
   .cp-table__act .cp__btn { flex: 1 1 0; min-height: 44px; }
+  .cp-table td .cp-copyable { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
+  .cp-table td .cp-copyable__text {
+    flex: 1 1 auto;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .cp-table td .cp-copy { min-height: 44px; }
 
   .cp__main { padding: 24px 16px 48px; }
   .cp-doc { padding: 24px 20px 28px; }

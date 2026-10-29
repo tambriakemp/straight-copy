@@ -19,10 +19,11 @@
 //     can only ever reach the logins shared for that project. A login
 //     the agency holds for the client as a whole has no project on it
 //     and is unreachable from the portal entirely.
-//   * there is no portal reveal. A portal URL is a link, and a link that
-//     reads back the client's own third-party passwords turns one
-//     forwarded email into a credential dump. The client can replace a
-//     password; they cannot ask us to read one back to them.
+//   * there is no portal reveal on THIS function. `get_client_login`
+//     decrypts by id alone, so a reveal here would be the wrong door.
+//     Password copy for the redesigned portal is `reveal-login` on
+//     `client-portal`, which checks client_id in the same statement as
+//     the decrypt and writes an audit row first.
 //
 // CRE-536: those three scopes were real, but "a link that names a real
 // client_id + client_project_id pair" was the only thing any of them

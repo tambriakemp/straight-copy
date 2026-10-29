@@ -7,14 +7,13 @@
 // `FilesSection`'s light-admin rows. See `useClientFiles.ts` for the one copy
 // of what the screen does.
 //
-// A client with several live projects has no file list of their own to show
-// here: Files needs a resolved project id the same way Project does, and the
-// nav item behind both leads to the chooser at `/projects` until somebody
-// draws a switcher. See `useResolvedProject`.
+// A client with several live projects sees the chooser in this shell. A
+// named project opens from `/files/:projectId`. See `useResolvedProject`.
 
 import { useState } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Download, FileText, Trash2, Upload } from "lucide-react";
+import ProjectChooser from "@/components/portal/ProjectChooser";
 import ClientPortalShell, {
   PortalLoading,
   PortalProblem,
@@ -43,18 +42,14 @@ function when(iso: string): string {
 }
 
 export default function ClientFiles() {
-  const { clientId } = useParams<{ clientId: string }>();
+  const { clientId, projectId } = useParams<{ clientId: string; projectId?: string }>();
   const { adminPreview, viewAsGrant, actor, exitPreview } = useAdminPreview(clientId);
 
   const shell = usePortalView<HomeView>(
     clientId ? () => clientPortal.home(clientId, adminPreview) : null,
     [clientId, adminPreview],
   );
-  const resolved = useResolvedProject(clientId, adminPreview);
-
-  if (resolved.status === "choose") {
-    return <Navigate replace to={`/portal/${clientId}/projects`} />;
-  }
+  const resolved = useResolvedProject(clientId, adminPreview, projectId);
 
   return (
     <ClientPortalShell
@@ -69,6 +64,8 @@ export default function ClientFiles() {
     >
       {shell.error && !shell.data ? (
         <PortalProblem message={shell.error} onRetry={shell.reload} />
+      ) : resolved.status === "choose" ? (
+        <ProjectChooser clientId={clientId ?? ""} projects={resolved.choices ?? []} target="files" />
       ) : resolved.status === "error" ? (
         <PortalProblem message="Something went wrong. Please try again." />
       ) : resolved.status === "missing" ? (

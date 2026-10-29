@@ -34,7 +34,7 @@
 // client could.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { resolvePortalCaller } from "../_shared/webhook-auth.ts";
+import { resolvePortalCaller, type PortalCaller } from "../_shared/webhook-auth.ts";
 import {
   PluginApiError,
   PluginClient,
@@ -49,7 +49,12 @@ import { resolveBranding, settingsFrom } from "../_shared/client-portal-branding
 import { VIEW_AS_HEADER } from "../_shared/portal-view-as.ts";
 import { LegacySource, type Db } from "./legacy-source.ts";
 import { PluginSource } from "./plugin-source.ts";
-import { PortalError, type PortalCallerContext, type PortalSource } from "./source.ts";
+import {
+  PortalError,
+  type LoginRevealActor,
+  type PortalCallerContext,
+  type PortalSource,
+} from "./source.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,10 +69,14 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ENC_KEY = Deno.env.get("PROJECT_SECRETS_KEY") ?? "";
 
-function json(body: unknown, status = 200): Response {
+function json(
+  body: unknown,
+  status = 200,
+  extraHeaders: Record<string, string> = {},
+): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json", ...extraHeaders },
   });
 }
 
@@ -290,6 +299,18 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
 
+      case "reveal-login": {
+        // A read of one password, not a write: view-as may do it, and an
+        // admin preview may do it. The list action above never includes the
+        // password. This response is uncacheable and carries that one value.
+        const password = await source.revealLogin(
+          ctx,
+          requireId(payload, "id"),
+          revealActor(caller),
+        );
+        return json({ ok: true, password }, 200, { "Cache-Control": "no-store" });
+      }
+
       default:
         return json({ error: `unknown action: ${action}` }, 400);
     }
@@ -311,6 +332,17 @@ Deno.serve(async (req) => {
     return json({ error: "Something went wrong. Please try again." }, 500);
   }
 });
+
+function revealActor(caller: Exclude<PortalCaller, { kind: "unauthorized" }>): LoginRevealActor {
+  if (caller.kind === "portal") {
+    return { userId: caller.userId, via: "portal", actorLabel: null };
+  }
+  return {
+    userId: caller.userId,
+    via: caller.viewAs ? "view_as" : "admin",
+    actorLabel: caller.viewAs?.act ?? null,
+  };
+}
 
 function refusePreviewWrites(ctx: PortalCallerContext, what: string): void {
   if (!ctx.preview) return;

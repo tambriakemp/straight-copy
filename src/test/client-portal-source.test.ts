@@ -44,6 +44,7 @@ import { money } from "../lib/clientPortalApi";
 import {
   adminProjects,
   adminStatus,
+  loginRevealAudit,
   headlineFor,
   invoiceRowsFromAdmin,
   isNodeDone,
@@ -349,17 +350,16 @@ describe("the project list, from the /admin tables", () => {
 
   it("names every project and links every one of them", () => {
     // On this source the project id IS the `/admin` project id, which is what
-    // `/portal/:clientId/projects/:projectId` resolves -- so a client with
-    // three projects can reach a named one directly. That is the thing the
-    // `Project` nav item cannot do: it has no project id, so it guesses when
-    // there is one and gives up when there are several.
+    // `/portal/:clientId/project/:projectId` resolves -- the redesigned
+    // project screen. The older `/projects/:projectId` page is not where
+    // Home's Open button goes.
     expect(adminProjects(PROJECTS, "client-7")).toEqual([
       {
         id: "p-1",
         name: "Glowskin website",
         kind: "Website",
         statusLabel: "In progress",
-        href: "/portal/client-7/projects/p-1",
+        href: "/portal/client-7/project/p-1",
         updatedAt: "2026-10-27T09:00:00.000Z",
       },
       {
@@ -367,7 +367,7 @@ describe("the project list, from the /admin tables", () => {
         name: "Booking reminders",
         kind: "Automation",
         statusLabel: "On hold",
-        href: "/portal/client-7/projects/p-2",
+        href: "/portal/client-7/project/p-2",
         updatedAt: null,
       },
     ]);
@@ -396,11 +396,11 @@ describe("the project list, from the plugin", () => {
     expect(rows[0]!.statusLabel).toBe("In progress");
   });
 
-  it("links only a project the /admin page can address", () => {
-    // `/portal/:clientId/projects/:projectId` is the `/admin` project page.
-    // `paperclipProjectId` is not that id and would 404, so the link is drawn
-    // from `legacyAdminProjectId` -- which CP-6's import writes and which is
-    // null for anything created in the plugin.
+  it("links only a project the redesigned page can address", () => {
+    // `/portal/:clientId/project/:projectId` is the redesigned project screen,
+    // addressed by the admin project id. `paperclipProjectId` is not that id
+    // and would 404, so the link is drawn from `legacyAdminProjectId` -- which
+    // CP-6's import writes and which is null for anything created in the plugin.
     const [imported, native] = pluginProjects(
       [
         {
@@ -412,11 +412,38 @@ describe("the project list, from the plugin", () => {
       ],
       "client-7",
     );
-    expect(imported!.href).toBe("/portal/client-7/projects/admin-99");
+    expect(imported!.href).toBe("/portal/client-7/project/admin-99");
     expect(native!.href).toBeNull();
     // A project the plugin links to is a project, not a product line, so
     // there is no kind to report on this source.
     expect(native!.kind).toBeNull();
+  });
+});
+
+describe("a password copy's audit row", () => {
+  it("names the login and the person, and has nowhere to put the password", () => {
+    const secret = "correct-horse-battery-staple";
+    const row = loginRevealAudit({
+      clientId: "client-7",
+      loginId: "login-1",
+      label: "Site host",
+      projectId: null,
+      userId: "user-1",
+      via: "portal",
+      actorLabel: null,
+    });
+    expect(row.kind).toBe("portal_login_revealed");
+    expect(row.metadata).toEqual({
+      login_id: "login-1",
+      via: "portal",
+      user_id: "user-1",
+    });
+    expect(JSON.stringify(row)).not.toContain(secret);
+    expect(Object.keys(row.metadata as Record<string, unknown>).sort()).toEqual([
+      "login_id",
+      "user_id",
+      "via",
+    ]);
   });
 });
 

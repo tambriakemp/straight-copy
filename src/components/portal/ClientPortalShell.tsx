@@ -6,10 +6,9 @@
 // mockups and ask before adding or renaming UI. Redrawing screens nobody
 // drew would be exactly that.
 //
-// One seam remains on purpose: a client with more than one live project
-// still lands on the old light project list from Project and Files, because
-// nobody has drawn a project switcher for the dark surface. Flagged on
-// CRE-784 rather than fixed by inventing one here.
+// A client with more than one live project sees a chooser on Project and
+// Files, inside this shell. Each row opens the redesigned screen for that
+// project. The older light project page is still at /projects/:projectId.
 //
 // WHY THE NAV IS A LIST OF LINKS AND NOT A VIEW SWITCHER
 //
@@ -27,7 +26,8 @@ export type ClientPortalTab =
   | "agreements"
   | "payments"
   | "logins"
-  | "files";
+  | "files"
+  | "feedback";
 
 interface NavItem {
   tab: ClientPortalTab;
@@ -35,7 +35,7 @@ interface NavItem {
   to: (clientId: string) => string;
 }
 
-/** The six destinations in mockup 13, in that order. */
+/** Mockup 13's six destinations, then the existing feedback board. */
 const NAV: NavItem[] = [
   { tab: "home", label: "Home", to: (id) => `/portal/${id}` },
   { tab: "project", label: "Project", to: (id) => `/portal/${id}/project` },
@@ -43,6 +43,9 @@ const NAV: NavItem[] = [
   { tab: "payments", label: "Payments", to: (id) => `/portal/${id}/payments` },
   { tab: "logins", label: "Logins", to: (id) => `/portal/${id}/logins` },
   { tab: "files", label: "Files", to: (id) => `/portal/${id}/files` },
+  // The existing feedback board (PortalFeedback.tsx at /portal/:clientId/feedback),
+  // unchanged -- only made reachable from the redesigned nav.
+  { tab: "feedback", label: "Feedback", to: (id) => `/portal/${id}/feedback` },
 ];
 
 export default function ClientPortalShell({

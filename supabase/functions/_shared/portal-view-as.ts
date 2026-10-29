@@ -128,7 +128,7 @@ export type ViewAsResult =
  * the point.
  *
  * `brand-kit-intake` and `client-files` are the two CRE-808 added (CRE-818).
- * The dark nav is six items now, not four, and Project and Files are two of
+ * The dark nav is seven items now, and Project and Files are two of
  * them: `resolve` is how both screens learn which live project a client has,
  * and `list` is the file table itself. ONE ACTION EACH. `brand-kit-intake`
  * answers to six more, and five of those write -- `complete` advances the
@@ -147,7 +147,10 @@ export type ViewAsResult =
  * read, is how a preview learns to sign things.
  */
 export const VIEW_AS_READS: Record<string, readonly string[]> = {
-  "client-portal": ["home", "agreements", "payments", "logins", "document"],
+  // `reveal-login` copies one password. It is a read: it does not change the
+  // row. View-as may do it because an admin looking at the portal can copy
+  // what the client can copy, and the action writes an audit row either way.
+  "client-portal": ["home", "agreements", "payments", "logins", "document", "reveal-login"],
   "proposal-sign": ["download"],
   "brand-kit-intake": ["resolve"],
   "client-files": ["list"],
