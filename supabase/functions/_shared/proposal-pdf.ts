@@ -12,7 +12,13 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import { logProposalEvent } from "./proposal-events.ts";
-import { liftThesis, stripSectionNumber, writtenSections, type ProposalContent } from "./agents/proposal-spine.ts";
+import {
+  isBoldSubheadLine,
+  liftThesis,
+  stripSectionNumber,
+  writtenSections,
+  type ProposalContent,
+} from "./agents/proposal-spine.ts";
 
 /** Same bucket proposal-sign reads from, so uploads and signing agree. */
 const PROPOSAL_BUCKET = "client-assets";
@@ -153,6 +159,23 @@ function drawBody(c: Cursor, md: string) {
       continue;
     }
 
+    // A line that is entirely bold and short is a subhead, whatever syntax
+    // the agent reached for — matches the HTML renderer's rule exactly via
+    // the shared predicate, so a bold lead-in followed by prose on the same
+    // line ("**Organic social media.** Two reels and…") still falls through
+    // to the paragraph case below.
+    const boldSubhead = isBoldSubheadLine(line);
+    if (boldSubhead !== null) {
+      c.gap(12);
+      c.room(28);
+      c.text(plain(boldSubhead).toUpperCase(), {
+        font: c.fonts.bodyBold, size: 9, color: INK, lead: 15,
+      });
+      c.gap(4);
+      i++;
+      continue;
+    }
+
     if (line.startsWith(">")) {
       // Collect the whole quote block, then draw it in a cream panel.
       const quote: string[] = [];
@@ -230,6 +253,13 @@ export async function renderProposalPdf(
   if (cover.tagline) {
     c.gap(6);
     c.text(cover.tagline, { font: fonts.displayItalic, size: 13, color: TAUPE, lead: 19 });
+  }
+  if (cover.price_line) {
+    // Matches the HTML's .price-line: bronze, uppercase, bold — the closest
+    // pdf-lib equivalent of letterspacing is just leaving it be, since
+    // StandardFonts carry no tracking control.
+    c.gap(10);
+    c.text(cover.price_line.toUpperCase(), { font: fonts.bodyBold, size: 9, color: BRONZE, lead: 14 });
   }
   c.gap(28);
   c.rule();

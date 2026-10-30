@@ -32,3 +32,42 @@ describe("every path that can mark a proposal sent renders its PDF first", () =>
     expect(sendProposalAction).not.toContain("async function renderAndStoreProposalPdf(");
   });
 });
+
+// CRE-868 (design-gate review of CRE-832): the PDF is the artifact a client
+// actually reads and signs, and it had drifted from both the HTML renderer
+// and PROPOSAL_BRIEFING in two places. These are readFileSync assertions for
+// the same reason as above — proposal-pdf.ts carries `npm:` specifiers a
+// frontend test cannot import.
+const pdfSource = readFileSync("supabase/functions/_shared/proposal-pdf.ts", "utf8");
+
+describe("the PDF cover draws cover.price_line like the HTML's .price-line", () => {
+  it("draws price_line between the tagline and the cover rule", () => {
+    const taglineIdx = pdfSource.indexOf("cover.tagline");
+    const priceIdx = pdfSource.indexOf("cover.price_line");
+    const ruleIdx = pdfSource.indexOf("c.rule();"); // first occurrence is the cover's
+    expect(taglineIdx).toBeGreaterThan(-1);
+    expect(priceIdx).toBeGreaterThan(taglineIdx);
+    expect(ruleIdx).toBeGreaterThan(priceIdx);
+  });
+
+  it("styles it bronze, bold and uppercase, matching the HTML treatment", () => {
+    const start = pdfSource.indexOf("cover.price_line");
+    const snippet = pdfSource.slice(start, start + 600);
+    expect(snippet).toContain("fonts.bodyBold");
+    expect(snippet).toContain("BRONZE");
+    expect(snippet).toMatch(/\.toUpperCase\(\)/);
+  });
+});
+
+describe("drawBody treats a whole-bold short line as a subhead, same as ## ", () => {
+  it("imports the shared predicate from proposal-spine rather than its own regex copy", () => {
+    expect(pdfSource).toMatch(/import\s*{[^}]*isBoldSubheadLine[^}]*}\s*from\s*"\.\/agents\/proposal-spine\.ts"/);
+  });
+
+  it("calls it inside drawBody, so '**BOLD**' and '## ' take the same path", () => {
+    const drawBodyIdx = pdfSource.indexOf("function drawBody");
+    const nextFnIdx = pdfSource.indexOf("export async function renderProposalPdf");
+    const drawBodySource = pdfSource.slice(drawBodyIdx, nextFnIdx);
+    expect(drawBodySource).toContain("isBoldSubheadLine(line)");
+  });
+});
