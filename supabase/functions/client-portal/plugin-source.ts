@@ -1110,10 +1110,17 @@ export class PluginSource implements PortalSource {
       canceledAt: row.canceledAt,
       renewsOn: row.renewsOn,
       endsOn: row.endsOn,
-      // The plugin's own precondition for `resume` (docs/API.md, "resume
-      // withdraws a cancellation, and is not a way to re-buy") -- a plan
-      // that has actually ended offers no path back from this card.
-      resumable: row.cancelAtPeriodEnd && row.canceledAt === null,
+      // CRE-857 (`POST /subscriptions/:id/resume`) is merged on
+      // `agent-platform@master` but not yet installed on the live plugin
+      // (CRE-872) -- so `resumeSubscription` below 404s against this
+      // install's real route table today. Forced false rather than
+      // `row.cancelAtPeriodEnd && row.canceledAt === null`, which would
+      // show a working-looking "Resume subscription" button the first time
+      // any client's plan happens to be in a pending-cancellation state --
+      // whether or not anyone has ever clicked Cancel through this portal.
+      // Flip back to the real expression once CRE-872 lands; don't delete
+      // the commented line, it's the thing to restore.
+      resumable: false,
     };
   }
 
