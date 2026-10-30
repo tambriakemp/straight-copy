@@ -344,6 +344,24 @@ const esc = (s: string) =>
     .replace(/"/g, "&quot;");
 
 /**
+ * Whether a whole line is a bold-markdown subhead rather than a bold lead-in
+ * to a paragraph — "**WHAT WE PRODUCE**" is a subhead, "**Organic social
+ * media.** Two reels and..." is not, because the second has prose after the
+ * closing `**` on the same line. Returns the subhead text, or null.
+ *
+ * The HTML renderer and the PDF renderer both call this instead of each
+ * carrying their own copy of the regex, because a document with both
+ * `**BOLD**` and `## ` subheads in it is exactly how CRE-868 found the two
+ * renderers disagreeing: the PDF had no equivalent check at all, so the same
+ * line that became an `<h3>` in the HTML stayed body text in the PDF.
+ */
+export function isBoldSubheadLine(line: string, maxLen = 60): string | null {
+  const m = line.trim().match(/^\*\*(.+?)\*\*$/);
+  if (!m || m[1].length > maxLen) return null;
+  return m[1];
+}
+
+/**
  * Minimal markdown → HTML for section bodies. Deliberately not a full parser:
  * the brief above tells the model to use exactly these four constructs, and a
  * narrow renderer makes it obvious when it hasn't.
@@ -367,17 +385,17 @@ function mdToHtml(md: string): string {
   for (const rawLine of md.split(/\r?\n/)) {
     const line = rawLine.trimEnd();
     if (!line.trim()) { flushList(); flushQuote(); continue; }
-    const wholeBold = line.trim().match(/^\*\*(.+?)\*\*$/);
+    const boldSubhead = isBoldSubheadLine(line);
     if (line.startsWith("## ")) {
       flushList(); flushQuote();
       out.push(`<h3>${inline(line.slice(3).trim())}</h3>`);
-    } else if (wholeBold && wholeBold[1].length <= 60) {
+    } else if (boldSubhead !== null) {
       // A line that is entirely bold and short is a subhead, whatever syntax
       // the agent reached for. "**Organic social media.** No content calendar…"
       // is a bold lead-in to a paragraph, not a subhead, and stays a paragraph
       // because it has text after the closing asterisks.
       flushList(); flushQuote();
-      out.push(`<h3>${inline(wholeBold[1])}</h3>`);
+      out.push(`<h3>${inline(boldSubhead)}</h3>`);
     } else if (/^[-*]\s+/.test(line)) {
       flushQuote();
       list.push(`<li>${inline(line.replace(/^[-*]\s+/, ""))}</li>`);

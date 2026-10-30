@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isBoldSubheadLine,
   needsPdfRender,
   NON_NEGOTIABLES,
   PALETTE,
@@ -149,6 +150,64 @@ describe("renderProposalHtml", () => {
     const html = renderProposalHtml("X", complete());
     expect(html).toContain(PALETTE.bronze);
     expect(html).toContain(PALETTE.ink);
+  });
+});
+
+describe("isBoldSubheadLine", () => {
+  // CRE-868: the PDF renderer had no equivalent of this at all, so
+  // "**WHAT IS NOT INCLUDED**" rendered as a subhead in the HTML and as body
+  // text in the PDF. Both renderers now call this one predicate.
+  it("reads a whole-bold short line as a subhead", () => {
+    expect(isBoldSubheadLine("**WHAT WE PRODUCE**")).toBe("WHAT WE PRODUCE");
+  });
+
+  it("leaves a bold lead-in followed by prose on the same line alone", () => {
+    expect(isBoldSubheadLine("**Organic social media.** Two reels and two statics a week.")).toBeNull();
+  });
+
+  it("leaves a whole-bold line over 60 characters alone", () => {
+    const long = "x".repeat(61);
+    expect(isBoldSubheadLine(`**${long}**`)).toBeNull();
+  });
+
+  it("accepts a whole-bold line at exactly 60 characters", () => {
+    const sixty = "x".repeat(60);
+    expect(isBoldSubheadLine(`**${sixty}**`)).toBe(sixty);
+  });
+
+  it("ignores a plain line with no bold markers", () => {
+    expect(isBoldSubheadLine("WHAT WE PRODUCE")).toBeNull();
+  });
+
+  it("trims surrounding whitespace before matching", () => {
+    expect(isBoldSubheadLine("   **WHAT WE PRODUCE**   ")).toBe("WHAT WE PRODUCE");
+  });
+});
+
+describe("renderProposalHtml bold subheads", () => {
+  // The leading line of a body is lifted out as the section's thesis by
+  // liftThesis, so these put the subhead on a later line — exactly how the
+  // real fixture in CRE-868 had it, with a thesis first and both subhead
+  // syntaxes further down.
+  it("renders a **bold** subhead as an <h3>, same as ## ", () => {
+    const html = renderProposalHtml("X", {
+      sections: [{
+        heading: "What's Not Included",
+        body: "**The thesis for this section.**\n\n**WHAT IS NOT INCLUDED**\nMedia spend passes through at cost.",
+      }],
+    });
+    expect(html).toContain("<h3>WHAT IS NOT INCLUDED</h3>");
+  });
+
+  it("keeps a bold lead-in as a paragraph, not a subhead", () => {
+    const html = renderProposalHtml("X", {
+      sections: [{
+        heading: "Scope",
+        body: "**The thesis for this section.**\n\n**Organic social media.** Two reels and two statics a week.",
+      }],
+    });
+    expect(html).not.toContain("<h3>Organic social media.</h3>");
+    expect(html).toContain("<strong>Organic social media.</strong>");
   });
 });
 
