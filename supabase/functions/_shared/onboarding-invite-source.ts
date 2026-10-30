@@ -23,36 +23,42 @@
 // on `PortalSource.onboardingInvite` in `client-portal/source.ts`. This file
 // is the other, board/public half.
 //
-// WHAT NEITHER SOURCE CAN DO, AND SAYS SO
+// THE TWO GAPS BELOW ARE CLOSED -- read this before trusting an older
+// comment elsewhere in this repo that still describes them as unfixable.
 //
-// The plugin's `GET /onboarding-invites` and `GET /clients/:clientId/
-// onboarding-invites` both answer the tokenless `inviteToWire` shape, by
-// design (see the plugin's own docs: a board-wide list is "precisely where a
-// leak would be worst"). So a caller that already created an invite and is
-// now re-reading it by `sourceOrderRef` (a webhook replay) cannot recover its
-// token or its `sourceOrderRef`/provider-ref columns from the plugin -- there
-// is also no route to PATCH them after creation. `findBySourceOrderRef`
-// therefore answers "does one already exist" (for the idempotency check) and
-// nothing more on the plugin path; `surecart-webhook` reads this file's
-// comments before assuming it can resend the original link on a replay.
+// `GET /onboarding-invites` and `GET /clients/:clientId/onboarding-invites`
+// still both answer the tokenless `inviteToWire` shape, by design (see the
+// plugin's own docs: a board-wide list is "precisely where a leak would be
+// worst"). What changed is that the plugin now has two narrow,
+// board-or-agent routes that recover from that on purpose, each logged:
 //
-// A second, separate plugin gap: `POST /onboarding-invites/redeem` refuses
-// an already-submitted invite with `invite_already_used` (by design, on the
-// plugin's side, to stop a second submission from moving the completion
-// time). `onboarding-session`'s "Reopen Brand Voice chat" link has always
-// gone through this same lookup with no such refusal -- see
-// `LegacyInviteSource#redeemByToken`'s own comment -- so reopening a
-// completed chat stops working only once an install is plugin-backed. Not
-// fixable from this repository; flagged rather than silently degraded.
+//   - `POST /onboarding-invites/:id/link/reveal` hands back the token for an
+//     invite that already exists, by id. `revealLink` below is the only
+//     caller of it. `surecart-webhook` uses this to resend the original link
+//     on a replayed purchase event instead of minting a duplicate invite --
+//     `findBySourceOrderRef` still cannot read the token back directly, only
+//     `revealLink` on the id it returns can.
+//   - `POST /onboarding-invites/review` re-reads an invite by token the same
+//     way `redeem` does, except it never refuses `invite_already_used` and
+//     never touches `lastOpenedAt`. `reviewByToken` below is that route.
+//     `onboarding-session`'s "Reopen Brand Voice chat" link uses it for a
+//     second open; the first open/submission still goes through
+//     `redeemByToken`, which keeps the `invite_already_used` refusal.
+//
+// Neither route changes what a list read or `findBySourceOrderRef` returns --
+// `sourceOrderRef` and the provider refs still never come back on any read,
+// by design, so the idempotency check still has to filter rather than read
+// one back. There is also still no route to PATCH those refs after creation.
 
 import { readPluginConfig, PluginClient, PluginApiError } from "./client-portal-plugin.ts";
 
 /** The envelope, with no opinion about which source answered. */
 export interface InviteRecord {
   id: string;
-  /** Populated by `create` and by `redeemByToken`/`findByToken`'s admin-table
-   * implementation. Never populated by a list read on the plugin path --
-   * see this file's header. */
+  /** Populated by `create`, by `revealLink`, and by every call on the
+   * admin-table implementation. Never populated by a list read, by
+   * `findBySourceOrderRef`, or by `reviewByToken`/`redeemByToken` on the
+   * plugin path -- see this file's header. */
   token: string | null;
   businessName: string | null;
   contactName: string | null;
@@ -145,6 +151,25 @@ export interface InviteSource {
    * `invite_revoked` / `invite_expired` / `invite_already_used` / `not_found`
    * -- the caller is expected to say which, unlike `findByToken`. */
   redeemByToken(token: string): Promise<InviteRecord>;
+
+  /**
+   * The same lookup as `redeemByToken`, for a caller re-opening an invite
+   * that may already be completed -- "Reopen Brand Voice chat", not a new
+   * submission. Still throws `invite_revoked` / `invite_expired` /
+   * `not_found`; never throws `invite_already_used`, and never advances
+   * `lastOpenedAt`. Use `redeemByToken` for the first open/submission and
+   * this for every open after.
+   */
+  reviewByToken(token: string): Promise<InviteRecord>;
+
+  /**
+   * Recovers the token for an invite that already exists, by id -- the one
+   * thing `findBySourceOrderRef`, `listCompany` and `findForClient` cannot
+   * do on the plugin path (see this file's header). Agency/webhook use only;
+   * never exposed to a client-scoped caller. Throws `invite_revoked` /
+   * `invite_expired` / `not_found`, same codes as `redeemByToken`.
+   */
+  revealLink(id: string): Promise<InviteRecord>;
 
   /** Marks an invite filled in and binds it to the client it produced. */
   complete(
@@ -288,6 +313,30 @@ class PluginInviteSource implements InviteSource {
         body: { token },
       });
       return fromPlugin(data.invite);
+    } catch (caught) {
+      throw toInviteError(caught);
+    }
+  }
+
+  async reviewByToken(token: string): Promise<InviteRecord> {
+    try {
+      const data = await this.#api.call<{ invite: PluginInvite }>("/onboarding-invites/review", {
+        method: "POST",
+        body: { token },
+      });
+      return fromPlugin(data.invite);
+    } catch (caught) {
+      throw toInviteError(caught);
+    }
+  }
+
+  async revealLink(id: string): Promise<InviteRecord> {
+    try {
+      const data = await this.#api.call<{ invite: PluginInviteWithToken }>(
+        `/onboarding-invites/${encodeURIComponent(id)}/link/reveal`,
+        { method: "POST", body: {} },
+      );
+      return fromPlugin(data.invite, data.invite.token);
     } catch (caught) {
       throw toInviteError(caught);
     }
@@ -547,6 +596,36 @@ class LegacyInviteSource implements InviteSource {
       .from("onboarding_invites")
       .update({ last_opened_at: this.#now().toISOString() })
       .eq("id", record.id);
+    return record;
+  }
+
+  /** This bridge never had an `invite_already_used` refusal to drop -- see
+   * `redeemByToken`'s own comment -- so there is nothing this needs to do
+   * differently. Kept as its own method, not an alias, so a caller can
+   * depend on the interface rather than on the two happening to coincide
+   * here. */
+  async reviewByToken(token: string): Promise<InviteRecord> {
+    return this.redeemByToken(token);
+  }
+
+  async revealLink(id: string): Promise<InviteRecord> {
+    const { data } = await this.#db.from("onboarding_invites").select(COLUMNS).eq("id", id).maybeSingle();
+    if (!data) throw new InviteError(404, "not_found", "That invite could not be found.");
+    const record = toRecord(data, this.#now());
+    if (record.revoked) {
+      throw new InviteError(
+        409,
+        "invite_revoked",
+        "That onboarding link has been withdrawn. Ask your contact at the agency for a new one.",
+      );
+    }
+    if (record.expired) {
+      throw new InviteError(
+        409,
+        "invite_expired",
+        "That onboarding link has expired. Ask your contact at the agency for a new one.",
+      );
+    }
     return record;
   }
 

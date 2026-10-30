@@ -623,10 +623,19 @@ Deno.serve(async (req) => {
 
   if (!token) {
     // A replayed event found an existing invite whose token this install's
-    // source cannot read back -- the plugin path, see
-    // _shared/onboarding-invite-source.ts's header. The original delivery
-    // already sent the real link; there is nothing new to send.
-    console.log('No token to (re-)send for order', orderId, '(plugin-backed replay)')
+    // list/lookup read cannot carry -- the plugin path, see
+    // _shared/onboarding-invite-source.ts's header. `revealLink` is the
+    // dedicated route for recovering it by id, so a replay still resends the
+    // original link instead of going quiet.
+    const revealed = await inviteSource.revealLink(inviteId).catch((e) => {
+      console.error('Failed to reveal invite link for replay', orderId, e)
+      return null
+    })
+    token = revealed?.token ?? null
+  }
+
+  if (!token) {
+    console.log('No token available to (re-)send for order', orderId)
     return new Response(
       JSON.stringify({ ok: true, invite_id: inviteId }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
