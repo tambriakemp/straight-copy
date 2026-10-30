@@ -14,13 +14,16 @@
 // re-reads and compares the plaintext column -- a misconfigured plugin fails
 // the request (503/502), not the password check.
 //
-// The report-bytes path (GET) still reads `client_audits` /
-// `audit_report_versions` and the `audit-reports` bucket directly. Moving it
-// behind the plugin's file/download path (the same dual-storage-shape fix
-// the Files work did for `client-files`) needs a version-download route the
-// plugin does not have yet -- `site-audits.ts` only exposes list/create for
-// versions, not a byte fetch -- so there is nothing live to call today. Left
-// as-is rather than half-wired to a route that would 404 in production.
+// CRE-867: the report-bytes path (GET) now reads no plugin-owned table and no
+// storage bucket directly either. `by-slug` resolves the audit id, `versions`
+// is read in the plugin's own order (`version DESC NULLS LAST, created_at
+// DESC, id DESC` -- taking `versions[0]` rather than re-sorting on
+// `audited_at` here, so there is one definition of "latest" and it lives in
+// the plugin), and `versions/:versionId/download` returns the bytes. Exactly
+// one of `url`/`contentBase64` on that response is ever set, and a `url` is
+// fetched server-side rather than handed to the browser -- a redirect would
+// carry the report to a URL with none of the `Cache-Control: private,
+// no-store` / `X-Robots-Tag: noindex` protection this response has.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { PluginApiError, PluginClient, readPluginConfig } from "../_shared/client-portal-plugin.ts";
 
@@ -131,39 +134,129 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: clientAudit } = await admin
-        .from("client_audits").select("id").eq("slug", slug).maybeSingle();
-      if (!clientAudit) {
-        return new Response(JSON.stringify({ error: "not found" }), {
-          status: 404,
+      const config = readPluginConfig();
+      if (!config) {
+        console.error("audit-serve: CLIENT_PORTAL_* is not configured, refusing to serve a report");
+        return new Response(JSON.stringify({ error: "report viewing is temporarily unavailable" }), {
+          status: 503,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const plugin = new PluginClient(config);
+
+      let auditId: string;
+      try {
+        const { audit } = await plugin.call<{ audit: { id: string } }>(
+          `/site-audits/by-slug/${encodeURIComponent(slug)}`,
+        );
+        auditId = audit.id;
+      } catch (e) {
+        if (e instanceof PluginApiError && e.code === "audit_not_found") {
+          return new Response(JSON.stringify({ error: "not found" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        console.error("audit-serve: by-slug lookup failed", e instanceof PluginApiError ? e.code : e);
+        return new Response(JSON.stringify({ error: "could not look up the report right now" }), {
+          status: 502,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const { data: version } = await admin
-        .from("audit_report_versions")
-        .select("storage_path")
-        .eq("client_audit_id", clientAudit.id)
-        .order("audited_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (!version) {
-        return new Response(JSON.stringify({ error: "no report published yet" }), {
-          status: 404,
+      let versionId: string;
+      try {
+        const { versions } = await plugin.call<{ versions: Array<{ id: string }> }>(
+          `/site-audits/${auditId}/versions`,
+        );
+        // The plugin orders `version DESC NULLS LAST, created_at DESC, id
+        // DESC` -- take its first row rather than re-sorting here.
+        const latest = versions[0];
+        if (!latest) {
+          return new Response(JSON.stringify({ error: "no report published yet" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        versionId = latest.id;
+      } catch (e) {
+        console.error("audit-serve: versions list failed", e instanceof PluginApiError ? e.code : e);
+        return new Response(JSON.stringify({ error: "could not look up the report right now" }), {
+          status: 502,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const { data: file, error: dlErr } = await admin.storage
-        .from("audit-reports").download(version.storage_path);
-      if (dlErr || !file) {
+      let download: { url: string | null; contentBase64: string | null };
+      try {
+        download = await plugin.call<{ url: string | null; contentBase64: string | null }>(
+          `/site-audits/${auditId}/versions/${versionId}/download`,
+        );
+      } catch (e) {
+        if (e instanceof PluginApiError) {
+          console.error("audit-serve: version download failed", e.code);
+          if (e.code === "version_not_found") {
+            return new Response(JSON.stringify({ error: "not found" }), {
+              status: 404,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          if (e.code === "file_bytes_elsewhere") {
+            return new Response(
+              JSON.stringify({ error: "report storage is not configured for this install" }),
+              { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+          if (e.code === "report_bytes_missing") {
+            return new Response(JSON.stringify({ error: "report file missing" }), {
+              status: 422,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } else {
+          console.error("audit-serve: version download failed", e);
+        }
+        return new Response(JSON.stringify({ error: "could not fetch the report right now" }), {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      let html: string;
+      if (download.contentBase64) {
+        html = new TextDecoder().decode(
+          Uint8Array.from(atob(download.contentBase64), (c) => c.charCodeAt(0)),
+        );
+      } else if (download.url) {
+        let fileRes: Response;
+        try {
+          fileRes = await fetch(download.url);
+        } catch (e) {
+          console.error("audit-serve: fetching report bytes from the configured store failed", e);
+          return new Response(JSON.stringify({ error: "could not fetch the report right now" }), {
+            status: 502,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (!fileRes.ok) {
+          console.error("audit-serve: store returned", fileRes.status, "fetching report bytes");
+          return new Response(JSON.stringify({ error: "could not fetch the report right now" }), {
+            status: 502,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        html = await fileRes.text();
+      } else {
+        // The plugin's own contract is that exactly one of `url`/
+        // `contentBase64` is set -- this is that contract broken, not a
+        // missing report, but the caller gets the same answer either way.
+        console.error("audit-serve: version download set neither url nor contentBase64");
         return new Response(JSON.stringify({ error: "report file missing" }), {
-          status: 404,
+          status: 422,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const html = await file.text();
       return new Response(html, {
         headers: {
           ...corsHeaders,
