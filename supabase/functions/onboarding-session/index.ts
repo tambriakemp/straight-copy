@@ -2,7 +2,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { extractSummaryWithClaude, triggerBrandVoiceGeneration } from "../_shared/onboarding-summary.ts";
 import { flipChecklistItem } from "../_shared/auto-checklist.ts";
-import { InviteError, onboardingInviteSource } from "../_shared/onboarding-invite-source.ts";
+import { InviteError, onboardingInviteSource, type InviteRecord, type InviteSource } from "../_shared/onboarding-invite-source.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +11,28 @@ const corsHeaders = {
 };
 
 const OWNER_EMAIL = "hello@cre8visions.com";
+
+// CRE-822/CRE-824, G6 follow-up: `redeem` keeps the plugin's
+// `invite_already_used` refusal for a first submission, which is correct --
+// see `_shared/onboarding-invite-source.ts`'s header. "Reopen Brand Voice
+// chat" is not a submission, so an already-used token on a "resolve" falls
+// back to the read-only `review` lookup instead of surfacing that refusal as
+// an error. `save`/`complete` never fall back: resubmitting a completed
+// invite stays refused on both sources.
+async function resolveInvite(
+  inviteSource: InviteSource,
+  token: string,
+  action: string,
+): Promise<InviteRecord> {
+  try {
+    return await inviteSource.redeemByToken(token);
+  } catch (caught) {
+    if (caught instanceof InviteError && caught.code === "invite_already_used" && action === "resolve") {
+      return await inviteSource.reviewByToken(token);
+    }
+    throw caught;
+  }
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -44,7 +66,7 @@ Deno.serve(async (req) => {
     const inviteSource = onboardingInviteSource(supabase as never);
     let invite;
     try {
-      invite = await inviteSource.redeemByToken(token);
+      invite = await resolveInvite(inviteSource, token, action);
     } catch (caught) {
       if (caught instanceof InviteError) {
         const status = caught.code === "not_found" ? 404 : caught.status === 409 ? 410 : caught.status;
