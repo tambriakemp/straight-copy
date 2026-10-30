@@ -13,6 +13,7 @@
 // sliding-window rate limit instead.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { CLAUDE_MODEL } from "../_shared/models.ts";
+import { onboardingInviteSource } from "../_shared/onboarding-invite-source.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -167,12 +168,14 @@ Deno.serve(async (req) => {
     if (typeof token === "string" && token) {
       // An invited client — validate the same way onboarding-session does.
       // A bad or stale token must not fall through to the open rate limit.
-      const { data: invite } = await supabase
-        .from("onboarding_invites")
-        .select("id, revoked, expires_at")
-        .eq("token", token)
-        .maybeSingle();
-      if (!invite || invite.revoked || (invite.expires_at && new Date(invite.expires_at) < new Date())) {
+      // No side effect on the admin-tables bridge (unlike onboarding-session's
+      // own lookup, which also records the open) -- this runs once per chat
+      // turn, and "last opened" means the link was opened, not that a message
+      // was sent. The plugin path has no such distinction to make: its own
+      // `redeem` route always touches it, so a chat turn moves that
+      // timestamp there regardless.
+      const invite = await onboardingInviteSource(supabase as never).findByToken(token);
+      if (!invite) {
         return new Response(JSON.stringify({ error: "Invalid or expired invite." }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },

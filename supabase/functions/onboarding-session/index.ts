@@ -2,6 +2,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { extractSummaryWithClaude, triggerBrandVoiceGeneration } from "../_shared/onboarding-summary.ts";
 import { flipChecklistItem } from "../_shared/auto-checklist.ts";
+import { InviteError, onboardingInviteSource } from "../_shared/onboarding-invite-source.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,48 +34,46 @@ Deno.serve(async (req) => {
     if (!action || typeof action !== "string") return json({ error: "action required" }, 400);
     if (!token || typeof token !== "string") return json({ error: "token required" }, 400);
 
-    const { data: invite, error: inviteErr } = await supabase
-      .from("onboarding_invites")
-      .select("*")
-      .eq("token", token)
-      .maybeSingle();
-
-    if (inviteErr) {
-      console.error("invite lookup failed:", inviteErr);
+    // CRE-822, G6: the invite ENVELOPE (token, contact details, revoked,
+    // expiry, completion) reads and writes through whichever source this
+    // install answers from. `onboarding_submissions` -- the chat content
+    // itself -- stays local on both, keyed by `invite_id`, which exists on
+    // that table regardless of source and is therefore the one join this
+    // function relies on rather than `onboarding_invites.submission_id`
+    // (a column with no equivalent on the plugin).
+    const inviteSource = onboardingInviteSource(supabase as never);
+    let invite;
+    try {
+      invite = await inviteSource.redeemByToken(token);
+    } catch (caught) {
+      if (caught instanceof InviteError) {
+        const status = caught.code === "not_found" ? 404 : caught.status === 409 ? 410 : caught.status;
+        return json({ error: caught.message }, status);
+      }
+      console.error("invite lookup failed:", caught);
       return json({ error: "lookup failed" }, 500);
-    }
-    if (!invite) return json({ error: "invite not found" }, 404);
-    if (invite.revoked) return json({ error: "invite revoked" }, 410);
-    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-      return json({ error: "invite expired" }, 410);
     }
 
     if (action === "resolve") {
       let conversation: unknown[] = [];
       let stage = 1;
       let completed = false;
-      if (invite.submission_id) {
-        const { data: sub } = await supabase
-          .from("onboarding_submissions")
-          .select("conversation,completed,summary")
-          .eq("id", invite.submission_id)
-          .maybeSingle();
-        if (sub) {
-          conversation = Array.isArray(sub.conversation) ? sub.conversation : [];
-          completed = sub.completed;
-          stage = Math.min(7, Math.max(1, Math.ceil(conversation.length / 4)));
-        }
+      const { data: sub } = await supabase
+        .from("onboarding_submissions")
+        .select("conversation,completed,summary")
+        .eq("invite_id", invite.id)
+        .maybeSingle();
+      if (sub) {
+        conversation = Array.isArray(sub.conversation) ? sub.conversation : [];
+        completed = sub.completed;
+        stage = Math.min(7, Math.max(1, Math.ceil(conversation.length / 4)));
       }
-      await supabase
-        .from("onboarding_invites")
-        .update({ last_opened_at: new Date().toISOString() })
-        .eq("id", invite.id);
 
       return json({
         invite: {
-          contact_name: invite.contact_name,
-          contact_email: invite.contact_email,
-          business_name: invite.business_name,
+          contact_name: invite.contactName,
+          contact_email: invite.contactEmail,
+          business_name: invite.businessName,
         },
         conversation,
         stage,
@@ -87,7 +86,12 @@ Deno.serve(async (req) => {
       if (!Array.isArray(conversation)) return json({ error: "conversation array required" }, 400);
 
       const now = new Date().toISOString();
-      let submissionId = invite.submission_id as string | null;
+      const { data: existingSub } = await supabase
+        .from("onboarding_submissions")
+        .select("id")
+        .eq("invite_id", invite.id)
+        .maybeSingle();
+      let submissionId = existingSub?.id as string | undefined;
 
       if (!submissionId) {
         const { data: inserted, error: insErr } = await supabase
@@ -97,9 +101,9 @@ Deno.serve(async (req) => {
             completed: false,
             invite_id: invite.id,
             last_activity_at: now,
-            contact_name: invite.contact_name,
-            contact_email: invite.contact_email,
-            business_name: invite.business_name,
+            contact_name: invite.contactName,
+            contact_email: invite.contactEmail,
+            business_name: invite.businessName,
           })
           .select()
           .single();
@@ -108,10 +112,15 @@ Deno.serve(async (req) => {
           return json({ error: "save failed" }, 500);
         }
         submissionId = inserted.id;
-        await supabase
-          .from("onboarding_invites")
-          .update({ submission_id: submissionId })
-          .eq("id", invite.id);
+        // Only the admin-tables bridge has this column; the plugin has no
+        // equivalent and does not need one -- `invite_id` above already
+        // does this join's job on both sources.
+        if (inviteSource.kind === "admin-tables") {
+          await supabase
+            .from("onboarding_invites")
+            .update({ submission_id: submissionId })
+            .eq("id", invite.id);
+        }
       } else {
         const { error: updErr } = await supabase
           .from("onboarding_submissions")
@@ -138,7 +147,12 @@ Deno.serve(async (req) => {
 
       const summary: any = await extractSummaryWithClaude(transcript, ANTHROPIC_API_KEY);
 
-      let submissionId = invite.submission_id as string | null;
+      const { data: existingSub } = await supabase
+        .from("onboarding_submissions")
+        .select("id")
+        .eq("invite_id", invite.id)
+        .maybeSingle();
+      let submissionId = existingSub?.id as string | undefined;
       if (!submissionId) {
         const { data: inserted, error: insErr } = await supabase
           .from("onboarding_submissions")
@@ -147,9 +161,9 @@ Deno.serve(async (req) => {
             completed: true,
             invite_id: invite.id,
             summary,
-            business_name: summary.business_name || summary.business || invite.business_name,
-            contact_name: summary.contact_name || summary.name || invite.contact_name,
-            contact_email: summary.contact_email || invite.contact_email,
+            business_name: summary.business_name || summary.business || invite.businessName,
+            contact_name: summary.contact_name || summary.name || invite.contactName,
+            contact_email: summary.contact_email || invite.contactEmail,
             last_activity_at: new Date().toISOString(),
           })
           .select()
@@ -166,9 +180,9 @@ Deno.serve(async (req) => {
             conversation,
             summary,
             completed: true,
-            business_name: summary.business_name || summary.business || invite.business_name,
-            contact_name: summary.contact_name || summary.name || invite.contact_name,
-            contact_email: summary.contact_email || invite.contact_email,
+            business_name: summary.business_name || summary.business || invite.businessName,
+            contact_name: summary.contact_name || summary.name || invite.contactName,
+            contact_email: summary.contact_email || invite.contactEmail,
             last_activity_at: new Date().toISOString(),
           })
           .eq("id", submissionId);
@@ -178,21 +192,25 @@ Deno.serve(async (req) => {
         }
       }
 
-      await supabase
-        .from("onboarding_invites")
-        .update({ submission_id: submissionId, completed_at: new Date().toISOString() })
-        .eq("id", invite.id);
+      // The create_client_from_onboarding DB trigger materializes the client
+      // row + seeds journey_nodes synchronously on the write above, so it is
+      // already there to look up -- same assumption the checklist flip below
+      // always made, just read once and reused for both that and binding
+      // this invite to the client it just produced.
+      const { data: clientRow } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("onboarding_submission_id", submissionId)
+        .maybeSingle();
+
+      await inviteSource.complete(invite.id, {
+        clientId: clientRow?.id ?? null,
+        submissionRef: submissionId,
+      }).catch((e) => console.error("invite complete failed (non-fatal):", e));
 
       // Flip `intake.onboarding_completed` on the client's intake node. The
-      // create_client_from_onboarding DB trigger materializes the client row +
-      // seeds journey_nodes synchronously, so the node exists by now. The
       // auto_complete_journey_node trigger handles cascading node completion.
       try {
-        const { data: clientRow } = await supabase
-          .from("clients")
-          .select("id")
-          .eq("onboarding_submission_id", submissionId)
-          .maybeSingle();
         if (clientRow?.id) {
           await flipChecklistItem(supabase as never, clientRow.id, "intake", "intake.onboarding_completed");
         }
@@ -213,9 +231,9 @@ Deno.serve(async (req) => {
             idempotencyKey: `onboarding-${submissionId}`,
             templateData: {
               submissionId,
-              businessName: summary.business_name || summary.business || invite.business_name || "Unknown",
-              contactName: summary.contact_name || summary.name || invite.contact_name || "Unknown",
-              contactEmail: summary.contact_email || invite.contact_email || "Not provided",
+              businessName: summary.business_name || summary.business || invite.businessName || "Unknown",
+              contactName: summary.contact_name || summary.name || invite.contactName || "Unknown",
+              contactEmail: summary.contact_email || invite.contactEmail || "Not provided",
               summary,
             },
           },
