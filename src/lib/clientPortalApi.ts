@@ -22,9 +22,12 @@ import type {
   PaymentsView,
   PortalAudit,
   PortalMilestone,
+  PortalOnboardingInvite,
+  PortalSubscription,
   SharedDriveLink,
   SignRequest,
   SignResult,
+  SubscriptionActionResult,
 } from "@/lib/clientPortalWire";
 
 /** Mirrors `PortalDocument` in `supabase/functions/client-portal/source.ts`. */
@@ -305,6 +308,57 @@ export const clientPortal = {
     const payload = await call<{ password?: unknown }>(clientId, "reveal-login", { id }, preview);
     const password = payload.password;
     return typeof password === "string" && password.length > 0 ? password : null;
+  },
+
+  /** The plan card (CRE-822, G5). Usually one row or none. */
+  async subscriptions(clientId: string, preview: boolean): Promise<PortalSubscription[]> {
+    const payload = await call<{ subscriptions: PortalSubscription[] }>(
+      clientId,
+      "subscriptions",
+      {},
+      preview,
+    );
+    return payload.subscriptions;
+  },
+
+  async cancelSubscription(
+    clientId: string,
+    subscriptionId: string,
+    preview: boolean,
+  ): Promise<SubscriptionActionResult> {
+    return call<SubscriptionActionResult>(
+      clientId,
+      "cancel-subscription",
+      { subscriptionId },
+      preview,
+    );
+  },
+
+  async resumeSubscription(
+    clientId: string,
+    subscriptionId: string,
+    preview: boolean,
+  ): Promise<SubscriptionActionResult> {
+    return call<SubscriptionActionResult>(
+      clientId,
+      "resume-subscription",
+      { subscriptionId },
+      preview,
+    );
+  },
+
+  /** The "complete your Brand Voice chat" banner (CRE-822, G6). */
+  async onboardingInvite(
+    clientId: string,
+    preview: boolean,
+  ): Promise<PortalOnboardingInvite | null> {
+    const payload = await call<{ invite: PortalOnboardingInvite | null }>(
+      clientId,
+      "onboarding-invite",
+      {},
+      preview,
+    );
+    return payload.invite;
   },
 };
 

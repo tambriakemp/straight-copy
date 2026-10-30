@@ -56,6 +56,14 @@
  * than this copy" and draws what it would draw for an unset value -- never as
  * an error, and never by substituting a guess of its own.
  *
+ *   1.8.0  `PortalSubscription`, `SubscriptionActionResult` and
+ *          `PortalOnboardingInvite` (CRE-822, G5/G6): the recurring-plan card
+ *          and the "complete your Brand Voice chat" banner on the project
+ *          page, both of which used to be read off `brand-kit-intake`'s
+ *          `resolve` action rather than this contract. Wholly new shapes --
+ *          there is nothing optional to default, because a server older
+ *          than this copy has no such actions at all, and the page already
+ *          falls back to not drawing the card it would otherwise feed.
  *   1.7.0  `PaymentRow.projectId` and `.projectName` (CRE-831). Which project
  *          a payment is for, so the Payments tab can say it on the row,
  *          group the table by project and offer a project filter. Optional:
@@ -100,7 +108,7 @@
  *          existed, which put our mark on a licensee's client's screen.
  *   1.0.0  The four screens, mockups 13-16 (CRE-776).
  */
-export const PORTAL_WIRE_VERSION = "1.7.0";
+export const PORTAL_WIRE_VERSION = "1.8.0";
 
 /** The agency, as the client sees it. Never hardcoded: licensees are not us. */
 export interface PortalBranding {
@@ -968,4 +976,95 @@ export function instalmentSummary(
   return instalments
     .map((instalment) => `${instalment.label} ${formatMoney(instalment.amountCents)}`)
     .join(" · ");
+}
+
+/* -------------------------------------------------------------------------- */
+/* The recurring plan (CRE-822, G5)                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One billed plan, with no provider handle on it.
+ *
+ * `renewsOn` and `endsOn` are the same underlying date read through the
+ * question a client is actually asking -- when a plan is set to stop, the
+ * date is the last day of service; when it is not, the same date is the next
+ * renewal. One column, two names, so no screen has to choose between "renews
+ * 14 March" and "ends 14 March".
+ *
+ * `resumable` is computed by whichever source answered, not inferred here
+ * from `cancelAtPeriodEnd`/`canceledAt` -- the two sources mean different
+ * things by "cancelled". The plugin only ever asks a provider to stop at the
+ * end of the paid period, so a plan it has not yet heard back about is still
+ * resumable right up until `canceledAt` is actually set. The `/admin` bridge
+ * still cancels immediately (see `cancel-subscription`), so a plan it shows
+ * as cancelled is also, today, one SureCart will still let it un-cancel --
+ * which is a real, different rule, and the reason this is a field on the row
+ * rather than a formula the screen applies to both alike.
+ */
+export interface PortalSubscription {
+  id: string;
+  provider: string | null;
+  planLabel: string | null;
+  status: string | null;
+  amountCents: number | null;
+  currency: string | null;
+  interval: string | null;
+  cancelAtPeriodEnd: boolean;
+  canceledAt: string | null;
+  renewsOn: string | null;
+  endsOn: string | null;
+  resumable: boolean;
+}
+
+/**
+ * What `cancel` and `resume` both return: "we have asked", not "done".
+ *
+ * Neither action writes `status`, `cancelAtPeriodEnd` or `canceledAt` --
+ * those belong to the payment provider and arrive on its webhook, so
+ * `subscription` on this response is the row exactly as it still is. `message`
+ * is written by the server rather than the screen, because the first screen
+ * to decide for itself what `requested: true` means is the one that tells a
+ * client their plan has stopped when it has not.
+ */
+export interface SubscriptionActionResult {
+  subscription: PortalSubscription;
+  requested: boolean;
+  message: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Onboarding invites (CRE-822, G6)                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The "complete your Brand Voice chat" invite, as the project page shows it.
+ *
+ * `token` is present from an agency caller's create/list action, same as
+ * everywhere else it is handed out deliberately. It is ALSO present when the
+ * client reads their own still-open invite, which is a real and different
+ * case from a board-wide list: nobody else's capability is in the response,
+ * and the client cannot continue their own onboarding chat without it -- the
+ * link was never delivered to this session any other way. `/admin` answers
+ * this today (`legacy-source.ts`); the plugin's own read route for one
+ * client never carries a token at all (`inviteToWire`, used by `GET
+ * /clients/:clientId/onboarding-invites`), so a client on the plugin-backed
+ * path sees the status but not a working link until that gap is closed --
+ * flagged, not silently worked around. See `plugin-source.ts#onboardingInvite`.
+ */
+export interface PortalOnboardingInvite {
+  id: string;
+  token: string | null;
+  clientId: string | null;
+  businessName: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  tier: string | null;
+  note: string | null;
+  expiresAt: string | null;
+  revoked: boolean;
+  expired: boolean;
+  /** Not revoked, not expired, not already filled in. */
+  live: boolean;
+  lastOpenedAt: string | null;
+  completedAt: string | null;
 }

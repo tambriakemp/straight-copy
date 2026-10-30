@@ -40,9 +40,12 @@ import type {
   PortalAudit,
   PortalBranding,
   PortalMilestone,
+  PortalOnboardingInvite,
+  PortalSubscription,
   SharedDriveLink,
   SignRequest,
   SignResult,
+  SubscriptionActionResult,
 } from "../_shared/client-portal-wire.ts";
 
 /** The signed-in caller, already resolved from their session. */
@@ -228,6 +231,40 @@ export interface PortalSource {
     loginId: string,
     actor: LoginRevealActor,
   ): Promise<string | null>;
+
+  /** The plan card (CRE-822, G5). Usually one row; an array because neither
+   * source promises exactly one, the same reason `home()`'s project list is
+   * an array for a client who happens to have one project. */
+  subscriptions(ctx: PortalCallerContext): Promise<PortalSubscription[]>;
+
+  /**
+   * Ask the provider to stop the plan. Writes nothing to the row itself --
+   * see `SubscriptionActionResult` -- and `subscriptionId` is addressed by
+   * whatever id `subscriptions()` returned, which an implementation that has
+   * no such id of its own (the `/admin` bridge has one subscription per
+   * client) is free to ignore.
+   */
+  cancelSubscription(
+    ctx: PortalCallerContext,
+    subscriptionId: string,
+  ): Promise<SubscriptionActionResult>;
+
+  /** Withdraw a cancellation that has not taken effect, or -- on the
+   * `/admin` bridge, where cancelling is immediate -- genuinely restart a
+   * stopped plan at the provider. See `PortalSubscription.resumable`. */
+  resumeSubscription(
+    ctx: PortalCallerContext,
+    subscriptionId: string,
+  ): Promise<SubscriptionActionResult>;
+
+  /**
+   * The client's own "complete your Brand Voice chat" invite, if one is
+   * still worth showing (CRE-822, G6). Not a list: the project page draws at
+   * most one banner, so this picks the single most relevant invite the way
+   * `brand-kit-intake.resolve` used to -- the most recently created one that
+   * is not revoked.
+   */
+  onboardingInvite(ctx: PortalCallerContext): Promise<PortalOnboardingInvite | null>;
 }
 
 /** A refusal with a status the portal can pass through to the browser. */
