@@ -11,12 +11,17 @@ import ContractSection from "@/components/portal/ContractSection";
 import FilesSection from "@/components/portal/FilesSection";
 import PortalLoginsSection from "@/components/portal/PortalLoginsSection";
 import PortalShell, { type PortalView } from "@/components/portal/PortalShell";
-import SubscriptionSection, { type SubscriptionState } from "@/components/portal/SubscriptionSection";
+import SubscriptionSection from "@/components/portal/SubscriptionSection";
 import WebDevDiscoveryChat from "@/components/portal/WebDevDiscoveryChat";
 import { projectTypeStyle } from "@/lib/projectType";
 import { phaseSummary, PHASE_WORD } from "@/lib/journeyPhases";
 import { clientPortal } from "@/lib/clientPortalApi";
-import type { AccountAccessView, PortalMilestone } from "@/lib/clientPortalWire";
+import type {
+  AccountAccessView,
+  PortalMilestone,
+  PortalOnboardingInvite,
+  PortalSubscription,
+} from "@/lib/clientPortalWire";
 
 /** The tabs on one project, as board 16 lays them out. */
 type ProjectTab = "overview" | "audits" | "files" | "logins" | "brand";
@@ -97,14 +102,11 @@ export default function PortalProject() {
   // fetch below, against the plugin-backed `client-portal` function. Null
   // until that call answers, same as `client` above.
   const [accountAccess, setAccountAccess] = useState<AccountAccessView | null>(null);
-  const [onboardingInvite, setOnboardingInvite] = useState<{ token: string; completed: boolean } | null>(null);
-  const [subscription, setSubscription] = useState<SubscriptionState>({
-    id: null,
-    status: null,
-    canceled_at: null,
-    current_period_end: null,
-    cancel_at_period_end: false,
-  });
+  // CRE-822, G5/G6: both loaded by the separate effect below, against the
+  // plugin-backed `client-portal` function -- `brand-kit-intake`'s `resolve`
+  // no longer carries either field.
+  const [onboardingInvite, setOnboardingInvite] = useState<PortalOnboardingInvite | null>(null);
+  const [subscription, setSubscription] = useState<PortalSubscription | null>(null);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [contractSigned, setContractSigned] = useState(false);
   const [tab, setTab] = useState<ProjectTab>("overview");
@@ -185,16 +187,6 @@ export default function PortalProject() {
       setClient(data.client);
       setSubmittedAt(data.submittedAt);
       setContactEmail(data.contactEmail);
-      setOnboardingInvite(data.onboardingInvite ?? null);
-      if (data.subscription) {
-        setSubscription({
-          id: data.subscription.id ?? null,
-          status: data.subscription.status ?? null,
-          canceled_at: data.subscription.canceled_at ?? null,
-          current_period_end: data.subscription.current_period_end ?? null,
-          cancel_at_period_end: !!data.subscription.cancel_at_period_end,
-        });
-      }
       setProjects(Array.isArray(data.projects) ? data.projects : []);
 
       // Rehydrate transcript: prefer localStorage if it has more turns
@@ -225,6 +217,28 @@ export default function PortalProject() {
         if (!cancelled) setAccountAccess(view);
       } catch (e) {
         console.error("[account-access] load failed", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [clientId, adminPreview]);
+
+  // CRE-822, G5/G6: the plan card and the Brand Voice invite banner, the
+  // same move as account-access above -- `brand-kit-intake`'s `resolve` no
+  // longer carries `subscription` or `onboardingInvite`.
+  useEffect(() => {
+    if (!clientId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [subscriptions, invite] = await Promise.all([
+          clientPortal.subscriptions(clientId, adminPreview),
+          clientPortal.onboardingInvite(clientId, adminPreview),
+        ]);
+        if (cancelled) return;
+        setSubscription(subscriptions[0] ?? null);
+        setOnboardingInvite(invite);
+      } catch (e) {
+        console.error("[subscription/onboarding-invite] load failed", e);
       }
     })();
     return () => { cancelled = true; };
@@ -774,7 +788,10 @@ export default function PortalProject() {
         )}
       </div>
       {onboardingInvite ? (
-        <BrandVoiceAccordion token={onboardingInvite.token} completed={onboardingInvite.completed} />
+        <BrandVoiceAccordion
+          token={onboardingInvite.token}
+          completed={onboardingInvite.completedAt !== null}
+        />
       ) : (
         <section className="cv-card cv-card-pad">
           <div className="cv-card-head"><h2 className="cv-card-title">Brand voice</h2></div>
@@ -789,7 +806,7 @@ export default function PortalProject() {
 
   const money = isAutomation ? (
     <div id="portal-subscription" style={{ scrollMarginTop: 24 }}>
-      <SubscriptionSection clientId={clientId!} tier={client.tier} initial={subscription} adminPreview={adminPreview} />
+      <SubscriptionSection clientId={clientId!} tier={client.tier} subscription={subscription} adminPreview={adminPreview} />
     </div>
   ) : null;
 
@@ -860,7 +877,7 @@ export default function PortalProject() {
 
 // ---------- Sub-components ----------
 
-function BrandVoiceAccordion({ token, completed }: { token: string; completed: boolean }) {
+function BrandVoiceAccordion({ token, completed }: { token: string | null; completed: boolean }) {
   const [open, setOpen] = useState(!completed);
   return (
     <section
@@ -898,14 +915,23 @@ function BrandVoiceAccordion({ token, completed }: { token: string; completed: b
             {completed && (
               <span className="portal-access__badge">✓ Submitted to your CRE8 team</span>
             )}
-            <a
-              href={`/onboarding?invite=${token}`}
-              target="_blank"
-              rel="noreferrer"
-              className="crm-btn crm-btn--bronze crm-btn--sm"
-            >
-              {completed ? "Reopen Brand Voice chat →" : "Open Brand Voice chat →"}
-            </a>
+            {token ? (
+              <a
+                href={`/onboarding?invite=${token}`}
+                target="_blank"
+                rel="noreferrer"
+                className="crm-btn crm-btn--bronze crm-btn--sm"
+              >
+                {completed ? "Reopen Brand Voice chat →" : "Open Brand Voice chat →"}
+              </a>
+            ) : (
+              // No token to link to yet on this install -- see
+              // `plugin-source.ts#onboardingInvite`. Not shown as an error:
+              // the status above is still accurate.
+              <span style={{ fontSize: 14, color: "var(--cv-muted)" }}>
+                Ask your CRE8 contact for the link.
+              </span>
+            )}
           </div>
         </div>
       )}

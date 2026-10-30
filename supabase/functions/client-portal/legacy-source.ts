@@ -53,11 +53,14 @@ import {
   type PortalBranding,
   type PortalMe,
   type PortalMilestone,
+  type PortalOnboardingInvite,
   type PortalProject,
+  type PortalSubscription,
   type SharedDriveLink,
   type SharedLogin,
   type SignRequest,
   type SignResult,
+  type SubscriptionActionResult,
   type TeamUpdate,
   type WaitingItem,
 } from "../_shared/client-portal-wire.ts";
@@ -1108,6 +1111,181 @@ export class LegacySource implements PortalSource {
       console.error("[client-portal] set_client_login failed", error.code ?? error.message);
       throw new PortalError(500, "save_failed", "That login could not be saved.");
     }
+  }
+
+  /**
+   * CRE-822, G5. Reads `clients` directly rather than delegating to
+   * `cancel-subscription`'s own `status` action -- that function exists for
+   * the write, and this is the same table it reads to answer one.
+   */
+  async subscriptions(ctx: PortalCallerContext): Promise<PortalSubscription[]> {
+    const { data } = await this.#db
+      .from("clients")
+      .select(
+        "surecart_subscription_id, subscription_status, subscription_canceled_at, " +
+          "subscription_current_period_end, subscription_cancel_at_period_end",
+      )
+      .eq("id", ctx.clientId)
+      .maybeSingle();
+    const subscriptionId = text(data, "surecart_subscription_id");
+    if (!data || !subscriptionId) return [];
+    return [this.#toSubscription(data, subscriptionId)];
+  }
+
+  #toSubscription(row: Row, id: string): PortalSubscription {
+    const status = text(row, "subscription_status");
+    const canceledAt = text(row, "subscription_canceled_at");
+    const cancelAtPeriodEnd = Boolean(row.subscription_cancel_at_period_end);
+    const currentPeriodEnd = text(row, "subscription_current_period_end");
+    const ending = cancelAtPeriodEnd || canceledAt !== null;
+    return {
+      id,
+      provider: "surecart",
+      planLabel: null,
+      status,
+      amountCents: null,
+      currency: null,
+      interval: null,
+      cancelAtPeriodEnd,
+      canceledAt,
+      renewsOn: ending ? null : currentPeriodEnd,
+      endsOn: ending ? currentPeriodEnd : null,
+      // This bridge's own rule, not the plugin's: `cancel-subscription`
+      // cancels at the provider IMMEDIATELY (`cancel_behavior=immediate`),
+      // so a row already marked cancelled is still one SureCart will resume
+      // -- it is not a plan that has "actually ended" the way the plugin's
+      // stricter precondition means it, and refusing resume here would be a
+      // real regression for every client on this bridge today.
+      resumable: status === "canceled" || status === "cancelled",
+    };
+  }
+
+  /**
+   * Delegates to the existing `cancel-subscription` function (CRE-822, G5) --
+   * the same reason `sign`/`decline` delegate to `proposal-sign`: the
+   * SureCart call, the secret and the row write already live there, and a
+   * second copy here would be a second copy that drifts. `subscriptionId` is
+   * unused: this bridge has exactly one subscription per client and that
+   * function already addresses it by `clientId`.
+   */
+  async #delegateSubscriptionAction(
+    ctx: PortalCallerContext,
+    action: "cancel" | "resume",
+    message: string,
+  ): Promise<SubscriptionActionResult> {
+    const result = await this.#delegate("cancel-subscription", {
+      clientId: ctx.clientId,
+      action,
+    });
+    if (result.status >= 400) {
+      throw new PortalError(
+        result.status,
+        "subscription_action_failed",
+        errorFrom(result.body) ?? "That subscription could not be updated.",
+      );
+    }
+    const body = (result.body ?? {}) as { subscription?: Row };
+    const sub = body.subscription ?? {};
+    const id = text(sub, "id") ?? "";
+    return {
+      // Unlike the plugin path, this write already landed -- the delegate
+      // call above already updated `clients` from SureCart's own response --
+      // so the row returned here is accurate now, not merely requested.
+      subscription: this.#toSubscription(sub, id),
+      requested: true,
+      message,
+    };
+  }
+
+  cancelSubscription(
+    ctx: PortalCallerContext,
+    _subscriptionId: string,
+  ): Promise<SubscriptionActionResult> {
+    return this.#delegateSubscriptionAction(
+      ctx,
+      "cancel",
+      "Your subscription has been cancelled, effective immediately.",
+    );
+  }
+
+  resumeSubscription(
+    ctx: PortalCallerContext,
+    _subscriptionId: string,
+  ): Promise<SubscriptionActionResult> {
+    return this.#delegateSubscriptionAction(
+      ctx,
+      "resume",
+      "Welcome back — your subscription is active again.",
+    );
+  }
+
+  /**
+   * CRE-822, G6. The same two-step lookup `brand-kit-intake.resolve` used to
+   * do: by `onboarding_submission_id` first, then falling back to the most
+   * recent non-revoked invite sent to this client's contact email. Client-
+   * side `[0]` after an `order()` rather than a SQL `LIMIT`: the abstracted
+   * `Query` this file is written against (see its header) has no `.limit()`,
+   * and one client's handful of invites is not worth widening it for.
+   */
+  async onboardingInvite(ctx: PortalCallerContext): Promise<PortalOnboardingInvite | null> {
+    const { data: client } = await this.#db
+      .from("clients")
+      .select("onboarding_submission_id, contact_email")
+      .eq("id", ctx.clientId)
+      .maybeSingle();
+    if (!client) return null;
+
+    const columns =
+      "id, client_id, token, business_name, contact_name, contact_email, tier, note, " +
+      "expires_at, revoked, completed_at, last_opened_at";
+    let invite: Row | null = null;
+
+    const submissionId = text(client, "onboarding_submission_id");
+    if (submissionId) {
+      const { data } = await this.#db
+        .from("onboarding_invites")
+        .select(columns)
+        .eq("submission_id", submissionId)
+        .maybeSingle();
+      if (data && !data.revoked) invite = data;
+    }
+    if (!invite) {
+      const contactEmail = text(client, "contact_email");
+      if (contactEmail) {
+        const result = await this.#db
+          .from("onboarding_invites")
+          .select(columns)
+          .eq("contact_email", contactEmail)
+          .order("created_at", { ascending: false });
+        const candidate = rows(result).find((row) => !row.revoked) ?? null;
+        if (candidate) invite = candidate;
+      }
+    }
+    if (!invite) return null;
+
+    const expiresAt = text(invite, "expires_at");
+    const expired = expiresAt !== null && Date.parse(expiresAt) <= ctx.now.getTime();
+    const completedAt = text(invite, "completed_at");
+    return {
+      id: required(invite, "id"),
+      // Unlike an admin-facing list, this is the client's own read of their
+      // own invite -- the one token response that is safe here, because
+      // nobody else's capability is in it, and there is no other way this
+      // session was ever given the link to continue their own chat.
+      token: text(invite, "token"),
+      clientId: text(invite, "client_id"),
+      businessName: text(invite, "business_name"),
+      contactName: text(invite, "contact_name"),
+      contactEmail: text(invite, "contact_email"),
+      tier: text(invite, "tier"),
+      note: text(invite, "note"),
+      expiresAt,
+      revoked: Boolean(invite.revoked),
+      expired,
+      live: !invite.revoked && !expired && completedAt === null,
+      lastOpenedAt: text(invite, "last_opened_at"),
+      completedAt,
+    };
   }
 }
 

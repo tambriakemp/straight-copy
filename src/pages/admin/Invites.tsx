@@ -1,44 +1,43 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import { Plus, Copy, Check, Ban, ExternalLink } from "lucide-react";
+import { Plus, Copy, Check, Ban } from "lucide-react";
 import { toast } from "sonner";
 
+// CRE-822, G6: reads and writes through `onboarding-invites-admin`, which
+// answers from the Client Portal plugin or the `/admin` table depending on
+// this install -- this page used to query `onboarding_invites` directly.
+// `token` is populated here only immediately after `create`: neither source
+// hands a token back for an invite the browser did not just mint, so the
+// list's own "Copy"/"Open" buttons from before this card are gone. See
+// `_shared/onboarding-invite-source.ts`'s header for why that is not a bug
+// to work around. The "View" link that used to point at `/admin/clients/
+// ${submission_id}` is also gone -- `/admin/clients/:id` resolves a CLIENT
+// id, and a submission id was never one; that link never worked.
 type Invite = {
   id: string;
-  token: string;
-  contact_name: string | null;
-  contact_email: string | null;
-  business_name: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  businessName: string | null;
   note: string | null;
-  expires_at: string | null;
-  submission_id: string | null;
-  last_opened_at: string | null;
-  completed_at: string | null;
+  expiresAt: string | null;
+  completedAt: string | null;
+  lastOpenedAt: string | null;
+  createdAt: string;
   revoked: boolean;
-  created_at: string;
-  source_order_id: string | null;
+  expired: boolean;
+  sourceOrderRef: string | null;
   tier: string | null;
 };
 
-function randomToken(len = 24) {
-  const bytes = new Uint8Array(len);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => "abcdefghijklmnopqrstuvwxyz0123456789"[b % 36]).join("");
-}
-
 function statusOf(inv: Invite): { label: string; tone: string } {
-  const now = Date.now();
   if (inv.revoked) return { label: "Revoked", tone: "hsl(30 10% 78%)" };
-  if (inv.completed_at) return { label: "Completed", tone: "hsl(150 35% 70%)" };
-  if (inv.expires_at && new Date(inv.expires_at).getTime() < now)
-    return { label: "Expired", tone: "hsl(8 55% 70%)" };
-  if (inv.submission_id) return { label: "In progress", tone: "hsl(30 25% 44%)" };
-  if (inv.last_opened_at) return { label: "Opened", tone: "hsl(30 10% 78%)" };
+  if (inv.completedAt) return { label: "Completed", tone: "hsl(150 35% 70%)" };
+  if (inv.expired) return { label: "Expired", tone: "hsl(8 55% 70%)" };
+  if (inv.lastOpenedAt) return { label: "Opened", tone: "hsl(30 10% 78%)" };
   return { label: "Not opened", tone: "hsl(30 8% 62%)" };
 }
 
@@ -47,11 +46,22 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" });
 }
 
+async function invokeAdmin<T>(action: string, body: Record<string, unknown> = {}): Promise<T> {
+  const { data, error } = await supabase.functions.invoke("onboarding-invites-admin", {
+    body: { action, ...body },
+  });
+  if (error) throw new Error((data as { error?: string } | null)?.error ?? error.message);
+  return data as T;
+}
+
 export default function Invites() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // The one link the browser ever holds, right after creating it -- see this
+  // file's header.
+  const [justCreated, setJustCreated] = useState<{ id: string; token: string } | null>(null);
   const [form, setForm] = useState({
     contact_name: "",
     contact_email: "",
@@ -64,22 +74,24 @@ export default function Invites() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("onboarding_invites")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) toast.error(error.message);
-    else setInvites((data as Invite[]) || []);
-    setLoading(false);
+    try {
+      const { invites: rows } = await invokeAdmin<{ invites: Invite[] }>("list");
+      setInvites(rows);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not load invites");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
 
   const linkFor = (token: string) => `${baseUrl}/onboarding?invite=${token}`;
 
-  const copyLink = async (inv: Invite) => {
-    await navigator.clipboard.writeText(linkFor(inv.token));
-    setCopiedId(inv.id);
+  const copyJustCreated = async () => {
+    if (!justCreated) return;
+    await navigator.clipboard.writeText(linkFor(justCreated.token));
+    setCopiedId(justCreated.id);
     toast.success("Link copied");
     setTimeout(() => setCopiedId(null), 1500);
   };
@@ -89,53 +101,39 @@ export default function Invites() {
       toast.error("Add at least a name or email");
       return;
     }
-    const expires_at =
-      form.expiry === "never"
-        ? null
-        : new Date(Date.now() + parseInt(form.expiry, 10) * 86400000).toISOString();
-
-    const token = randomToken(20);
-    const { data, error } = await supabase
-      .from("onboarding_invites")
-      .insert({
-        token,
-        contact_name: form.contact_name.trim() || null,
-        contact_email: form.contact_email.trim() || null,
-        business_name: form.business_name.trim() || null,
-        note: form.note.trim() || null,
-        expires_at,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    const url = linkFor((data as Invite).token);
     try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Invite created — link copied to clipboard");
-    } catch {
-      toast.success("Invite created");
+      const { invite } = await invokeAdmin<{ invite: Invite & { token: string } }>("create", {
+        contactName: form.contact_name.trim() || null,
+        contactEmail: form.contact_email.trim() || null,
+        businessName: form.business_name.trim() || null,
+        note: form.note.trim() || null,
+        expiresInDays: Number(form.expiry),
+      });
+      setJustCreated({ id: invite.id, token: invite.token });
+      const url = linkFor(invite.token);
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Invite created — link copied to clipboard");
+      } catch {
+        toast.success("Invite created");
+      }
+      setOpen(false);
+      setForm({ contact_name: "", contact_email: "", business_name: "", note: "", expiry: "30" });
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not create that invite");
     }
-    setOpen(false);
-    setForm({ contact_name: "", contact_email: "", business_name: "", note: "", expiry: "30" });
-    load();
   };
 
   const revoke = async (inv: Invite) => {
-    if (!confirm(`Revoke invite for ${inv.contact_name || inv.contact_email || "this prospect"}?`))
+    if (!confirm(`Revoke invite for ${inv.contactName || inv.contactEmail || "this prospect"}?`))
       return;
-    const { error } = await supabase
-      .from("onboarding_invites")
-      .update({ revoked: true })
-      .eq("id", inv.id);
-    if (error) toast.error(error.message);
-    else {
+    try {
+      await invokeAdmin("revoke", { id: inv.id });
       toast.success("Invite revoked");
       load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not revoke that invite");
     }
   };
 
@@ -212,7 +210,11 @@ export default function Invites() {
                     <option value="7">In 7 days</option>
                     <option value="30">In 30 days</option>
                     <option value="90">In 90 days</option>
-                    <option value="never">Never</option>
+                    {/* No "Never" -- the plugin caps every invite at 365
+                        days, and the two sources drawing the same choice
+                        differently is worse than this form just not
+                        offering it. */}
+                    <option value="365">In 365 days</option>
                   </select>
                 </div>
               </div>
@@ -224,6 +226,26 @@ export default function Invites() {
             </DialogContent>
           </Dialog>
         </div>
+
+        {justCreated && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 16px",
+              marginBottom: 16,
+              border: "1px solid hsl(150 35% 40% / 0.4)",
+              background: "hsl(150 35% 40% / 0.08)",
+            }}
+          >
+            <span style={{ fontSize: 16 }}>Link ready for the invite you just created.</span>
+            <button className="crm-btn crm-btn--ghost crm-btn--sm" onClick={copyJustCreated}>
+              {copiedId === justCreated.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+              {" "}Copy link again
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <p className="text-[hsl(30_8%_62%)] text-sm">Loading invites…</p>
@@ -238,7 +260,7 @@ export default function Invites() {
           </div>
         ) : (
           <>
-            <div className="roster__head-row" style={{ gridTemplateColumns: "2fr 1.4fr 1fr 0.9fr 0.9fr 1.2fr" }}>
+            <div className="roster__head-row" style={{ gridTemplateColumns: "2fr 1.4fr 1fr 0.9fr 0.9fr 0.6fr" }}>
               <div className="roster__col-h" style={{ cursor: "default" }}>Contact</div>
               <div className="roster__col-h" style={{ cursor: "default" }}>Business</div>
               <div className="roster__col-h" style={{ cursor: "default" }}>Status</div>
@@ -253,22 +275,22 @@ export default function Invites() {
                   <div
                     key={inv.id}
                     className="roster__row"
-                    style={{ gridTemplateColumns: "2fr 1.4fr 1fr 0.9fr 0.9fr 1.2fr", cursor: "default" }}
+                    style={{ gridTemplateColumns: "2fr 1.4fr 1fr 0.9fr 0.9fr 0.6fr", cursor: "default" }}
                   >
                     <div className="roster__client">
                       <div className="roster__name" style={{ fontSize: 22 }}>
-                        {inv.contact_name || "—"}
+                        {inv.contactName || "—"}
                       </div>
-                      <div className="roster__email">{inv.contact_email || "—"}</div>
-                      {inv.source_order_id && (
+                      <div className="roster__email">{inv.contactEmail || "—"}</div>
+                      {inv.sourceOrderRef && (
                         <div style={{ fontSize: 15, letterSpacing: "0.2em", textTransform: "uppercase", color: "hsl(30 25% 44%)", marginTop: 4 }}>
-                          via SureCart · #{inv.source_order_id.slice(-8)}
+                          via SureCart · #{inv.sourceOrderRef.slice(-8)}
                           {inv.tier ? ` · ${inv.tier}` : ""}
                         </div>
                       )}
                     </div>
                     <div className="roster__next" style={{ fontSize: 19 }}>
-                      {inv.business_name || "—"}
+                      {inv.businessName || "—"}
                     </div>
                     <div>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 16, letterSpacing: "0.2em", textTransform: "uppercase", color: s.tone }}>
@@ -277,31 +299,13 @@ export default function Invites() {
                       </span>
                     </div>
                     <div style={{ fontSize: 17, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
-                      {fmtDate(inv.created_at)}
+                      {fmtDate(inv.createdAt)}
                     </div>
                     <div style={{ fontSize: 17, letterSpacing: "0.15em", color: "hsl(30 8% 62%)", textTransform: "uppercase" }}>
-                      {fmtDate(inv.last_opened_at)}
+                      {fmtDate(inv.lastOpenedAt)}
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                      <button
-                        className="crm-btn crm-btn--ghost crm-btn--sm"
-                        onClick={() => copyLink(inv)}
-                        disabled={inv.revoked}
-                        title="Copy link"
-                      >
-                        {copiedId === inv.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      </button>
-                      <a href={linkFor(inv.token)} target="_blank" rel="noreferrer">
-                        <button className="crm-btn crm-btn--ghost crm-btn--sm" title="Open">
-                          <ExternalLink className="h-3 w-3" />
-                        </button>
-                      </a>
-                      {inv.submission_id && (
-                        <Link to={`/admin/clients/${inv.submission_id}`}>
-                          <button className="crm-btn crm-btn--ghost crm-btn--sm">View</button>
-                        </Link>
-                      )}
-                      {!inv.revoked && !inv.completed_at && (
+                      {!inv.revoked && !inv.completedAt && (
                         <button
                           className="crm-btn crm-btn--ghost crm-btn--sm"
                           onClick={() => revoke(inv)}

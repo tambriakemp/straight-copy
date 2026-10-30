@@ -24,6 +24,13 @@ verify_jwt = false
 [functions.onboarding-session]
 verify_jwt = false
 
+# CRE-822, G6: only ever called by a signed-in admin from /admin, same
+# reasoning as portal-view-as below -- the gateway checking that JWT costs
+# nothing, and resolveCaller()'s own "admin" check refuses anything else
+# regardless.
+[functions.onboarding-invites-admin]
+verify_jwt = true
+
 [functions.crm-api]
 verify_jwt = false
 

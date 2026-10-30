@@ -4,6 +4,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.45.0'
 import { seedWebDevTasks } from '../_shared/web-dev-tasks.ts'
 import { markDealWonFromDepositPaid } from '../_shared/proposal-deal-sync.ts'
+import { onboardingInviteSource } from '../_shared/onboarding-invite-source.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,15 +23,6 @@ const PRODUCT_TIER_MAP: Record<string, 'launch' | 'growth'> = {
 const WEB_DEV_PRODUCT_ID = '5b5d573d-f503-4966-bdd8-9b054eca6856'
 
 const SITE_URL = 'https://cre8visions.com'
-
-function randomToken(len = 20) {
-  const bytes = new Uint8Array(len)
-  crypto.getRandomValues(bytes)
-  return Array.from(
-    bytes,
-    (b) => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]
-  ).join('')
-}
 
 // Try to pull a subscription id out of an order payload (line_items[].subscription)
 function firstSubscriptionFromOrder(data: any): string {
@@ -558,22 +550,27 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
-  // Idempotency: check for existing invite by source_order_id
-  const { data: existing } = await supabase
-    .from('onboarding_invites')
-    .select('id, token')
-    .eq('source_order_id', orderId)
-    .maybeSingle()
+  // CRE-822, G6: the invite envelope reads and writes through whichever
+  // source this install answers from -- the plugin once CP-6 has imported
+  // it, `/admin`'s `onboarding_invites` table until then.
+  const inviteSource = onboardingInviteSource(supabase as never)
 
-  let token: string
+  // Idempotency: has this order already minted one.
+  const existing = await inviteSource.findBySourceOrderRef(orderId)
+
+  let token: string | null
   let inviteId: string
 
   if (existing) {
     token = existing.token
     inviteId = existing.id
     console.log('Reusing existing invite for order', orderId)
-    // Backfill subscription IDs in case they were missing on the first event
-    if (subscriptionId || customerId) {
+    // Backfill subscription IDs in case they were missing on the first
+    // event. Only possible on the admin-tables bridge -- the plugin has no
+    // route to PATCH an invite's provider refs after creation, see
+    // _shared/onboarding-invite-source.ts's header. Not a blocker: the refs
+    // are also set at creation time below for the common, non-replayed case.
+    if (inviteSource.kind === 'admin-tables' && (subscriptionId || customerId)) {
       await supabase
         .from('onboarding_invites')
         .update({
@@ -583,30 +580,26 @@ Deno.serve(async (req) => {
         .eq('id', inviteId)
     }
   } else {
-    token = randomToken(20)
-    const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString()
-    const { data: created, error: insertErr } = await supabase
-      .from('onboarding_invites')
-      .insert({
-        token,
-        contact_name: fullName || null,
-        contact_email: email,
-        tier,
-        source_order_id: orderId,
-        surecart_subscription_id: subscriptionId || null,
-        surecart_customer_id: customerId || null,
-        note: `Auto-created from SureCart order #${orderNumber}`,
-        expires_at: expiresAt,
-      })
-      .select('id, token')
-      .single()
-    if (insertErr || !created) {
-      console.error('Failed to create invite', insertErr)
+    const created = await inviteSource.create({
+      contactName: fullName || null,
+      contactEmail: email,
+      tier,
+      sourceOrderRef: orderId,
+      providerCustomerRef: customerId || null,
+      providerSubscriptionRef: subscriptionId || null,
+      note: `Auto-created from SureCart order #${orderNumber}`,
+      expiresInDays: 30,
+    }).catch((e) => {
+      console.error('Failed to create invite', e)
+      return null
+    })
+    if (!created) {
       return new Response(JSON.stringify({ error: 'insert_failed' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    token = created.token
     inviteId = created.id
   }
 
@@ -626,6 +619,18 @@ Deno.serve(async (req) => {
       })
       .eq('contact_email', email)
       .is('surecart_subscription_id', null)
+  }
+
+  if (!token) {
+    // A replayed event found an existing invite whose token this install's
+    // source cannot read back -- the plugin path, see
+    // _shared/onboarding-invite-source.ts's header. The original delivery
+    // already sent the real link; there is nothing new to send.
+    console.log('No token to (re-)send for order', orderId, '(plugin-backed replay)')
+    return new Response(
+      JSON.stringify({ ok: true, invite_id: inviteId }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    )
   }
 
   const inviteUrl = `${SITE_URL}/onboarding?invite=${token}`

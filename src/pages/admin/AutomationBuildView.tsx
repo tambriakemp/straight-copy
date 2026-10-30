@@ -1482,81 +1482,73 @@ function ClientFieldEditor({
 
 
 // ---------- Onboarding (Brand Voice) chat link panel — only shown on the intake node ----------
+//
+// CRE-822, G6: reads and writes through `onboarding-invites-admin`, which
+// answers from the Client Portal plugin or the `/admin` table depending on
+// this install. `token` comes back only when this load minted a fresh
+// invite -- an EXISTING one found on the plugin path has none to give back
+// (see `_shared/onboarding-invite-source.ts`'s header), so the panel still
+// draws the status pill but not a link or a copy button for it. That is a
+// real narrowing once an install is plugin-backed, not a bug: there is no
+// route left to recover a token the plugin already handed out once.
 function OnboardingChatLinkPanel({ client }: { client: Client }) {
-  const [token, setToken] = useState<string | null>(null);
-  const [status, setStatus] = useState<{ opened: boolean; completed: boolean }>({ opened: false, completed: false });
+  const [invite, setInvite] = useState<{
+    token: string | null;
+    lastOpenedAt: string | null;
+    completedAt: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  // Look up the most relevant invite for this client. Match priority:
-  //   (a) invite linked via the client's onboarding_submission_id
-  //   (b) most recent invite for the same email
   const load = useCallback(async () => {
     setLoading(true);
-    let row: { token: string; last_opened_at: string | null; completed_at: string | null; revoked: boolean } | null = null;
-
-    if (client.onboarding_submission_id) {
-      const { data } = await supabase
-        .from("onboarding_invites")
-        .select("token, last_opened_at, completed_at, revoked")
-        .eq("submission_id", client.onboarding_submission_id)
-        .maybeSingle();
-      if (data && !data.revoked) row = data;
+    try {
+      const { data, error } = await supabase.functions.invoke("onboarding-invites-admin", {
+        body: {
+          action: "for-client",
+          clientId: client.id,
+          submissionId: client.onboarding_submission_id ?? null,
+          contactEmail: client.contact_email,
+        },
+      });
+      if (error) throw new Error((data as { error?: string } | null)?.error ?? error.message);
+      const found = (data as { invite: { token: string | null; lastOpenedAt: string | null; completedAt: string | null } | null }).invite;
+      setInvite(found);
+    } catch (e) {
+      console.error("[onboarding-invites-admin] for-client failed", e);
+      setInvite(null);
+    } finally {
+      setLoading(false);
     }
-    if (!row && client.contact_email) {
-      const { data } = await supabase
-        .from("onboarding_invites")
-        .select("token, last_opened_at, completed_at, revoked")
-        .eq("contact_email", client.contact_email)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      const candidate = data?.[0];
-      if (candidate && !candidate.revoked) row = candidate;
-    }
-
-    if (row) {
-      setToken(row.token);
-      setStatus({ opened: !!row.last_opened_at, completed: !!row.completed_at });
-    } else {
-      setToken(null);
-      setStatus({ opened: false, completed: false });
-    }
-    setLoading(false);
   }, [client.id, client.contact_email, client.onboarding_submission_id]);
 
   useEffect(() => { load(); }, [load]);
 
-  const ensureToken = async (): Promise<string | null> => {
-    if (token) return token;
-    const bytes = new Uint8Array(20);
-    crypto.getRandomValues(bytes);
-    const newToken = Array.from(bytes, (b) => "abcdefghijklmnopqrstuvwxyz0123456789"[b % 36]).join("");
-    const { data, error } = await supabase
-      .from("onboarding_invites")
-      .insert({
-        token: newToken,
-        contact_name: client.contact_name,
-        contact_email: client.contact_email,
-        business_name: client.business_name,
-        tier: client.tier,
-        note: "Auto-generated from client detail",
-      })
-      .select("token")
-      .single();
-    if (error) {
-      toast.error(error.message);
-      return null;
-    }
-    setToken(data.token);
-    return data.token;
-  };
-
   const copy = async () => {
     setBusy(true);
     try {
-      const t = await ensureToken();
-      if (!t) return;
-      await navigator.clipboard.writeText(`${window.location.origin}/onboarding?invite=${t}`);
+      let current = invite;
+      if (!current) {
+        const { data, error } = await supabase.functions.invoke("onboarding-invites-admin", {
+          body: {
+            action: "ensure-for-client",
+            clientId: client.id,
+            submissionId: client.onboarding_submission_id ?? null,
+            contactName: client.contact_name,
+            contactEmail: client.contact_email,
+            businessName: client.business_name,
+            tier: client.tier,
+          },
+        });
+        if (error) throw new Error((data as { error?: string } | null)?.error ?? error.message);
+        current = (data as { invite: { token: string | null; lastOpenedAt: string | null; completedAt: string | null } }).invite;
+        setInvite(current);
+      }
+      if (!current.token) {
+        toast.error("No link is available to copy for this invite.");
+        return;
+      }
+      await navigator.clipboard.writeText(`${window.location.origin}/onboarding?invite=${current.token}`);
       toast.success("Brand Voice chat link copied");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not copy link");
@@ -1565,10 +1557,13 @@ function OnboardingChatLinkPanel({ client }: { client: Client }) {
     }
   };
 
+  const token = invite?.token ?? null;
   const url = token ? `${window.location.origin}/onboarding?invite=${token}` : "";
-  const pill = status.completed
+  const completed = !!invite?.completedAt;
+  const opened = !!invite?.lastOpenedAt;
+  const pill = completed
     ? { label: "Completed", cls: "crm-pill--complete" }
-    : status.opened
+    : opened
       ? { label: "Opened", cls: "crm-pill--inprog" }
       : { label: "Not opened", cls: "" };
 
@@ -1576,7 +1571,7 @@ function OnboardingChatLinkPanel({ client }: { client: Client }) {
     <section>
       <div className="crm-modal__section-head">
         <div className="crm-modal__section-title">Brand Voice Intake Chat</div>
-        {!loading && token && (
+        {!loading && invite && (
           <span className={`crm-pill ${pill.cls}`} style={{ fontSize: 16 }}>● {pill.label}</span>
         )}
       </div>
@@ -1610,6 +1605,11 @@ function OnboardingChatLinkPanel({ client }: { client: Client }) {
                 style={{ fontSize: 18, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}
               />
             )}
+            {invite && !token && (
+              <div style={{ fontSize: 16, color: "hsl(30 8% 60%)" }}>
+                An invite exists for this client, but this install has no way to recover its link.
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 type="button"
@@ -1617,7 +1617,7 @@ function OnboardingChatLinkPanel({ client }: { client: Client }) {
                 onClick={copy}
                 disabled={busy}
               >
-                {token ? "Copy link" : "Generate & copy link"}
+                {invite ? "Copy link" : "Generate & copy link"}
               </button>
               {token && (
                 <a

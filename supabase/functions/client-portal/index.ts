@@ -332,6 +332,28 @@ Deno.serve(async (req) => {
         return json({ ok: true, view: await source.saveAccountAccess(ctx, input) });
       }
 
+      case "subscriptions":
+        return json({ ok: true, subscriptions: await source.subscriptions(ctx) });
+
+      case "cancel-subscription": {
+        refusePreviewWrites(ctx, "cancel this subscription");
+        return json({
+          ok: true,
+          ...(await source.cancelSubscription(ctx, requireId(payload, "subscriptionId"))),
+        });
+      }
+
+      case "resume-subscription": {
+        refusePreviewWrites(ctx, "resume this subscription");
+        return json({
+          ok: true,
+          ...(await source.resumeSubscription(ctx, requireId(payload, "subscriptionId"))),
+        });
+      }
+
+      case "onboarding-invite":
+        return json({ ok: true, invite: await source.onboardingInvite(ctx) });
+
       case "reveal-login": {
         // A read of one password, not a write: view-as may do it, and an
         // admin preview may do it. The list action above never includes the

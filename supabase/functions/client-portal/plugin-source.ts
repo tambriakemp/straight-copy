@@ -43,10 +43,13 @@ import {
   type PortalAudit,
   type PortalBranding,
   type PortalMilestone,
+  type PortalOnboardingInvite,
+  type PortalSubscription,
   type SharedDriveLink,
   type SharedLogin,
   type SignRequest,
   type SignResult,
+  type SubscriptionActionResult,
   type TeamUpdate,
   type WaitingItem,
 } from "../_shared/client-portal-wire.ts";
@@ -305,6 +308,51 @@ interface PluginBranding {
   contactName: string | null;
   contactEmail: string | null;
   replyWindow: string | null;
+}
+
+/**
+ * CRE-822, G5. No provider reference on the wire -- see `docs/API.md`, "The
+ * recurring plan" -- so there is nothing here a front end could use to call
+ * the vendor directly even if it wanted to.
+ */
+interface PluginSubscription {
+  id: string;
+  clientId: string;
+  provider: string;
+  planLabel: string | null;
+  status: string | null;
+  amountCents: number | null;
+  currency: string | null;
+  interval: string | null;
+  cancelAtPeriodEnd: boolean;
+  canceledAt: string | null;
+  currentPeriodEnd: string | null;
+  renewsOn: string | null;
+  endsOn: string | null;
+}
+
+interface PluginSubscriptionActionResult {
+  subscription: PluginSubscription;
+  requested: boolean;
+  message: string;
+}
+
+/** CRE-822, G6. Never carries a token -- `inviteToWire` on the plugin side
+ * only ever answers the tokenless shape to this route. */
+interface PluginOnboardingInvite {
+  id: string;
+  clientId: string | null;
+  businessName: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  tier: string | null;
+  note: string | null;
+  expiresAt: string | null;
+  revoked: boolean;
+  expired: boolean;
+  live: boolean;
+  lastOpenedAt: string | null;
+  completedAt: string | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1047,6 +1095,114 @@ export class PluginSource implements PortalSource {
       "reveal_unavailable",
       "Copying a saved password is not available on this portal yet.",
     );
+  }
+
+  #toSubscription(row: PluginSubscription): PortalSubscription {
+    return {
+      id: row.id,
+      provider: row.provider,
+      planLabel: row.planLabel,
+      status: row.status,
+      amountCents: row.amountCents,
+      currency: row.currency,
+      interval: row.interval,
+      cancelAtPeriodEnd: row.cancelAtPeriodEnd,
+      canceledAt: row.canceledAt,
+      renewsOn: row.renewsOn,
+      endsOn: row.endsOn,
+      // The plugin's own precondition for `resume` (docs/API.md, "resume
+      // withdraws a cancellation, and is not a way to re-buy") -- a plan
+      // that has actually ended offers no path back from this card.
+      resumable: row.cancelAtPeriodEnd && row.canceledAt === null,
+    };
+  }
+
+  async subscriptions(ctx: PortalCallerContext): Promise<PortalSubscription[]> {
+    const data = await this.#get<{ subscriptions: PluginSubscription[] }>(
+      ctx,
+      `/clients/${encodeURIComponent(ctx.clientId)}/subscriptions`,
+    );
+    return data.subscriptions.map((row) => this.#toSubscription(row));
+  }
+
+  async cancelSubscription(
+    ctx: PortalCallerContext,
+    subscriptionId: string,
+  ): Promise<SubscriptionActionResult> {
+    const result = await this.#post<PluginSubscriptionActionResult>(
+      ctx,
+      `/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`,
+      {},
+    );
+    return {
+      subscription: this.#toSubscription(result.subscription),
+      requested: result.requested,
+      message: result.message,
+    };
+  }
+
+  async resumeSubscription(
+    ctx: PortalCallerContext,
+    subscriptionId: string,
+  ): Promise<SubscriptionActionResult> {
+    const result = await this.#post<PluginSubscriptionActionResult>(
+      ctx,
+      `/subscriptions/${encodeURIComponent(subscriptionId)}/resume`,
+      {},
+    );
+    return {
+      subscription: this.#toSubscription(result.subscription),
+      requested: result.requested,
+      message: result.message,
+    };
+  }
+
+  /**
+   * `GET /clients/:clientId/onboarding-invites` (unchanged by CRE-858: that
+   * added the company-wide list, not this one). The most recently created
+   * invite that is not revoked -- the same tie-break the old
+   * `brand-kit-intake` email fallback used, `.order("created_at", {
+   * ascending: false }).limit(1)` -- so a client with one superseded invite
+   * and one live one still gets the live one's state.
+   *
+   * FLAGGED, NOT WORKED AROUND: this route's own serialiser (`inviteToWire`)
+   * never carries a token, including here, where the caller is the invite's
+   * own rightful client reading their own row -- the plugin currently has no
+   * route that hands a client back the token to their own still-open invite.
+   * `legacy-source.ts`'s implementation of this method does return it, which
+   * is not a bug in that file: this is a real, narrower gap than the one
+   * `inviteToWire`'s rule exists to close (a board-wide list leaking many
+   * people's capabilities at once), and it is the portal's own client asking
+   * for the one capability that is theirs. `BrandVoiceAccordion` on the
+   * frontend draws the status either way and the link only when `token` is
+   * not null, so this is a feature narrowing once a plugin-backed install
+   * reaches this state, not a crash -- worth a future ask, not a blocker here.
+   */
+  async onboardingInvite(ctx: PortalCallerContext): Promise<PortalOnboardingInvite | null> {
+    const data = await this.#get<{ invites: PluginOnboardingInvite[] }>(
+      ctx,
+      `/clients/${encodeURIComponent(ctx.clientId)}/onboarding-invites`,
+    );
+    const live = data.invites.filter((invite) => !invite.revoked);
+    if (live.length === 0) return null;
+    const chosen = live[0]!;
+    return {
+      id: chosen.id,
+      // Never read from this route: see `PluginOnboardingInvite`'s header.
+      token: null,
+      clientId: chosen.clientId,
+      businessName: chosen.businessName,
+      contactName: chosen.contactName,
+      contactEmail: chosen.contactEmail,
+      tier: chosen.tier,
+      note: chosen.note,
+      expiresAt: chosen.expiresAt,
+      revoked: chosen.revoked,
+      expired: chosen.expired,
+      live: chosen.live,
+      lastOpenedAt: chosen.lastOpenedAt,
+      completedAt: chosen.completedAt,
+    };
   }
 }
 

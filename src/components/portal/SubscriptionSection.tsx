@@ -1,14 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { portalFetch } from "@/lib/portalFetch";
-
-export type SubscriptionState = {
-  id: string | null;
-  status: string | null;
-  canceled_at: string | null;
-  current_period_end: string | null;
-  cancel_at_period_end: boolean;
-};
+import { clientPortal } from "@/lib/clientPortalApi";
+import type { PortalSubscription } from "@/lib/clientPortalWire";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Active",
@@ -36,26 +29,23 @@ function formatDate(iso: string | null) {
 export default function SubscriptionSection({
   clientId,
   tier,
-  initial,
+  subscription,
   adminPreview,
 }: {
   clientId: string;
   tier: string;
-  initial: SubscriptionState;
+  subscription: PortalSubscription | null;
   adminPreview: boolean;
 }) {
-  const [sub, setSub] = useState<SubscriptionState>(initial);
+  const [sub, setSub] = useState<PortalSubscription | null>(subscription);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [working, setWorking] = useState(false);
 
   const tierLabel = tier === "growth" ? "Growth" : "Launch";
-  const isCancelled =
-    sub.status === "canceled" || sub.status === "cancelled";
-  const statusLabel =
-    (sub.status && STATUS_LABELS[sub.status]) || sub.status || "—";
+  const statusLabel = (sub?.status && STATUS_LABELS[sub.status]) || sub?.status || "—";
 
-  // No SureCart subscription on file — nothing to manage from the portal.
-  if (!sub.id) {
+  // No subscription on file — nothing to manage from the portal.
+  if (!sub) {
     return (
       <section className="portal-node-card">
         <div className="portal-node-card__head">
@@ -77,23 +67,14 @@ export default function SubscriptionSection({
   async function callAction(action: "cancel" | "resume") {
     setWorking(true);
     try {
-      const resp = await portalFetch("cancel-subscription", { clientId, action }, adminPreview);
-      const data = await resp.json();
-      if (!resp.ok || !data.success) {
-        throw new Error(data?.error || "Request failed");
-      }
-      const s = data.subscription || {};
-      setSub((prev) => ({
-        ...prev,
-        status: s.status ?? prev.status,
-        canceled_at: s.canceled_at ?? null,
-        cancel_at_period_end: !!s.cancel_at_period_end,
-      }));
-      toast.success(
-        action === "cancel"
-          ? "Your subscription has been cancelled."
-          : "Welcome back — your subscription is active again.",
-      );
+      const result = await (action === "cancel"
+        ? clientPortal.cancelSubscription(clientId, sub!.id, adminPreview)
+        : clientPortal.resumeSubscription(clientId, sub!.id, adminPreview));
+      setSub(result.subscription);
+      // The server's own words, not a toast written here: `requested: true`
+      // does not mean done, and the two sources mean different things by
+      // "cancelled" -- see `PortalSubscription.resumable`.
+      toast.success(result.message);
       setConfirmOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not update subscription");
@@ -112,7 +93,7 @@ export default function SubscriptionSection({
           {tierLabel} <em>Plan</em>.
         </h2>
         <p className="portal-node-card__desc">
-          Manage your subscription below. Cancellations take effect immediately.
+          Manage your subscription below.
         </p>
       </div>
 
@@ -138,7 +119,7 @@ export default function SubscriptionSection({
           </div>
           <div style={{ fontSize: 22 }}>{statusLabel}</div>
         </div>
-        {sub.canceled_at && (
+        {sub.endsOn && (
           <div>
             <div
               style={{
@@ -149,15 +130,15 @@ export default function SubscriptionSection({
                 marginBottom: 6,
               }}
             >
-              Cancelled
+              {sub.canceledAt ? "Cancelled" : "Ends"}
             </div>
-            <div style={{ fontSize: 22 }}>{formatDate(sub.canceled_at)}</div>
+            <div style={{ fontSize: 22 }}>{formatDate(sub.endsOn)}</div>
           </div>
         )}
       </div>
 
       <div className="portal-composer__actions" style={{ marginTop: 16 }}>
-        {isCancelled ? (
+        {sub.resumable ? (
           <button
             className="crm-btn crm-btn--bronze crm-btn--sm"
             disabled={working}
@@ -182,8 +163,8 @@ export default function SubscriptionSection({
             }}
           >
             <p style={{ margin: 0, marginBottom: 12, fontSize: 18 }}>
-              Are you sure? Your access will end immediately and any in-progress
-              builds will pause. You can resume anytime.
+              Are you sure you want to cancel your plan? We'll confirm exactly
+              when it stops once you do.
             </p>
             <div style={{ display: "flex", gap: 12 }}>
               <button
@@ -191,7 +172,7 @@ export default function SubscriptionSection({
                 disabled={working}
                 onClick={() => callAction("cancel")}
               >
-                {working ? "Cancelling…" : "Yes, cancel now"}
+                {working ? "Cancelling…" : "Yes, cancel"}
               </button>
               <button
                 className="crm-btn crm-btn--ghost crm-btn--sm"
