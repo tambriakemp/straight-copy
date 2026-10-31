@@ -29,7 +29,14 @@
 // this client). The legacy source decrypts only a row whose `client_id`
 // matches, and it writes an audit row before the password is returned. The
 // plugin source has no such door and refuses, rather than guessing an
-// endpoint that would hand a secret back with no audit.
+// endpoint that would hand a secret back with no audit -- and unlike the
+// rest of this split, that is not something CP-6's import changes. Sharing a
+// login with the plugin is write-only by design (CRE-824, Ada's decision on
+// CRE-824): a client may hand one over and may not read one back, which is
+// the property that lets a vault sit behind a portal session at all.
+// `logins()` reports which this install is through
+// `LoginsView.canCopyPassword`, so the Copy button is drawn only where it
+// could ever work.
 
 import type {
   AccountAccessView,

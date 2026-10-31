@@ -367,6 +367,7 @@ guess of its own.
 
 | | |
 |---|---|
+| `1.9.0` | `LoginsView.canCopyPassword` (CRE-824): whether this install can decrypt a saved login back to the client that shared it. The admin-tables bridge always can; the plugin never can, by design -- write-only is what lets a vault sit behind a portal session at all. Optional; absent draws as `true`, what every server before this one actually did. |
 | `1.8.0` | `PortalSubscription`, `SubscriptionActionResult` and `PortalOnboardingInvite` (CRE-822, G5/G6): the recurring-plan card and the "complete your Brand Voice chat" banner, both of which used to be read off `brand-kit-intake`'s `resolve` action. Wholly new shapes -- no optional default, because a server older than this copy has no such actions at all. |
 | `1.7.0` | `PaymentRow.projectId` and `.projectName` (CRE-831): which project a payment is for, so the Payments tab says it on the row, groups the table by project and offers a project filter. Optional; absent or null is a payment filed under no project, drawn in one "Other payments" group with no project named. One group draws no heading and no filter. |
 | `1.6.0` | `HomeView.sharedDriveLinks` (CRE-827): the client's own shared-drive links, one or more, each tagged to a project, replacing the Files tab's upload button. Optional; absent or empty draws the Files tab's "no link yet" prompt. |

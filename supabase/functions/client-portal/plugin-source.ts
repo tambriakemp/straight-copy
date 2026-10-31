@@ -911,6 +911,13 @@ export class PluginSource implements PortalSource {
         usernameHint: request.usernameHint,
         askedByAgent: request.requestedByKind === "agent",
       })),
+      // See `revealLogin` below: write-only is the plugin's design, not a
+      // stopgap for CP-6's import (CRE-824, Ada's decision on CRE-824).
+      // Unconditionally false rather than derived from `ctx` -- the client
+      // scope header goes on every call this page makes, including an
+      // admin in view-as, so there is no caller on this backend the button
+      // would ever work for.
+      canCopyPassword: false,
     };
   }
 
@@ -1086,14 +1093,18 @@ export class PluginSource implements PortalSource {
     _loginId: string,
     _actor: LoginRevealActor,
   ): Promise<string | null> {
-    // The list puts a mask in `secret`. There is no documented decrypt on
-    // this API, and inventing one would return a password this process
-    // could not write to `activity_events` the way the admin-tables path
-    // does. Refuse. This install answers from those tables until the import.
+    // The list puts a mask in `secret`, and there is no decrypt route on
+    // this API for a client-scoped caller to reach -- by design, not by
+    // omission (CRE-824, Ada's decision on CRE-824): a client may share a
+    // login and may not read one back, the write-only property that lets a
+    // vault sit behind a portal session at all. `logins()` sets
+    // `canCopyPassword: false` so the button this would answer is never
+    // drawn; this throw is the server-side backstop for a caller that
+    // reaches the action some other way, not the primary gate.
     throw new PortalError(
       501,
       "reveal_unavailable",
-      "Copying a saved password is not available on this portal yet.",
+      "Copying a saved password is not available on this portal.",
     );
   }
 

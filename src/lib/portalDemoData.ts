@@ -595,7 +595,16 @@ function paymentsView(): PaymentsView {
 }
 
 function loginsView(): LoginsView {
-  return { branding: BRANDING, me: ME, logins: state.logins, requests: state.requests };
+  return {
+    branding: BRANDING,
+    me: ME,
+    logins: state.logins,
+    requests: state.requests,
+    // The demo harness answers `reveal-login` below (CRE-824), the same as
+    // the admin-tables bridge it stands in for -- not the plugin, which
+    // never can.
+    canCopyPassword: true,
+  };
 }
 
 /* -------------------------------------------------------------------------- */
