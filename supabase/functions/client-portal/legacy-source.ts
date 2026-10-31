@@ -695,6 +695,10 @@ export class LegacySource implements PortalSource {
       // See the header: these tables have no record of an ask. The panel
       // renders as a plain share form rather than as an answer to one.
       requests: [],
+      // `reveal_client_login` below answers for both a real client session
+      // and an admin preview of one (CRE-824): this bridge has always been
+      // able to decrypt a login back to the client that shared it.
+      canCopyPassword: true,
     };
   }
 

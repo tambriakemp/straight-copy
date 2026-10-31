@@ -54,6 +54,15 @@
  * than this copy" and draws what it would draw for an unset value -- never as
  * an error, and never by substituting a guess of its own.
  *
+ *   1.9.0  `LoginsView.canCopyPassword` (CRE-824): whether this install can
+ *          decrypt a saved login back to the client that shared it. The
+ *          admin-tables bridge always can; the plugin never can -- a client
+ *          may share a login and may not read one back, by design, the same
+ *          write-only property that lets a vault sit behind a portal session
+ *          at all, not a gap CP-6's import will close. Optional: a server
+ *          older than this copy predates the Copy-password button needing a
+ *          reason to hide, so `LoginRow` treats an absent value as `true` --
+ *          what every server before this one actually did, not a guess.
  *   1.8.0  `PortalSubscription`, `SubscriptionActionResult` and
  *          `PortalOnboardingInvite` (CRE-822, G5/G6): the recurring-plan card
  *          and the "complete your Brand Voice chat" banner on the project
@@ -623,6 +632,17 @@ export interface LoginsView {
   me: PortalMe;
   logins: SharedLogin[];
   requests: LoginRequest[];
+  /**
+   * Whether this install can decrypt a saved login back to the client that
+   * shared it (CRE-824). The admin-tables bridge always can; the plugin
+   * never can -- sharing a login is write-only there by design, the
+   * property that lets a client session near the vault at all. Optional
+   * rather than always-sent, for the usual reason: a server older than this
+   * copy predates the Copy-password button needing a reason to hide, and
+   * absent draws the same as `true`, which is what every server before this
+   * one actually did.
+   */
+  canCopyPassword?: boolean;
 }
 
 /* -------------------------------------------------------------------------- */

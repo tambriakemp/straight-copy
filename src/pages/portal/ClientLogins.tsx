@@ -1,10 +1,13 @@
 // Mockup 16: the logins a client has shared, and the one being asked for.
 //
 // THE LIST NEVER CARRIES A PASSWORD. Each row shows a mask. Copy on the
-// password cell asks the server for that one login, writes the answer
-// straight to the clipboard, and does not keep it in React state. The server
-// only answers for a login shared with the signed-in client (or an admin
-// previewing that client) and records the copy before it returns the value.
+// password cell -- drawn only when `view.canCopyPassword` says this install
+// can answer it (CRE-824; not every one can, see `LoginsView.canCopyPassword`
+// in the wire contract) -- asks the server for that one login, writes the
+// answer straight to the clipboard, and does not keep it in React state. The
+// server only answers for a login shared with the signed-in client (or an
+// admin previewing that client) and records the copy before it returns the
+// value.
 //
 // The eye toggle on the share form is a different thing entirely -- it
 // reveals what THEY are typing, before it is sent, which is how a person
@@ -96,6 +99,7 @@ export default function ClientLogins() {
                             login={login}
                             clientId={clientId ?? ""}
                             adminPreview={adminPreview}
+                            canCopyPassword={view.canCopyPassword ?? true}
                             onEdit={() => setEditing(login)}
                             onChanged={load.reload}
                           />
@@ -133,12 +137,14 @@ function LoginRow({
   login,
   clientId,
   adminPreview,
+  canCopyPassword,
   onEdit,
   onChanged,
 }: {
   login: SharedLogin;
   clientId: string;
   adminPreview: boolean;
+  canCopyPassword: boolean;
   onEdit: () => void;
   onChanged: () => void;
 }) {
@@ -187,11 +193,16 @@ function LoginRow({
       <td className="cp-mono cp-mask" data-label="Password">
         <span className="cp-copyable">
           <span className="cp-copyable__text">{login.masked}</span>
-          <CopyPasswordButton
-            clientId={clientId}
-            loginId={login.id}
-            adminPreview={adminPreview}
-          />
+          {/* Gated on the server's own answer (CRE-824), not on calling the
+              action and hiding on failure -- this is a capability this
+              install either has or does not, not an error state. */}
+          {canCopyPassword && (
+            <CopyPasswordButton
+              clientId={clientId}
+              loginId={login.id}
+              adminPreview={adminPreview}
+            />
+          )}
         </span>
       </td>
       <td data-label="Shared">{shortDate(login.sharedAt)}</td>
