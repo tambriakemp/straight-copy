@@ -308,7 +308,13 @@ describe("the wire contract's revision", () => {
     // checks rather than assumes.
     expect(PORTAL_WIRE_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
     const docs = readFileSync(path.join(ROOT, "docs/client-portal.md"), "utf8");
-    expect(docs).toContain(PORTAL_WIRE_VERSION);
+    // Not just "the docs mention this version somewhere" -- every past
+    // revision is still in the table below the newest one, so that check
+    // passes even when the constant is stale. The newest row has to be
+    // this one.
+    const newestRow = docs.match(/^\|\s*`(\d+\.\d+\.\d+)`\s*\|/m);
+    expect(newestRow).not.toBeNull();
+    expect(PORTAL_WIRE_VERSION).toBe(newestRow![1]);
     const index = readFileSync(
       path.join(ROOT, "supabase/functions/client-portal/index.ts"),
       "utf8",

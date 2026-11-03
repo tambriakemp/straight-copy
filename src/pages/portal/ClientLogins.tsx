@@ -99,7 +99,7 @@ export default function ClientLogins() {
                             login={login}
                             clientId={clientId ?? ""}
                             adminPreview={adminPreview}
-                            canCopyPassword={view.canCopyPassword ?? true}
+                            canCopyPassword={view.canCopyPassword ?? false}
                             onEdit={() => setEditing(login)}
                             onChanged={load.reload}
                           />
