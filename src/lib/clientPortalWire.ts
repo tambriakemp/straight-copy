@@ -63,8 +63,12 @@
  *          write-only property that lets a vault sit behind a portal session
  *          at all, not a gap CP-6's import will close. Optional: a server
  *          older than this copy predates the Copy-password button needing a
- *          reason to hide, so `LoginRow` treats an absent value as `true` --
- *          what every server before this one actually did, not a guess.
+ *          reason to hide, so `LoginRow` treats an absent value as `false` --
+ *          the button stays hidden on silence rather than assumed safe. A
+ *          flag whose job is "may this install hand a client their password
+ *          back" fails closed, not open, which is the direction that costs
+ *          nothing when the two current sources both answer explicitly and
+ *          matters on whatever answers next and forgets to.
  *   1.8.0  `PortalSubscription`, `SubscriptionActionResult` and
  *          `PortalOnboardingInvite` (CRE-822, G5/G6): the recurring-plan card
  *          and the "complete your Brand Voice chat" banner on the project
@@ -117,7 +121,7 @@
  *          existed, which put our mark on a licensee's client's screen.
  *   1.0.0  The four screens, mockups 13-16 (CRE-776).
  */
-export const PORTAL_WIRE_VERSION = "1.8.0";
+export const PORTAL_WIRE_VERSION = "1.9.0";
 
 /** The agency, as the client sees it. Never hardcoded: licensees are not us. */
 export interface PortalBranding {
@@ -640,9 +644,10 @@ export interface LoginsView {
    * never can -- sharing a login is write-only there by design, the
    * property that lets a client session near the vault at all. Optional
    * rather than always-sent, for the usual reason: a server older than this
-   * copy predates the Copy-password button needing a reason to hide, and
-   * absent draws the same as `true`, which is what every server before this
-   * one actually did.
+   * copy predates the Copy-password button needing a reason to hide. Absent
+   * draws as `false`, not `true` -- silence on a flag that gates handing a
+   * client their own password back should read as "no", not as whatever a
+   * server before this one happened to do.
    */
   canCopyPassword?: boolean;
 }
