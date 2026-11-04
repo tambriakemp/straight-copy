@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
 import AdminLayout from "@/components/admin/AdminLayout";
-import SidePanel from "@/components/admin/SidePanel";
-import { supabase } from "@/integrations/supabase/client";
+import { ReadOnlyNotice } from "@/components/admin/ReadOnlyNotice";
 import { loadAdminOperations, projectMap, type AdminOperations } from "@/lib/adminOperations";
 import { usd } from "@/lib/clientBalance";
 import {
@@ -12,224 +10,28 @@ import {
   type MoneyInvoice,
 } from "@/lib/moneyRollup";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-
-const PROJECT_TYPES = ["automation_build", "site_preview", "app_development", "web_development", "marketing"] as const;
-
-type NewScheduleItem = { label: string; amount_dollars: string; due_date: string };
-
-async function callInvoices(body: Record<string, unknown>) {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const r = await fetch(`${SUPABASE_URL}/functions/v1/project-invoices`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-  });
-  const out = await r.json();
-  if (!r.ok) throw new Error(out.error || "Request failed");
-  return out as Record<string, unknown>;
-}
+// CRE-803: Paperclip is the source of truth for payment schedules and
+// invoices as of the CP-6 cutover, so the "New invoice" panel and every
+// per-invoice action below (email a reminder, copy pay link, void, send now)
+// are gone. They called the project-invoices edge function with
+// {action: "create-schedule" | "email-payment-link" | "payment-link" | "void" | "send", ...} —
+// reviving any of them means reviving exactly that call. The schedule/project
+// creation that used to back "New invoice" is kept as a comment, not deleted:
+//
+//   if (creatingNewProject) {
+//     const { data: proj } = await supabase.from("client_projects").insert({
+//       client_id: clientId, name: newProjectName, type: newProjectType,
+//     }).select("id").single();
+//   }
+//   await fetch(`${SUPABASE_URL}/functions/v1/project-invoices`, { method: "POST", body: JSON.stringify({
+//     action: "create-schedule", clientId, clientProjectId, title, proposalId, items,
+//   }) });
 
 export default function Payments() {
   const navigate = useNavigate();
   const [data, setData] = useState<AdminOperations | null>(null);
   const reload = () => loadAdminOperations().then(setData).catch((error) => toast.error(error.message || "Failed to load payments"));
   useEffect(() => { reload(); }, []);
-  // --- Schedules (CRE-332 Phase 5) --------------------------------------
-  // --- New payment schedule -------------------------------------------------
-  const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  /** Which invoice row has an action in flight. */
-  const [acting, setActing] = useState<string | null>(null);
-  const [clientId, setClientId] = useState("");
-  const [projectId, setProjectId] = useState("");
-  const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectType, setNewProjectType] = useState<string>("web_development");
-  const [proposalId, setProposalId] = useState("");
-  const [proposalOptions, setProposalOptions] = useState<{ id: string; title: string }[]>([]);
-  const [title, setTitle] = useState("Payment schedule");
-  const [items, setItems] = useState<NewScheduleItem[]>([{ label: "Deposit", amount_dollars: "", due_date: "" }]);
-
-  const clientOptions = useMemo(
-    () => Object.entries(data?.clientNames ?? {}).sort((a, b) => a[1].localeCompare(b[1])),
-    [data],
-  );
-  const projectsForClient = useMemo(
-    () => (data?.projects ?? []).filter((p) => p.client_id === clientId),
-    [data, clientId],
-  );
-  const creatingNewProject = projectId === "__new__";
-
-  useEffect(() => {
-    if (!open) return;
-    setProjectId(""); setNewProjectName(""); setProposalId(""); setProposalOptions([]);
-    setTitle("Payment schedule");
-    setItems([{ label: "Deposit", amount_dollars: "", due_date: "" }]);
-  }, [open]);
-
-  useEffect(() => {
-    setProjectId(""); setProposalId(""); setProposalOptions([]);
-  }, [clientId]);
-
-  useEffect(() => {
-    if (!clientId || !projectId || creatingNewProject) { setProposalOptions([]); return; }
-    let cancelled = false;
-    (async () => {
-      const { data: rows2 } = await supabase
-        .from("client_proposals")
-        .select("id, title, status")
-        .eq("client_id", clientId).eq("client_project_id", projectId)
-        .in("status", ["signed", "sent", "ready", "draft"]);
-      if (!cancelled) setProposalOptions((rows2 ?? []).map((r) => ({ id: r.id, title: r.title })));
-    })();
-    return () => { cancelled = true; };
-  }, [clientId, projectId, creatingNewProject]);
-
-  const createSchedule = async () => {
-    if (!clientId) return toast.error("Pick a client");
-    if (!projectId) return toast.error("Pick or create a project");
-    if (creatingNewProject && !newProjectName.trim()) return toast.error("Name the new project");
-    const cleanItems = items
-      .map((it) => ({
-        label: it.label.trim(),
-        amount_cents: Math.round(parseFloat(it.amount_dollars || "0") * 100),
-        due_date: it.due_date || null,
-      }))
-      .filter((it) => it.label);
-    for (const it of cleanItems) {
-      if (!it.amount_cents || it.amount_cents < 100) return toast.error(`${it.label}: amount must be at least $1`);
-    }
-    setSaving(true);
-    try {
-      let effectiveProjectId = projectId;
-      if (creatingNewProject) {
-        const { data: proj, error } = await supabase.from("client_projects").insert({
-          client_id: clientId, name: newProjectName.trim(), type: newProjectType,
-        }).select("id").single();
-        if (error) throw error;
-        effectiveProjectId = proj.id;
-      }
-
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const r = await fetch(`${SUPABASE_URL}/functions/v1/project-invoices`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          action: "create-schedule",
-          clientId, clientProjectId: effectiveProjectId,
-          title: title.trim() || "Payment schedule",
-          proposalId: proposalId || undefined,
-          items: cleanItems.map((it, i) => ({ sequence: i + 1, ...it })),
-        }),
-      });
-      const resBody = await r.json();
-      if (!r.ok) throw new Error(resBody.error || "Could not create schedule");
-
-      toast.success("Payment schedule created");
-      setOpen(false);
-      reload();
-      navigate(`/admin/clients/${clientId}/projects/${effectiveProjectId}`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create schedule");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const newScheduleSidePanel = (
-    <SidePanel
-      open={open}
-      title="New payment schedule"
-      subtitle="A project can carry more than one — each one is sent and tracked independently."
-      onClose={() => { if (!saving) setOpen(false); }}
-      width={520}
-      footer={
-        <>
-          <button type="button" className="cv-open" style={{ padding: "0 18px" }} onClick={() => setOpen(false)} disabled={saving}>Cancel</button>
-          <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 18px" }} onClick={() => void createSchedule()} disabled={saving}>
-            {saving ? "Creating…" : "Create schedule"}
-          </button>
-        </>
-      }
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div>
-          <label className="cv-field">Client *</label>
-          <select className="cv-input" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-            <option value="">— choose a client —</option>
-            {clientOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </select>
-        </div>
-
-        {clientId && (
-          <div>
-            <label className="cv-field">Project *</label>
-            <select className="cv-input" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-              <option value="">— choose a project —</option>
-              {projectsForClient.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              <option value="__new__">+ Create a new project…</option>
-            </select>
-          </div>
-        )}
-
-        {creatingNewProject && (
-          <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label className="cv-field">New project name *</label>
-              <input className="cv-input" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} />
-            </div>
-            <div style={{ width: 160 }}>
-              <label className="cv-field">Type</label>
-              <select className="cv-input" value={newProjectType} onChange={(e) => setNewProjectType(e.target.value)}>
-                {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {!!proposalOptions.length && (
-          <div>
-            <label className="cv-field">Link to a proposal (optional)</label>
-            <select className="cv-input" value={proposalId} onChange={(e) => setProposalId(e.target.value)}>
-              <option value="">— not linked —</option>
-              {proposalOptions.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
-          </div>
-        )}
-
-        <div>
-          <label className="cv-field">Schedule title</label>
-          <input className="cv-input" value={title} onChange={(e) => setTitle(e.target.value)} />
-        </div>
-
-        <div>
-          <label className="cv-field">Installments</label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {items.map((it, i) => (
-              <div key={i} style={{ display: "flex", gap: 6 }}>
-                <input className="cv-input" style={{ flex: 1 }} placeholder="Label" value={it.label}
-                  onChange={(e) => setItems((s) => s.map((x, ix) => ix === i ? { ...x, label: e.target.value } : x))} />
-                <input className="cv-input" style={{ width: 110 }} type="number" step="0.01" placeholder="Amount"
-                  value={it.amount_dollars}
-                  onChange={(e) => setItems((s) => s.map((x, ix) => ix === i ? { ...x, amount_dollars: e.target.value } : x))} />
-                <input className="cv-input" style={{ width: 140 }} type="date" value={it.due_date}
-                  onChange={(e) => setItems((s) => s.map((x, ix) => ix === i ? { ...x, due_date: e.target.value } : x))} />
-                <button type="button" className="cv-mini" onClick={() => setItems((s) => s.filter((_, ix) => ix !== i))}>
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-          <button type="button" className="cv-mini" style={{ marginTop: 8 }}
-            onClick={() => setItems((s) => [...s, { label: "", amount_dollars: "", due_date: "" }])}>
-            <Plus size={12} /> Add installment
-          </button>
-        </div>
-      </div>
-    </SidePanel>
-  );
 
   const invoices = (data?.invoices ?? []) as MoneyInvoice[];
   const buckets = bucketInvoices(invoices);
@@ -241,34 +43,6 @@ export default function Payments() {
 
   const whoFor = (i: MoneyInvoice) =>
     [data?.clientNames[i.client_id], projects[i.client_project_id]?.name].filter(Boolean).join(" · ");
-
-  const run = async (key: string, body: Record<string, unknown>, ok: string) => {
-    setActing(key);
-    try {
-      await callInvoices(body);
-      toast.success(ok);
-      reload();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "That didn't work");
-    } finally {
-      setActing(null);
-    }
-  };
-
-  const copyPayLink = async (i: MoneyInvoice) => {
-    setActing(i.id);
-    try {
-      const out = await callInvoices({ action: "payment-link", clientId: i.client_id, invoiceId: i.id });
-      const url = (out.url as string) ?? (out.checkoutUrl as string) ?? (out.checkout_url as string);
-      if (!url) throw new Error("No pay link on this invoice yet");
-      await navigator.clipboard.writeText(url);
-      toast.success("Pay link copied");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not get a pay link");
-    } finally {
-      setActing(null);
-    }
-  };
 
   return (
     <AdminLayout topBar={false}>
@@ -282,9 +56,7 @@ export default function Payments() {
               what's owed and what bills next.
             </p>
           </div>
-          <button type="button" className="cv-open cv-open--dark" style={{ padding: "0 20px" }} onClick={() => setOpen(true)}>
-            <Plus size={16} style={{ marginRight: 7 }} /> New invoice
-          </button>
+          <ReadOnlyNotice subject="invoice list" />
         </div>
 
         <div className="cv-stat-row" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
@@ -339,33 +111,7 @@ export default function Payments() {
                         </span>
                       )}
                       <span className="cv-money-amt" style={{ fontSize: 18 }}>{usd(i.amount_cents)}</span>
-                      <span style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        <button
-                          type="button" className="cv-open cv-open--dark" style={{ padding: "0 16px" }}
-                          disabled={acting === i.id}
-                          onClick={() => run(i.id, { action: "email-payment-link", clientId: i.client_id, invoiceId: i.id }, "Reminder sent")}
-                        >
-                          Email a reminder
-                        </button>
-                        <button type="button" className="cv-open" style={{ padding: "0 16px" }}
-                          disabled={acting === i.id} onClick={() => copyPayLink(i)}>
-                          Copy pay link
-                        </button>
-                        <button
-                          type="button" className="cv-open" style={{ padding: "0 16px" }}
-                          disabled={acting === i.id}
-                          // Voiding is not undoable from here, and an
-                          // invoice the client may already have paid
-                          // against is exactly the wrong thing to cancel
-                          // by misclick.
-                          onClick={() => {
-                            if (!confirm(`Void "${i.label}" for ${usd(i.amount_cents)}? This cannot be undone.`)) return;
-                            run(i.id, { action: "void", clientId: i.client_id, invoiceId: i.id }, "Invoice voided");
-                          }}
-                        >
-                          Void
-                        </button>
-                      </span>
+                      <ReadOnlyNotice subject="invoice" />
                     </div>
                   );
                 })}
@@ -389,20 +135,8 @@ export default function Payments() {
                       <small>{billsWhen(i)}</small>
                     </span>
                     <span className="cv-money-amt" style={{ fontSize: 18 }}>{usd(i.amount_cents)}</span>
-                    <span style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      <button
-                        type="button" className="cv-open cv-open--dark" style={{ padding: "0 16px" }}
-                        disabled={acting === i.id}
-                        // Sending bills a client. Worth a confirm even
-                        // though it is reversible by voiding — the email
-                        // is not reversible.
-                        onClick={() => {
-                          if (!confirm(`Send "${i.label}" for ${usd(i.amount_cents)} to ${data.clientNames[i.client_id] ?? "the client"} now?`)) return;
-                          run(i.id, { action: "send", clientId: i.client_id, invoiceId: i.id }, "Invoice sent");
-                        }}
-                      >
-                        Send now
-                      </button>
+                    <span style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                      <ReadOnlyNotice subject="invoice" />
                       <button type="button" className="cv-open" style={{ padding: "0 16px" }}
                         onClick={() => navigate(`/admin/clients/${i.client_id}/projects/${i.client_project_id}`)}>
                         Open project
@@ -498,8 +232,6 @@ export default function Payments() {
             </aside>
           </div>
         )}
-
-        {newScheduleSidePanel}
       </div>
     </AdminLayout>
   );

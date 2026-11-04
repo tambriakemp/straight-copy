@@ -134,12 +134,6 @@ export default function ProposalGroupList({
                           Copy client link
                         </button>
                       )}
-                      {group === "declined" && (
-                        <button type="button" className="cv-open" style={{ padding: "0 16px" }}
-                          onClick={() => navigate(`/admin/proposals/new?project=${p.client_project_id}&client=${p.client_id}&supersedes=${p.id}`)}>
-                          Send a new version
-                        </button>
-                      )}
                       <button
                         type="button"
                         className={`cv-open ${group === "countersign" ? "cv-open--dark" : ""}`}

@@ -8,10 +8,9 @@
 // replaced version SUPERSEDED while the main list showed it as a live
 // proposal still waiting on the client.
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ReadOnlyNotice } from "@/components/admin/ReadOnlyNotice";
 import ProposalGroupList, { type ListProposal } from "./ProposalGroupList";
 
 const SELECT =
@@ -19,13 +18,12 @@ const SELECT =
   "sent_at, first_viewed_at, client_signed_at, agency_countersigned_at, declined_at, decline_reason";
 
 export default function ProjectProposals({
-  clientId, clientProjectId, projectName,
+  clientProjectId, projectName,
 }: {
-  clientId: string;
+  clientId?: string;
   clientProjectId: string;
   projectName: string;
 }) {
-  const navigate = useNavigate();
   const [rows, setRows] = useState<ListProposal[] | null>(null);
 
   const load = useCallback(async () => {
@@ -43,12 +41,7 @@ export default function ProjectProposals({
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
         <h2 className="cv-card-title" style={{ flex: 1 }}>Proposals</h2>
-        <button
-          type="button" className="cv-btn-ink cv-btn-ink--sm"
-          onClick={() => navigate(`/admin/proposals/new?project=${clientProjectId}&client=${clientId}`)}
-        >
-          <Plus size={16} /> Upload proposal
-        </button>
+        <ReadOnlyNotice subject="proposal list" />
       </div>
       {rows === null
         ? <p className="cv-page-sub">Loading…</p>
