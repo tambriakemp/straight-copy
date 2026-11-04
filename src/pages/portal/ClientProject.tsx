@@ -116,32 +116,56 @@ export default function ClientProject() {
 /**
  * What a view-as session cannot reach on this screen, and why.
  *
- * CRE-818. Three of the four things below this line are not read through an
- * allowlisted edge function: the phase ladder and the contract row come
- * through `supabasePortal` (PostgREST), and the discovery chat's history does
- * too. A view-as session has NO Supabase session at all -- the token is the
- * whole credential -- so RLS answers those with nothing whatever
- * `VIEW_AS_READS` says. The fourth, the page-review count, is an edge
- * function (`preview-approvals`) that is deliberately not on the allowlist.
+ * CRE-818. Two of the three blocks below this line are not read through an
+ * allowlisted edge function: the contract row the to-do list is derived from
+ * comes through `supabasePortal` (PostgREST), and the discovery chat's
+ * history does too. A view-as session has NO Supabase session at all -- the
+ * token is the whole credential -- so RLS answers those with nothing whatever
+ * `VIEW_AS_READS` says. The third, the page reviews card, is an edge function
+ * (`preview-approvals`) that is deliberately not on the allowlist.
  *
- * The failure is silent in every case: no rows reads as an empty ladder, a
- * missing contract row reads as "not signed yet", and no approvals read as
- * "nothing to review". Each of those is a SENTENCE THE PORTAL WOULD BE
- * TELLING AN ADMIN ABOUT A CLIENT, and three of them would be false. So the
- * reads are skipped rather than attempted, and the screen says which four
- * blocks are missing -- an admin who can see the gap can go and look properly
- * in `/admin`, and one who cannot see it believes the zero.
+ * The failure is silent in every case: a missing contract row reads as "not
+ * signed yet", and no approvals read as "nothing to review". Each of those is
+ * a SENTENCE THE PORTAL WOULD BE TELLING AN ADMIN ABOUT A CLIENT, and it
+ * would be false. So the reads are skipped rather than attempted, and the
+ * screen says which blocks are missing -- an admin who can see the gap can go
+ * and look properly in `/admin`, and one who cannot see it believes the zero.
+ *
+ * THE PHASE LADDER IS NOT IN HERE ANY MORE. It was, until CRE-822 (G2) moved
+ * it onto `client-portal`'s `project-phases` and put that action on the
+ * allowlist; the ladder now draws in a preview for real. This panel went on
+ * naming it for six days after it started working, which is the same class of
+ * mistake the panel exists to prevent -- a false sentence about a client,
+ * told confidently. `src/test/portal-view-as.test.ts` now pins each block
+ * named below against the allowlist, in both directions, so allowlisting the
+ * next one fails a test instead of quietly making this panel a lie.
+ *
+ * The heading carries no count for the same reason: a number is one more
+ * thing to leave stale when a block moves.
  */
+
+/**
+ * The blocks a preview leaves out, as data rather than as a sentence.
+ *
+ * A list the test can read, because the test's job is to compare it against
+ * `VIEW_AS_READS` and prose is the wrong shape for that: the panel also wants
+ * to say that the ladder DOES draw, and a test grepping the paragraph for
+ * "phase ladder" cannot tell the two mentions apart. One array, one source of
+ * truth, and the sentence is built from it.
+ */
+const VIEW_AS_MISSING = ["the to-do list", "the page reviews card", "the discovery chat"];
+
 function ViewAsGaps() {
+  const missing = `${VIEW_AS_MISSING.slice(0, -1).join(", ")} and ${VIEW_AS_MISSING.at(-1)}`;
   return (
     <section className="cp-panel">
-      <h2 className="cp-panel__title">Four things a preview cannot show</h2>
+      <h2 className="cp-panel__title">What a preview cannot show</h2>
       <p className="cp-panel__body" style={{ marginBottom: 0 }}>
-        The to-do list, the phase ladder, the page-review count and the discovery chat are
-        read with the client's own sign-in, which a preview does not have. They are left out
-        rather than drawn empty, because an empty one reads as a real answer — no contract
-        signed, no pages to review, nothing started. The client's admin page has all four.
-        Everything else on this screen is what the client sees.
+        {`${missing.charAt(0).toUpperCase()}${missing.slice(1)}`} are read with the client's
+        own sign-in, which a preview does not have. They are left out rather than drawn
+        empty, because an empty one reads as a real answer — no contract signed, nothing to
+        review, nothing started. The client's admin page has all of them. Everything else on
+        this screen, the phase ladder included, is what the client sees.
       </p>
     </section>
   );

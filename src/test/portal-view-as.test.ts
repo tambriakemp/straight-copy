@@ -325,6 +325,73 @@ describe("brand-kit-intake's resolve does not write (CRE-818)", () => {
   });
 });
 
+describe("the Project screen's gap panel tells the truth (CRE-818)", () => {
+  // `ViewAsGaps` in `ClientProject.tsx` names, in words, the blocks a preview
+  // cannot show. The whole point of it is that a silent gap would read as a
+  // real answer about a client -- so the panel being WRONG is the same bug
+  // wearing a different hat, and it is the one failure mode the panel itself
+  // cannot catch.
+  //
+  // It happened. CRE-822 (G2) moved the phase ladder onto `project-phases`
+  // and allowlisted it; the ladder started drawing in previews and the panel
+  // went on saying it could not be shown for six days, because nothing tied
+  // the sentence to the allowlist. This does.
+  const source = readFileSync(join(__dirname, "../pages/portal/ClientProject.tsx"), "utf8");
+  const panel = source.slice(
+    source.indexOf("const VIEW_AS_MISSING"),
+    source.indexOf("function ProjectBody("),
+  );
+  // The panel's list, not its paragraph. The paragraph also says the ladder
+  // DOES draw, so grepping it for "phase ladder" cannot tell which of the two
+  // mentions it found -- which is why the component keeps the list as an
+  // array and builds the sentence from it.
+  const listed = (/const VIEW_AS_MISSING = \[([^\]]*)\]/.exec(source)?.[1] ?? "")
+    .split(",")
+    .map((entry) => entry.trim().replace(/^["'`]|["'`]$/g, ""))
+    .filter(Boolean);
+
+  it("has a list this test can read", () => {
+    expect(listed, "VIEW_AS_MISSING moved, was renamed, or stopped being a literal").not.toEqual(
+      [],
+    );
+    expect(panel).toContain("cp-panel__title");
+  });
+
+  // Only the blocks the ALLOWLIST governs. The to-do list and the discovery
+  // chat are missing because they are read through `supabasePortal`
+  // (PostgREST) and a view-as session has no Supabase session for RLS to
+  // recognise -- no allowlist entry would change that, so pinning them here
+  // would assert something `VIEW_AS_READS` does not decide and would never
+  // fire. They stay named in the panel and unpinned on purpose.
+  const governed = [
+    { block: "the phase ladder", phrase: "phase ladder", fn: "client-portal", action: "project-phases" },
+    { block: "the page reviews card", phrase: "page reviews", fn: "preview-approvals", action: "list" },
+  ];
+
+  it.each(governed)(
+    "names $block as missing only while the allowlist makes it missing",
+    ({ phrase, fn, action }) => {
+      const readable = viewAsMayRead(fn, action);
+      const claimedMissing = listed.some((entry) => entry.toLowerCase().includes(phrase));
+      // Both directions. Allowlisting a block without correcting the panel
+      // fails here, and so does dropping one from the allowlist without
+      // saying so on the screen.
+      expect(
+        claimedMissing,
+        readable
+          ? `${fn}/${action} is on the allowlist, so the panel must stop saying "${phrase}" is missing`
+          : `${fn}/${action} is not on the allowlist, so the panel must still say "${phrase}" is missing`,
+      ).toBe(!readable);
+    },
+  );
+
+  it("puts no count in the heading, which is one more thing to leave stale", () => {
+    const heading = /cp-panel__title">([^<]*)</.exec(panel)?.[1] ?? "";
+    expect(heading, "the panel heading moved").not.toBe("");
+    expect(heading).not.toMatch(/\b(one|two|three|four|five|six|\d+)\b/i);
+  });
+});
+
 describe("the browser's half: adopting a grant", () => {
   const put = (hash: string) => {
     window.history.replaceState(null, "", `/portal/${CLIENT}${hash}`);
