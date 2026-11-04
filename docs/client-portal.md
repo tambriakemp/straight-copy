@@ -255,16 +255,29 @@ browser-facing functions, and pins `x-portal-view-as` in each one's CORS
 header the browser drops at preflight, so the request never arrives to be
 logged.
 
-**Two blocks on the Project screen cannot be previewed at all**, whatever the
-allowlist says. The phase ladder, the signed-contract check and the
-discovery-chat history are read through `supabasePortal` (PostgREST), and a
-view-as session has no Supabase session for RLS to recognise; the page-review
-count is `preview-approvals`, which is deliberately not on the list. Each
-would fail silently and read as a real answer — no phases, contract unsigned,
-nothing to review — so `ClientProject.tsx` skips those reads in a view-as
-session and names the four missing blocks in a panel instead. Files is
-complete: `list` is allowed, and the drop zone and the remove buttons are
-replaced by a line saying a preview is read-only.
+**Three blocks on the Project screen cannot be previewed**, whatever the
+allowlist says. The signed-contract check the to-do list is derived from and
+the discovery-chat history are read through `supabasePortal` (PostgREST), and
+a view-as session has no Supabase session for RLS to recognise; the page
+reviews card is `preview-approvals`, which is deliberately not on the list.
+Each would fail silently and read as a real answer — contract unsigned,
+nothing to review, nothing started — so `ClientProject.tsx` skips those reads
+in a view-as session and names the missing blocks in a panel instead.
+
+The **phase ladder used to be a fourth**, and is not one now: CRE-822 (G2)
+moved it onto `client-portal`'s `project-phases` and allowlisted that action,
+so it draws in a preview for real. The panel went on naming it for six days
+afterwards — a false sentence about a client, which is the exact failure the
+panel exists to prevent — so `portal-view-as.test.ts` now pins every block the
+panel names against `VIEW_AS_READS` in both directions: allowlisting the next
+one fails a test until the panel is corrected. The panel heading carries no
+count, because a number is one more thing to leave stale.
+
+Files is complete: `list` and `download` are both allowed, so a preview shows
+the client's real files and can open one. CRE-827 then removed uploading from
+that screen altogether — a client keeps their own shared-drive link — so there
+is no drop zone left for a preview to hide; the only thing it draws
+differently is the drive-link field, read-only instead of saveable.
 
 **The older light frame still does not open in a view-as session**, and that
 is the honest limitation rather than an oversight: Proposals, Brand Kit and
