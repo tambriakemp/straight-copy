@@ -5,6 +5,10 @@ import { createClient } from 'npm:@supabase/supabase-js@2.45.0'
 import { seedWebDevTasks } from '../_shared/web-dev-tasks.ts'
 import { markDealWonFromDepositPaid } from '../_shared/proposal-deal-sync.ts'
 import { onboardingInviteSource } from '../_shared/onboarding-invite-source.ts'
+import {
+  webDevProvisioningEnabledFrom,
+  type ProvisioningSwitchRow,
+} from '../_shared/webdev-provisioning-switch.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +27,42 @@ const PRODUCT_TIER_MAP: Record<string, 'launch' | 'growth'> = {
 const WEB_DEV_PRODUCT_ID = '5b5d573d-f503-4966-bdd8-9b054eca6856'
 
 const SITE_URL = 'https://cre8visions.com'
+
+// Only the one read this needs, declared structurally so the switch does not
+// add another `any` to this file.
+type ProvisioningSwitchReader = {
+  from(table: 'app_settings'): {
+    select(columns: 'surecart_webdev_provisioning_enabled'): {
+      eq(column: 'id', value: number): {
+        // PromiseLike, not Promise: the query builder is a thenable and does
+        // not carry `catch`/`finally`.
+        maybeSingle(): PromiseLike<{
+          data: ProvisioningSwitchRow
+          error: unknown
+        }>
+      }
+    }
+  }
+}
+
+// CRE-828: is `/admin` still the one that provisions a Web Development
+// purchase? Read per delivery rather than cached, so flipping the switch
+// applies to the next payment and not to the next cold start. The decision
+// the answer encodes lives in `_shared/webdev-provisioning-switch.ts`, which
+// a test can import and this file cannot.
+async function webDevProvisioningEnabled(
+  supabase: ProvisioningSwitchReader
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('surecart_webdev_provisioning_enabled')
+    .eq('id', 1)
+    .maybeSingle()
+  if (error) {
+    console.error('Web Dev: could not read the provisioning switch, staying on', error)
+  }
+  return webDevProvisioningEnabledFrom(data, error)
+}
 
 // Try to pull a subscription id out of an order payload (line_items[].subscription)
 function firstSubscriptionFromOrder(data: any): string {
@@ -429,6 +469,22 @@ Deno.serve(async (req) => {
           client_id: existingProj.client_id, project_id: existingProj.id,
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
+    }
+
+    // CRE-828: the Client Portal plugin provisions this purchase now -- client,
+    // project and the 50-task Web Dev backlog. This switch says whether `/admin`
+    // still does it as well. The idempotency check above runs first on purpose,
+    // so an order provisioned here before the cutover keeps reporting its
+    // project instead of answering "skipped".
+    //
+    // A read that fails leaves provisioning ON. Both systems creating a client
+    // is visible in two places and recoverable; neither creating one is a
+    // paying client with nothing, found later by the client.
+    if (!(await webDevProvisioningEnabled(supabase))) {
+      console.log('Web Dev: /admin provisioning is off, the plugin owns this order', { orderId })
+      return new Response(JSON.stringify({
+        ok: true, web_dev: true, skipped: 'provisioned_by_plugin',
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // Find client by clients.contact_email

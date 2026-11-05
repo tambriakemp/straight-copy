@@ -620,6 +620,7 @@ export type Database = {
           review_email_html: string | null
           review_email_subject: string | null
           review_email_template_uuid: string | null
+          surecart_webdev_provisioning_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -627,6 +628,7 @@ export type Database = {
           review_email_html?: string | null
           review_email_subject?: string | null
           review_email_template_uuid?: string | null
+          surecart_webdev_provisioning_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -634,6 +636,7 @@ export type Database = {
           review_email_html?: string | null
           review_email_subject?: string | null
           review_email_template_uuid?: string | null
+          surecart_webdev_provisioning_enabled?: boolean
           updated_at?: string
         }
         Relationships: []
